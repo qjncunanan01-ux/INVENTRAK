@@ -59,3 +59,31 @@ npm test
 ```
 
 This runs the fallback backend tests without requiring native `better-sqlite3` build tools.
+
+## Repository
+
+The project is available on GitHub:
+
+https://github.com/qjncunanan01-ux/INVENTRAK
+
+## Status and completion
+
+A detailed progress report is included in `README_STATUS.md`, with current completion estimated at around 85% and the remaining work clearly listed.
+
+## Upload readiness
+
+The repository is initialized and pushed with a first commit. It includes:
+
+- `.gitignore` to exclude `node_modules`, local build artifacts, and temp files
+- `package-lock.json` for `backend`, `frontend-admin`, and `mobile-client`
+- no generated build or dependency folders committed
+
+## GitHub push instructions
+
+If you need to update the repo later:
+
+```bash
+git add .
+git commit -m "Your update message"
+git push origin main
+```
