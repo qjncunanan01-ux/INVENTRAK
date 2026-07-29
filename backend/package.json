@@ -1,0 +1,20 @@
+{
+  "name": "inventrak-backend",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:npmfree": "node src/server_npmfree.js",
+    "seed": "node src/seed.js",
+    "test": "node --test ./src/test/server_npmfree.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^8.0.1",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0",
+    "bcryptjs": "^2.4.3"
+  }
+}
