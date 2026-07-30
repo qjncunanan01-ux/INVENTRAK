@@ -76,7 +76,7 @@ export default function InquiryHistoryScreen({ navigation }) {
               <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
             </View>
           );
-        }}
+        }
         ListEmptyComponent={<Text style={styles.empty}>No inquiries found yet. Submit one from the Order Inquiry screen.</Text>}
       />
     </View>
