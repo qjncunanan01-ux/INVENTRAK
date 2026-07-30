@@ -1,2 +1,14 @@
-body { margin: 0; font-family: Inter, sans-serif; background: #f4f6fd; }
-#root { min-height: 100vh; }
+body {
+  margin: 0;
+  font-family: Inter, sans-serif;
+  background: #eef7e1;
+  color: #112a07;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.MuiPaper-root {
+  border-radius: 18px;
+}

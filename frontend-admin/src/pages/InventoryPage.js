@@ -1,41 +1,81 @@
-import { Paper, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
-import axios from 'axios';
+import { Box, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../api';
+import { apiGet } from '../api';
+import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
 
 export default function InventoryPage({ onLogout }) {
   const [inventory, setInventory] = useState({ locations: [], items: [] });
   const [loading, setLoading] = useState(true);
+  const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState('');
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/inventory`).then(r => {
-      setInventory(r.data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (lowStockOnly) params.set('low_stock', 'true');
+    if (selectedLocation) params.set('location', selectedLocation);
+    const qs = params.toString();
+
+    apiGet(`/api/inventory${qs ? '?' + qs : ''}`)
+      .then(r => {
+        const data = r.data || r;
+        setInventory(data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [lowStockOnly, selectedLocation]);
+
+  const locs = inventory.locations || [];
+  const items = inventory.items || [];
 
   return (
     <AdminLayout title="Inventory Management" onLogout={onLogout}>
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+          <div>
+            <Typography variant="h6">Inventory levels</Typography>
+            <Typography variant="body2" color="text.secondary">Track stock distribution across locations.</Typography>
+          </div>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Location</InputLabel>
+              <Select value={selectedLocation} label="Location" onChange={e => setSelectedLocation(e.target.value)}>
+                <MenuItem value="">All locations</MenuItem>
+                {locs.map(loc => <MenuItem key={loc} value={loc}>{loc}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <Chip
+              label={lowStockOnly ? 'Showing low stock' : 'All items'}
+              color={lowStockOnly ? 'warning' : 'default'}
+              onClick={() => setLowStockOnly(!lowStockOnly)}
+              variant={lowStockOnly ? 'filled' : 'outlined'}
+            />
+            <Typography variant="subtitle2" color="text.secondary">{locs.length} locations</Typography>
+          </Box>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>Product</TableCell>
-              {inventory.locations.map(loc => <TableCell key={loc}>{loc}</TableCell>)}
+              {locs.map(loc => <TableCell key={loc}>{loc}</TableCell>)}
               <TableCell>Total</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={inventory.locations.length + 2}>Loading...</TableCell></TableRow>
-            ) : inventory.items.length === 0 ? (
-              <TableRow><TableCell colSpan={inventory.locations.length + 2}>No inventory data</TableCell></TableRow>
-            ) : inventory.items.map(item => (
-              <TableRow key={item.product.id}>
-                <TableCell>{item.product.name}</TableCell>
-                {inventory.locations.map(loc => <TableCell key={loc}>{item.locations[loc] ?? 0}</TableCell>)}
-                <TableCell>{item.total}</TableCell>
+              <TableRow><TableCell colSpan={locs.length + 2}>Loading...</TableCell></TableRow>
+            ) : items.length === 0 ? (
+              <TableRow><TableCell colSpan={locs.length + 2}>No inventory data</TableCell></TableRow>
+            ) : items.map(item => (
+              <TableRow key={item.product.id} sx={{
+                backgroundColor: item.total < 80 ? 'rgba(249,168,37,0.08)' : 'inherit'
+              }}>
+                <TableCell>
+                  {item.product.name}
+                  {item.total < 80 && <Chip label="Low" size="small" color="warning" sx={{ ml: 1 }} />}
+                </TableCell>
+                {locs.map(loc => <TableCell key={loc}>{item.locations[loc] ?? 0}</TableCell>)}
+                <TableCell><strong>{item.total}</strong></TableCell>
               </TableRow>
             ))}
           </TableBody>

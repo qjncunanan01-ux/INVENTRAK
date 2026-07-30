@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT UNIQUE,
   password TEXT,
-  role TEXT
+  role TEXT DEFAULT 'customer',
+  email TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -25,7 +27,9 @@ CREATE TABLE IF NOT EXISTS products (
   size TEXT,
   unit TEXT,
   price REAL,
-  status TEXT
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS locations (
@@ -50,7 +54,7 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   src_location INTEGER,
   dst_location INTEGER,
   notes TEXT,
-  created_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
   user TEXT
 );
 
@@ -59,7 +63,7 @@ CREATE TABLE IF NOT EXISTS stock_lots (
   product_id INTEGER,
   location_id INTEGER,
   qty REAL,
-  received_at TEXT
+  received_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS order_inquiries (
@@ -69,8 +73,33 @@ CREATE TABLE IF NOT EXISTS order_inquiries (
   products TEXT,
   estimated_cost REAL,
   notes TEXT,
-  status TEXT,
-  created_at TEXT
+  status TEXT DEFAULT 'pending',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS sales_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER,
+  qty REAL,
+  unit_price REAL,
+  total_amount REAL,
+  transaction_date TEXT DEFAULT (datetime('now')),
+  customer_name TEXT,
+  FOREIGN KEY(product_id) REFERENCES products(id)
+);
+
+CREATE TABLE IF NOT EXISTS inventory_alerts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER,
+  location_id INTEGER,
+  alert_type TEXT,
+  threshold REAL,
+  current_qty REAL,
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT (datetime('now')),
+  resolved_at TEXT,
+  FOREIGN KEY(product_id) REFERENCES products(id),
+  FOREIGN KEY(location_id) REFERENCES locations(id)
 );
 `);
 

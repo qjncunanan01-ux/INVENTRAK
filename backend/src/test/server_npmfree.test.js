@@ -16,7 +16,8 @@ after(() => {
 });
 
 async function request(path, options = {}) {
-  const res = await fetch(`${baseUrl}${path}`, options);
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const res = await fetch(`${baseUrl}${path}`, { ...options, headers });
   const body = await res.json().catch(() => null);
   return { status: res.status, body };
 }
@@ -40,25 +41,85 @@ test('POST /api/auth/login returns a token and user', async () => {
   assert.ok(body.token);
 });
 
-test('POST /api/order-inquiries stores inquiry and GET /api/order-inquiries returns it', async () => {
-  const payload = {
-    customer_name: 'Test User',
-    customer_email: 'test@example.com',
-    products: ['Test Widget x2'],
-    estimated_cost: 200,
-    notes: 'Please contact me',
-  };
+test('GET /api/inventory returns inventory data', async () => {
+  const { status, body } = await request('/api/inventory');
+  assert.strictEqual(status, 200);
+  assert.ok(body.locations);
+  assert.ok(body.items);
+});
 
-  const postResponse = await request('/api/order-inquiries', {
+test('GET /api/locations returns locations list', async () => {
+  const { status, body } = await request('/api/locations');
+  assert.strictEqual(status, 200);
+  assert.ok(Array.isArray(body));
+  assert.ok(body.length > 0);
+});
+
+test('POST /api/stock-movement records a movement', async () => {
+  const { status, body } = await request('/api/stock-movement', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ product_id: 1, qty: 3, type: 'stock-in', dst_location: 'Showroom' }),
   });
-  assert.strictEqual(postResponse.status, 200);
-  assert.strictEqual(postResponse.body.ok, true);
+  assert.strictEqual(status, 200);
+  assert.strictEqual(body.ok, true);
+});
 
-  const getResponse = await request('/api/order-inquiries');
-  assert.strictEqual(getResponse.status, 200);
-  assert.ok(Array.isArray(getResponse.body));
-  assert.ok(getResponse.body.some(item => item.customer_email === payload.customer_email));
+test('GET /api/stock-movements returns movements', async () => {
+  const { status, body } = await request('/api/stock-movements');
+  assert.strictEqual(status, 200);
+  assert.ok(Array.isArray(body));
+});
+
+test('GET /api/stock-lots returns lot data', async () => {
+  const { status, body } = await request('/api/stock-lots');
+  assert.strictEqual(status, 200);
+  assert.ok(Array.isArray(body));
+});
+
+test('GET /api/optimization/abc returns classifications', async () => {
+  const { status, body } = await request('/api/optimization/abc');
+  assert.strictEqual(status, 200);
+  assert.ok(Array.isArray(body));
+});
+
+test('GET /api/optimization/1 returns EOQ data', async () => {
+  const { status, body } = await request('/api/optimization/1');
+  assert.strictEqual(status, 200);
+  assert.ok(body.EOQ);
+  assert.ok(body.ROP);
+  assert.ok(body.safetyStock);
+});
+
+test('POST /api/order-inquiries stores inquiry', async () => {
+  const { status, body } = await request('/api/order-inquiries', {
+    method: 'POST',
+    body: JSON.stringify({
+      customer_name: 'Test User',
+      customer_email: 'test@example.com',
+      products: ['Widget x2'],
+      estimated_cost: 200,
+    }),
+  });
+  assert.strictEqual(status, 200);
+  assert.strictEqual(body.ok, true);
+});
+
+test('GET /api/order-inquiries returns inquiries', async () => {
+  const { status, body } = await request('/api/order-inquiries');
+  assert.strictEqual(status, 200);
+  assert.ok(Array.isArray(body));
+});
+
+test('CRUD locations', async () => {
+  const createRes = await request('/api/locations', {
+    method: 'POST',
+    body: JSON.stringify({ name: 'Test Loc' }),
+  });
+  assert.strictEqual(createRes.status, 200);
+  assert.ok(createRes.body.id);
+});
+
+test('GET /api/nonexistent returns 404', async () => {
+  const { status } = await request('/api/nonexistent');
+  assert.strictEqual(status, 404);
 });

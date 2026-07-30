@@ -3,13 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^5.16.4",
+    "@mui/material": "^5.16.4",
+    "axios": "^1.5.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-scripts": "5.0.1",
-    "axios": "^1.5.0",
     "react-router-dom": "6.18.0",
-    "@mui/material": "^5.16.4",
-    "@mui/icons-material": "^5.16.4"
+    "react-scripts": "5.0.1"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   },
   "scripts": {
     "start": "react-scripts start",

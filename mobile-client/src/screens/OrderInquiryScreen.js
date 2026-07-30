@@ -1,21 +1,39 @@
-import axios from 'axios';
-import { useEffect, useMemo, useState } from 'react';
-import { Button, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { API_BASE_URL } from '../api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Button, FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { apiGet, apiPost } from '../api';
+import { colors } from '../theme';
 
-export default function OrderInquiryScreen() {
+export default function OrderInquiryScreen({ navigation }) {
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [products, setProducts] = useState([]);
   const [quantities, setQuantities] = useState({});
   const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/products`).then(r => setProducts(r.data));
+  const fetchProducts = async () => {
+    try {
+      const data = await apiGet('/api/products');
+      setProducts(data.data || (Array.isArray(data) ? data : []));
+    } catch (err) {
+      Alert.alert('Error', 'Failed to load products');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => { fetchProducts(); }, []);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchProducts();
   }, []);
 
-  const selectedItems = useMemo(() => products
+  const selectedItems = useMemo(() => (Array.isArray(products) ? products : [])
     .filter(product => Number(quantities[product.id]) > 0)
     .map(product => ({
       id: product.id,
@@ -27,8 +45,21 @@ export default function OrderInquiryScreen() {
   const estimatedCost = selectedItems.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   const submit = async () => {
+    if (!customerName.trim()) {
+      Alert.alert('Validation', 'Please enter your name');
+      return;
+    }
+    if (!customerEmail.trim()) {
+      Alert.alert('Validation', 'Please enter your email');
+      return;
+    }
+    if (selectedItems.length === 0) {
+      Alert.alert('Validation', 'Please select at least one product');
+      return;
+    }
+    setSubmitting(true);
     try {
-      await axios.post(`${API_BASE_URL}/api/order-inquiries`, {
+      await apiPost('/api/order-inquiries', {
         customer_name: customerName,
         customer_email: customerEmail,
         products: selectedItems.map(item => `${item.name} x${item.qty}`),
@@ -36,50 +67,81 @@ export default function OrderInquiryScreen() {
         notes,
       });
       setMessage('Inquiry submitted successfully!');
+      Alert.alert('Success', 'Your order inquiry has been submitted.');
       setCustomerName('');
       setCustomerEmail('');
       setQuantities({});
       setNotes('');
     } catch (err) {
-      setMessage('Failed to submit inquiry. Please try again.');
+      setMessage('Failed to submit inquiry.');
+      Alert.alert('Error', err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
+  const prodList = Array.isArray(products) ? products : [];
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.brandPrimary} />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.title}>Order Inquiry</Text>
       <TextInput style={styles.input} placeholder="Customer name" value={customerName} onChangeText={setCustomerName} />
-      <TextInput style={styles.input} placeholder="Email" value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" />
-      <Text style={styles.sectionTitle}>Select products</Text>
-      {products.map(product => (
-        <View key={product.id} style={styles.productRow}>
-          <Text style={styles.productName}>{product.name}</Text>
-          <TextInput
-            style={styles.qtyInput}
-            value={quantities[product.id]?.toString() || ''}
-            onChangeText={value => setQuantities({ ...quantities, [product.id]: value.replace(/[^0-9]/g, '') })}
-            placeholder="Qty"
-            keyboardType="numeric"
-          />
-        </View>
-      ))}
-      <Text style={styles.estimate}>Estimated cost: ₱{estimatedCost.toFixed(2)}</Text>
-      <TextInput style={styles.input} placeholder="Notes" value={notes} onChangeText={setNotes} multiline numberOfLines={4} />
-      <Button title="Submit Inquiry" onPress={submit} disabled={!customerName || !customerEmail || selectedItems.length === 0} />
+      <TextInput style={styles.input} placeholder="Email" value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" autoCapitalize="none" />
+      <Text style={styles.sectionTitle}>Select products and quantities</Text>
+      <FlatList
+        data={prodList}
+        keyExtractor={item => item.id?.toString()}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
+        renderItem={({ item }) => (
+          <View style={styles.productRow}>
+            <View style={styles.productInfo}>
+              <Text style={styles.productName}>{item.name}</Text>
+              <Text style={styles.productPrice}>P{item.price} each</Text>
+            </View>
+            <TextInput
+              style={styles.qtyInput}
+              value={quantities[item.id]?.toString() || ''}
+              onChangeText={value => setQuantities({ ...quantities, [item.id]: value.replace(/[^0-9]/g, '') })}
+              placeholder="0"
+              keyboardType="numeric"
+            />
+          </View>
+        )}
+        ListEmptyComponent={<Text style={styles.empty}>No products available.</Text>}
+      />
+      <Text style={styles.estimate}>Estimated cost: P{estimatedCost.toFixed(2)}</Text>
+      <TextInput style={styles.input} placeholder="Notes (optional)" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
+      <Button
+        title={submitting ? 'Submitting...' : 'Submit Inquiry'}
+        onPress={submit}
+        disabled={submitting || selectedItems.length === 0}
+        color={colors.brandPrimary}
+      />
       {message ? <Text style={styles.message}>{message}</Text> : null}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#f4f6fd' },
-  title: { fontSize: 24, marginBottom: 16 },
-  sectionTitle: { fontSize: 18, marginVertical: 12 },
-  input: { backgroundColor: '#fff', padding: 12, borderRadius: 10, marginBottom: 12 },
-  productRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between' },
-  productName: { flex: 1, marginRight: 12 },
-  qtyInput: { width: 80, backgroundColor: '#fff', padding: 10, borderRadius: 10, textAlign: 'center' },
-  estimate: { fontSize: 16, marginBottom: 12 },
-  message: { marginTop: 16, color: 'green' },
-  error: { marginTop: 16, color: 'red' }
+  container: { flex: 1, padding: 20, backgroundColor: colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: colors.textPrimary },
+  sectionTitle: { fontSize: 16, fontWeight: '600', marginVertical: 12, color: colors.textSecondary },
+  input: { backgroundColor: colors.surface, padding: 12, borderRadius: 10, marginBottom: 12, color: colors.textPrimary, fontSize: 15 },
+  productRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between', backgroundColor: colors.surface, padding: 10, borderRadius: 10 },
+  productInfo: { flex: 1, marginRight: 12 },
+  productName: { fontWeight: '600', color: colors.textPrimary, fontSize: 15 },
+  productPrice: { color: colors.textSecondary, fontSize: 13 },
+  qtyInput: { width: 70, backgroundColor: colors.background, padding: 10, borderRadius: 8, textAlign: 'center', color: colors.textPrimary, fontSize: 16 },
+  estimate: { fontSize: 18, fontWeight: '600', marginBottom: 12, color: colors.textPrimary },
+  message: { marginTop: 16, color: colors.success, textAlign: 'center' },
+  empty: { marginTop: 20, textAlign: 'center', color: colors.textSecondary },
 });

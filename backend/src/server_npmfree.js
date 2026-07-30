@@ -56,8 +56,20 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function setCorsHeaders(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
 const server = http.createServer((req, res) => {
   const url = req.url;
+  setCorsHeaders(res);
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return res.end();
+  }
 
   if (req.method === 'GET' && url === '/api/products') {
     const products = readJSON(productsFile) || [];
