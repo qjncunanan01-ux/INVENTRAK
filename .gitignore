@@ -27,8 +27,11 @@ Thumbs.db
 **/android/
 **/ios/
 
-# Backend data
-**/data/
+# Backend data (track JSON files, ignore databases and temp files)
+backend/data/*.db
+backend/data/*.db-wal
+backend/data/*.db-shm
+backend/data/*.tmp
 
 # VS Code
 .vscode/

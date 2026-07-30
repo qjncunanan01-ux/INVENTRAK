@@ -1,0 +1,144 @@
+{
+  "locations": [
+    "Showroom",
+    "Stockroom 1",
+    "Stockroom 2",
+    "Test Loc",
+    "Test Loc",
+    "Test Loc",
+    "Test Loc",
+    "Test Loc",
+    "Test Loc",
+    "Test Loc"
+  ],
+  "items": [
+    {
+      "id": 1,
+      "product": {
+        "id": 1,
+        "name": "Butterscotch Sauce",
+        "category": "Da Vinci Gourmet Sauces",
+        "size": "2 L",
+        "price": 1070
+      },
+      "locations": {
+        "Showroom": 107,
+        "Stockroom 1": 160,
+        "Stockroom 2": 41
+      },
+      "total": 308
+    },
+    {
+      "id": 2,
+      "product": {
+        "id": 2,
+        "name": "Caramel Sauce",
+        "category": "Da Vinci Gourmet Sauces",
+        "size": "2 L",
+        "price": 1070
+      },
+      "locations": {
+        "Showroom": 124,
+        "Stockroom 1": 76,
+        "Stockroom 2": 55
+      },
+      "total": 255
+    },
+    {
+      "id": 3,
+      "product": {
+        "id": 3,
+        "name": "Chocolate Sauce",
+        "category": "Da Vinci Gourmet Sauces",
+        "size": "2 L",
+        "price": 1060
+      },
+      "locations": {
+        "Showroom": 68,
+        "Stockroom 1": 165,
+        "Stockroom 2": 109
+      },
+      "total": 342
+    },
+    {
+      "id": 4,
+      "product": {
+        "id": 4,
+        "name": "Da Vinci Matcha Powder",
+        "category": "Matcha",
+        "size": "1 KG",
+        "price": 1175
+      },
+      "locations": {
+        "Showroom": 181,
+        "Stockroom 1": 90,
+        "Stockroom 2": 193
+      },
+      "total": 464
+    },
+    {
+      "id": 5,
+      "product": {
+        "id": 5,
+        "name": "Arla Full Cream Milk",
+        "category": "Full Cream Milk",
+        "size": "12 L",
+        "price": 1120
+      },
+      "locations": {
+        "Showroom": 197,
+        "Stockroom 1": 65,
+        "Stockroom 2": 72
+      },
+      "total": 334
+    },
+    {
+      "id": 6,
+      "product": {
+        "id": 6,
+        "name": "Dabba Elegant Cups 12oz",
+        "category": "Cups",
+        "size": "50 pcs",
+        "price": 198
+      },
+      "locations": {
+        "Showroom": 95,
+        "Stockroom 1": 108,
+        "Stockroom 2": 158
+      },
+      "total": 361
+    },
+    {
+      "id": 7,
+      "product": {
+        "id": 7,
+        "name": "Sylver Arabica Coffee Beans",
+        "category": "Beans",
+        "size": "1 KG",
+        "price": 1400
+      },
+      "locations": {
+        "Showroom": 198,
+        "Stockroom 1": 102,
+        "Stockroom 2": 143
+      },
+      "total": 443
+    },
+    {
+      "id": 8,
+      "product": {
+        "id": 8,
+        "name": "Frappase Powder",
+        "category": "Powders",
+        "size": "1.5 KG",
+        "price": 1070
+      },
+      "locations": {
+        "Showroom": 121,
+        "Stockroom 1": 43,
+        "Stockroom 2": 48
+      },
+      "total": 212
+    }
+  ]
+}
