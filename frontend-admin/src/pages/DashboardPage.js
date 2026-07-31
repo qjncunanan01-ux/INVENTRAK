@@ -148,6 +148,7 @@ export default function DashboardPage({ user, onLogout }) {
             )}
           </Paper>
         </Grid>
+      </Grid>
 
       {/* Monthly Trends */}
       <Box sx={{ mt: 3 }}>

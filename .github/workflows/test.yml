@@ -77,4 +77,27 @@ jobs:
 
       - name: Validate JS files
         run: |
-          node -e "var fs=require('fs');var p=require('path');var d=p.join(process.cwd(),'src');var e=0;(function w(dir){fs.readdirSync(dir).forEach(function(f){var fp=p.join(dir,f);if(fs.statSync(fp).isDirectory()){w(fp)}else if(f.endsWith('.js')){try{fs.readFileSync(fp,'utf8');console.log('OK: '+p.relative(process.cwd(),fp))}catch(ex){console.log('FAIL: '+fp);e++}}})})(d);if(e){process.exit(1)})"
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const dir = path.join(process.cwd(), "src");
+            let errors = 0;
+            function walk(d) {
+              fs.readdirSync(d).forEach(function (f) {
+                const fp = path.join(d, f);
+                if (fs.statSync(fp).isDirectory()) {
+                  walk(fp);
+                } else if (f.endsWith(".js")) {
+                  try {
+                    fs.readFileSync(fp, "utf8");
+                    console.log("OK: " + path.relative(process.cwd(), fp));
+                  } catch (ex) {
+                    console.log("FAIL: " + fp);
+                    errors++;
+                  }
+                }
+              });
+            }
+            walk(dir);
+            if (errors) process.exit(1);
+          '

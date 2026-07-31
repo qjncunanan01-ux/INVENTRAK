@@ -53,6 +53,7 @@ export default function InventoryPage({ onLogout }) {
             />
             <Typography variant="subtitle2" color="text.secondary">{locs.length} locations</Typography>
           </Box>
+        </Box>
         <Table>
           <TableHead>
             <TableRow>

@@ -9,6 +9,8 @@
     "Test Loc",
     "Test Loc",
     "Test Loc",
+    "Test Loc",
+    "Test Loc",
     "Test Loc"
   ],
   "items": [
@@ -22,11 +24,11 @@
         "price": 1070
       },
       "locations": {
-        "Showroom": 107,
+        "Showroom": 113,
         "Stockroom 1": 160,
         "Stockroom 2": 41
       },
-      "total": 308
+      "total": 314
     },
     {
       "id": 2,
