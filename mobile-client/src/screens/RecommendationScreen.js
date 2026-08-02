@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { apiGet } from '../api';
+import { getOptimizationAbc } from '../api';
 import { colors } from '../theme';
 
 export default function RecommendationScreen({ navigation }) {
@@ -18,7 +18,7 @@ export default function RecommendationScreen({ navigation }) {
 
   const fetchData = async () => {
     try {
-      const data = await apiGet('/api/optimization/abc');
+      const data = await getOptimizationAbc();
 
       setRecommendations(
         data.data

@@ -117,3 +117,45 @@ jobs:
             walk(dir);
             if (errors) process.exit(1);
           '
+
+  mobile-bundle:
+    # Metro bundle smoke test: `expo export` runs a full production build of the
+    # Android app (Hermes compile + asset export). This catches the failures that
+    # broke the app before — a missing entry point (index.js / registerRootComponent)
+    # or an unresolvable Babel preset (babel-preset-expo) — on every push, long
+    # before anyone opens Expo Go. Fails CI on any bundling/transform error.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./mobile-client
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './mobile-client/package-lock.json'
+
+      - name: Install mobile dependencies
+        run: npm install
+
+      - name: Export Android bundle (Metro + Hermes smoke test)
+        env:
+          CI: 1
+          EXPO_NO_TELEMETRY: 1
+        run: |
+          npx expo export --platform android
+          echo '--- exported artifacts ---'
+          ls -R dist 2>/dev/null | head -30 || true
+
+      - name: Assert the JS bundle was produced
+        run: |
+          BUNDLES=$(find dist -type f \( -name '*.hbc' -o -name '*.bundle' \) | wc -l)
+          echo "bundle files found: $BUNDLES"
+          if [ "$BUNDLES" -eq 0 ]; then
+            echo '::error::No Android bundle was produced by expo export'
+            exit 1
+          fi

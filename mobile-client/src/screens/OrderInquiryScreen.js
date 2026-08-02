@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Button, FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
-import { apiGet, apiPost } from '../api';
+import { createOrderInquiry, listProducts } from '../api';
 import { colors } from '../theme';
 
 export default function OrderInquiryScreen({ navigation }) {
@@ -16,7 +16,7 @@ export default function OrderInquiryScreen({ navigation }) {
 
   const fetchProducts = async () => {
     try {
-      const data = await apiGet('/api/products');
+      const data = await listProducts();
       setProducts(data.data || (Array.isArray(data) ? data : []));
     } catch (err) {
       Alert.alert('Error', 'Failed to load products');
@@ -59,7 +59,7 @@ export default function OrderInquiryScreen({ navigation }) {
     }
     setSubmitting(true);
     try {
-      await apiPost('/api/order-inquiries', {
+      await createOrderInquiry({
         customer_name: customerName,
         customer_email: customerEmail,
         products: selectedItems.map(item => `${item.name} x${item.qty}`),

@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { apiGet } from '../api';
+import { listProducts } from '../api';
 import { colors } from '../theme';
 
 export default function ProductScreen({ navigation }) {
@@ -23,7 +23,7 @@ export default function ProductScreen({ navigation }) {
 
   const fetchProducts = async () => {
     try {
-      const data = await apiGet('/api/products');
+      const data = await listProducts();
       setProducts(data.data || data);
       setError('');
     } catch (err) {

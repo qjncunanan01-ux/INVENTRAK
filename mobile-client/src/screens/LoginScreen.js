@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
-import { apiPost, setToken } from '../api';
+import { login, setToken } from '../api';
 import { colors } from '../theme';
 
 export default function LoginScreen({ navigation }) {
@@ -15,7 +15,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const response = await apiPost('/api/auth/login', { username, password });
+      const response = await login({ username, password });
       if (response.token) setToken(response.token);
       navigation.replace('Home', { username: response.user?.username || username });
     } catch (err) {

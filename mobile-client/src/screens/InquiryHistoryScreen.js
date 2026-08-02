@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { apiGet } from '../api';
+import { listOrderInquiries } from '../api';
 import { colors } from '../theme';
 
 export default function InquiryHistoryScreen({ navigation }) {
@@ -17,7 +17,7 @@ export default function InquiryHistoryScreen({ navigation }) {
 
   const fetchData = async () => {
     try {
-      const data = await apiGet('/api/order-inquiries');
+      const data = await listOrderInquiries();
 
       setInquiries(
         data.data || (Array.isArray(data) ? data : [])
