@@ -1,5 +1,8 @@
 # INVENTRAK - Inventory Management System
 
+[![Tests](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/test.yml/badge.svg)](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/test.yml)
+[![API Docs Deployment](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/docs.yml/badge.svg)](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/docs.yml)
+
 A full-stack inventory management system with admin dashboard, mobile customer app, and optimization algorithms.
 
 ## Architecture
@@ -137,28 +140,46 @@ npm run verify            # All of the above + the full test suite
 `apiGet/apiPost/apiPut/apiDelete` helpers the pages import **plus** one typed
 function per OpenAPI operation (e.g. `login`, `listProducts`, `getInventory`).
 
-**Static docs site** — `npm run docs:build` writes a self-contained Swagger UI
-into `docs/`. The `docs.yml` workflow validates the spec and deploys the site
-to GitHub Pages automatically (enable Pages -> GitHub Actions in repo settings):
+### API Documentation
 
-```bash
-open ../docs/index.html     # or visit the deployed GitHub Pages URL
+There are three ways to read the API docs — all are the same Swagger UI
+rendered from `backend/openapi.json`:
+
+**1. Hosted on GitHub Pages (no setup)**
+
+```
+https://qjncunanan01-ux.github.io/INVENTRAK/
 ```
 
-### API Docs (Swagger UI)
+The `docs.yml` workflow rebuilds and deploys the site to GitHub Pages on every
+push to `main` (Source must be **GitHub Actions** in repo Settings -> Pages).
+The badge at the top of this README shows the deploy status.
 
-Both backends serve the OpenAPI 3.0.3 specification and a live Swagger UI:
+**2. In the repository (`docs/` folder)**
+
+The self-contained static site lives in `docs/` — `docs/index.html` (Swagger
+UI with the spec inlined) plus `docs/openapi.json` (the raw spec, downloadable
+from the site's banner). Open it straight from the repo:
 
 ```bash
-# SQLite backend (or the npm-free fallback on its port)
+open docs/index.html
+```
+
+Regenerate it any time with:
+
+```bash
+cd backend
+npm run docs:build
+```
+
+**3. Served live by the backends**
+
+Both backends expose the spec and the interactive UI at runtime:
+
+```bash
 curl http://localhost:4001/api/openapi.json
 # Open the interactive docs in a browser:
 open http://localhost:4001/api/docs
-```
-
-```bash
-cd frontend-admin
-npm test    # Runs admin smoke tests
 ```
 
 ## API Endpoints
@@ -209,6 +230,8 @@ This project includes GitHub Actions for automated testing and docs:
   - Mobile dependency install + source validation
 - `.github/workflows/docs.yml` — validates the spec and deploys the static
   Swagger UI site in `docs/` to GitHub Pages (enable Pages -> GitHub Actions)
+  See [API Documentation](#api-documentation) for the live URL and local
+  `docs/` instructions.
 
 ## Tech Stack
 
