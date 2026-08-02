@@ -461,6 +461,7 @@
         "tags": ["Order Inquiries"],
         "operationId": "listOrderInquiries",
         "summary": "List order inquiries",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer" } },
           { "name": "limit", "in": "query", "schema": { "type": "integer" } },
@@ -479,7 +480,8 @@
                 }
               }
             }
-          }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
         }
       },
       "post": {

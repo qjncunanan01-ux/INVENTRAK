@@ -154,7 +154,7 @@ test('POST /api/order-inquiries stores inquiry', async () => {
 });
 
 test('GET /api/order-inquiries returns inquiries', async () => {
-  const { status, body } = await request('/api/order-inquiries');
+  const { status, body } = await authRequest('/api/order-inquiries');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });

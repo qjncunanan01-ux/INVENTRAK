@@ -536,6 +536,7 @@ const server = http.createServer((req, res) => {
   // ================= ORDER INQUIRIES =================
 
   if (req.method === 'GET' && url.startsWith('/api/order-inquiries')) {
+    return requireAuth(req, res, false, (req, res) => {
     const parsed = new URL(url, 'http://localhost');
     const page = parsed.searchParams.get('page');
     const limit = parsed.searchParams.get('limit');
@@ -557,6 +558,7 @@ const server = http.createServer((req, res) => {
       });
     }
     return sendJson(res, 200, orders);
+    });
   }
 
   if (req.method === 'PUT' && url.startsWith('/api/order-inquiries/')) {

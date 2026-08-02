@@ -267,7 +267,7 @@ test('POST /api/order-inquiries stores inquiry and GET returns it', async () => 
   assert.strictEqual(postResponse.status, 201);
   assert.strictEqual(postResponse.body.ok, true);
 
-  const getResponse = await request('/api/order-inquiries');
+  const getResponse = await authRequest('/api/order-inquiries');
   assert.strictEqual(getResponse.status, 200);
   assert.ok(Array.isArray(getResponse.body));
   assert.ok(getResponse.body.some(item => item.customer_email === payload.customer_email));

@@ -202,11 +202,12 @@ test('contract: order inquiries lifecycle', async () => {
   await both('POST /api/order-inquiries (missing email)', '/api/order-inquiries', {
     method: 'POST', body: { customer_name: 'No Email' },
   });
-  await both('GET /api/order-inquiries', '/api/order-inquiries');
-  await both('GET /api/order-inquiries?status=pending', '/api/order-inquiries?status=pending');
+  await both('GET /api/order-inquiries (customer)', '/api/order-inquiries', { auth: 'customer' });
+  await both('GET /api/order-inquiries?status=pending (customer)', '/api/order-inquiries?status=pending', { auth: 'customer' });
+  await both('GET /api/order-inquiries (no token)', '/api/order-inquiries');
 
-  const s = await call(sqlite.url, '/api/order-inquiries');
-  const n = await call(npmfree.url, '/api/order-inquiries');
+  const s = await call(sqlite.url, '/api/order-inquiries', { token: sqlite.token.customer });
+  const n = await call(npmfree.url, '/api/order-inquiries', { token: npmfree.token.customer });
   assert.ok(s.json.length > 0, 'sqlite has inquiries');
   assert.ok(n.json.length > 0, 'npmfree has inquiries');
   const sId = s.json[0].id;

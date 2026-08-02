@@ -300,11 +300,12 @@ test('openapi: order inquiries lifecycle', async () => {
   await bothConform('inquiry missing email', 'POST', '/api/order-inquiries', {
     body: { customer_name: 'No Email' }, checkRequest: false,
   });
-  await bothConform('inquiries list', 'GET', '/api/order-inquiries');
-  await bothConform('inquiries by status', 'GET', '/api/order-inquiries?status=pending');
+  await bothConform('inquiries list', 'GET', '/api/order-inquiries', { auth: 'customer' });
+  await bothConform('inquiries by status', 'GET', '/api/order-inquiries?status=pending', { auth: 'customer' });
+  await bothConform('inquiries list no token', 'GET', '/api/order-inquiries');
 
-  const s = await call(sqlite.url, '/api/order-inquiries');
-  const n = await call(npmfree.url, '/api/order-inquiries');
+  const s = await call(sqlite.url, '/api/order-inquiries', { token: sqlite.token.customer });
+  const n = await call(npmfree.url, '/api/order-inquiries', { token: npmfree.token.customer });
   assert.ok(s.json.length > 0 && n.json.length > 0);
   const sId = s.json[0].id;
   const nId = n.json[0].id;

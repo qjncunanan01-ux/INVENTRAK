@@ -1472,6 +1472,7 @@ app.get('/api/optimization', (req, res) => {
 
 app.get(
   '/api/order-inquiries',
+  authenticateToken,
   (req, res) => {
     const {
       page = 1,

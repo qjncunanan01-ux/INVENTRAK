@@ -814,6 +814,11 @@
         ],
         "operationId": "listOrderInquiries",
         "summary": "List order inquiries",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "page",
@@ -863,6 +868,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           }
         }
       },
