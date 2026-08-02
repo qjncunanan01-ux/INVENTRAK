@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "INVENTRAK",
+    "slug": "inventrak-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#eef7e1",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.inventrak.mobile"
+    },
+    "android": {
+      "package": "com.inventrak.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#eef7e1"
+      }
+    }
+  }
+}

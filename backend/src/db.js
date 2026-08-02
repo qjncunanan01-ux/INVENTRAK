@@ -5,7 +5,8 @@ const Database = require('better-sqlite3');
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const dbPath = path.join(dataDir, 'inventrak.db');
+// Allow tests to point at an isolated database file.
+const dbPath = process.env.INVENTRAK_DB_PATH || path.join(dataDir, 'inventrak.db');
 const db = new Database(dbPath);
 
 db.exec(`

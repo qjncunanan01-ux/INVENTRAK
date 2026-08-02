@@ -6,7 +6,7 @@ A full-stack inventory management system with admin dashboard, mobile customer a
 
 ```
 INVENTRAK/
-├── backend/          # Node.js Express API (SQLite)
+├── backend/          # Node.js Express API (SQLite) + npm-free fallback
 ├── frontend-admin/   # React Admin Dashboard (MUI)
 ├── mobile-client/    # React Native Customer App (Expo)
 └── .github/          # CI/CD workflows
@@ -33,7 +33,7 @@ INVENTRAK/
 - **Stock Movement** - Record movements with FIFO lot visualization
 - **Order Inquiries** - Review/approve/reject/fulfill with confirmation
 - **Locations** - Add/delete with confirmation
-- **Optimization** - ABC classification table + EOQ/ROP/Safety stock + Turnover ratio + Demand forecast
+- **Optimization** - ABC classification table + EOQ/ROP/Safety stock + Turnover ratio
 - **Snackbar notifications** - Success/error feedback on all actions
 - **JWT token management** - Automatic auth header injection via api.js helpers
 
@@ -46,18 +46,17 @@ INVENTRAK/
 - **Order History** - Inquiry list with status badges + pull-to-refresh
 
 ### Inventory Optimization
-- **Economic Order Quantity (EOQ)** - √(2DS/H) using actual sales data (not hardcoded)
+- **Economic Order Quantity (EOQ)** - √(2DS/H) using actual sales/movement data (not hardcoded)
 - **Reorder Point (ROP)** - Based on lead-time demand
 - **Safety Stock** - Statistical safety buffer
 - **ABC Classification** - Pareto-based (70/20/10) cumulative value analysis
 - **Inventory Turnover Ratio** - Annual demand / average inventory
-- **Demand Forecasting** - Moving average prediction
 - **FIFO Lot Tracking** - Oldest stock consumed first
 
 ## Quick Start
 
 ### Prerequisites
-- Node.js 18+ installed
+- Node.js 22+ installed (Node 24 recommended)
 - npm or yarn
 
 ### Backend
@@ -82,16 +81,16 @@ cd frontend-admin
 npm install
 REACT_APP_API_BASE_URL=http://localhost:4001 npm start
 # Opens on http://localhost:3000
-# Login: admin / any password
+# Login: admin / admin123
 ```
 
 ### Mobile App (Expo)
 ```bash
 cd mobile-client
 npm install
-npx expo start --tunnel
+npx expo start          # or: npx expo start --tunnel
 # Scan QR with Expo Go app (Android/iOS)
-# Login: customer / any password
+# Login: customer / customer123
 ```
 
 ### Docker (Full Stack)
@@ -104,7 +103,31 @@ docker compose up --build
 ### Running Tests
 ```bash
 cd backend
-npm test    # Runs 20+ tests (both SQLite and npm-free backends)
+npm test    # Runs 79 tests: SQLite suite + npm-free suite + contract tests
+```
+
+### API Docs (Swagger UI)
+
+Both backends serve the OpenAPI 3.0.3 specification and a live Swagger UI:
+
+```bash
+# SQLite backend (or the npm-free fallback on its port)
+curl http://localhost:4001/api/openapi.json
+# Open the interactive docs in a browser:
+open http://localhost:4001/api/docs
+```
+
+The spec (`backend/openapi.json`) is the single source of truth that the
+**contract test suite** (`backend/src/test/contract.test.js`) verifies both
+backends conform to: it boots the SQLite and npm-free servers side by side in
+isolated temp directories and asserts identical HTTP status codes and response
+body shapes for every endpoint — auth, products, inventory, locations, stock
+movements/lots, order inquiries, optimization, analytics/exports, sales, users,
+alerts, docs, and 404s.
+
+```bash
+cd frontend-admin
+npm test    # Runs admin smoke tests
 ```
 
 ## API Endpoints
@@ -113,15 +136,17 @@ npm test    # Runs 20+ tests (both SQLite and npm-free backends)
 |--------|----------|-------------|
 | POST | /api/auth/register | Register a new user |
 | POST | /api/auth/login | Login and get JWT token |
+| GET | /api/auth/me | Get current user profile |
 | GET | /api/products | List products (supports ?search=&page=&limit=) |
+| GET | /api/products/categories | List product categories |
 | GET | /api/products/:id | Get single product |
-| POST | /api/products | Create product |
-| PUT | /api/products/:id | Update product |
-| DELETE | /api/products/:id | Soft-delete product |
-| GET | /api/inventory | Get inventory per location |
+| POST | /api/products | Create product (admin) |
+| PUT | /api/products/:id | Update product (admin) |
+| DELETE | /api/products/:id | Soft-delete product (admin) |
+| GET | /api/inventory | Get inventory per location (?low_stock=&location=) |
 | GET | /api/locations | List locations |
-| POST | /api/locations | Create location |
-| DELETE | /api/locations/:id | Delete location |
+| POST | /api/locations | Create location (admin) |
+| DELETE | /api/locations/:id | Delete location (admin) |
 | POST | /api/stock-movement | Record stock movement |
 | GET | /api/stock-movements | List stock movements |
 | GET | /api/stock-lots | List stock lots (FIFO) |
@@ -130,24 +155,31 @@ npm test    # Runs 20+ tests (both SQLite and npm-free backends)
 | PUT | /api/order-inquiries/:id | Update inquiry status |
 | GET | /api/optimization/:id | EOQ/ROP/Safety for a product |
 | GET | /api/optimization/abc | ABC classification |
-| GET | /api/optimization/turnover | Inventory turnover ratio |
-| GET | /api/optimization/forecast | Demand forecast |
+| GET | /api/optimization | Bulk optimization metrics |
 | GET | /api/analytics/summary | Dashboard summary data |
-| GET | /api/analytics/top-products | Top products by movement |
+| GET | /api/analytics/export/:type | Export products/inventory/movements (CSV or JSON) |
 | GET | /api/alerts | Low stock alerts |
+| PUT | /api/alerts/:id/resolve | Resolve an alert |
+| POST | /api/sales | Record a sale |
+| GET | /api/sales | List sales |
+| GET | /api/users | List users (admin) |
+| GET | /api/openapi.json | OpenAPI 3.0.3 specification document |
+| GET | /api/docs | Interactive Swagger UI |
+
+> Both the SQLite backend (`src/app.js`) and the npm-free fallback (`src/server_npmfree.js`) expose the same endpoint surface, verified by the contract test suite.
 
 ## CI/CD
 
-This project includes GitHub Actions for automated testing:
-- Backend tests on push/PR to main branch
-- Admin build verification
-- Mobile lint checks
+This project includes GitHub Actions for automated testing (`.github/workflows/test.yml`):
+- Backend tests (SQLite + npm-free) on push/PR to main
+- Admin smoke tests + production build
+- Mobile dependency install + source validation
 
 ## Tech Stack
 
 - **Backend**: Node.js, Express, SQLite (better-sqlite3), JWT, bcryptjs
-- **Admin**: React 18, Material UI 5, Recharts, Axios, React Router 6
-- **Mobile**: React Native, Expo, React Navigation 7, Axios
+- **Admin**: React 18, Material UI 5, Recharts, React Router 6
+- **Mobile**: React Native (Expo SDK 54), React Navigation 7, Axios
 - **Infrastructure**: Docker, Docker Compose, GitHub Actions
 
 ## Repository

@@ -26,7 +26,7 @@ export default function InventoryPage({ onLogout }) {
       .finally(() => setLoading(false));
   }, [lowStockOnly, selectedLocation]);
 
-  const locs = inventory.locations || [];
+  const locs = (inventory.locations || []).map(loc => (typeof loc === 'object' ? loc : { id: loc, name: loc }));
   const items = inventory.items || [];
 
   return (
@@ -42,7 +42,7 @@ export default function InventoryPage({ onLogout }) {
               <InputLabel>Location</InputLabel>
               <Select value={selectedLocation} label="Location" onChange={e => setSelectedLocation(e.target.value)}>
                 <MenuItem value="">All locations</MenuItem>
-                {locs.map(loc => <MenuItem key={loc} value={loc}>{loc}</MenuItem>)}
+                {locs.map(loc => <MenuItem key={loc.name} value={loc.name}>{loc.name}</MenuItem>)}
               </Select>
             </FormControl>
             <Chip
@@ -58,7 +58,7 @@ export default function InventoryPage({ onLogout }) {
           <TableHead>
             <TableRow>
               <TableCell>Product</TableCell>
-              {locs.map(loc => <TableCell key={loc}>{loc}</TableCell>)}
+              {locs.map(loc => <TableCell key={loc.name}>{loc.name}</TableCell>)}
               <TableCell>Total</TableCell>
             </TableRow>
           </TableHead>
@@ -75,7 +75,7 @@ export default function InventoryPage({ onLogout }) {
                   {item.product.name}
                   {item.total < 80 && <Chip label="Low" size="small" color="warning" sx={{ ml: 1 }} />}
                 </TableCell>
-                {locs.map(loc => <TableCell key={loc}>{item.locations[loc] ?? 0}</TableCell>)}
+                {locs.map(loc => <TableCell key={loc.name}>{item.locations[loc.name] ?? 0}</TableCell>)}
                 <TableCell><strong>{item.total}</strong></TableCell>
               </TableRow>
             ))}

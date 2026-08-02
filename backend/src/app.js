@@ -74,11 +74,19 @@ function validate(schema) {
           errors.push(`${field} must be a number`);
         }
 
-        if (
-          rules.min !== undefined &&
-          Number(value) < rules.min
-        ) {
-          errors.push(`${field} must be at least ${rules.min}`);
+        if (rules.min !== undefined) {
+          const belowMin =
+            rules.type === 'number'
+              ? Number(value) < rules.min
+              : String(value).length < rules.min;
+
+          if (belowMin) {
+            errors.push(
+              rules.type === 'number'
+                ? `${field} must be at least ${rules.min}`
+                : `${field} must be at least ${rules.min} characters`
+            );
+          }
         }
 
         if (
@@ -106,14 +114,8 @@ function validate(schema) {
 // --- Seed Database ---
 
 function seedDatabase() {
-  const existing = db
-    .prepare('SELECT COUNT(*) as count FROM products')
-    .get();
-
-  if (existing.count > 0) {
-    return;
-  }
-
+  // Ensure default users exist even if products were already seeded
+  // (keeps admin/admin123 + customer/customer123 logins working on re-runs).
   const adminExists = db
     .prepare('SELECT id FROM users WHERE username = ?')
     .get('admin');
@@ -146,6 +148,14 @@ function seedDatabase() {
       'customer',
       'customer@example.com'
     );
+  }
+
+  const existing = db
+    .prepare('SELECT COUNT(*) as count FROM products')
+    .get();
+
+  if (existing.count > 0) {
+    return;
   }
 
   const products = readJSON(productsFile) || [];
@@ -1966,6 +1976,50 @@ app.get(
     res.json(users);
   }
 );
+
+// ================= API DOCUMENTATION =================
+
+const openapiFile = path.join(__dirname, '..', 'openapi.json');
+
+const swaggerUiHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>INVENTRAK API Docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+</head>
+<body style="margin:0">
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    window.onload = function () {
+      window.ui = SwaggerUIBundle({
+        url: '/api/openapi.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+      });
+    };
+  </script>
+</body>
+</html>`;
+
+app.get('/api/openapi.json', (req, res) => {
+  const spec = readJSON(openapiFile);
+  if (!spec) {
+    return res.status(500).json({ error: 'openapi.json not found' });
+  }
+  res.json(spec);
+});
+
+app.get('/api/docs', (req, res) => {
+  res.type('html').send(swaggerUiHtml);
+});
+
+// JSON 404 fallback (matches the npm-free backend's response shape).
+
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
 
 // Error handling middleware must be last.
 
