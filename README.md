@@ -103,7 +103,46 @@ docker compose up --build
 ### Running Tests
 ```bash
 cd backend
-npm test    # Runs 79 tests: SQLite suite + npm-free suite + contract tests
+npm test    # Runs 4 suites: SQLite + npm-free + contract + OpenAPI conformance
+```
+
+### Spec Tooling (OpenAPI as source of truth)
+
+`backend/openapi.json` is the **single source of truth** for the API contract.
+Everything below is derived from it or verified against it — so the spec can't
+drift from reality, and the clients can't drift from the spec:
+
+```bash
+cd backend
+npm run docs:validate     # Validate spec against the official OAS 3.0.3 schema
+npm run spec:audit        # Assert every code route <-> documented path coverage
+npm run client:generate   # Regenerate the frontend API clients from the spec
+npm run client:check      # Fail CI if the committed generated clients are stale
+npm run docs:build        # Build the static docs site into ../docs (GitHub Pages)
+npm run verify            # All of the above + the full test suite
+```
+
+**Test suites**
+- `backend/src/test/contract.test.js` — boots the SQLite + npm-free servers in
+  isolated temp dirs and asserts identical status + body *shapes* per endpoint.
+- `backend/src/test/openapi.test.js` — boots both servers and validates every
+  actual response **and** request body against the OpenAPI schemas with ajv.
+  This is the drift guard: even if both backends agree on a shape, a response
+  that violates its documented schema (or an undocumented status code) fails.
+
+**Generated API clients** — `frontend-admin/src/api.generated.js` and
+`mobile-client/src/api.generated.js` are generated from the spec
+(`npm run client:generate`). The hand-written fetch calls are gone: both
+`src/api.js` facades delegate to the generated client, which exposes the same
+`apiGet/apiPost/apiPut/apiDelete` helpers the pages import **plus** one typed
+function per OpenAPI operation (e.g. `login`, `listProducts`, `getInventory`).
+
+**Static docs site** — `npm run docs:build` writes a self-contained Swagger UI
+into `docs/`. The `docs.yml` workflow validates the spec and deploys the site
+to GitHub Pages automatically (enable Pages -> GitHub Actions in repo settings):
+
+```bash
+open ../docs/index.html     # or visit the deployed GitHub Pages URL
 ```
 
 ### API Docs (Swagger UI)
@@ -116,14 +155,6 @@ curl http://localhost:4001/api/openapi.json
 # Open the interactive docs in a browser:
 open http://localhost:4001/api/docs
 ```
-
-The spec (`backend/openapi.json`) is the single source of truth that the
-**contract test suite** (`backend/src/test/contract.test.js`) verifies both
-backends conform to: it boots the SQLite and npm-free servers side by side in
-isolated temp directories and asserts identical HTTP status codes and response
-body shapes for every endpoint — auth, products, inventory, locations, stock
-movements/lots, order inquiries, optimization, analytics/exports, sales, users,
-alerts, docs, and 404s.
 
 ```bash
 cd frontend-admin
@@ -170,10 +201,14 @@ npm test    # Runs admin smoke tests
 
 ## CI/CD
 
-This project includes GitHub Actions for automated testing (`.github/workflows/test.yml`):
-- Backend tests (SQLite + npm-free) on push/PR to main
-- Admin smoke tests + production build
-- Mobile dependency install + source validation
+This project includes GitHub Actions for automated testing and docs:
+- `.github/workflows/test.yml` — on push/PR to main:
+  - Backend: OAS 3.0.3 validation, route <-> spec audit, generated-client
+    freshness check, static docs freshness check, then the full test suite
+  - Admin smoke tests + production build
+  - Mobile dependency install + source validation
+- `.github/workflows/docs.yml` — validates the spec and deploys the static
+  Swagger UI site in `docs/` to GitHub Pages (enable Pages -> GitHub Actions)
 
 ## Tech Stack
 

@@ -2,121 +2,18 @@
 // side and asserts that every endpoint exposes the same HTTP status code and
 // the same response body SHAPE (keys, nesting, value types) on both servers.
 //
-// Both backends are isolated into temp directories so the repo data is never
-// touched: SQLite uses INVENTRAK_DB_PATH, the npm-free server uses
-// INVENTRAK_DATA_DIR. Both seed from the same products.json.
+// The boot/teardown + request helpers live in ./harness (isolated temp dirs).
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-
-// ---- Isolate state BEFORE requiring the backend modules (they read the env
-// ---- at load time).
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-contract-'));
-const dataDir = path.join(__dirname, '..', '..', 'data');
-
-process.env.INVENTRAK_DB_PATH = path.join(tmpDir, 'contract.db');
-process.env.INVENTRAK_DATA_DIR = path.join(tmpDir, 'data');
-fs.mkdirSync(process.env.INVENTRAK_DATA_DIR, { recursive: true });
-// Share the same product catalog with the SQLite seeder.
-fs.copyFileSync(
-  path.join(dataDir, 'products.json'),
-  path.join(process.env.INVENTRAK_DATA_DIR, 'products.json')
-);
-// The npm-free fallback starts from a clean slate (its inventory is
-// auto-generated on first boot, matching the SQLite seeder's 3 locations).
-fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'order_inquiries.json'), '[]');
-fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'stock_movements.json'), '[]');
-
-const { app, seedDatabase } = require('../app');
-const { db } = require('../db');
-const { createServer } = require('../server_npmfree');
-
-let sqlite = { url: '', token: { admin: null, customer: null, invalid: 'not-a-real-token' } };
-let npmfree = { url: '', token: { admin: null, customer: null, invalid: 'not-a-real-token' } };
-let sqliteServer;
-let npmfreeServer;
+const { sqlite, npmfree, bootBoth, teardown, call, shapeOf, both } = require('./harness');
 
 before(async () => {
-  seedDatabase();
-  sqliteServer = app.listen(0);
-  sqlite.url = `http://127.0.0.1:${sqliteServer.address().port}`;
-  npmfreeServer = createServer(0);
-  npmfree.url = `http://127.0.0.1:${npmfreeServer.address().port}`;
-
-  for (const side of [sqlite, npmfree]) {
-    const adminRes = await fetch(`${side.url}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'admin123' }),
-    });
-    assert.strictEqual(adminRes.status, 200, 'admin login should succeed on boot');
-    side.token.admin = (await adminRes.json()).token;
-
-    const customerRes = await fetch(`${side.url}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'customer', password: 'customer123' }),
-    });
-    assert.strictEqual(customerRes.status, 200, 'customer login should succeed on boot');
-    side.token.customer = (await customerRes.json()).token;
-  }
+  await bootBoth();
 });
 
 after(() => {
-  try { sqliteServer && sqliteServer.close(); } catch {}
-  try { npmfreeServer && npmfreeServer.close(); } catch {}
-  // Release the SQLite file handle before deleting the temp dir (Windows).
-  try { db.close(); } catch {}
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  teardown();
 });
-
-// ---- Helpers --------------------------------------------------------------
-
-async function call(url, pathname, { method = 'GET', token, body } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${url}${pathname}`, {
-    method,
-    headers,
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-  const text = await res.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch {}
-  return { status: res.status, json, text, contentType: res.headers.get('content-type') || '' };
-}
-
-// Normalizes a JSON value to a shape signature: object keys (sorted) with the
-// shape of each value, and arrays reduced to the SET of element shapes so that
-// ordering and counts do not matter — only structure and types.
-function shapeOf(v) {
-  if (v === null || v === undefined) return 'null';
-  if (Array.isArray(v)) {
-    if (v.length === 0) return 'empty-array';
-    const shapes = new Set(v.map(shapeOf));
-    return `array[${[...shapes].sort().join(',')}]`;
-  }
-  if (typeof v === 'object') {
-    const keys = Object.keys(v).sort();
-    return `{${keys.map((k) => `${k}:${shapeOf(v[k])}`).join(',')}}`;
-  }
-  return typeof v;
-}
-
-// Fires the same request at both backends and asserts status + body shape match.
-async function both(label, pathname, { method = 'GET', auth = null, body } = {}) {
-  const doCall = async (side) =>
-    call(side.url, pathname, { method, body, token: auth ? side.token[auth] : null });
-  const a = await doCall(sqlite);
-  const b = await doCall(npmfree);
-  assert.strictEqual(a.status, b.status, `${label}: status ${a.status} vs ${b.status}`);
-  const sa = shapeOf(a.json);
-  const sb = shapeOf(b.json);
-  assert.strictEqual(sa, sb, `${label}:\n  sqlite:  ${sa}\n  npmfree: ${sb}`);
-  return { a, b };
-}
 
 // ===== Auth =====
 

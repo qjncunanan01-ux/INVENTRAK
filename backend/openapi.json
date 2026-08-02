@@ -26,6 +26,7 @@
     "/api/docs": {
       "get": {
         "tags": ["Docs"],
+        "operationId": "getDocs",
         "summary": "Swagger UI for this API",
         "responses": {
           "200": { "description": "Swagger UI HTML page" }
@@ -35,6 +36,7 @@
     "/api/openapi.json": {
       "get": {
         "tags": ["Docs"],
+        "operationId": "getOpenapi",
         "summary": "This OpenAPI specification document",
         "responses": {
           "200": { "description": "The OpenAPI JSON document" }
@@ -44,6 +46,7 @@
     "/api/auth/register": {
       "post": {
         "tags": ["Auth"],
+        "operationId": "register",
         "summary": "Register a new customer user",
         "requestBody": {
           "required": true,
@@ -77,6 +80,7 @@
     "/api/auth/login": {
       "post": {
         "tags": ["Auth"],
+        "operationId": "login",
         "summary": "Log in and receive a JWT token",
         "requestBody": {
           "required": true,
@@ -103,6 +107,7 @@
     "/api/auth/me": {
       "get": {
         "tags": ["Auth"],
+        "operationId": "getMe",
         "summary": "Get the authenticated user's profile",
         "security": [{ "bearerAuth": [] }],
         "responses": {
@@ -114,13 +119,15 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
     "/api/products": {
       "get": {
         "tags": ["Products"],
+        "operationId": "listProducts",
         "summary": "List products (optionally paginated, searched, filtered)",
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1 }, "description": "Page number (enables paginated response)" },
@@ -146,6 +153,7 @@
       },
       "post": {
         "tags": ["Products"],
+        "operationId": "createProduct",
         "summary": "Create a product (admin only)",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
@@ -174,6 +182,7 @@
     "/api/products/categories": {
       "get": {
         "tags": ["Products"],
+        "operationId": "listCategories",
         "summary": "List distinct product categories",
         "responses": {
           "200": {
@@ -190,6 +199,7 @@
     "/api/products/{id}": {
       "get": {
         "tags": ["Products"],
+        "operationId": "getProduct",
         "summary": "Get a single product",
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
         "responses": {
@@ -206,6 +216,7 @@
       },
       "put": {
         "tags": ["Products"],
+        "operationId": "updateProduct",
         "summary": "Update a product (admin only)",
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
@@ -227,11 +238,13 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
       "delete": {
         "tags": ["Products"],
+        "operationId": "deleteProduct",
         "summary": "Soft-delete a product (admin only)",
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
@@ -245,6 +258,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
@@ -252,6 +266,7 @@
     "/api/inventory": {
       "get": {
         "tags": ["Inventory"],
+        "operationId": "getInventory",
         "summary": "Get inventory levels per location",
         "parameters": [
           { "name": "location", "in": "query", "schema": { "type": "string" }, "description": "Filter to one location (name)" },
@@ -272,6 +287,7 @@
     "/api/locations": {
       "get": {
         "tags": ["Locations"],
+        "operationId": "listLocations",
         "summary": "List locations",
         "responses": {
           "200": {
@@ -286,6 +302,7 @@
       },
       "post": {
         "tags": ["Locations"],
+        "operationId": "createLocation",
         "summary": "Create a location (admin only)",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
@@ -326,6 +343,7 @@
     "/api/locations/{id}": {
       "delete": {
         "tags": ["Locations"],
+        "operationId": "deleteLocation",
         "summary": "Delete a location (admin only)",
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
@@ -347,6 +365,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
@@ -354,6 +373,7 @@
     "/api/stock-movement": {
       "post": {
         "tags": ["Stock Movements"],
+        "operationId": "createStockMovement",
         "summary": "Record a stock movement (FIFO-aware)",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
@@ -375,6 +395,7 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": {
             "description": "Product not found or inactive",
             "content": {
@@ -389,6 +410,7 @@
     "/api/stock-movements": {
       "get": {
         "tags": ["Stock Movements"],
+        "operationId": "listStockMovements",
         "summary": "List stock movements",
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer" } },
@@ -416,6 +438,7 @@
     "/api/stock-lots": {
       "get": {
         "tags": ["Stock Movements"],
+        "operationId": "listStockLots",
         "summary": "List FIFO stock lots",
         "parameters": [
           { "name": "product_id", "in": "query", "schema": { "type": "integer" } },
@@ -436,6 +459,7 @@
     "/api/order-inquiries": {
       "get": {
         "tags": ["Order Inquiries"],
+        "operationId": "listOrderInquiries",
         "summary": "List order inquiries",
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer" } },
@@ -460,6 +484,7 @@
       },
       "post": {
         "tags": ["Order Inquiries"],
+        "operationId": "createOrderInquiry",
         "summary": "Submit an order inquiry",
         "requestBody": {
           "required": true,
@@ -485,6 +510,7 @@
     "/api/order-inquiries/{id}": {
       "put": {
         "tags": ["Order Inquiries"],
+        "operationId": "updateOrderInquiry",
         "summary": "Update inquiry status (pending -> approved -> fulfilled / rejected)",
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
@@ -513,6 +539,7 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
@@ -520,6 +547,7 @@
     "/api/optimization": {
       "get": {
         "tags": ["Optimization"],
+        "operationId": "getOptimizationBulk",
         "summary": "Bulk optimization metrics for all products",
         "responses": {
           "200": {
@@ -536,6 +564,7 @@
     "/api/optimization/abc": {
       "get": {
         "tags": ["Optimization"],
+        "operationId": "getOptimizationAbc",
         "summary": "ABC classification of products",
         "responses": {
           "200": {
@@ -552,6 +581,7 @@
     "/api/optimization/{productId}": {
       "get": {
         "tags": ["Optimization"],
+        "operationId": "getOptimization",
         "summary": "EOQ, ROP, safety stock, and turnover for one product",
         "parameters": [{ "name": "productId", "in": "path", "required": true, "schema": { "type": "string" } }],
         "responses": {
@@ -570,6 +600,7 @@
     "/api/analytics/summary": {
       "get": {
         "tags": ["Analytics"],
+        "operationId": "getAnalyticsSummary",
         "summary": "Dashboard summary metrics",
         "responses": {
           "200": {
@@ -586,6 +617,7 @@
     "/api/analytics/export/{type}": {
       "get": {
         "tags": ["Analytics"],
+        "operationId": "exportAnalytics",
         "summary": "Export data as JSON or CSV (admin only)",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
@@ -594,9 +626,18 @@
         ],
         "responses": {
           "200": {
-            "description": "Exported rows (JSON array, or CSV when format=csv)"
+            "description": "Exported rows (JSON array, or CSV when format=csv)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": {
             "description": "Unknown export type",
             "content": {
@@ -611,6 +652,7 @@
     "/api/alerts": {
       "get": {
         "tags": ["Alerts"],
+        "operationId": "listAlerts",
         "summary": "List low-stock alerts",
         "security": [{ "bearerAuth": [] }],
         "responses": {
@@ -622,13 +664,15 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
     "/api/alerts/{id}/resolve": {
       "put": {
         "tags": ["Alerts"],
+        "operationId": "resolveAlert",
         "summary": "Resolve an alert (admin only)",
         "security": [{ "bearerAuth": [] }],
         "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
@@ -642,6 +686,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
@@ -649,6 +694,7 @@
     "/api/sales": {
       "get": {
         "tags": ["Sales"],
+        "operationId": "listSales",
         "summary": "List sales transactions",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
@@ -669,11 +715,13 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       },
       "post": {
         "tags": ["Sales"],
+        "operationId": "createSale",
         "summary": "Record a sale",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
@@ -702,6 +750,7 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": {
             "description": "Product not found or inactive",
             "content": {
@@ -716,6 +765,7 @@
     "/api/users": {
       "get": {
         "tags": ["Users"],
+        "operationId": "listUsers",
         "summary": "List users (admin only)",
         "security": [{ "bearerAuth": [] }],
         "responses": {

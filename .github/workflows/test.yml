@@ -26,7 +26,21 @@ jobs:
       - name: Install backend dependencies
         run: npm install
 
-      - name: Run backend tests (SQLite + npm-free)
+      - name: Validate OpenAPI spec against OAS 3.0.3
+        run: npm run docs:validate
+
+      - name: Audit route <-> spec coverage
+        run: npm run spec:audit
+
+      - name: Check generated API clients are current
+        run: npm run client:check
+
+      - name: Build static docs and verify they are committed
+        run: |
+          npm run docs:build
+          git diff --exit-code -- ../docs/ || (echo 'docs/ is out of date. Run: cd backend && npm run docs:build' && exit 1)
+
+      - name: Run backend tests (SQLite + npm-free + contract + openapi)
         run: npm test
 
   admin-lint:

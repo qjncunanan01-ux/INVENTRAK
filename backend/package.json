@@ -7,14 +7,26 @@
     "start": "node src/server.js",
     "start:npmfree": "node src/server_npmfree.js",
     "seed": "node src/seed.js",
-    "test": "node --test ./src/test/server.test.js ./src/test/server_npmfree.test.js ./src/test/contract.test.js"
+    "test": "node --test ./src/test/server.test.js ./src/test/server_npmfree.test.js ./src/test/contract.test.js ./src/test/openapi.test.js",
+    "docs:validate": "node scripts/validate-openapi.js",
+    "docs:build": "node scripts/build-docs.js",
+    "client:generate": "node scripts/generate-client.js",
+    "client:check": "node scripts/generate-client.js --check",
+    "spec:audit": "node scripts/audit-routes.js",
+    "verify": "npm run docs:validate && npm run spec:audit && npm run client:check && npm test"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "better-sqlite3": "^13.0.2",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.0",
-    "bcryptjs": "^2.4.3"
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-parser": "^9.0.1",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "swagger-jsdoc": "^6.3.0"
   }
 }
