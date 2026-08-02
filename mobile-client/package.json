@@ -2,7 +2,7 @@
   "name": "inventrak-mobile",
   "version": "0.1.0",
   "private": true,
-  "main": "src/App.js",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "start:tunnel": "expo start --tunnel",
@@ -16,6 +16,7 @@
     "react-native": "0.81.5",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
+    "babel-preset-expo": "~54.0.0",
     "axios": "^1.5.0",
     "@react-navigation/native": "^7.3.14",
     "@react-navigation/native-stack": "^7.18.6"
