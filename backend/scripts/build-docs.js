@@ -80,8 +80,12 @@ function main() {
   fs.mkdirSync(docsDir, { recursive: true });
   fs.writeFileSync(path.join(docsDir, 'openapi.json'), JSON.stringify(spec, null, 2) + '\n');
   fs.writeFileSync(path.join(docsDir, 'index.html'), html(spec));
+  // Tell GitHub Pages not to run the site through Jekyll (it would rewrite or
+  // drop files, e.g. anything starting with _). Without this, the static docs
+  // site can silently break after deployment.
+  fs.writeFileSync(path.join(docsDir, '.nojekyll'), '');
   console.log(`✓ Built static docs site in ${path.relative(process.cwd(), docsDir)}`);
-  console.log('  index.html (self-contained Swagger UI) + openapi.json');
+  console.log('  index.html (self-contained Swagger UI) + openapi.json + .nojekyll');
 }
 
 main();
