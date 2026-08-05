@@ -38,32 +38,39 @@ let sqliteServer;
 let npmfreeServer;
 
 async function bootBoth() {
-  seedDatabase();
-  sqliteServer = app.listen(0);
-  sqlite.url = `http://127.0.0.1:${sqliteServer.address().port}`;
-  npmfreeServer = createServer(0);
-  npmfree.url = `http://127.0.0.1:${npmfreeServer.address().port}`;
+  try {
+    seedDatabase();
+    sqliteServer = app.listen(0);
+    sqlite.url = `http://127.0.0.1:${sqliteServer.address().port}`;
+    npmfreeServer = createServer(0);
+    npmfree.url = `http://127.0.0.1:${npmfreeServer.address().port}`;
 
-  for (const side of [sqlite, npmfree]) {
-    const adminRes = await fetch(`${side.url}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'admin123' }),
-    });
-    if (adminRes.status !== 200) {
-      throw new Error('admin login should succeed on boot');
-    }
-    side.token.admin = (await adminRes.json()).token;
+    for (const side of [sqlite, npmfree]) {
+      const adminRes = await fetch(`${side.url}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'admin', password: 'admin123' }),
+      });
+      if (adminRes.status !== 200) {
+        throw new Error('admin login should succeed on boot');
+      }
+      side.token.admin = (await adminRes.json()).token;
 
-    const customerRes = await fetch(`${side.url}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'customer', password: 'customer123' }),
-    });
-    if (customerRes.status !== 200) {
-      throw new Error('customer login should succeed on boot');
+      const customerRes = await fetch(`${side.url}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'customer', password: 'customer123' }),
+      });
+      if (customerRes.status !== 200) {
+        throw new Error('customer login should succeed on boot');
+      }
+      side.token.customer = (await customerRes.json()).token;
     }
-    side.token.customer = (await customerRes.json()).token;
+  } catch (err) {
+    // If boot fails partway (e.g. a login error), don't leak servers / the
+    // SQLite handle / the temp dir.
+    teardown();
+    throw err;
   }
 }
 

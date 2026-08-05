@@ -39,3 +39,6 @@ backend/data/*.tmp
 # Temporary files
 *.tmp
 *.swp
+
+# Freebuff scratch workspace
+.freebuff/

@@ -1390,6 +1390,38 @@
           }
         }
       }
+    },
+    "/api/health/integrity": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getIntegrity",
+        "summary": "Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Integrity audit result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrityReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2292,6 +2324,29 @@
             "type": "string"
           },
           "product_name": {
+            "type": "string"
+          }
+        }
+      },
+      "IntegrityReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "errors",
+          "checkedAt"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "checkedAt": {
             "type": "string"
           }
         }

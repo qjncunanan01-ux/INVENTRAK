@@ -1,29 +1,29 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+
+// Isolate from the repo JSON data BEFORE loading the server module: it reads
+// process.env.INVENTRAK_DATA_DIR at require time. Replaces the old
+// backup-and-restore dance that still touched the tracked data files.
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-npmfree-test-'));
+process.env.INVENTRAK_DATA_DIR = path.join(tmpDir, 'data');
+fs.mkdirSync(process.env.INVENTRAK_DATA_DIR, { recursive: true });
+fs.copyFileSync(
+  path.join(__dirname, '..', '..', 'data', 'products.json'),
+  path.join(process.env.INVENTRAK_DATA_DIR, 'products.json')
+);
+fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'order_inquiries.json'), '[]');
+fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'stock_movements.json'), '[]');
+
 const { createServer } = require('../server_npmfree');
 
 let server;
 let baseUrl;
 let adminToken;
 
-// The npm-free server persists to the tracked JSON data files, so back them up
-// before the suite runs and restore them afterwards to avoid polluting the repo.
-const dataFiles = [
-  'products.json',
-  'inventory.json',
-  'order_inquiries.json',
-  'stock_movements.json',
-];
-const backups = {};
-
 before(async () => {
-  const dataDir = path.join(__dirname, '..', '..', 'data');
-  for (const file of dataFiles) {
-    const fp = path.join(dataDir, file);
-    backups[file] = fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : null;
-  }
   server = createServer(0);
   const port = server.address().port;
   baseUrl = `http://127.0.0.1:${port}`;
@@ -38,15 +38,7 @@ before(async () => {
 
 after(() => {
   server.close();
-  const dataDir = path.join(__dirname, '..', '..', 'data');
-  for (const file of dataFiles) {
-    const fp = path.join(dataDir, file);
-    if (backups[file] === null) {
-      if (fs.existsSync(fp)) fs.unlinkSync(fp);
-    } else {
-      fs.writeFileSync(fp, backups[file], 'utf8');
-    }
-  }
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
 async function request(path, options = {}) {

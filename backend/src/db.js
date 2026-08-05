@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS stock (
   location_id INTEGER,
   quantity REAL DEFAULT 0,
   FOREIGN KEY(product_id) REFERENCES products(id),
-  FOREIGN KEY(location_id) REFERENCES locations(id)
+  FOREIGN KEY(location_id) REFERENCES locations(id),
+  UNIQUE(product_id, location_id)
 );
 
 CREATE TABLE IF NOT EXISTS stock_movements (
@@ -103,5 +104,36 @@ CREATE TABLE IF NOT EXISTS inventory_alerts (
   FOREIGN KEY(location_id) REFERENCES locations(id)
 );
 `);
+
+// Migration for databases created before the UNIQUE(product_id, location_id)
+// constraint existed on `stock`. Without the constraint, INSERT OR IGNORE in
+// the stock-movement handlers never ignores, so every movement inserted a
+// duplicate row that then absorbed the same UPDATE — corrupting per-location
+// counts and totals. Rebuild the table with the constraint, merging any
+// duplicate rows by summing their quantities.
+const stockIndexes = db.prepare("PRAGMA index_list('stock')").all();
+const hasUniqueStockPair = stockIndexes.some((i) => i.origin === 'u');
+
+if (!hasUniqueStockPair) {
+  db.transaction(() => {
+    db.exec(`
+      ALTER TABLE stock RENAME TO stock_legacy;
+      CREATE TABLE stock (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_id INTEGER,
+        location_id INTEGER,
+        quantity REAL DEFAULT 0,
+        FOREIGN KEY(product_id) REFERENCES products(id),
+        FOREIGN KEY(location_id) REFERENCES locations(id),
+        UNIQUE(product_id, location_id)
+      );
+      INSERT INTO stock (product_id, location_id, quantity)
+        SELECT product_id, location_id, SUM(quantity)
+        FROM stock_legacy
+        GROUP BY product_id, location_id;
+      DROP TABLE stock_legacy;
+    `);
+  })();
+}
 
 module.exports = { db };

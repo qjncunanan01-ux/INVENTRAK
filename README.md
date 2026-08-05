@@ -127,11 +127,17 @@ npm run verify            # All of the above + the full test suite
 
 **Test suites**
 - `backend/src/test/contract.test.js` — boots the SQLite + npm-free servers in
-  isolated temp dirs and asserts identical status + body *shapes* per endpoint.
+  isolated temp dirs and asserts identical status + body *shapes* per endpoint,
+  plus **value parity**: both backends seed from the same fixed-seed PRNG, so
+  analytics counters, per-product inventory totals, the sales ledger and
+  optimization values are asserted *equal*, not just same-shaped.
 - `backend/src/test/openapi.test.js` — boots both servers and validates every
   actual response **and** request body against the OpenAPI schemas with ajv.
   This is the drift guard: even if both backends agree on a shape, a response
   that violates its documented schema (or an undocumented status code) fails.
+- Both per-backend suites (`server.test.js`, `server_npmfree.test.js`) run in
+  isolated temp data dirs, so the committed tests never touch the repo's real
+  data files.
 
 **Generated API clients** — `frontend-admin/src/api.generated.js` and
 `mobile-client/src/api.generated.js` are generated from the spec
@@ -215,6 +221,7 @@ open http://localhost:4001/api/docs
 | POST | /api/sales | Record a sale |
 | GET | /api/sales | List sales |
 | GET | /api/users | List users (admin) |
+| GET | /api/health/integrity | Data integrity audit (admin) |
 | GET | /api/openapi.json | OpenAPI 3.0.3 specification document |
 | GET | /api/docs | Interactive Swagger UI |
 

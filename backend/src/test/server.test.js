@@ -1,6 +1,17 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+// Isolate from the repo database BEFORE loading the backend modules: the db
+// module reads process.env.INVENTRAK_DB_PATH at require time. This suite used
+// to hit backend/data/inventrak.db and permanently mutate real dev data.
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-sqlite-test-'));
+process.env.INVENTRAK_DB_PATH = path.join(tmpDir, 'test.db');
+
 const { app, seedDatabase } = require('../app');
+const { db } = require('../db');
 
 let server;
 let baseUrl;
@@ -15,6 +26,8 @@ before(() => {
 
 after(() => {
   server.close();
+  try { db.close(); } catch {}
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
 async function request(path, options = {}) {
@@ -210,6 +223,82 @@ test('GET /api/stock-lots returns FIFO lot data', async () => {
   const { status, body } = await request('/api/stock-lots');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
+});
+
+test('stock-ins accumulate without duplicating stock rows', async () => {
+  // Regression: stock table must enforce UNIQUE(product_id, location_id).
+  // Without it, INSERT OR IGNORE inserted a duplicate row per movement, which
+  // then absorbed the same UPDATE — corrupting per-location counts and totals.
+  const inventoryBefore = await request('/api/inventory?location=1');
+  const beforeItem = inventoryBefore.body.items.find(i => i.product.id === 1);
+  const beforeQty = beforeItem ? (beforeItem.locations.Showroom || 0) : 0;
+
+  // Two stock-ins of 3 each into location 1 for product 1.
+  for (let i = 0; i < 2; i++) {
+    const res = await authRequest('/api/stock-movement', {
+      method: 'POST',
+      body: JSON.stringify({ product_id: 1, qty: 3, type: 'stock-in', dst_location: 1 }),
+    });
+    assert.strictEqual(res.status, 200);
+  }
+
+  const inventoryAfter = await request('/api/inventory');
+  const afterItem = inventoryAfter.body.items.find(i => i.product.id === 1);
+  assert.ok(afterItem, 'product 1 should still be present');
+
+  // The per-location dict must sum to the total (fails if duplicate rows exist).
+  const sumLocations = Object.values(afterItem.locations).reduce((a, b) => a + b, 0);
+  assert.strictEqual(sumLocations, afterItem.total, 'locations sum must equal total');
+
+  // Location 1 must have grown by exactly 6, not more (duplicates inflate or
+  // collapse the visible count).
+  assert.strictEqual(afterItem.locations.Showroom, beforeQty + 6);
+});
+
+test('adjustment keeps FIFO lots consistent with stock (no double-decrement)', async () => {
+  // Regression: adjusting a location's stock must reset its FIFO lots to a
+  // single lot of the new quantity. Without that, lots drift from stock and
+  // consumeStockLots' overflow path decrements stock twice on a later
+  // stock-out, destroying inventory.
+  const adjust = await authRequest('/api/stock-movement', {
+    method: 'POST',
+    body: JSON.stringify({ product_id: 5, qty: 40, type: 'adjustment', dst_location: 1 }),
+  });
+  assert.strictEqual(adjust.status, 200);
+
+  // After the adjustment, lots at location 1 must exactly equal the stock.
+  const lots = await request('/api/stock-lots?product_id=5&location_id=1');
+  const lotsSum = lots.body.reduce((a, l) => a + l.qty, 0);
+  assert.strictEqual(lotsSum, 40, 'lots must match the adjusted quantity');
+
+  // A stock-out larger than the remaining (reset) lots must decrement stock
+  // exactly once: 40 - 25 = 15, never below zero.
+  const out = await authRequest('/api/stock-movement', {
+    method: 'POST',
+    body: JSON.stringify({ product_id: 5, qty: 25, type: 'stock-out', src_location: 1 }),
+  });
+  assert.strictEqual(out.status, 200);
+  const inv = await request('/api/inventory?location=1');
+  const item = inv.body.items.find(i => i.product.id === 5);
+  assert.strictEqual(Object.values(item.locations)[0], 15, 'stock must be 15, not negative');
+});
+
+test('garbage pagination params return page 1 instead of a 500', async () => {
+  const { status, body } = await request('/api/products?page=abc');
+  assert.strictEqual(status, 200);
+  assert.strictEqual(body.pagination.page, 1);
+  const m = await request('/api/stock-movements?page=abc');
+  assert.strictEqual(m.status, 200);
+  assert.strictEqual(m.body.pagination.page, 1);
+});
+
+test('malformed JSON body returns 400 (client error), not 500', async () => {
+  const res = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{bad json',
+  });
+  assert.strictEqual(res.status, 400);
 });
 
 // ===== Locations =====

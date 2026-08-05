@@ -16,20 +16,28 @@
 - **Inventory optimization features: 100%**
   - EOQ, ROP, Safety Stock, ABC, Turnover, FIFO lots — demand data is dynamic, not hardcoded.
 - **Integration testing / end-to-end demo: 100%**
-  - 95 backend tests (SQLite suite + npm-free suite + contract tests + OpenAPI conformance), admin smoke tests, Docker Compose, GitHub Actions CI.
+  - 104 backend tests (SQLite suite + npm-free suite + contract tests + OpenAPI conformance), admin smoke tests, Docker Compose, GitHub Actions CI.
 
 > Overall completion: **100%**
 
+## What was added in the latest pass (value parity + deterministic seeding)
+
+1. **Shared seeded PRNG** — `backend/src/prng.js` (mulberry32); `app.js`, `seed.js` and the npm-free boot all seed from the same fixed seed with the same draw order, so both backends boot to IDENTICAL stock and sales data. The documented analytics/optimization divergence (npm-free `totalSales ≈ 0`, different `annualDemand`) is gone.
+2. **Value-parity contract tests** — `contract.test.js` now asserts the two backends return equal *values*, not just shapes: analytics summary counters, per-product inventory totals, sales ledger count + total value, and `optimization/1` deep-equal.
+3. **npm-free value fixes** — sales-based demand (matches SQLite `SUM(qty)` with the same fallbacks), per-location `lowStockItems`, `avgInventory` rounding parity, and a stable-product-id fix (list/inventory no longer reindex ids after a soft-delete, matching SQLite's stable AUTOINCREMENT ids).
+4. **HMAC-signed demo tokens** — the npm-free fallback now signs tokens with `node:crypto` HMAC-SHA256 so they cannot be forged; forged/expired-looking tokens are rejected like the SQLite JWT path.
+5. **Integrity endpoint** — `GET /api/health/integrity` (admin-only) on both backends: checks stock-row uniqueness, locations-sum == total, no negative stock, no movements referencing inactive/missing products, FIFO lots consistent with stock. Documented in `openapi.json`; contract test asserts identical clean responses.
+6. **Test isolation** — both `server.test.js` and `server_npmfree.test.js` now run in temp data dirs; the committed suites never touch the repo's real data files.
+7. **Docs updated** — test counts (104), the new endpoint, and this changelog.
+
 ## What was added in the latest pass (OpenAPI drift guards + generated clients)
 
-1. **OpenAPI conformance suite** — `backend/src/test/openapi.test.js` boots both backends and validates every actual response **and** request body against the schemas in `backend/openapi.json` with ajv (`npm i -D ajv ajv-formats`). This is the drift guard: even if both backends agree on a shape, a response that violates its documented schema (or an undocumented status code, or an extra undocumented field — `additionalProperties: false` is enforced) fails the build.
-2. **Shared harness** — `backend/src/test/harness.js` now owns the isolated-temp-dir boot/teardown for both servers; `contract.test.js` was refactored onto it.
+1. **OpenAPI conformance suite** — `backend/src/test/openapi.test.js` boots both backends and validates every actual response **and** request body against the schemas in `backend/openapi.json` with ajv (`npm i -D ajv ajv-formats`). This is the drift guard: even if both backends agree on a shape, a response that violates its documented schema (or an undocumented status code, or an extra undocumented field — `additionalProperties: false` is enforced) fails the build.2. **Shared harness** — `backend/src/test/harness.js` now owns the isolated-temp-dir boot/teardown for both servers; `contract.test.js` was refactored onto it.
 3. **Spec completeness** — every operation now has an `operationId` (used by client codegen + Swagger), and the spec documents the `403` responses both backends actually return (invalid token / non-admin) plus a JSON schema for the export `200`.
 4. **Spec tooling scripts** — `validate-openapi.js` (validates against the official OAS 3.0.3 schema via `@apidevtools/swagger-parser`), `audit-routes.js` (asserts every code route <-> documented path coverage in both directions), `build-docs.js` (builds the static Swagger UI site in `docs/`).
 5. **Generated API clients** — `frontend-admin/src/api.generated.js` and `mobile-client/src/api.generated.js` are generated from `openapi.json` (`npm run client:generate`). Both `src/api.js` facades now delegate to the generated client, replacing the hand-written fetch calls, while keeping the exact `apiGet/apiPost/apiPut/apiDelete` signatures the pages import plus one typed function per operation (`login`, `listProducts`, `getInventory`, ...). CI checks freshness with `npm run client:check`.
 6. **Static docs site + GitHub Pages** — `npm run docs:build` writes a self-contained Swagger UI into `docs/`; `.github/workflows/docs.yml` validates the spec and deploys it to GitHub Pages. `test.yml` now also runs spec validation, route audit, client freshness, and docs freshness.
 7. **Docs updated** — test counts (95), the new scripts, and this changelog.
-
 ## What was added in the previous pass (OpenAPI + contract tests)
 
 1. **OpenAPI/Swagger documentation** — `backend/openapi.json` (OpenAPI 3.0.3, 25 paths, 29 schemas) is served by **both** backends at `GET /api/openapi.json`, with an interactive Swagger UI at `GET /api/docs`.

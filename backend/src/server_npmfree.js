@@ -1,6 +1,8 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 
 // Allow tests to point the fallback at an isolated data directory.
 const dataDir = process.env.INVENTRAK_DATA_DIR || path.join(__dirname, '..', 'data');
@@ -19,6 +21,32 @@ let nextUserId = 3;
 let salesTransactions = [];
 let nextSaleId = 1;
 
+// --- Demo-token auth: HMAC-signed so a token cannot be forged. The SQLite
+// backend signs JWTs with a secret; this mirrors that with zero dependencies.
+const TOKEN_SECRET = process.env.NPMFREE_TOKEN_SECRET || 'inventrak-npmfree-token-secret';
+
+function signToken(userId) {
+  const payload = String(userId);
+  const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('base64url');
+  return `demo-token-${payload}.${sig}`;
+}
+
+function verifyToken(token) {
+  if (!token || !token.startsWith('demo-token-')) return null;
+  const body = token.slice('demo-token-'.length);
+  const dot = body.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const idStr = body.slice(0, dot);
+  const sig = body.slice(dot + 1);
+  const id = Number(idStr);
+  if (!Number.isInteger(id) || id < 1) return null;
+  const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(idStr).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  return users.find(u => u.id === id) || null;
+}
+
 function readJSON(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
 }
@@ -27,21 +55,57 @@ function writeJSON(file, obj) {
   fs.writeFileSync(file, JSON.stringify(obj, null, 2), 'utf8');
 }
 
+// Deterministic demo data: same fixed-seed PRNG and draw order as the SQLite
+// seeder (app.js seedDatabase / seed.js), so fresh boots of either backend
+// produce IDENTICAL stock and sales.
 if (!fs.existsSync(inventoryFile)) {
   const products = readJSON(productsFile) || [];
-  const locs = ['Showroom', 'Stockroom 1', 'Stockroom 2'];
+  const rand = mulberry32(DEMO_SEED);
   const items = products.map((p, idx) => {
     const stocks = {};
     let total = 0;
-    locs.forEach(l => { const q = Math.floor(Math.random() * 180) + 20; stocks[l] = q; total += q; });
+    // Draws 1-3: location stock (same formula as the SQLite seeder).
+    DEMO_LOCATIONS.forEach(l => { const q = Math.floor(rand() * 160) + 20; stocks[l] = q; total += q; });
+    // Draws 4-9 belong to the sales stream; consume them so the next
+    // product's stock draws line up with the SQLite seeder's stream.
+    for (let i = 0; i < 6; i++) rand();
     return {
       product: formatProduct(p, idx),
       locations: stocks,
       total
     };
   });
-  writeJSON(inventoryFile, { locations: locs, items });
+  writeJSON(inventoryFile, { locations: DEMO_LOCATIONS, items });
 }
+
+// Seed the in-memory sales history from the same stream (draws 4-9 per
+// product: 2 per customer), mirroring the SQLite seeder exactly.
+function seedSales() {
+  if (salesTransactions.length > 0) return;
+  const products = readJSON(productsFile) || [];
+  if (!products.length) return;
+  const rand = mulberry32(DEMO_SEED);
+  products.forEach((p, idx) => {
+    // Draws 1-3 belong to location stock; consume them to keep the stream
+    // aligned with the SQLite seeder's per-product draw order.
+    DEMO_LOCATIONS.forEach(() => rand());
+    const price = p['Price'] || p.price || 1;
+    DEMO_CUSTOMERS.forEach(cust => {
+      const saleQty = Math.floor(rand() * 15) + 1;
+      const daysAgo = Math.floor(rand() * 90);
+      salesTransactions.push({
+        id: nextSaleId++,
+        product_id: idx + 1,
+        qty: saleQty,
+        unit_price: price,
+        total_amount: saleQty * price,
+        transaction_date: new Date(SEED_EPOCH - daysAgo * 86400000).toISOString(),
+        customer_name: cust
+      });
+    });
+  });
+}
+seedSales();
 
 if (!fs.existsSync(movementsFile)) writeJSON(movementsFile, []);
 if (!fs.existsSync(orderFile)) writeJSON(orderFile, []);
@@ -67,13 +131,28 @@ function formatProduct(p, idx) {
   };
 }
 
-// Dynamic demand: actual stock-out usage from movements (TODO 4.1 parity with SQLite backend)
-function computeDemand(productId) {
-  const movements = readJSON(movementsFile) || [];
-  const outQty = movements
-    .filter(m => m.product_id === Number(productId) && (m.type === 'stock-out' || m.type === 'transfer'))
-    .reduce((sum, m) => sum + (Number(m.qty) || 0), 0);
-  return outQty > 0 ? outQty : 100;
+// Seeded products.json rows carry no status field (treated as active); active
+// is the only status that may be sold or stocked (mirrors the SQLite
+// `WHERE status = 'active'` checks — a nulled status counts as inactive).
+function isProductActive(p) {
+  return p && (p['status'] === undefined || p['status'] === 'active');
+}
+
+// Exact-path matcher for the parametrized routes (e.g. /api/products/1):
+// requires exactly `segments` path parts with a numeric final segment, so
+// deeper paths 404 exactly like Express routes do.
+function isParamPath(url, prefix, segments) {
+  const parts = url.split('?')[0].split('/').filter(Boolean);
+  return parts.length === segments && parts.slice(0, segments - 1).join('/') === prefix && /^\d+$/.test(parts[parts.length - 1]);
+}
+
+// Dynamic demand: actual sales volume, mirroring the SQLite backend's
+// sales-transaction SUM(qty) with the same fallbacks (100 bulk / 1000 single).
+function computeDemand(productId, fallback = 100) {
+  const qty = salesTransactions
+    .filter(s => Number(s.product_id) === Number(productId))
+    .reduce((sum, s) => sum + (Number(s.qty) || 0), 0);
+  return qty > 0 ? qty : fallback;
 }
 
 function getInventory() {
@@ -115,10 +194,30 @@ function computeAlerts() {
   return alerts.filter(a => a.status === 'active');
 }
 
+// Mirror Express/body-parser: cap request bodies at 100 KB so a client cannot
+// exhaust memory with a giant payload (the SQLite backend rejects these too).
+const MAX_BODY_BYTES = 100 * 1024;
+
+function bodyError(res, err) {
+  if (err && err.status === 413) return sendJson(res, 413, { error: 'Payload Too Large' });
+  return sendJson(res, 400, { error: 'Invalid JSON' });
+}
+
 function parseBody(req, callback) {
   let body = '';
-  req.on('data', chunk => body += chunk);
+  let tooLarge = false;
+  req.on('data', chunk => {
+    if (tooLarge) return;
+    body += chunk;
+    // Count raw bytes (not chars) so multibyte UTF-8 bodies are capped at the
+    // same limit Express/body-parser applies.
+    if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
+      tooLarge = true;
+      body = '';
+    }
+  });
   req.on('end', () => {
+    if (tooLarge) return callback({ status: 413 });
     try { callback(null, JSON.parse(body || '{}')); }
     catch (err) { callback(err); }
   });
@@ -140,9 +239,7 @@ function authUser(req) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return { missing: true };
-  if (!token.startsWith('demo-token-')) return { invalid: true };
-  const id = Number(token.split('-').pop());
-  const user = users.find(u => u.id === id);
+  const user = verifyToken(token);
   return user ? { user } : { invalid: true };
 }
 
@@ -186,38 +283,69 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
 
+  // ================= INTEGRITY =================
+
+  if (req.method === 'GET' && url.split('?')[0] === '/api/health/integrity') {
+    return requireAuth(req, res, true, (req, res) => {
+      const errors = [];
+      const inv = getInventory();
+      const products = readJSON(productsFile) || [];
+      inv.items.forEach(item => {
+        const sum = Object.values(item.locations).reduce((a, b) => a + b, 0);
+        if (Math.abs(sum - item.total) > 1e-6) {
+          errors.push(`locations sum != total for product ${item.product.id}`);
+        }
+        Object.entries(item.locations).forEach(([loc, q]) => {
+          if (q < 0) errors.push(`negative stock: product ${item.product.id}, ${loc} = ${q}`);
+        });
+      });
+      const movements = readJSON(movementsFile) || [];
+      movements.forEach(m => {
+        const p = products[m.product_id - 1];
+        if (!p || !isProductActive(p)) {
+          errors.push(`movement references inactive/missing product ${m.product_id}`);
+        }
+      });
+      return sendJson(res, 200, {
+        ok: errors.length === 0,
+        errors,
+        checkedAt: new Date().toISOString()
+      });
+    });
+  }
+
   // ================= API DOCS =================
 
-  if (req.method === 'GET' && url === '/api/openapi.json') {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/openapi.json') {
     const spec = readJSON(openapiFile) || { error: 'openapi.json not found' };
     return sendJson(res, 200, spec);
   }
 
-  if (req.method === 'GET' && url === '/api/docs') {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/docs') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     return res.end(swaggerUiHtml);
   }
 
   // ================= AUTH =================
 
-  if (req.method === 'POST' && url === '/api/auth/login') {
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/login') {
     return parseBody(req, (err, obj) => {
-      if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
+      if (err) return bodyError(res, err);
       if (!obj.username || !obj.password) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username and password are required'] });
       }
       const user = users.find(u => u.username === obj.username && u.password === obj.password);
       if (!user) return sendJson(res, 401, { error: 'Invalid username or password' });
       return sendJson(res, 200, {
-        token: `demo-token-${user.id}`,
+        token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email }
       });
     });
   }
 
-  if (req.method === 'POST' && url === '/api/auth/register') {
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/register') {
     return parseBody(req, (err, obj) => {
-      if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
+      if (err) return bodyError(res, err);
       if (!obj.username || !obj.password || !obj.email) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username, password and email are required'] });
       }
@@ -231,13 +359,13 @@ const server = http.createServer((req, res) => {
       const user = { id: nextUserId++, username: obj.username, password: obj.password, role: 'customer', email: obj.email, created_at: new Date().toISOString() };
       users.push(user);
       return sendJson(res, 200, {
-        token: `demo-token-${user.id}`,
+        token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email }
       });
     });
   }
 
-  if (req.method === 'GET' && url === '/api/auth/me') {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/auth/me') {
     return requireAuth(req, res, false, (req, res) => {
       return sendJson(res, 200, { id: req.user.id, username: req.user.username, role: req.user.role, email: req.user.email, created_at: req.user.created_at });
     });
@@ -245,20 +373,28 @@ const server = http.createServer((req, res) => {
 
   // ================= PRODUCTS =================
 
-  if (req.method === 'GET' && url.startsWith('/api/products/categories')) {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/products/categories') {
     const products = readJSON(productsFile) || [];
-    const cats = [...new Set(products.map(p => p['Category'] || p.category).filter(Boolean))];
+    const cats = [...new Set(products.filter(isProductActive).map(p => p['Category'] || p.category).filter(Boolean))].sort();
     return sendJson(res, 200, cats);
   }
 
-  if (req.method === 'GET' && (url === '/api/products' || url.startsWith('/api/products?'))) {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/products') {
     const parsed = new URL(url, 'http://localhost');
     const page = parsed.searchParams.get('page');
     const limit = parsed.searchParams.get('limit');
     const search = parsed.searchParams.get('search');
     const category = parsed.searchParams.get('category');
     const products = readJSON(productsFile) || [];
-    let formatted = products.map(formatProduct).filter(p => p.status === 'active');
+    const statusParam = parsed.searchParams.get('status');
+    const want = statusParam || 'active';
+    // Format the FULL array with original indices first so ids stay stable
+    // (SQLite keeps stable AUTOINCREMENT ids), then filter on status. Sort by
+    // name to mirror the SQLite backend's `ORDER BY name ASC`.
+    let formatted = products
+      .map(formatProduct)
+      .filter(f => want === 'active' ? isProductActive(f) : f.status === want)
+      .sort((a, b) => a.name.localeCompare(b.name, 'en'));
 
     if (search) {
       const s = search.toLowerCase();
@@ -285,19 +421,24 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, formatted);
   }
 
-  if (req.method === 'GET' && url.startsWith('/api/products/')) {
-    const id = parseInt(url.split('/').pop(), 10);
+  if (req.method === 'GET' && isParamPath(url, 'api/products', 3)) {
+    const id = parseInt(url.split('?')[0].split('/').pop(), 10);
     const products = readJSON(productsFile) || [];
     if (!products[id - 1]) return sendJson(res, 404, { error: 'Product not found' });
     // Match the SQLite backend: the row is returned regardless of status.
     return sendJson(res, 200, formatProduct(products[id - 1], id - 1));
   }
 
-  if (req.method === 'POST' && url === '/api/products') {
+  if (req.method === 'POST' && url.split('?')[0] === '/api/products') {
     return requireAuth(req, res, true, (req, res) => {
       return parseBody(req, (err, obj) => {
-        if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
+        if (err) return bodyError(res, err);
         if (!obj.name || !obj.category) return sendJson(res, 400, { error: 'Validation failed', details: ['name and category are required'] });
+        // Mirror the SQLite validate() schema: price is required and numeric >= 0.
+        const priceNum = Number(obj.price);
+        if (obj.price === undefined || obj.price === null || obj.price === '' || !Number.isFinite(priceNum) || priceNum < 0) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['price is required and must be a number >= 0'] });
+        }
         const products = readJSON(productsFile) || [];
         const newProduct = {
           'Product Name': obj.name,
@@ -306,7 +447,7 @@ const server = http.createServer((req, res) => {
           'Description': obj.description || '',
           'Size': obj.size || '',
           'Unit': obj.unit || 'pcs',
-          'Price': Number(obj.price) || 0,
+          'Price': priceNum,
           'status': 'active'
         };
         products.push(newProduct);
@@ -316,11 +457,11 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  if (req.method === 'PUT' && url.startsWith('/api/products/')) {
-    const id = parseInt(url.split('/').pop(), 10);
+  if (req.method === 'PUT' && isParamPath(url, 'api/products', 3)) {
+    const id = parseInt(url.split('?')[0].split('/').pop(), 10);
     return requireAuth(req, res, true, (req, res) => {
       return parseBody(req, (err, obj) => {
-        if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
+        if (err) return bodyError(res, err);
         const products = readJSON(productsFile) || [];
         if (!products[id - 1]) return sendJson(res, 404, { error: 'Product not found' });
         const p = products[id - 1];
@@ -339,8 +480,12 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  if (req.method === 'DELETE' && url.startsWith('/api/products/')) {
-    const id = parseInt(url.split('/').pop(), 10);
+  // INVARIANT: product ids are array positions + 1, so the products array must
+  // NEVER be spliced — only soft-deactivated (status = 'inactive'). Splicing
+  // would silently reindex every downstream id (by-id lookups `products[id-1]`,
+  // POST `{ id: products.length }`, the integrity check, inventory merges).
+  if (req.method === 'DELETE' && isParamPath(url, 'api/products', 3)) {
+    const id = parseInt(url.split('?')[0].split('/').pop(), 10);
     return requireAuth(req, res, true, (req, res) => {
       const products = readJSON(productsFile) || [];
       if (!products[id - 1]) return sendJson(res, 404, { error: 'Product not found' });
@@ -352,7 +497,7 @@ const server = http.createServer((req, res) => {
 
   // ================= INVENTORY =================
 
-  if (req.method === 'GET' && url.startsWith('/api/inventory')) {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/inventory') {
     const inv = getInventory();
     const parsed = new URL(url, 'http://localhost');
     const lowStock = parsed.searchParams.get('low_stock') === 'true';
@@ -361,17 +506,30 @@ const server = http.createServer((req, res) => {
     // Match the SQLite backend: every ACTIVE product appears, including ones
     // created after the inventory snapshot (those simply have no stock yet).
     const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));
+    // Always format the product from the LIVE products file (stable ids + live
+    // status); reuse only the snapshot's stock so deactivated products drop
+    // out exactly like the SQLite `WHERE status='active'` inventory query.
     let items = products
       .map((p, idx) => {
         const existing = byId.get(idx + 1);
-        return existing || { product: formatProduct(p, idx), locations: {}, total: 0 };
+        return {
+          product: formatProduct(p, idx),
+          locations: existing ? existing.locations : {},
+          total: existing ? existing.total : 0
+        };
       })
-      .filter(item => item.product && item.product.status !== 'inactive');
+      .filter(item => item.product && isProductActive(item.product));
     if (location) {
+      // Accept a numeric location id or a name, mirroring the SQLite
+      // resolveLocation() helper (the numeric form is used by the UI).
+      const locId = Number(location);
+      const locName = Number.isInteger(locId) && locId >= 1 && locId <= inv.locations.length
+        ? inv.locations[locId - 1]
+        : location;
       items = items.map(item => ({
         ...item,
-        locations: item.locations[location] !== undefined ? { [location]: item.locations[location] } : {},
-        total: item.locations[location] || 0
+        locations: item.locations[locName] !== undefined ? { [locName]: item.locations[locName] } : {},
+        total: item.locations[locName] || 0
       }));
     }
     if (lowStock) items = items.filter(item => item.total < 80);
@@ -381,15 +539,15 @@ const server = http.createServer((req, res) => {
 
   // ================= LOCATIONS =================
 
-  if (req.method === 'GET' && url === '/api/locations') {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/locations') {
     const inv = getInventory();
     return sendJson(res, 200, inv.locations.map((name, index) => ({ id: index + 1, name })));
   }
 
-  if (req.method === 'POST' && url === '/api/locations') {
+  if (req.method === 'POST' && url.split('?')[0] === '/api/locations') {
     return requireAuth(req, res, true, (req, res) => {
       return parseBody(req, (err, obj) => {
-        if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
+        if (err) return bodyError(res, err);
         const inv = getInventory();
         if (!obj.name) return sendJson(res, 400, { error: 'Validation failed', details: ['name is required'] });
         if (inv.locations.includes(obj.name)) return sendJson(res, 409, { error: 'Location already exists' });
@@ -400,8 +558,8 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  if (req.method === 'DELETE' && url.startsWith('/api/locations/')) {
-    const id = Number(url.split('/').pop());
+  if (req.method === 'DELETE' && isParamPath(url, 'api/locations', 3)) {
+    const id = Number(url.split('?')[0].split('/').pop());
     return requireAuth(req, res, true, (req, res) => {
       const inv = getInventory();
       if (Number.isNaN(id) || id <= 0 || id > inv.locations.length) return sendJson(res, 404, { error: 'Location not found' });
@@ -419,7 +577,7 @@ const server = http.createServer((req, res) => {
 
   // ================= STOCK MOVEMENTS =================
 
-  if (req.method === 'GET' && url.startsWith('/api/stock-movements')) {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/stock-movements') {
     const parsed = new URL(url, 'http://localhost');
     const page = parsed.searchParams.get('page');
     const limit = parsed.searchParams.get('limit');
@@ -465,25 +623,49 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, lots);
   }
 
-  if (req.method === 'POST' && url === '/api/stock-movement') {
+  if (req.method === 'POST' && url.split('?')[0] === '/api/stock-movement') {
     return requireAuth(req, res, false, (req, res) => {
       return parseBody(req, (err, obj) => {
-        if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
+        if (err) return bodyError(res, err);
         if (!obj.product_id || !obj.qty || !obj.type) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['product_id, qty and type are required'] });
         }
         if (!['stock-in', 'stock-out', 'transfer', 'adjustment'].includes(obj.type)) {
           return sendJson(res, 400, { error: 'Invalid type. Must be one of: stock-in, stock-out, transfer, adjustment' });
         }
+        // Mirror the SQLite validate() schema: qty must be a positive number
+        // and product_id a positive integer. A negative qty stock-out would
+        // otherwise ADD stock, and a non-numeric qty would string-concatenate
+        // into the inventory totals.
+        const qty = Number(obj.qty);
+        const pid = Number(obj.product_id);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
+        }
+        // Mirror the SQLite validate(): reject non-numeric ids with 400, but
+        // let fractional ids fall through to the product lookup (which 404s,
+        // exactly like SQLite's `WHERE id = ?` with no matching row).
+        if (Number.isNaN(pid) || pid < 1) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
+        }
         const products = readJSON(productsFile) || [];
-        if (!products[Number(obj.product_id) - 1] || (products[Number(obj.product_id) - 1] && products[Number(obj.product_id) - 1]['status'] === 'inactive')) {
+        if (!products[pid - 1] || !isProductActive(products[pid - 1])) {
           return sendJson(res, 404, { error: 'Product not found or inactive' });
+        }
+        // Pre-flight stock availability so a rejected movement leaves no trace
+        // in the movement ledger (mirrors the SQLite backend).
+        const inv = getInventory();
+        const item = inv.items.find(i => i.product.id === pid);
+        const locFor = (loc) => typeof loc === 'string' ? loc : (inv.locations[Number(loc) - 1]);
+        if ((obj.type === 'stock-out' || obj.type === 'transfer') && obj.src_location) {
+          const available = item ? (item.locations[locFor(obj.src_location)] || 0) : 0;
+          if (available < qty) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
         }
         const movements = readJSON(movementsFile) || [];
         const newMovement = {
           id: movements.length + 1,
-          product_id: obj.product_id,
-          qty: obj.qty,
+          product_id: pid,
+          qty,
           type: obj.type,
           src_location: obj.src_location || null,
           dst_location: obj.dst_location || null,
@@ -494,30 +676,23 @@ const server = http.createServer((req, res) => {
         movements.unshift(newMovement);
         writeJSON(movementsFile, movements);
 
-        const inv = getInventory();
-        const item = inv.items.find(i => i.product.id === Number(obj.product_id));
         if (item) {
-          const locFor = (loc) => typeof loc === 'string' ? loc : (inv.locations[Number(loc) - 1]);
           if (obj.type === 'stock-in' && obj.dst_location) {
             const loc = locFor(obj.dst_location);
-            item.locations[loc] = (item.locations[loc] || 0) + obj.qty;
+            item.locations[loc] = (item.locations[loc] || 0) + qty;
           } else if (obj.type === 'stock-out' && obj.src_location) {
             const loc = locFor(obj.src_location);
-            const available = item.locations[loc] || 0;
-            if (available < obj.qty) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
-            item.locations[loc] = available - obj.qty;
+            item.locations[loc] = item.locations[loc] - qty;
           } else if (obj.type === 'transfer' && obj.src_location && obj.dst_location) {
             const src = locFor(obj.src_location);
             const dst = locFor(obj.dst_location);
-            const available = item.locations[src] || 0;
-            if (available < obj.qty) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
-            item.locations[src] = available - obj.qty;
-            item.locations[dst] = (item.locations[dst] || 0) + obj.qty;
+            item.locations[src] = item.locations[src] - qty;
+            item.locations[dst] = (item.locations[dst] || 0) + qty;
           } else if (obj.type === 'adjustment' && (obj.dst_location || obj.src_location)) {
             const loc = locFor(obj.dst_location || obj.src_location);
-            item.locations[loc] = obj.qty;
+            item.locations[loc] = qty;
           }
-          item.total = Object.values(item.locations).reduce((sum, qty) => sum + qty, 0);
+          item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
           writeJSON(inventoryFile, inv);
           // Mirror the SQLite backend: create/update a low-stock alert when a
           // source location drops below the threshold after a movement.
@@ -535,7 +710,7 @@ const server = http.createServer((req, res) => {
 
   // ================= ORDER INQUIRIES =================
 
-  if (req.method === 'GET' && url.startsWith('/api/order-inquiries')) {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/order-inquiries') {
     return requireAuth(req, res, false, (req, res) => {
     const parsed = new URL(url, 'http://localhost');
     const page = parsed.searchParams.get('page');
@@ -561,11 +736,11 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  if (req.method === 'PUT' && url.startsWith('/api/order-inquiries/')) {
-    const id = Number(url.split('/').pop());
+  if (req.method === 'PUT' && isParamPath(url, 'api/order-inquiries', 3)) {
+    const id = Number(url.split('?')[0].split('/').pop());
     return requireAuth(req, res, false, (req, res) => {
       return parseBody(req, (err, obj) => {
-        if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
+        if (err) return bodyError(res, err);
         const orders = readJSON(orderFile) || [];
         const order = orders.find(o => o.id === id);
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
@@ -579,9 +754,9 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  if (req.method === 'POST' && url === '/api/order-inquiries') {
+  if (req.method === 'POST' && url.split('?')[0] === '/api/order-inquiries') {
     return parseBody(req, (err, obj) => {
-      if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
+      if (err) return bodyError(res, err);
       if (!obj.customer_name || !obj.customer_email) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['customer_name and customer_email are required'] });
       }
@@ -605,7 +780,12 @@ const server = http.createServer((req, res) => {
   // ================= OPTIMIZATION =================
 
   if (req.method === 'GET' && url.startsWith('/api/optimization')) {
-    const parts = url.split('/').filter(Boolean);
+    const parts = url.split('?')[0].split('/').filter(Boolean);
+    // Valid shapes are /api/optimization (bulk), /api/optimization/abc, and
+    // /api/optimization/{productId}. Deeper paths must 404 like Express does.
+    if (parts.length !== 2 && parts.length !== 3) {
+      return sendJson(res, 404, { error: 'Not found' });
+    }
     const pid = parts[2];
     const products = readJSON(productsFile) || [];
 
@@ -654,7 +834,8 @@ const server = http.createServer((req, res) => {
     const product = products[pid - 1];
     if (!product) return sendJson(res, 404, { error: 'Product not found' });
     const C = product['Price'] || product.price || 1;
-    const D = computeDemand(pid);
+    // Single-product demand falls back to 1000 (SQLite uses 1000 here, 100 bulk).
+    const D = computeDemand(pid, 1000);
     const S = 50;
     const H = 0.2 * C;
     const EOQ = Math.sqrt((2 * D * S) / H);
@@ -663,7 +844,7 @@ const server = http.createServer((req, res) => {
     const safetyStock = Math.ceil(Math.sqrt(D) * 0.1);
     const inv = getInventory();
     const item = inv.items.find(i => i.product.id === Number(pid));
-    const avgInventory = item?.total || 1;
+    const avgInventory = Math.round(item?.total || 1);
     return sendJson(res, 200, {
       EOQ: Math.round(EOQ),
       ROP,
@@ -677,15 +858,27 @@ const server = http.createServer((req, res) => {
   // ================= ANALYTICS =================
 
   if (req.method === 'GET' && url.startsWith('/api/analytics')) {
-    const parts = url.split('/').filter(Boolean);
+    const parts = url.split('?')[0].split('/').filter(Boolean);
+    // Valid shapes are /api/analytics/summary and /api/analytics/export/{type}.
+    const validAnalyticsPath =
+      (parts.length === 3 && parts[2] === 'summary') ||
+      (parts.length === 4 && parts[2] === 'export');
+    if (!validAnalyticsPath) {
+      return sendJson(res, 404, { error: 'Not found' });
+    }
 
     if (parts[2] === 'summary') {
       const products = readJSON(productsFile) || [];
       const inv = getInventory();
       const movements = readJSON(movementsFile) || [];
-      const orders = readJSON(orderFile) || [];        const totalProducts = products.filter(p => p['status'] !== 'inactive').length;
+      const orders = readJSON(orderFile) || [];        const totalProducts = products.filter(isProductActive).length;
         const totalStock = inv.items.reduce((sum, i) => sum + i.total, 0);
-      const lowStockItems = inv.items.filter(i => i.total < 80).length;
+      // Per (product, location) rows below the threshold — mirrors the SQLite
+      // `SELECT COUNT(*) FROM stock WHERE quantity < 80` semantics.
+      const lowStockItems = inv.items.reduce(
+        (sum, i) => sum + Object.values(i.locations).filter(q => q < 80).length,
+        0
+      );
       const totalLocations = inv.locations.length;
       const pendingInquiries = orders.filter(o => o.status === 'pending').length;
       const totalSales = salesTransactions.reduce((sum, s) => sum + s.total_amount, 0);
@@ -722,7 +915,7 @@ const server = http.createServer((req, res) => {
         const type = parts[3];
         const format = new URL(url, 'http://localhost').searchParams.get('format') || 'json';
         let data = [];
-        if (type === 'products') data = (readJSON(productsFile) || []).filter(p => p['status'] !== 'inactive').map(formatProduct);
+        if (type === 'products') data = (readJSON(productsFile) || []).filter(isProductActive).map(formatProduct);
         else if (type === 'inventory') {
           const inv = getInventory();
           inv.items.forEach(item => inv.locations.forEach(loc => {
@@ -749,7 +942,7 @@ const server = http.createServer((req, res) => {
 
   // ================= SALES =================
 
-  if (req.method === 'GET' && url.startsWith('/api/sales')) {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/sales') {
     return requireAuth(req, res, false, (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       const page = parsed.searchParams.get('page');
@@ -780,16 +973,29 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && url === '/api/sales') {
     return requireAuth(req, res, false, (req, res) => {
       return parseBody(req, (err, obj) => {
-        if (err) return sendJson(res, 400, { error: 'Invalid JSON' });
-        if (!obj.product_id || !obj.qty) return sendJson(res, 400, { error: 'Validation failed', details: ['product_id and qty are required'] });
+        if (err) return bodyError(res, err);
+        // Mirror the SQLite validate() schema: qty must be a positive number
+        // and product_id a positive integer (a NaN/negative qty would corrupt
+        // the recorded total, and inactive products must not be sold).
+        const saleQty = Number(obj.qty);
+        const salePid = Number(obj.product_id);
+        if (!Number.isFinite(saleQty) || saleQty <= 0) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
+        }
+        // Mirror the SQLite validate(): reject non-numeric ids with 400, but
+        // let fractional ids fall through to the product lookup (which 404s,
+        // exactly like SQLite's `WHERE id = ?` with no matching row).
+        if (Number.isNaN(salePid) || salePid < 1) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
+        }
         const products = readJSON(productsFile) || [];
-        const p = products[Number(obj.product_id) - 1];
-        if (!p) return sendJson(res, 404, { error: 'Product not found or inactive' });
-        const total = Number(obj.qty) * (p['Price'] || p.price || 0);
+        const p = products[salePid - 1];
+        if (!p || !isProductActive(p)) return sendJson(res, 404, { error: 'Product not found or inactive' });
+        const total = saleQty * (p['Price'] || p.price || 0);
         salesTransactions.push({
           id: nextSaleId++,
-          product_id: Number(obj.product_id),
-          qty: Number(obj.qty),
+          product_id: salePid,
+          qty: saleQty,
           unit_price: p['Price'] || p.price || 0,
           total_amount: total,
           transaction_date: new Date().toISOString(),
@@ -802,21 +1008,22 @@ const server = http.createServer((req, res) => {
 
   // ================= USERS & ALERTS =================
 
-  if (req.method === 'GET' && url === '/api/users') {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/users') {
     return requireAuth(req, res, true, (req, res) => {
       return sendJson(res, 200, users.map(u => ({ id: u.id, username: u.username, role: u.role, email: u.email, created_at: u.created_at })));
     });
   }
 
-  if (req.method === 'GET' && url === '/api/alerts') {
+  if (req.method === 'GET' && url.split('?')[0] === '/api/alerts') {
     return requireAuth(req, res, false, (req, res) => {
-      return sendJson(res, 200, computeAlerts());
+      const status = new URL(url, 'http://localhost').searchParams.get('status') || 'active';
+      return sendJson(res, 200, alerts.filter(a => a.status === status));
     });
   }
 
-  if (req.method === 'PUT' && url.startsWith('/api/alerts/') && url.endsWith('/resolve')) {
+  if (req.method === 'PUT' && url.startsWith('/api/alerts/') && url.split('?')[0].endsWith('/resolve') && url.split('?')[0].split('/').length === 5) {
     return requireAuth(req, res, true, (req, res) => {
-      const id = Number(url.split('/')[3]);
+      const id = Number(url.split('?')[0].split('/')[3]);
       const alert = computeAlerts().find(a => a.id === id);
       if (!alert) return sendJson(res, 404, { error: 'Alert not found or already resolved' });
       alert.status = 'resolved';

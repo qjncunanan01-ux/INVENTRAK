@@ -6,6 +6,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { db } = require('./db');
+const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'inventrak-secret-key-2024';
 const dataDir = path.join(__dirname, '..', 'data');
@@ -70,7 +71,10 @@ function validate(schema) {
       }
 
       if (value !== undefined && value !== null && value !== '') {
-        if (rules.type === 'number' && isNaN(Number(value))) {
+        // Number.isFinite (not isNaN) so 1e999/Infinity is rejected too —
+        // binding Infinity into SQLite throws, and a NaN total would corrupt
+        // sales records. Matches the npm-free fallback's Number.isFinite checks.
+        if (rules.type === 'number' && !Number.isFinite(Number(value))) {
           errors.push(`${field} must be a number`);
         }
 
@@ -188,17 +192,11 @@ function seedDatabase() {
     'INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
-  const locations = [
-    'Showroom',
-    'Stockroom 1',
-    'Stockroom 2',
-  ];
-
-  const customers = [
-    'Juan Dela Cruz',
-    'Maria Santos',
-    'Jose Rizal',
-  ];
+  // Deterministic demo data: the same fixed-seed PRNG and draw order as the
+  // npm-free fallback and seed.js, so fresh boots of either backend produce
+  // identical stock AND sales (cross-backend value parity).
+  const locations = DEMO_LOCATIONS;
+  const customers = DEMO_CUSTOMERS;
 
   db.transaction(() => {
     for (const name of locations) {
@@ -206,6 +204,8 @@ function seedDatabase() {
         insertLocation.run(name);
       }
     }
+
+    const rand = mulberry32(DEMO_SEED);
 
     for (const p of products) {
       const result = insertProduct.run(
@@ -221,9 +221,10 @@ function seedDatabase() {
 
       const pid = result.lastInsertRowid;
 
+      // Draws 1-3: location stock.
       for (const name of locations) {
         const locId = getLocation.get(name).id;
-        const qty = Math.floor(Math.random() * 160) + 20;
+        const qty = Math.floor(rand() * 160) + 20;
 
         insertStock.run(pid, locId, qty);
 
@@ -235,14 +236,15 @@ function seedDatabase() {
         );
       }
 
+      // Draws 4-9: sales history (2 draws per customer).
       const price = p['Price'] || p.price || 1;
 
       for (const cust of customers) {
-        const saleQty = Math.floor(Math.random() * 15) + 1;
-        const daysAgo = Math.floor(Math.random() * 90);
+        const saleQty = Math.floor(rand() * 15) + 1;
+        const daysAgo = Math.floor(rand() * 90);
 
         const date = new Date(
-          Date.now() - daysAgo * 86400000
+          SEED_EPOCH - daysAgo * 86400000
         ).toISOString();
 
         insertSales.run(
@@ -428,7 +430,7 @@ app.get('/api/products', (req, res) => {
 
   const pageNum = Math.max(
     1,
-    parseInt(page)
+    parseInt(page) || 1
   );
 
   const limitNum = Math.min(
@@ -851,6 +853,22 @@ app.post(
     const srcId = resolveLocation(src_location);
     const dstId = resolveLocation(dst_location);
 
+    // Pre-flight stock availability so a rejected movement leaves no trace
+    // in the movement ledger.
+    if ((type === 'stock-out' || type === 'transfer') && srcId) {
+      const preflightStock = db
+        .prepare(
+          'SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?'
+        )
+        .get(product_id, srcId);
+
+      if (!preflightStock || preflightStock.quantity < qty) {
+        return res.status(400).json({
+          error: 'Insufficient stock at source location',
+        });
+      }
+    }
+
     db.prepare(
       'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
@@ -908,24 +926,6 @@ app.post(
       type === 'stock-out' &&
       srcId
     ) {
-      const currentStock = db
-        .prepare(
-          'SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?'
-        )
-        .get(
-          product_id,
-          srcId
-        );
-
-      if (
-        !currentStock ||
-        currentStock.quantity < qty
-      ) {
-        return res.status(400).json({
-          error: 'Insufficient stock at source location',
-        });
-      }
-
       consumeStockLots(
         product_id,
         srcId,
@@ -944,24 +944,6 @@ app.post(
       srcId &&
       dstId
     ) {
-      const currentStock = db
-        .prepare(
-          'SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?'
-        )
-        .get(
-          product_id,
-          srcId
-        );
-
-      if (
-        !currentStock ||
-        currentStock.quantity < qty
-      ) {
-        return res.status(400).json({
-          error: 'Insufficient stock at source location',
-        });
-      }
-
       consumeStockLots(
         product_id,
         srcId,
@@ -1005,6 +987,17 @@ app.post(
         product_id,
         loc
       );
+
+      // Keep FIFO lots consistent with the adjusted quantity: replace the
+      // product's lots at this location with a single lot of the new qty.
+      // Without this, lots drift from stock after an adjustment and the
+      // overflow path in consumeStockLots() can double-decrement stock.
+      db.prepare(
+        'DELETE FROM stock_lots WHERE product_id = ? AND location_id = ?'
+      ).run(product_id, loc);
+      db.prepare(
+        'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
+      ).run(product_id, loc, qty, now);
     }
 
     const threshold = 80;
@@ -1075,7 +1068,7 @@ app.get(
 
     const pageNum = Math.max(
       1,
-      parseInt(page)
+      parseInt(page) || 1
     );
 
     const limitNum = Math.min(
@@ -1482,7 +1475,7 @@ app.get(
 
     const pageNum = Math.max(
       1,
-      parseInt(page)
+      parseInt(page) || 1
     );
 
     const limitNum = Math.min(
@@ -1911,7 +1904,7 @@ app.get(
 
     const pageNum = Math.max(
       1,
-      parseInt(page)
+      parseInt(page) || 1
     );
 
     const limitNum = Math.min(
@@ -1978,6 +1971,65 @@ app.get(
   }
 );
 
+// ================= INTEGRITY =================
+
+app.get(
+  '/api/health/integrity',
+  authenticateToken,
+  adminOnly,
+  (req, res) => {
+    const errors = [];
+
+    // No duplicate (product, location) stock rows.
+    const dups = db
+      .prepare(
+        'SELECT product_id, location_id, COUNT(*) as c FROM stock GROUP BY product_id, location_id HAVING c > 1'
+      )
+      .all();
+    dups.forEach((d) =>
+      errors.push(`duplicate stock row: product ${d.product_id}, location ${d.location_id} (x${d.c})`)
+    );
+
+    // No negative stock.
+    db.prepare(
+      'SELECT product_id, location_id, quantity FROM stock WHERE quantity < 0'
+    ).all().forEach((r) =>
+      errors.push(`negative stock: product ${r.product_id}, location ${r.location_id} = ${r.quantity}`)
+    );
+
+    // FIFO lots must reconcile with the stock ledger at each (product, location).
+    const lots = db
+      .prepare(
+        'SELECT product_id, location_id, SUM(qty) as s FROM stock_lots GROUP BY product_id, location_id'
+      )
+      .all();
+    lots.forEach((l) => {
+      const st = db
+        .prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?')
+        .get(l.product_id, l.location_id);
+      if (!st) {
+        errors.push(`FIFO lots exist for product ${l.product_id}, location ${l.location_id} with no stock row`);
+      } else if (Math.abs(st.quantity - l.s) > 1e-6) {
+        errors.push(`FIFO lots (${l.s}) != stock (${st.quantity}) for product ${l.product_id}, location ${l.location_id}`);
+      }
+    });
+
+    // Movements must reference existing, active products.
+    db.prepare('SELECT DISTINCT product_id FROM stock_movements').all().forEach((m) => {
+      const p = db.prepare('SELECT id, status FROM products WHERE id = ?').get(m.product_id);
+      if (!p || p.status !== 'active') {
+        errors.push(`movement references inactive/missing product ${m.product_id}`);
+      }
+    });
+
+    res.json({
+      ok: errors.length === 0,
+      errors,
+      checkedAt: new Date().toISOString(),
+    });
+  }
+);
+
 // ================= API DOCUMENTATION =================
 
 const openapiFile = path.join(__dirname, '..', 'openapi.json');
@@ -2025,6 +2077,17 @@ app.use((req, res) => {
 // Error handling middleware must be last.
 
 app.use((err, req, res, next) => {
+  // body-parser reports client errors (malformed JSON, oversized body) via
+  // err.status; surface those as-is instead of masking them as 500s, matching
+  // the npm-free fallback's error responses.
+  if (err && err.status === 400) {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+
+  if (err && err.status === 413) {
+    return res.status(413).json({ error: 'Payload Too Large' });
+  }
+
   console.error(
     'Unhandled error:',
     err

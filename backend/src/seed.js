@@ -2,6 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const { db } = require('./db');
 const bcrypt = require('bcryptjs');
+const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 
 const productsFile = path.join(__dirname, '..', 'data', 'products.json');
 if (!fs.existsSync(productsFile)) {
@@ -31,8 +32,12 @@ const insertStock = db.prepare('INSERT INTO stock (product_id, location_id, quan
 const insertLot = db.prepare('INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)');
 const insertSales = db.prepare('INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?)');
 
-const locations = ['Showroom', 'Stockroom 1', 'Stockroom 2'];
-const customers = ['Juan Dela Cruz', 'Maria Santos', 'Jose Rizal'];
+// Deterministic demo data: same fixed-seed PRNG and draw order as app.js
+// seedDatabase and the npm-free fallback.
+const locations = DEMO_LOCATIONS;
+const customers = DEMO_CUSTOMERS;
+
+const rand = mulberry32(DEMO_SEED);
 
 db.transaction(() => {
   for (const loc of locations) {
@@ -52,18 +57,20 @@ db.transaction(() => {
     );
 
     const pid = res.lastInsertRowid;
+    // Draws 1-3: location stock.
     for (const loc of locations) {
       const locId = getLocation.get(loc).id;
-      const qty = Math.floor(Math.random() * 160) + 20;
+      const qty = Math.floor(rand() * 160) + 20;
       insertStock.run(pid, locId, qty);
       insertLot.run(pid, locId, qty, new Date().toISOString());
     }
 
+    // Draws 4-9: sales history (2 draws per customer).
     const price = p['Price'] || p.price || 1;
     for (const cust of customers) {
-      const saleQty = Math.floor(Math.random() * 15) + 1;
-      const daysAgo = Math.floor(Math.random() * 90);
-      const date = new Date(Date.now() - daysAgo * 86400000).toISOString();
+      const saleQty = Math.floor(rand() * 15) + 1;
+      const daysAgo = Math.floor(rand() * 90);
+      const date = new Date(SEED_EPOCH - daysAgo * 86400000).toISOString();
       insertSales.run(pid, saleQty, price, saleQty * price, date, cust);
     }
   }

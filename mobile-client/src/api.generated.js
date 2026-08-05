@@ -101,6 +101,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createSale: (body) => request('POST', '/api/sales', { body }),
   // GET /api/users — List users (admin only)
   listUsers: (_) => request('GET', '/api/users', {  }),
+  // GET /api/health/integrity — Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)
+  getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
   };
 }
 

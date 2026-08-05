@@ -63,6 +63,16 @@ test('contract: /api/auth/me identical for valid, missing, and invalid tokens', 
   await both('GET /api/auth/me (admin)', '/api/auth/me', { auth: 'admin' });
   await both('GET /api/auth/me (no token)', '/api/auth/me');
   await both('GET /api/auth/me (invalid token)', '/api/auth/me', { auth: 'invalid' });
+
+  // Regression: a WELL-FORMED but forged token (correct prefix + numeric id +
+  // garbage signature) must be rejected exactly like a tampered JWT on the
+  // SQLite side — the npm-free HMAC comparison must actually be exercised.
+  for (const side of [sqlite, npmfree]) {
+    const res = await call(side.url, '/api/auth/me', {
+      token: 'demo-token-1.forged-signature-that-does-not-match',
+    });
+    assert.strictEqual(res.status, 403, `${side === sqlite ? 'sqlite' : 'npmfree'} forged token must 403`);
+  }
 });
 
 // ===== Products =====
@@ -188,6 +198,24 @@ test('contract: stock movements + lots', async () => {
   await both('GET /api/stock-lots?product_id=1', '/api/stock-lots?product_id=1');
 });
 
+test('contract: rejected stock-out leaves no movement record on either backend', async () => {
+  // Regression: a stock-out that fails the availability check must not leave a
+  // phantom entry in the movement ledger (it would skew analytics + demand).
+  for (const side of [sqlite, npmfree]) {
+    const before = await call(side.url, '/api/stock-movements');
+    const res = await call(side.url, '/api/stock-movement', {
+      method: 'POST', token: side.token.admin,
+      body: { product_id: 1, qty: 999999999, type: 'stock-out', src_location: 1 },
+    });
+    assert.strictEqual(res.status, 400, 'insufficient stock must 400');
+    const after = await call(side.url, '/api/stock-movements');
+    assert.strictEqual(
+      after.json.length, before.json.length,
+      'rejected stock-out must not append a movement record'
+    );
+  }
+});
+
 // ===== Order Inquiries =====
 
 test('contract: order inquiries lifecycle', async () => {
@@ -266,6 +294,56 @@ test('contract: sales + users', async () => {
   await both('GET /api/users (customer)', '/api/users', { auth: 'customer' });
 });
 
+// ===== Validation & edge-case parity =====
+
+test('contract: input validation + edge cases behave identically', async () => {
+  // Requests the SQLite schema rejects (or handles specially) that the
+  // npm-free fallback must mirror exactly.
+  const cases = [
+    ['POST /api/sales qty="abc"', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 1, qty: 'abc' } }],
+    ['POST /api/sales qty=-5', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 1, qty: -5 } }],
+    ['POST /api/sales product_id="abc"', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 'abc', qty: 2 } }],
+    ['POST /api/products no price', '/api/products', { method: 'POST', auth: 'admin', body: { name: 'NoPrice', category: 'X' } }],
+    ['POST /api/products price="abc"', '/api/products', { method: 'POST', auth: 'admin', body: { name: 'BadPrice', category: 'X', price: 'abc' } }],
+    ['POST /api/products price=-5', '/api/products', { method: 'POST', auth: 'admin', body: { name: 'NegPrice', category: 'X', price: -5 } }],
+    ['GET /api/alerts?status=resolved', '/api/alerts?status=resolved', { auth: 'admin' }],
+    ['GET /api/alerts?status=bogus', '/api/alerts?status=bogus', { auth: 'admin' }],
+    ['GET /api/products?page=abc', '/api/products?page=abc'],
+    ['GET /api/stock-movements?page=abc', '/api/stock-movements?page=abc'],
+    ['GET /api/order-inquiries?page=abc', '/api/order-inquiries?page=abc', { auth: 'admin' }],
+    ['DELETE /api/locations/1.5', '/api/locations/1.5', { method: 'DELETE', auth: 'admin' }],
+    ['DELETE /api/locations/1/x', '/api/locations/1/x', { method: 'DELETE', auth: 'admin' }],
+    ['GET /api/products/1/2', '/api/products/1/2'],
+    ['PUT /api/products/1/2', '/api/products/1/2', { method: 'PUT', auth: 'admin', body: { name: 'x' } }],
+    ['PUT /api/order-inquiries/1/2', '/api/order-inquiries/1/2', { method: 'PUT', auth: 'admin', body: { status: 'approved' } }],
+    ['GET /api/products?status=inactive', '/api/products?status=inactive'],
+  ];
+  for (const [label, p, opts] of cases) {
+    await both(label, p, opts);
+  }
+
+  // Deactivating a product then selling it must 404 on both backends.
+  await call(sqlite.url, '/api/products/2', { method: 'DELETE', token: sqlite.token.admin });
+  await call(npmfree.url, '/api/products/2', { method: 'DELETE', token: npmfree.token.admin });
+  await both('POST /api/sales inactive product', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 2, qty: 2 } });
+
+  // Malformed JSON must be a 400 client error on both, never a 500.
+  for (const side of [sqlite, npmfree]) {
+    const res = await fetch(`${side.url}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{bad json',
+    });
+    assert.strictEqual(res.status, 400, 'malformed JSON must 400');
+  }
+
+  // The status param must actually filter content, not just match status codes.
+  const sInactive = await call(sqlite.url, '/api/products?status=inactive');
+  const nInactive = await call(npmfree.url, '/api/products?status=inactive');
+  assert.ok(sInactive.json.length > 0, 'sqlite should list the deactivated product');
+  assert.strictEqual(sInactive.json.length, nInactive.json.length, 'inactive product list length parity');
+});
+
 // ===== Alerts =====
 
 test('contract: alerts are empty, then created by low-stock movement, then resolvable', async () => {
@@ -295,6 +373,82 @@ test('contract: alerts are empty, then created by low-stock movement, then resol
     method: 'PUT', auth: 'admin',
   });
   await both('GET /api/alerts (after resolve)', '/api/alerts', { auth: 'admin' });
+});
+
+// ===== Deep-path 404 parity =====
+
+test('contract: deeper paths on list endpoints 404 identically on both backends', async () => {
+  // The npm-free fallback matches list endpoints by prefix; without exact
+  // matching, /api/order-inquiries/5 (etc.) would wrongly return the full
+  // list. Express 404s these, so both must.
+  const cases = [
+    { p: '/api/order-inquiries/5', auth: 'customer' },
+    { p: '/api/order-inquiries/99999', auth: 'customer' },
+    { p: '/api/inventory/5' },
+    { p: '/api/inventory/5/x' },
+    { p: '/api/stock-movements/5' },
+    { p: '/api/sales/5', auth: 'admin' },
+    { p: '/api/products/categories/x' },
+    { p: '/api/optimization/abc/x' },
+    { p: '/api/optimization/abc/extra' },
+    { p: '/api/analytics/summary/x', auth: 'admin' },
+    { p: '/api/analytics/export/products/x', auth: 'admin' },
+    { p: '/api/analytics/bogus', auth: 'admin' },
+  ];
+  for (const c of cases) {
+    await both(`deep-path GET ${c.p}`, c.p, { auth: c.auth || null });
+  }
+});
+
+// ===== Value parity (deterministic seed) =====
+
+test('contract: deterministic seed means VALUES match, not just shapes', async () => {
+  // Both backends seed from the same products.json with the same fixed-seed
+  // PRNG and draw order, so fresh boots produce IDENTICAL stock and sales.
+  // This guards the documented analytics/optimization divergence.
+  const s = await call(sqlite.url, '/api/analytics/summary');
+  const n = await call(npmfree.url, '/api/analytics/summary');
+  assert.strictEqual(s.status, n.status);
+  for (const k of ['totalProducts', 'totalStock', 'lowStockItems', 'totalLocations', 'totalSales', 'totalMovements', 'pendingInquiries']) {
+    assert.strictEqual(s.json[k], n.json[k], `analytics ${k}: sqlite=${s.json[k]} npmfree=${n.json[k]}`);
+  }
+
+  // Per-product inventory totals identical on both backends.
+  const si = await call(sqlite.url, '/api/inventory');
+  const ni = await call(npmfree.url, '/api/inventory');
+  const sBy = new Map(si.json.items.map(i => [Number(i.product.id), i.total]));
+  const nBy = new Map(ni.json.items.map(i => [Number(i.product.id), i.total]));
+  assert.strictEqual(sBy.size, nBy.size, 'same product count');
+  for (const [pid, total] of sBy) {
+    assert.strictEqual(total, nBy.get(pid), `product ${pid} total`);
+  }
+
+  // Sales ledger value parity (seeded history is identical).
+  const ss = await call(sqlite.url, '/api/sales', { token: sqlite.token.admin });
+  const ns = await call(npmfree.url, '/api/sales', { token: npmfree.token.admin });
+  assert.strictEqual(ss.json.length, ns.json.length, 'sales row count');
+  const sumS = ss.json.reduce((a, r) => a + r.total_amount, 0);
+  const sumN = ns.json.reduce((a, r) => a + r.total_amount, 0);
+  assert.strictEqual(sumS, sumN, 'total sales value');
+
+  // Optimization values identical (demand now derives from the same sales).
+  const so = await call(sqlite.url, '/api/optimization/1');
+  const no = await call(npmfree.url, '/api/optimization/1');
+  assert.deepStrictEqual(so.json, no.json, 'optimization/1 values');
+});
+
+// ===== Integrity endpoint =====
+
+test('contract: health/integrity is admin-only and reports clean data identically', async () => {
+  await both('GET /api/health/integrity (no token)', '/api/health/integrity');
+  await both('GET /api/health/integrity (customer)', '/api/health/integrity', { auth: 'customer' });
+  const s = await call(sqlite.url, '/api/health/integrity', { token: sqlite.token.admin });
+  const n = await call(npmfree.url, '/api/health/integrity', { token: npmfree.token.admin });
+  assert.strictEqual(s.status, 200);
+  assert.strictEqual(n.status, 200);
+  assert.strictEqual(shapeOf(s.json), shapeOf(n.json), 'integrity shapes');
+  assert.strictEqual(s.json.ok, true, 'sqlite integrity should be clean: ' + JSON.stringify(s.json.errors));
+  assert.strictEqual(n.json.ok, true, 'npmfree integrity should be clean: ' + JSON.stringify(n.json.errors));
 });
 
 // ===== Docs & 404s =====
