@@ -20,7 +20,7 @@ services:
   # ---------- Backend API ----------
   - type: web
     name: inventrak-api
-    runtime: node
+    env: node
     rootDirectory: backend
     plan: free
     buildCommand: npm install
@@ -42,12 +42,15 @@ services:
       #   generateValue: true  # HMAC token signing key (set a fixed one in prod)
 
   # ---------- Admin dashboard (static site) ----------
+  # NOTE: no rootDirectory here — the Render blueprint validator rejects
+  # rootDirectory on static (env: static) services, so the build command
+  # cd's into frontend-admin itself and staticPublishPath is repo-root
+  # relative.
   - type: web
     name: inventrak-admin
     env: static
-    rootDirectory: frontend-admin
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./build
+    buildCommand: cd frontend-admin && npm install && npm run build
+    staticPublishPath: ./frontend-admin/build
     envVars:
       # Baked into the JS bundle at build time (CRA REACT_APP_* convention).
       # Match this to the URL Render assigns the api service above.

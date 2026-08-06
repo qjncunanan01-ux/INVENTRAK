@@ -15,6 +15,9 @@ Thumbs.db
 .env
 .env.*
 
+# Firebase service-account keys (NEVER commit these)
+**/.secrets/
+
 # Build artifacts
 **/build/
 **/dist/
