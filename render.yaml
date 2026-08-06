@@ -30,11 +30,11 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
-      # Replace with YOUR Firebase project id (Project settings -> General),
-      # or override it in the dashboard after deploy. Without it the API runs
-      # on the local JSON files (ephemeral disk on the free plan).
+      # Your real Firebase project id (Project settings -> General). Without a
+      # service-account JSON the API still runs on the local JSON files
+      # (ephemeral disk on the free plan) — fully demoable either way.
       - key: FIREBASE_PROJECT_ID
-        value: your-firebase-project-id
+        value: inventrak-6b079
       # Optional pins:
       # - key: DB_DRIVER
       #   value: json          # force JSON files even with creds present
