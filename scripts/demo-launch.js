@@ -48,8 +48,8 @@ function isPortUp(port, host = '127.0.0.1', timeoutMs = 2000) {
   });
 }
 
-function run(cmd, args, opts = {}) {
-  const child = spawn(cmd, args, {
+function run(cmdLine, opts = {}) {
+  const child = spawn(cmdLine, {
     cwd: opts.cwd || ROOT,
     shell: true,
     env: { ...process.env, ...(opts.env || {}) },
@@ -100,7 +100,7 @@ async function startBackend() {
     const script = path.join(BACKEND, entry);
     if (!fs.existsSync(script)) continue;
     log(`  ▶ starting backend: node ${entry} (port ${BACKEND_PORT})`);
-    const child = run('node', [entry], {
+    const child = run(`node ${entry}`, {
       cwd: BACKEND,
       env: { PORT: String(BACKEND_PORT) },
       onStdout: (s) => { if (/running on/.test(s)) log('  ✓ backend booted'); },
@@ -140,7 +140,7 @@ async function startTunnel() {
   }
   log('  ▶ starting Cloudflare tunnel (public URL)...');
   let publicUrl = null;
-  const child = run(`"${CF_BIN}"`, ['tunnel', '--url', `http://localhost:${BACKEND_PORT}`], {
+  const child = run(`"${CF_BIN}" tunnel --url http://localhost:${BACKEND_PORT}`, {
     onStdout: (s) => {
       const m = s.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
       if (m && !publicUrl) {
@@ -176,7 +176,7 @@ async function startAdmin() {
     return;
   }
   log(`  ▶ starting admin dashboard (first build can take ~30-60s)...`);
-  run('npx react-scripts start', [], {
+  run('npx react-scripts start', {
     cwd: ADMIN,
     env: { PORT: String(ADMIN_PORT), CI: 'false', REACT_APP_API_BASE_URL: `http://localhost:${BACKEND_PORT}` },
   });
