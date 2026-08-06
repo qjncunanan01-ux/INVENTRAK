@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { API_BASE_URL, register, setToken } from '../api';
+import { API_BASE_URL, register, setSessionUsername, setToken } from '../api';
 import { colors } from '../theme';
 
 // Mirrors the backend policy exactly (backend/src/password-policy.js): the
@@ -61,7 +61,16 @@ export default function SignupScreen({ navigation }) {
     try {
       const response = await register({ username: uname, password, email: mail });
       if (response.token) setToken(response.token);
-      navigation.replace('Main', { username: response.user?.username || uname });
+      const loggedInAs = response.user?.username || uname;
+      setSessionUsername(loggedInAs);
+      // Pop back to the tabs: a guest who created an account at checkout
+      // keeps their filled-in inquiry form and tab position.
+      const state = navigation.getState();
+      if (state && state.routes && state.routes.length >= 2) {
+        navigation.goBack();
+      } else {
+        navigation.replace('Main', { username: loggedInAs });
+      }
     } catch (err) {
       Alert.alert(
         'Sign Up Failed',

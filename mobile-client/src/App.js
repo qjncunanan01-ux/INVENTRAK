@@ -7,7 +7,6 @@ import { Text } from 'react-native';
 import { loadSavedApiUrl } from './api';
 import HomeScreen from './screens/HomeScreen';
 import InquiryHistoryScreen from './screens/InquiryHistoryScreen';
-import LandingScreen from './screens/LandingScreen';
 import LoginScreen from './screens/LoginScreen';
 import OrderInquiryScreen from './screens/OrderInquiryScreen';
 import ProductScreen from './screens/ProductScreen';
@@ -96,8 +95,11 @@ export default function App() {
   return (
     <NavigationContainer>
       <StatusBar style="dark" backgroundColor={colors.background} />
-      <AuthStack.Navigator initialRouteName="Landing">
-        <AuthStack.Screen name="Landing" component={LandingScreen} options={{ headerShown: false }} />
+      {/* Guest-first: the app boots straight into the catalog tabs. Login /
+          Signup live in this stack and are only pushed when the customer
+          needs an account (placing an order or viewing order history), or
+          taps Log In / Create Account in the Account tab. */}
+      <AuthStack.Navigator initialRouteName="Main">
         <AuthStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <AuthStack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
         <AuthStack.Screen

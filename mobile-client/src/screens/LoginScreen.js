@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { getApiBaseUrl, loadSavedApiUrl, login, setApiBaseUrl, setToken } from '../api';
+import { getApiBaseUrl, loadSavedApiUrl, login, setApiBaseUrl, setSessionUsername, setToken } from '../api';
 import { colors } from '../theme';
 
 export default function LoginScreen({ navigation }) {
@@ -38,7 +38,16 @@ export default function LoginScreen({ navigation }) {
     try {
       const response = await login({ username, password });
       if (response.token) setToken(response.token);
-      navigation.replace('Main', { username: response.user?.username || username });
+      const loggedInAs = response.user?.username || username;
+      setSessionUsername(loggedInAs);
+      // Pop back to the tabs instead of replacing Main: a guest who logged in
+      // at checkout keeps their filled-in inquiry form and tab position.
+      const state = navigation.getState();
+      if (state && state.routes && state.routes.length >= 2) {
+        navigation.goBack();
+      } else {
+        navigation.replace('Main', { username: loggedInAs });
+      }
     } catch (err) {
       // Brute-force lockout: the generated client attaches err.status + the
       // parsed body, so we can surface the wait and disable the button.
@@ -127,10 +136,10 @@ export default function LoginScreen({ navigation }) {
 
       <TouchableOpacity
         style={styles.linkRow}
-        onPress={() => navigation.replace('Landing')}
+        onPress={() => navigation.goBack()}
         disabled={loading}
       >
-        <Text style={styles.linkBack}>&larr; Back</Text>
+        <Text style={styles.linkBack}>&larr; Back to store</Text>
       </TouchableOpacity>
     </View>
   );

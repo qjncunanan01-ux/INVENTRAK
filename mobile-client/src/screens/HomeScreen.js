@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { listProducts } from '../api';
+import { listProducts, useSessionUsername } from '../api';
 import { colors } from '../theme';
 
 export default function HomeScreen({ route, navigation }) {
-  const username = route.params?.username || 'Customer';
+  // Guest-first: the catalog opens with no account; the welcome line reflects
+  // the session once a customer logs in.
+  const username = useSessionUsername(route.params?.username || null) || 'Customer';
   const [products, setProducts] = useState([]);
   const [featured, setFeatured] = useState([]);
 

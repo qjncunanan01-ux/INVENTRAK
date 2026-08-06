@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Button, FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
-import { createOrderInquiry, listProducts } from '../api';
+import { createOrderInquiry, listProducts, useSessionUsername } from '../api';
 import { colors } from '../theme';
 
 export default function OrderInquiryScreen({ route, navigation }) {
   const preselectId = route.params?.preselectId;
+  // Guests can fill the whole form, but must log in / create an account to
+  // actually submit — the account is only required at the point of buying.
+  const isLoggedIn = !!useSessionUsername(null);
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -58,6 +61,19 @@ export default function OrderInquiryScreen({ route, navigation }) {
   const estimatedCost = selectedItems.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   const submit = async () => {
+    // Checkout gate: buying requires an account (browsing does not).
+    if (!isLoggedIn) {
+      Alert.alert(
+        'Account Required',
+        'Create a free account or log in to place your order inquiry.',
+        [
+          { text: 'Create Account', onPress: () => navigation.navigate('Signup') },
+          { text: 'Log In', onPress: () => navigation.navigate('Login') },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
     if (!customerName.trim()) {
       Alert.alert('Validation', 'Please enter your name');
       return;
@@ -108,6 +124,14 @@ export default function OrderInquiryScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Order Inquiry</Text>
+      {!isLoggedIn ? (
+        <View style={styles.guestBanner}>
+          <Text style={styles.guestBannerText}>
+            🔒 You'll need a free account to submit — log in or create one when
+            you're ready to place your order.
+          </Text>
+        </View>
+      ) : null}
       <TextInput style={styles.input} placeholder="Customer name" value={customerName} onChangeText={setCustomerName} />
       <TextInput style={styles.input} placeholder="Email" value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" autoCapitalize="none" />
       <TextInput style={styles.input} placeholder="Phone (for SMS updates, optional)" value={customerPhone} onChangeText={setCustomerPhone} keyboardType="phone-pad" />
@@ -160,4 +184,13 @@ const styles = StyleSheet.create({
   estimate: { fontSize: 18, fontWeight: '600', marginBottom: 12, color: colors.textPrimary },
   message: { marginTop: 16, color: colors.success, textAlign: 'center' },
   empty: { marginTop: 20, textAlign: 'center', color: colors.textSecondary },
+  guestBanner: {
+    backgroundColor: '#fff4e0',
+    borderWidth: 1,
+    borderColor: '#f0c36d',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  guestBannerText: { color: '#7a5c00', fontSize: 13, lineHeight: 19 },
 });

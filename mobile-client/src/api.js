@@ -8,6 +8,7 @@
 // Screens keep importing from '../api' exactly as before: apiGet/apiPost/
 // apiPut/apiDelete are the generic helpers with the same signatures, and the
 // typed endpoint functions (login, listProducts, ...) are also exported.
+import { useEffect, useState } from 'react';
 import { Platform, NativeModules } from 'react-native';
 import { createApiClient } from './api.generated';
 
@@ -111,6 +112,50 @@ export function getToken() {
 
 export function clearToken() {
   authToken = null;
+}
+
+// ---- Session (guest-first browsing) ----
+//
+// The app opens straight into the catalog WITHOUT an account (Shopee/Lazada
+// style): browse, search, recommendations — all guest-safe. The customer is
+// only asked to log in / create an account when they actually BUY (place an
+// order inquiry) or check order history.
+//
+// The username lives here in module state (plus a tiny subscription API)
+// instead of being threaded through navigator route params, so every screen
+// always shows the current identity — and a successful login that simply
+// pops back to the tabs (preserving a filled-in inquiry form) is reflected
+// everywhere instantly.
+let sessionUsername = null;
+const sessionListeners = new Set();
+
+export function setSessionUsername(name) {
+  sessionUsername = name || null;
+  sessionListeners.forEach((fn) => fn(sessionUsername));
+}
+
+export function getSessionUsername() {
+  return sessionUsername;
+}
+
+export function clearSession() {
+  setSessionUsername(null);
+}
+
+export function subscribeSession(listener) {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+}
+
+// React hook: returns the logged-in username (or `fallback` while a guest).
+// Re-renders the calling screen whenever login/logout changes the session.
+export function useSessionUsername(fallback) {
+  const [name, setName] = useState(getSessionUsername() || fallback || null);
+  useEffect(
+    () => subscribeSession((u) => setName(u || fallback || null)),
+    [fallback]
+  );
+  return name;
 }
 
 // Shared client instance wired to this app's base URL + token store.
