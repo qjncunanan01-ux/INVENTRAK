@@ -11,6 +11,16 @@ services:
       - backend_data:/app/data
     environment:
       - PORT=4001
+      # --- Firebase (Firestore): "the database of it all" ---
+      # Set these to run the backend on Firebase. The server auto-selects
+      # Firestore whenever credentials are present; unset → local JSON files
+      # under the backend_data volume.
+      # - FIREBASE_PROJECT_ID=your-project-id
+      # - FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+      # - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase-key.json
+      # Before first start with Firebase, run once locally:
+      #   npm run migrate:firestore
+      # to push the existing SQLite database into Firestore.
 
   admin:
     build:

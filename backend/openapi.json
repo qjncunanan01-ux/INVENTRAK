@@ -167,6 +167,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
           }
         }
       }
@@ -1472,6 +1475,16 @@
             }
           }
         }
+      },
+      "TooManyRequests": {
+        "description": "Too many failed login attempts for this account; the account is temporarily locked",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/LockoutError"
+            }
+          }
+        }
       }
     },
     "schemas": {
@@ -1489,6 +1502,23 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "LockoutError": {
+        "type": "object",
+        "required": [
+          "error",
+          "retryAfterSeconds"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "retryAfterSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Seconds to wait before the account unlocks"
           }
         }
       },
@@ -1551,7 +1581,10 @@
           },
           "password": {
             "type": "string",
-            "minLength": 6
+            "minLength": 8,
+            "maxLength": 100,
+            "pattern": "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$",
+            "description": "At least 8 characters, with an uppercase letter, lowercase letter, number, and symbol"
           },
           "email": {
             "type": "string",
@@ -1995,6 +2028,11 @@
             "type": "string",
             "maxLength": 100
           },
+          "customer_phone": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Mobile number for SMS status updates (optional)"
+          },
           "products": {
             "type": "array",
             "items": {
@@ -2027,6 +2065,10 @@
           },
           "customer_email": {
             "type": "string"
+          },
+          "customer_phone": {
+            "type": "string",
+            "nullable": true
           },
           "products": {
             "type": "string"

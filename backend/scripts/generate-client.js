@@ -97,7 +97,12 @@ function generate() {
   lines.push('      const msg = data && typeof data === "object" && (data.error || data.message)');
   lines.push('        ? data.error || data.message');
   lines.push('        : `Request failed (${res.status})`;');
-  lines.push('      throw new Error(msg);');
+  lines.push('      // Attach status + parsed body so callers can react to specific');
+  lines.push('      // errors (e.g. a 429 login lockout carrying retryAfterSeconds).');
+  lines.push('      const err = new Error(msg);');
+  lines.push('      err.status = res.status;');
+  lines.push('      err.body = data && typeof data === "object" ? data : null;');
+  lines.push('      throw err;');
   lines.push('    }');
   lines.push('    return data;');
   lines.push('  }');

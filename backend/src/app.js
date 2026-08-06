@@ -4,9 +4,17 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const { db } = require('./db');
+const { passwordError } = require('./password-policy');
+const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
+const { notifyInquiryStatus, notifyWelcome } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
+const { createLoginLockout } = require('./login-lockout');
+
+// Brute-force throttling shared with the npm-free fallback (same module, same
+// semantics): failed logins per (username, IP) lock the account with an
+// exponentially growing wait.
+const loginLockout = createLoginLockout();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'inventrak-secret-key-2024';
 const dataDir = path.join(__dirname, '..', 'data');
@@ -125,7 +133,7 @@ function seedDatabase() {
     .get('admin');
 
   if (!adminExists) {
-    const hashedPw = bcrypt.hashSync('admin123', 10);
+    const hashedPw = hashPassword('admin123');
 
     db.prepare(
       'INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
@@ -142,7 +150,7 @@ function seedDatabase() {
     .get('customer');
 
   if (!custExists) {
-    const hashedPw = bcrypt.hashSync('customer123', 10);
+    const hashedPw = hashPassword('customer123');
 
     db.prepare(
       'INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
@@ -276,7 +284,6 @@ app.post(
     },
     password: {
       required: true,
-      min: 6,
       maxLength: 100,
     },
     email: {
@@ -291,6 +298,15 @@ app.post(
       email,
     } = req.body;
 
+    // Strong password policy (shared with the npm-free fallback).
+    const pwError = passwordError(password);
+    if (pwError) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: [pwError],
+      });
+    }
+
     const existing = db
       .prepare('SELECT id FROM users WHERE username = ?')
       .get(username);
@@ -301,7 +317,7 @@ app.post(
       });
     }
 
-    const hashedPw = bcrypt.hashSync(password, 10);
+    const hashedPw = hashPassword(password);
 
     const result = db.prepare(
       'INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
@@ -323,6 +339,9 @@ app.post(
         expiresIn: '24h',
       }
     );
+
+    // Welcome email (fire-and-forget; no-op/log-only when email is unconfigured).
+    notifyWelcome(email, username);
 
     res.json({
       token,
@@ -352,25 +371,56 @@ app.post(
       password,
     } = req.body;
 
+    // Same IP source as the npm-free fallback (raw socket address) so the two
+    // backends key lockout buckets identically — Express req.ip would diverge
+    // behind a proxy once `trust proxy` is enabled.
+    const sourceIp = req.socket?.remoteAddress || req.ip || '';
+
+    // Locked out? Reject before doing any credential work (fast + cheap for
+    // the attacker, no bcrypt burn for us).
+    const lock = loginLockout.check(username, sourceIp);
+    if (lock.locked) {
+      return res.status(429).json({
+        error: 'Too many failed login attempts. Try again later.',
+        retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+      });
+    }
+
     const user = db
       .prepare('SELECT * FROM users WHERE username = ?')
       .get(username);
 
     if (!user) {
+      // Equalize response time with the bcrypt-compare path so timing does
+      // not reveal which usernames are registered.
+      consumeComparisonTime(password);
+      // Failed attempts count toward the lockout even for unknown usernames
+      // (no username oracle: attackers can't probe which accounts exist).
+      loginLockout.recordFailure(username, sourceIp);
       return res.status(401).json({
         error: 'Invalid username or password',
       });
     }
 
-    const valid = bcrypt.compareSync(
-      password,
-      user.password
-    );
+    const verified = verifyPassword(password, user.password);
 
-    if (!valid) {
+    if (!verified.ok) {
+      loginLockout.recordFailure(username, sourceIp);
       return res.status(401).json({
         error: 'Invalid username or password',
       });
+    }
+
+    // Successful login clears the failure counter.
+    loginLockout.recordSuccess(username, sourceIp);
+
+    // Legacy plaintext row (pre-hashing era): upgrade it in place so the
+    // plaintext is never left in storage after a successful login.
+    if (verified.needsRehash) {
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(
+        hashPassword(password),
+        user.id
+      );
     }
 
     const token = jwt.sign(
@@ -1579,6 +1629,12 @@ app.put(
       req.params.id
     );
 
+    // Notify the customer (email + SMS) when the status changes to a
+    // terminal/actionable state. Fire-and-forget: never blocks the response.
+    if (updatedStatus !== 'pending') {
+      notifyInquiryStatus(existing, updatedStatus);
+    }
+
     res.json({
       ok: true,
       message: `Inquiry ${updatedStatus}`,
@@ -1602,6 +1658,7 @@ app.post(
     const {
       customer_name,
       customer_email,
+      customer_phone,
       products,
       estimated_cost,
       notes,
@@ -1610,10 +1667,11 @@ app.post(
     const now = new Date().toISOString();
 
     db.prepare(
-      'INSERT INTO order_inquiries (customer_name, customer_email, products, estimated_cost, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       customer_name,
       customer_email,
+      customer_phone || null,
       JSON.stringify(products || []),
       estimated_cost || 0,
       notes || '',

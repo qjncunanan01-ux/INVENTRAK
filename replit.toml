@@ -1,0 +1,11 @@
+# Replit Deployments config — free no-card hosted option for the backend.
+#
+# How: replit.com → Create → Import from GitHub → pick this repo → the
+# Deployment tab builds with the commands below. Replit exposes the app on
+# port 3000, so the server is started with PORT=3000 (it defaults to 4001
+# otherwise). Same Firebase auto-selection applies: set FIREBASE_PROJECT_ID +
+# FIREBASE_SERVICE_ACCOUNT_JSON in Replit's Environment tab for Firestore, or
+# leave unset to run on the committed JSON catalog.
+[deployment]
+build = "cd backend && npm install"
+run = "cd backend && PORT=3000 node src/server_npmfree.js"

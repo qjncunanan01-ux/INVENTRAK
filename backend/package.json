@@ -6,8 +6,18 @@
   "scripts": {
     "start": "node src/server.js",
     "start:npmfree": "node src/server_npmfree.js",
+    "start:firestore": "node src/server_npmfree.js --firestore",
+    "start:firestore:emulator": "node scripts/start-firestore-emulator.js",
+    "emulators:start": "firebase emulators:start --only firestore",
+    "emulators:export": "firebase emulators:export .firestore-data",
     "seed": "node src/seed.js",
-    "test": "node --test ./src/test/server.test.js ./src/test/server_npmfree.test.js ./src/test/contract.test.js ./src/test/openapi.test.js",
+    "seed:firestore": "node src/seed-firestore.js",
+    "migrate:firestore": "node src/migrate-firestore.js",
+    "migrate:firestore:emulator": "node scripts/migrate-firestore-emulator.js",
+    "migrate:check": "node scripts/check-migration-catalog.js",
+    "hash:passwords": "node src/hash-passwords.js",
+    "sync:firestore": "node src/sync-firestore.js",
+    "test": "node --test ./src/test/server.test.js ./src/test/server_npmfree.test.js ./src/test/contract.test.js ./src/test/openapi.test.js ./src/test/firestore-store.test.js ./src/test/password-policy.test.js ./src/test/notify.test.js ./src/test/driver-select.test.js ./src/test/migrate-firestore.test.js ./src/test/password-hash.test.js ./src/test/hash-passwords.test.js ./src/test/sync-firestore.test.js ./src/test/check-migration-catalog.test.js ./src/test/login-lockout.test.js ./src/test/firestore-auth-hash.test.js",
     "docs:validate": "node scripts/validate-openapi.js",
     "docs:build": "node scripts/build-docs.js",
     "client:generate": "node scripts/generate-client.js",
@@ -21,6 +31,7 @@
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "express": "^4.18.2",
+    "firebase-admin": "^13.10.0",
     "jsonwebtoken": "^9.0.0"
   },
   "devDependencies": {

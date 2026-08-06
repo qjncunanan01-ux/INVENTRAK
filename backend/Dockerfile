@@ -9,4 +9,7 @@ COPY . .
 
 EXPOSE 4001
 
-CMD ["node", "src/server.js"]
+# Run the unified npm-free server (identical API surface, zero native deps):
+# it serves the JSON files by default and auto-selects Firebase Firestore when
+# the FIREBASE_* env vars are present — "Firebase as the database of it all".
+CMD ["node", "src/server_npmfree.js"]

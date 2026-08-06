@@ -2,7 +2,48 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { passwordError } = require('./password-policy');
+const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
+const { notifyInquiryStatus, notifyWelcome } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
+const { createLoginLockout } = require('./login-lockout');
+
+// Brute-force throttling shared with the SQLite backend (same module, same
+// semantics): failed logins per (username, IP) lock the account with an
+// exponentially growing wait.
+const loginLockout = createLoginLockout();
+
+// --- Storage driver selection: 'json' (default, zero-dep) or 'firestore' ---
+// The REST API surface is identical either way; only where the data lives
+// changes. Selection precedence (resolveDriver is a pure function so tests
+// exercise the full matrix without touching process state):
+//   1. `--firestore` CLI flag forces Firestore
+//   2. DB_DRIVER=json|firestore is an explicit pin (escape hatch)
+//   3. Otherwise, if Firebase credentials are configured, Firestore is
+//      auto-selected — "Firebase as the database of it all" — so deploying
+//      with the Firebase env vars (or docker-compose) just works, while
+//      local dev without them keeps using the JSON files.
+//   The Firestore EMULATOR (FIRESTORE_EMULATOR_HOST) also counts as
+//   "configured": the driver runs the full cloud code path against a local
+//   emulator with zero credentials.
+function firestoreConfigured({ env = process.env } = {}) {
+  if (env.FIRESTORE_EMULATOR_HOST) return true;
+  return Boolean(
+    env.FIREBASE_PROJECT_ID &&
+    (env.FIREBASE_SERVICE_ACCOUNT_JSON || env.GOOGLE_APPLICATION_CREDENTIALS)
+  );
+}
+
+function resolveDriver({ env = process.env, argv = process.argv } = {}) {
+  if (argv.includes('--firestore')) return 'firestore';
+  const explicit = env.DB_DRIVER;
+  if (explicit === 'json' || explicit === 'firestore') return explicit;
+  return firestoreConfigured({ env }) ? 'firestore' : 'json';
+}
+
+const DB_DRIVER = resolveDriver();
+const useFirestore = DB_DRIVER === 'firestore';
+const store = useFirestore ? require('./store-firestore') : require('./store-json');
 
 // Allow tests to point the fallback at an isolated data directory.
 const dataDir = process.env.INVENTRAK_DATA_DIR || path.join(__dirname, '..', 'data');
@@ -12,14 +53,22 @@ const movementsFile = path.join(dataDir, 'stock_movements.json');
 const orderFile = path.join(dataDir, 'order_inquiries.json');
 const openapiFile = path.join(__dirname, '..', 'openapi.json');
 
-// In-memory stores (npm-free fallback keeps no persistent users/sales DB)
+// In-memory datasets. The JSON driver keeps users/sales/alerts in memory (as
+// it always has); the Firestore driver hydrates them from the cloud at boot
+// and persists every mutation, so they survive restarts.
+// Demo users are seeded as bcrypt hashes (never plaintext). In Firestore mode
+// these are the fallback until the cloud '@users' dataset is hydrated; legacy
+// PLAINTEXT rows (old registrations, pre-hashing migrations) are upgraded on
+// successful login via verifyPassword().needsRehash.
 let users = [
-  { id: 1, username: 'admin', password: 'admin123', role: 'admin', email: 'admin@inventrak.com', created_at: new Date().toISOString() },
-  { id: 2, username: 'customer', password: 'customer123', role: 'customer', email: 'customer@example.com', created_at: new Date().toISOString() },
+  { id: 1, username: 'admin', password: hashPassword('admin123'), role: 'admin', email: 'admin@inventrak.com', created_at: new Date().toISOString() },
+  { id: 2, username: 'customer', password: hashPassword('customer123'), role: 'customer', email: 'customer@example.com', created_at: new Date().toISOString() },
 ];
 let nextUserId = 3;
 let salesTransactions = [];
 let nextSaleId = 1;
+let alerts = [];
+let nextAlertId = 1;
 
 // --- Demo-token auth: HMAC-signed so a token cannot be forged. The SQLite
 // backend signs JWTs with a secret; this mirrors that with zero dependencies.
@@ -47,36 +96,88 @@ function verifyToken(token) {
   return users.find(u => u.id === id) || null;
 }
 
+// All persistence flows through the active store driver. The store keys on
+// the basename (products.json, inventory.json, ...) plus the virtual datasets
+// ('@users', '@sales', '@alerts') that only the Firestore driver persists.
 function readJSON(file) {
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+  return store.read(path.basename(file));
 }
 
 function writeJSON(file, obj) {
-  fs.writeFileSync(file, JSON.stringify(obj, null, 2), 'utf8');
+  store.write(path.basename(file), obj);
 }
 
-// Deterministic demo data: same fixed-seed PRNG and draw order as the SQLite
-// seeder (app.js seedDatabase / seed.js), so fresh boots of either backend
-// produce IDENTICAL stock and sales.
-if (!fs.existsSync(inventoryFile)) {
-  const products = readJSON(productsFile) || [];
-  const rand = mulberry32(DEMO_SEED);
-  const items = products.map((p, idx) => {
-    const stocks = {};
-    let total = 0;
-    // Draws 1-3: location stock (same formula as the SQLite seeder).
-    DEMO_LOCATIONS.forEach(l => { const q = Math.floor(rand() * 160) + 20; stocks[l] = q; total += q; });
-    // Draws 4-9 belong to the sales stream; consume them so the next
-    // product's stock draws line up with the SQLite seeder's stream.
-    for (let i = 0; i < 6; i++) rand();
-    return {
-      product: formatProduct(p, idx),
-      locations: stocks,
-      total
-    };
-  });
-  writeJSON(inventoryFile, { locations: DEMO_LOCATIONS, items });
+// The OpenAPI spec is a static file in the backend root (not a dataset in the
+// data dir), so it bypasses the store driver.
+function readOpenapi() {
+  try {
+    return JSON.parse(fs.readFileSync(openapiFile, 'utf8'));
+  } catch {
+    return null;
+  }
 }
+
+// First-boot seeding. Deterministic demo data: same fixed-seed PRNG and draw
+// order as the SQLite seeder, so fresh boots of either backend produce
+// IDENTICAL stock and sales. In JSON mode this runs synchronously at module
+// load (as it always has); in Firestore mode it runs inside start() after the
+// cloud cache is loaded, so it only seeds what is genuinely absent.
+function bootstrap() {
+  if (useFirestore) {
+    // Hydrate the in-memory datasets from Firestore so registrations, sales
+    // and alerts accumulate across restarts instead of resetting.
+    const persistedUsers = readJSON('@users');
+    const persistedSales = readJSON('@sales');
+    const persistedAlerts = readJSON('@alerts');
+    if (Array.isArray(persistedUsers) && persistedUsers.length) {
+      users = persistedUsers;
+      nextUserId = Math.max(...persistedUsers.map(u => u.id)) + 1;
+    }
+    if (Array.isArray(persistedSales) && persistedSales.length) {
+      salesTransactions = persistedSales;
+      nextSaleId = Math.max(...persistedSales.map(s => s.id)) + 1;
+    }
+    if (Array.isArray(persistedAlerts) && persistedAlerts.length) {
+      alerts = persistedAlerts;
+      nextAlertId = Math.max(...persistedAlerts.map(a => a.id)) + 1;
+    }
+  }
+
+  if (!readJSON(inventoryFile)) {
+    const products = readJSON(productsFile) || [];
+    const rand = mulberry32(DEMO_SEED);
+    const items = products.map((p, idx) => {
+      const stocks = {};
+      let total = 0;
+      // Draws 1-3: location stock (same formula as the SQLite seeder).
+      DEMO_LOCATIONS.forEach(l => { const q = Math.floor(rand() * 160) + 20; stocks[l] = q; total += q; });
+      // Draws 4-9 belong to the sales stream; consume them so the next
+      // product's stock draws line up with the SQLite seeder's stream.
+      for (let i = 0; i < 6; i++) rand();
+      return {
+        product: formatProduct(p, idx),
+        locations: stocks,
+        total
+      };
+    });
+    writeJSON(inventoryFile, { locations: DEMO_LOCATIONS, items });
+  }
+
+  seedSales();
+
+  if (!readJSON(movementsFile)) writeJSON(movementsFile, []);
+  if (!readJSON(orderFile)) writeJSON(orderFile, []);
+
+  // Firestore mode: persist the demo users/sales/alerts so registrations and
+  // sales accumulate on them across restarts.
+  if (useFirestore) {
+    writeJSON('@users', users);
+    writeJSON('@sales', salesTransactions);
+    writeJSON('@alerts', alerts);
+  }
+}
+
+if (!useFirestore) bootstrap();
 
 // Seed the in-memory sales history from the same stream (draws 4-9 per
 // product: 2 per customer), mirroring the SQLite seeder exactly.
@@ -105,10 +206,7 @@ function seedSales() {
     });
   });
 }
-seedSales();
-
-if (!fs.existsSync(movementsFile)) writeJSON(movementsFile, []);
-if (!fs.existsSync(orderFile)) writeJSON(orderFile, []);
+// (seeding moved into bootstrap() above)
 
 // Mirrors the SQLite backend: empty/absent seed fields map to '' and an
 // explicit null (e.g. a partial PUT that nulls a column) stays null.
@@ -162,15 +260,14 @@ function getInventory() {
 
 // Alerts mirror the SQLite backend: they are created when a movement drops a
 // location below the threshold (not auto-derived on every read), and persist
-// until resolved.
-let alerts = [];
-let nextAlertId = 1;
+// until resolved. (Declared at the top so bootstrap() can hydrate them.)
 
 function upsertLowStockAlert(productId, locationId, qty) {
   if (qty >= 80) return;
   const existing = alerts.find(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.status === 'active');
   if (existing) {
     existing.current_qty = qty;
+    if (useFirestore) writeJSON('@alerts', alerts);
     return;
   }
   const inv = getInventory();
@@ -188,6 +285,7 @@ function upsertLowStockAlert(productId, locationId, qty) {
     created_at: new Date().toISOString(),
     resolved_at: null
   });
+  if (useFirestore) writeJSON('@alerts', alerts);
 }
 
 function computeAlerts() {
@@ -317,7 +415,7 @@ const server = http.createServer((req, res) => {
   // ================= API DOCS =================
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/openapi.json') {
-    const spec = readJSON(openapiFile) || { error: 'openapi.json not found' };
+    const spec = readOpenapi() || { error: 'openapi.json not found' };
     return sendJson(res, 200, spec);
   }
 
@@ -334,8 +432,39 @@ const server = http.createServer((req, res) => {
       if (!obj.username || !obj.password) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username and password are required'] });
       }
-      const user = users.find(u => u.username === obj.username && u.password === obj.password);
-      if (!user) return sendJson(res, 401, { error: 'Invalid username or password' });
+      const sourceIp = req.socket?.remoteAddress || '';
+      // Locked out? Reject before doing any credential work (parity with the
+      // SQLite backend, which checks after its field-validation middleware).
+      const lock = loginLockout.check(obj.username, sourceIp);
+      if (lock.locked) {
+        return sendJson(res, 429, {
+          error: 'Too many failed login attempts. Try again later.',
+          retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+        });
+      }
+      const user = users.find(u => u.username === obj.username);
+      if (!user) {
+        // Equalize response time with the bcrypt path (username enumeration).
+        consumeComparisonTime(obj.password);
+        // Failed attempts count toward the lockout even for unknown usernames
+        // (no username oracle).
+        loginLockout.recordFailure(obj.username, sourceIp);
+        return sendJson(res, 401, { error: 'Invalid username or password' });
+      }
+      const verified = verifyPassword(obj.password, user.password);
+      if (!verified.ok) {
+        loginLockout.recordFailure(obj.username, sourceIp);
+        return sendJson(res, 401, { error: 'Invalid username or password' });
+      }
+      // Successful login clears the failure counter.
+      loginLockout.recordSuccess(obj.username, sourceIp);
+      // Legacy plaintext row: upgrade in place so storage is never left with
+      // a plaintext password after a successful login (persisted to the cloud
+      // in Firestore mode).
+      if (verified.needsRehash) {
+        user.password = hashPassword(obj.password);
+        if (useFirestore) writeJSON('@users', users);
+      }
       return sendJson(res, 200, {
         token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email }
@@ -349,15 +478,31 @@ const server = http.createServer((req, res) => {
       if (!obj.username || !obj.password || !obj.email) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username, password and email are required'] });
       }
-      if (String(obj.password).length < 6) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['password must be at least 6 characters'] });
+      // Mirror the SQLite backend's register validation: maxLength on
+      // password/email/username (SQLite rejects >100-char passwords, so must
+      // this server), then the shared strong-password policy. Note: for a
+      // request that fails BOTH maxLength and the password policy, SQLite
+      // reports maxLength first (validate() runs before the handler) while
+      // this server reports the password error first — both are 400 with a
+      // details array, so shape parity holds; the messages differ. Accepted.
+      if (String(obj.password).length > 100) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['password must be at most 100 characters'] });
+      }
+      if (String(obj.email).length > 100) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['email must be at most 100 characters'] });
       }
       if (String(obj.username).length > 50) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username must be at most 50 characters'] });
       }
+      const pwError = passwordError(obj.password);
+      if (pwError) {
+        return sendJson(res, 400, { error: 'Validation failed', details: [pwError] });
+      }
       if (users.some(u => u.username === obj.username)) return sendJson(res, 409, { error: 'Username already exists' });
-      const user = { id: nextUserId++, username: obj.username, password: obj.password, role: 'customer', email: obj.email, created_at: new Date().toISOString() };
+      const user = { id: nextUserId++, username: obj.username, password: hashPassword(obj.password), role: 'customer', email: obj.email, created_at: new Date().toISOString() };
       users.push(user);
+      if (useFirestore) writeJSON('@users', users);
+      notifyWelcome(obj.email, obj.username);
       return sendJson(res, 200, {
         token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email }
@@ -584,6 +729,14 @@ const server = http.createServer((req, res) => {
     const type = parsed.searchParams.get('type');
     const productId = parsed.searchParams.get('product_id');
     let movements = readJSON(movementsFile) || [];
+    // Firestore cannot store null, so the store driver maps it to '' — fold
+    // both representations back to null so JSON and Firestore modes (and the
+    // SQLite backend) return byte-identical values.
+    movements = movements.map(m => ({
+      ...m,
+      src_location: m.src_location === undefined || m.src_location === '' ? null : m.src_location,
+      dst_location: m.dst_location === undefined || m.dst_location === '' ? null : m.dst_location
+    }));
     if (type) movements = movements.filter(m => m.type === type);
     if (productId) movements = movements.filter(m => Number(m.product_id) === Number(productId));
     if (page !== null || limit !== null) {
@@ -717,6 +870,10 @@ const server = http.createServer((req, res) => {
     const limit = parsed.searchParams.get('limit');
     const status = parsed.searchParams.get('status');
     let orders = readJSON(orderFile) || [];
+    // Normalize so every row carries customer_phone (null when absent) — the
+    // SQLite backend always returns the column, and the contract suites assert
+    // identical shapes, so an old row without the key would break parity.
+    orders = orders.map(o => ({ ...o, customer_phone: o.customer_phone === undefined || o.customer_phone === '' ? null : o.customer_phone }));
     if (status) orders = orders.filter(o => o.status === status);
     if (page !== null || limit !== null) {
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -749,6 +906,7 @@ const server = http.createServer((req, res) => {
         }
         order.status = obj.status || order.status;
         writeJSON(orderFile, orders);
+        if (order.status !== 'pending') notifyInquiryStatus(order, order.status);
         return sendJson(res, 200, { ok: true, message: `Inquiry ${order.status}` });
       });
     });
@@ -765,6 +923,7 @@ const server = http.createServer((req, res) => {
         id: orders.length + 1,
         customer_name: obj.customer_name,
         customer_email: obj.customer_email,
+        customer_phone: obj.customer_phone || null,
         products: JSON.stringify(obj.products || []),
         estimated_cost: obj.estimated_cost || 0,
         notes: obj.notes || '',
@@ -1001,6 +1160,7 @@ const server = http.createServer((req, res) => {
           transaction_date: new Date().toISOString(),
           customer_name: obj.customer_name || 'anonymous'
         });
+        if (useFirestore) writeJSON('@sales', salesTransactions);
         return sendJson(res, 201, { ok: true, total });
       });
     });
@@ -1017,7 +1177,12 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.split('?')[0] === '/api/alerts') {
     return requireAuth(req, res, false, (req, res) => {
       const status = new URL(url, 'http://localhost').searchParams.get('status') || 'active';
-      return sendJson(res, 200, alerts.filter(a => a.status === status));
+      // resolved_at is null for open alerts (SQLite returns null); Firestore
+      // maps null → '' in storage, so normalize both back to null for parity.
+      const list = alerts
+        .filter(a => a.status === status)
+        .map(a => ({ ...a, resolved_at: a.resolved_at === undefined || a.resolved_at === '' ? null : a.resolved_at }));
+      return sendJson(res, 200, list);
     });
   }
 
@@ -1028,6 +1193,7 @@ const server = http.createServer((req, res) => {
       if (!alert) return sendJson(res, 404, { error: 'Alert not found or already resolved' });
       alert.status = 'resolved';
       alert.resolved_at = new Date().toISOString();
+      if (useFirestore) writeJSON('@alerts', alerts);
       return sendJson(res, 200, { ok: true, message: 'Alert resolved' });
     });
   }
@@ -1037,12 +1203,35 @@ const server = http.createServer((req, res) => {
 });
 
 function createServer(port = process.env.PORT || 4001) {
+  // In Firestore mode the cloud cache must be loaded (and seeded) before any
+  // request can be served — that happens inside start(), so guard against
+  // calling createServer() directly and serving an empty cache.
+  if (useFirestore && !store.isReady()) {
+    throw new Error(
+      'Firestore store is not initialized — use start() (which awaits store.init()) instead of createServer().'
+    );
+  }
   return server.listen(port);
 }
 
-if (require.main === module) {
-  createServer();
-  console.log(`npm-free backend running on ${process.env.PORT || 4001}`);
+// Firestore mode needs an async init (load the cloud cache) before any
+// request can be served; JSON mode is fully synchronous as before. In JSON
+// mode bootstrap() already ran at module load, so calling start() there is a
+// harmless no-op re-seed (every step is guarded).
+async function start(port) {
+  if (useFirestore) await store.init();
+  bootstrap();
+  return createServer(port);
 }
 
-module.exports = { createServer };
+if (require.main === module) {
+  start()
+    .then(() => console.log(`[${DB_DRIVER}] npm-free backend running on ${process.env.PORT || 4001}`))
+    .catch(err => {
+      console.error(`[firestore] failed to start: ${err.message}`);
+      console.error('Check your Firebase env vars (see README "Firebase (Firestore)" section).');
+      process.exit(1);
+    });
+}
+
+module.exports = { createServer, start, resolveDriver, firestoreConfigured };

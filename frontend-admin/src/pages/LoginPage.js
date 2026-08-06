@@ -1,5 +1,5 @@
 import { Alert, Box, Button, Container, Paper, Snackbar, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { API_BASE_URL, setToken } from '../api';
 import { colors } from '../theme';
 
@@ -8,9 +8,18 @@ export default function LoginPage({ onLogin }) {
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [lockoutLeft, setLockoutLeft] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // Live countdown while the account is locked out (429 with retryAfterSeconds).
+  useEffect(() => {
+    if (lockoutLeft <= 0) return undefined;
+    const t = setInterval(() => setLockoutLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [lockoutLeft]);
+
   const handleSubmit = async () => {
+    if (lockoutLeft > 0) return;
     if (!username || !password) {
       setError('Please enter username and password');
       return;
@@ -25,6 +34,15 @@ export default function LoginPage({ onLogin }) {
       });
       const data = await res.json();
       if (!res.ok) {
+        // Brute-force lockout: surface the wait and disable the button until
+        // the backend says the account unlocks (retryAfterSeconds).
+        if (res.status === 429 && data.retryAfterSeconds) {
+          setLockoutLeft(data.retryAfterSeconds);
+          setError(
+            `Too many failed login attempts. Try again in ${data.retryAfterSeconds}s.`
+          );
+          return;
+        }
         setError(data.error || 'Login failed');
         return;
       }
@@ -93,8 +111,12 @@ export default function LoginPage({ onLogin }) {
           sx={{ mb: 3 }}
           disabled={loading}
         />
-        <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading} size="large">
-          {loading ? 'Signing in...' : 'Login'}
+        <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large">
+          {loading
+            ? 'Signing in...'
+            : lockoutLeft > 0
+              ? `Locked — try again in ${lockoutLeft}s`
+              : 'Login'}
         </Button>
       </Paper>
       <Snackbar

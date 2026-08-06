@@ -30,7 +30,12 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
       const msg = data && typeof data === "object" && (data.error || data.message)
         ? data.error || data.message
         : `Request failed (${res.status})`;
-      throw new Error(msg);
+      // Attach status + parsed body so callers can react to specific
+      // errors (e.g. a 429 login lockout carrying retryAfterSeconds).
+      const err = new Error(msg);
+      err.status = res.status;
+      err.body = data && typeof data === "object" ? data : null;
+      throw err;
     }
     return data;
   }

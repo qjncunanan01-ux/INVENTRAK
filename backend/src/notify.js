@@ -1,0 +1,152 @@
+// Fire-and-forget email + SMS notifications (zero dependencies; uses global
+// fetch, available since Node 18).
+//
+// Providers are optional and configured entirely by environment variables, so
+// the app runs and tests fine without any of them:
+//   Email: RESEND_API_KEY (https://resend.com)  [+ optional EMAIL_FROM]
+//   SMS:   SEMAPHORE_API_KEY (https://semaphore.co — PH gateway)
+//              [+ optional SEMAPHORE_SENDER_NAME]
+//          or TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM (Twilio)
+//
+// When nothing is configured, messages are LOGGED instead of sent, so the
+// behavior is visible in development without an account. Notifications never
+// throw into the request path — callers fire-and-forget.
+
+function logMessage(channel, data) {
+  console.log(`[notify] ${channel} :: ${JSON.stringify(data)}`);
+}
+
+async function sendEmail({ to, subject, text, html }) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    logMessage('email (unconfigured — set RESEND_API_KEY to enable)', { to, subject, text: text || html });
+    return { sent: false };
+  }
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: process.env.EMAIL_FROM || 'INVENTRAK <onboarding@resend.dev>',
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        text: text || '',
+        html: html || '',
+      }),
+    });
+    if (!res.ok) {
+      console.error(`[notify] email failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+      return { sent: false };
+    }
+    return { sent: true };
+  } catch (err) {
+    console.error(`[notify] email error: ${err && err.message}`);
+    return { sent: false };
+  }
+}
+
+async function sendSms({ to, message }) {
+  const semaphoreKey = process.env.SEMAPHORE_API_KEY;
+  if (semaphoreKey) {
+    try {
+      const params = new URLSearchParams({ apikey: semaphoreKey, number: to, message });
+      if (process.env.SEMAPHORE_SENDER_NAME) params.set('sendername', process.env.SEMAPHORE_SENDER_NAME);
+      const res = await fetch('https://api.semaphore.co/api/v4/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+      if (!res.ok) {
+        console.error(`[notify] sms (semaphore) failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+        return { sent: false };
+      }
+      return { sent: true };
+    } catch (err) {
+      console.error(`[notify] sms (semaphore) error: ${err && err.message}`);
+      return { sent: false };
+    }
+  }
+
+  const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+  const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
+  if (twilioSid && twilioAuth) {
+    try {
+      const params = new URLSearchParams({
+        To: to,
+        From: process.env.TWILIO_FROM || '',
+        Body: message,
+      });
+      const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${twilioSid}:${twilioAuth}`).toString('base64')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+      if (!res.ok) {
+        console.error(`[notify] sms (twilio) failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+        return { sent: false };
+      }
+      return { sent: true };
+    } catch (err) {
+      console.error(`[notify] sms (twilio) error: ${err && err.message}`);
+      return { sent: false };
+    }
+  }
+
+  logMessage('sms (unconfigured — set SEMAPHORE_API_KEY or TWILIO_* to enable)', { to, message });
+  return { sent: false };
+}
+
+const STATUS_LABELS = { approved: 'APPROVED', rejected: 'REJECTED', fulfilled: 'FULFILLED' };
+
+// The stored products value is a JSON string (e.g. '["Widget x1"]'); render it
+// as a readable list for the email body.
+function productSummary(products) {
+  if (Array.isArray(products)) return products.join(', ');
+  if (typeof products === 'string') {
+    try {
+      const parsed = JSON.parse(products);
+      if (Array.isArray(parsed)) return parsed.join(', ');
+      return products;
+    } catch {
+      return products;
+    }
+  }
+  return 'your items';
+}
+
+// Compose + send an order-inquiry status update to the customer (email always,
+// SMS when a phone number was provided). Resolves when both channels settled.
+function notifyInquiryStatus(inquiry, newStatus) {
+  const label = STATUS_LABELS[newStatus] || newStatus;
+  const name = (inquiry && inquiry.customer_name) || 'there';
+  const text = `Hi ${name},\n\nYour order inquiry (${productSummary(inquiry && inquiry.products)}) is now ${label}.\n\n— INVENTRAK`;
+
+  const emailP = inquiry && inquiry.customer_email
+    ? sendEmail({ to: inquiry.customer_email, subject: `Your INVENTRAK order inquiry is ${label}`, text })
+    : Promise.resolve({ sent: false });
+
+  const smsP = inquiry && inquiry.customer_phone
+    ? sendSms({ to: inquiry.customer_phone, message: `INVENTRAK: Your order inquiry is now ${label}.` })
+    : Promise.resolve({ sent: false });
+
+  return Promise.all([emailP, smsP]).catch((err) => {
+    console.error(`[notify] inquiry notification error: ${err && err.message}`);
+  });
+}
+
+// Welcome email sent on registration (fire-and-forget).
+function notifyWelcome(email, username) {
+  if (!email) return Promise.resolve({ sent: false });
+  return sendEmail({
+    to: email,
+    subject: 'Welcome to INVENTRAK',
+    text: `Hi ${username},\n\nYour INVENTRAK account is ready. Browse supplies, send order inquiries, and track their status.\n\n— INVENTRAK`,
+  }).catch((err) => {
+    console.error(`[notify] welcome email error: ${err && err.message}`);
+  });
+}
+
+module.exports = { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome };

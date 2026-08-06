@@ -70,7 +70,7 @@ test('POST /api/auth/register creates a new customer user', async () => {
   const username = `newuser_${Date.now()}`;
   const { status, body } = await request('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username, password: 'test123', email: `${username}@example.com` }),
+    body: JSON.stringify({ username, password: 'Test123!', email: `${username}@example.com` }),
   });
   assert.strictEqual(status, 200);
   assert.strictEqual(body.user.username, username);
@@ -81,7 +81,7 @@ test('POST /api/auth/register creates a new customer user', async () => {
 test('POST /api/auth/register rejects duplicate usernames', async () => {
   const { status } = await request('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username: 'admin', password: 'test123', email: 'admin2@example.com' }),
+    body: JSON.stringify({ username: 'admin', password: 'Test123!', email: 'admin2@example.com' }),
   });
   assert.strictEqual(status, 409);
 });
@@ -89,7 +89,7 @@ test('POST /api/auth/register rejects duplicate usernames', async () => {
 test('POST /api/auth/register validates required fields', async () => {
   const { status } = await request('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username: 'nofielduser', password: 'test123' }),
+    body: JSON.stringify({ username: 'nofielduser', password: 'Test123!' }),
   });
   assert.strictEqual(status, 400);
 });

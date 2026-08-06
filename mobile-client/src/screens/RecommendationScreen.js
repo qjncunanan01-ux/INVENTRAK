@@ -136,8 +136,8 @@ export default function RecommendationScreen({ navigation }) {
       <View style={styles.spacer} />
 
       <Button
-        title="Back to Home"
-        onPress={() => navigation.goBack()}
+        title="Back to Products"
+        onPress={() => navigation.navigate('Products')}
         color={colors.brandPrimary}
       />
     </View>

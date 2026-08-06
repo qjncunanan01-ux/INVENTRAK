@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Button, FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { createOrderInquiry, listProducts } from '../api';
 import { colors } from '../theme';
 
-export default function OrderInquiryScreen({ navigation }) {
+export default function OrderInquiryScreen({ route, navigation }) {
+  const preselectId = route.params?.preselectId;
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [products, setProducts] = useState([]);
   const [quantities, setQuantities] = useState({});
   const [notes, setNotes] = useState('');
@@ -27,6 +29,17 @@ export default function OrderInquiryScreen({ navigation }) {
   };
 
   useEffect(() => { fetchProducts(); }, []);
+
+  // Deep link from a product detail page: pre-fill that product's qty to 1,
+  // but only ONCE per preselectId — refreshes must not re-fill after the
+  // customer edits (or clears) the quantity themselves.
+  const prefilledRef = useRef(null);
+  useEffect(() => {
+    if (preselectId && products.length > 0 && prefilledRef.current !== preselectId) {
+      prefilledRef.current = preselectId;
+      setQuantities((prev) => ({ ...prev, [preselectId]: '1' }));
+    }
+  }, [preselectId, products]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -62,6 +75,7 @@ export default function OrderInquiryScreen({ navigation }) {
       await createOrderInquiry({
         customer_name: customerName,
         customer_email: customerEmail,
+        customer_phone: customerPhone.trim() || null,
         products: selectedItems.map(item => `${item.name} x${item.qty}`),
         estimated_cost: estimatedCost,
         notes,
@@ -70,6 +84,7 @@ export default function OrderInquiryScreen({ navigation }) {
       Alert.alert('Success', 'Your order inquiry has been submitted.');
       setCustomerName('');
       setCustomerEmail('');
+      setCustomerPhone('');
       setQuantities({});
       setNotes('');
     } catch (err) {
@@ -95,6 +110,7 @@ export default function OrderInquiryScreen({ navigation }) {
       <Text style={styles.title}>Order Inquiry</Text>
       <TextInput style={styles.input} placeholder="Customer name" value={customerName} onChangeText={setCustomerName} />
       <TextInput style={styles.input} placeholder="Email" value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" autoCapitalize="none" />
+      <TextInput style={styles.input} placeholder="Phone (for SMS updates, optional)" value={customerPhone} onChangeText={setCustomerPhone} keyboardType="phone-pad" />
       <Text style={styles.sectionTitle}>Select products and quantities</Text>
       <FlatList
         data={prodList}

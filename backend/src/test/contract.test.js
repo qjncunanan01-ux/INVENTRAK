@@ -43,19 +43,29 @@ test('contract: register happy path + duplicates + validation', async () => {
   const username = `contract_user_${Date.now()}`;
   await both('POST /api/auth/register', '/api/auth/register', {
     method: 'POST',
-    body: { username, password: 'test123', email: `${username}@example.com` },
+    body: { username, password: 'Test123!', email: `${username}@example.com` },
   });
   await both('POST /api/auth/register (duplicate)', '/api/auth/register', {
     method: 'POST',
-    body: { username, password: 'test123', email: `${username}@example.com` },
+    body: { username, password: 'Test123!', email: `${username}@example.com` },
   });
   await both('POST /api/auth/register (missing email)', '/api/auth/register', {
     method: 'POST',
-    body: { username: `nofield_${Date.now()}`, password: 'test123' },
+    body: { username: `nofield_${Date.now()}`, password: 'Test123!' },
   });
   await both('POST /api/auth/register (short password)', '/api/auth/register', {
     method: 'POST',
     body: { username: `shortpw_${Date.now()}`, password: '123', email: 'x@y.com' },
+  });
+  // Password policy: 8 chars but no symbol -> rejected identically on both.
+  await both('POST /api/auth/register (password missing symbol)', '/api/auth/register', {
+    method: 'POST',
+    body: { username: `nosymbol_${Date.now()}`, password: 'Test1234', email: 'x@y.com' },
+  });
+  // Over-long password -> rejected identically on both (parity for maxLength).
+  await both('POST /api/auth/register (password too long)', '/api/auth/register', {
+    method: 'POST',
+    body: { username: `longpw_${Date.now()}`, password: 'Test123!'.repeat(20), email: 'x@y.com' },
   });
 });
 
@@ -230,6 +240,21 @@ test('contract: order inquiries lifecycle', async () => {
   await both('POST /api/order-inquiries (missing email)', '/api/order-inquiries', {
     method: 'POST', body: { customer_name: 'No Email' },
   });
+
+  // customer_phone value parity: submit WITH a phone, then both backends must
+  // return the same phone (locks the npmfree read-normalization).
+  const phonePayload = { ...payload, customer_name: 'Phone Customer', customer_email: 'phone@example.com', customer_phone: '+639171234567' };
+  const sp = await call(sqlite.url, '/api/order-inquiries', { method: 'POST', body: phonePayload });
+  const np = await call(npmfree.url, '/api/order-inquiries', { method: 'POST', body: phonePayload });
+  assert.strictEqual(sp.status, 201);
+  assert.strictEqual(np.status, 201);
+  const spList = await call(sqlite.url, '/api/order-inquiries', { token: sqlite.token.customer });
+  const npList = await call(npmfree.url, '/api/order-inquiries', { token: npmfree.token.customer });
+  const sPhone = spList.json.find((o) => o.customer_email === 'phone@example.com');
+  const nPhone = npList.json.find((o) => o.customer_email === 'phone@example.com');
+  assert.strictEqual(sPhone.customer_phone, '+639171234567', 'sqlite stores phone');
+  assert.strictEqual(nPhone.customer_phone, '+639171234567', 'npmfree stores phone');
+  assert.strictEqual(sPhone.customer_phone, nPhone.customer_phone, 'phone value parity');
   await both('GET /api/order-inquiries (customer)', '/api/order-inquiries', { auth: 'customer' });
   await both('GET /api/order-inquiries?status=pending (customer)', '/api/order-inquiries?status=pending', { auth: 'customer' });
   await both('GET /api/order-inquiries (no token)', '/api/order-inquiries');

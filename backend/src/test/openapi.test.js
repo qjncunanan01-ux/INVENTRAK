@@ -186,10 +186,10 @@ test('openapi: both servers serve the identical, valid spec document', async () 
 test('openapi: register validates request + response', async () => {
   const username = `openapi_user_${Date.now()}`;
   await bothConform('register', 'POST', '/api/auth/register', {
-    body: { username, password: 'test123', email: `${username}@example.com` },
+    body: { username, password: 'Test123!', email: `${username}@example.com` },
   });
   await bothConform('register duplicate', 'POST', '/api/auth/register', {
-    body: { username, password: 'test123', email: `${username}@example.com` },
+    body: { username, password: 'Test123!', email: `${username}@example.com` },
   });
   await bothConform('register invalid', 'POST', '/api/auth/register', {
     body: { username: 'x', password: '123' }, checkRequest: false,
@@ -203,6 +203,28 @@ test('openapi: login happy path + failure', async () => {
   await bothConform('login bad password', 'POST', '/api/auth/login', {
     body: { username: 'admin', password: 'nope' },
   });
+});
+
+test('openapi: login lockout 429 conforms to LockoutError on both backends', async () => {
+  // Brute-force lockout: 6 bad logins to a dedicated username trips the
+  // 429 response, whose body must match the documented LockoutError schema.
+  const user = `lockout_openapi_${Date.now()}`;
+  const bad = { username: user, password: 'WrongPass1!' };
+  // Five failures are plain 401s; the 6th crosses the threshold (also 401);
+  // the 7th is the 429 lockout. checkRequest: false — the credentials are
+  // deliberately invalid, not a request-shape violation.
+  for (let i = 0; i < 6; i++) {
+    const { a, b } = await bothConform('lockout attempt', 'POST', '/api/auth/login', {
+      body: bad, checkRequest: false,
+    });
+    assert.strictEqual(a.status, 401, `attempt ${i + 1} is 401`);
+    assert.strictEqual(b.status, 401, `npmfree attempt ${i + 1} is 401`);
+  }
+  const { a, b } = await bothConform('lockout 429', 'POST', '/api/auth/login', {
+    body: bad, checkRequest: false,
+  });
+  assert.strictEqual(a.status, 429, 'sqlite lockout 429');
+  assert.strictEqual(b.status, 429, 'npmfree lockout 429');
 });
 
 test('openapi: /api/auth/me for valid, missing, and invalid tokens', async () => {

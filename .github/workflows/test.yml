@@ -43,6 +43,36 @@ jobs:
       - name: Run backend tests (SQLite + npm-free + contract + openapi)
         run: npm test
 
+  migration-catalog:
+    # Catalog drift guard for the SQLite → Firestore migration pipeline.
+    # Seeds a FRESH temp SQLite DB from the committed product catalog and runs
+    # the exact pipeline `npm run migrate:firestore -- --dry-run` uses
+    # (dumpSnapshot → transformSnapshot), then FAILS if the transform output
+    # doesn't reproduce the committed catalog (products.json, inventory.json,
+    # stock_movements.json, order_inquiries.json). Catches a dropped field, a
+    # changed stock draw, or a catalog/seed/transform drift that would push
+    # wrong data to Firestore on the next migration.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './backend/package-lock.json'
+
+      - name: Install backend dependencies
+        run: npm install
+
+      - name: Verify the migration transform reproduces the committed catalog
+        run: npm run migrate:check
+
   admin-lint:
     runs-on: ubuntu-latest
     defaults:

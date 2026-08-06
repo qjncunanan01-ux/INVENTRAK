@@ -19,6 +19,10 @@ const dataDir = path.join(__dirname, '..', '..', 'data');
 
 process.env.INVENTRAK_DB_PATH = path.join(tmpDir, 'test.db');
 process.env.INVENTRAK_DATA_DIR = path.join(tmpDir, 'data');
+// Pin the npm-free fallback to its JSON driver: even if Firebase credentials
+// are present in the environment (which now auto-selects Firestore), the
+// suites must run both backends locally against these isolated temp files.
+process.env.DB_DRIVER = 'json';
 fs.mkdirSync(process.env.INVENTRAK_DATA_DIR, { recursive: true });
 // Share the same product catalog with the SQLite seeder.
 fs.copyFileSync(

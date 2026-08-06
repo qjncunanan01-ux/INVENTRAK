@@ -228,7 +228,7 @@ test('GET /api/optimization returns bulk metrics', async () => {
 test('POST /api/auth/register creates a user', async () => {
   const { status, body } = await request('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username: 'npfreeuser', password: 'test123', email: 'npfree@example.com' }),
+    body: JSON.stringify({ username: 'npfreeuser', password: 'Test123!', email: 'npfree@example.com' }),
   });
   assert.strictEqual(status, 200);
   assert.ok(body.token);
