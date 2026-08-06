@@ -119,6 +119,20 @@ npm run sync:firestore                    # merge both ways, apply
 > 2. **Hosted, no credit card: Replit Deployments** — see
 >    [Replit (no credit card)](#replit-no-credit-card) in Alternatives.
 
+## Demo today: one-click launcher (double-click, no typing)
+
+`demo-launch.bat` (repo root) starts **everything** — backend, public Cloudflare
+tunnel, and admin dashboard — in one window:
+
+1. Double-click `demo-launch.bat` (Windows). It requires only Node.js.
+2. It reuses anything already running, starts the rest, downloads
+   `cloudflared` automatically on first run, and prints the live summary:
+   the **Public URL** (copy it for the phone), local URLs, and demo logins.
+3. Close the window to stop everything.
+
+Under the hood it runs `scripts/demo-launch.js` (zero-dependency Node
+orchestrator; env-overridable: `BACKEND_PORT`, `ADMIN_PORT`, `CLOUDFLARED_BIN`).
+
 ## Demo today: Cloudflare Quick Tunnel (no account, no card)
 
 The fastest way to a public URL with ZERO signups: Cloudflare's quick tunnels
@@ -215,10 +229,12 @@ The only hosted option that needs **no credit card** (free Starter plan). The
 repo includes a `replit.toml`:
 
 1. replit.com → **Create** → **Import from GitHub** → pick this repo (public).
-2. It builds with `replit.toml` (`cd backend && npm install`, then `node
-   src/server_npmfree.js` on port 3000).
-3. **Deployments** tab → **Deploy** → you get a `https://<name>.replit.app`
-   URL. Free deployments sleep on idle but wake on request.
+2. Click **Run** first — `replit.toml`'s `[run]` section installs deps and
+   starts the server (look for `npm-free backend running on 3000` in the
+   Console). If the preview stays blank, the Console tab shows the real error.
+3. **Publish** (top-right of the workspace — Replit renamed "Deployments" to
+   "Publish" in 2025) → you get a `https://<name>.replit.app` URL. Free
+   deployments sleep on idle but wake on request.
 4. Optional Firestore: **Environment** tab → add `FIREBASE_PROJECT_ID` +
    `FIREBASE_SERVICE_ACCOUNT_JSON` (same as Render Step 5).
 5. Point the mobile app at it (`EXPO_PUBLIC_API_URL=... npx expo start` or
