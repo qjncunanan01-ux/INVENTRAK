@@ -1,11 +1,15 @@
-# Replit Deployments config — free no-card hosted option for the backend.
+# Replit config — workspace Run + Deployments/Publish.
 #
-# How: replit.com → Create → Import from GitHub → pick this repo → the
-# Deployment tab builds with the commands below. Replit exposes the app on
-# port 3000, so the server is started with PORT=3000 (it defaults to 4001
-# otherwise). Same Firebase auto-selection applies: set FIREBASE_PROJECT_ID +
-# FIREBASE_SERVICE_ACCOUNT_JSON in Replit's Environment tab for Firestore, or
-# leave unset to run on the committed JSON catalog.
+# [run]    → what the workspace **Run** button executes (this was missing, so
+#            Run had nothing to launch and the app exited instantly).
+# [deployment] → what Publish uses to build and start the app (port 3000 is
+#            what Replit's published apps expose).
+#
+# --ignore-scripts: skips compiling better-sqlite3 (a native dep the npm-free
+# server never loads) so npm install can't fail on Replit's build machines.
+[run]
+command = "cd backend && npm install --ignore-scripts && PORT=3000 node src/server_npmfree.js"
+
 [deployment]
-build = "cd backend && npm install"
+build = "cd backend && npm install --ignore-scripts"
 run = "cd backend && PORT=3000 node src/server_npmfree.js"
