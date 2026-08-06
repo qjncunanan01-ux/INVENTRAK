@@ -114,7 +114,36 @@ export function clearToken() {
 }
 
 // Shared client instance wired to this app's base URL + token store.
-const client = createApiClient({ baseUrl: baseUrlHolder, getToken });
+const rawClient = createApiClient({ baseUrl: baseUrlHolder, getToken });
+
+// Self-healing wrapper: the Login screen restores a URL saved on the device
+// (loadSavedApiUrl), which is great for tunnels but can leave a STALE address
+// (e.g. an old http://192.168.x.x:4001 or https://localhost:4001) that a real
+// phone can never reach — "Network request failed". When a request dies at the
+// network level (no HTTP status) AND the bundle has a baked-in deployed URL
+// (EXPO_PUBLIC_API_URL, e.g. the Render backend) that differs from the current
+// base, we switch to the baked URL and retry once. The user's manual override
+// still wins for everything that succeeds.
+const BAKED_API_URL = (process.env.EXPO_PUBLIC_API_URL || '').trim().replace(/\/+$/, '');
+const client = {};
+for (const key of Object.keys(rawClient)) {
+  client[key] = async (...args) => {
+    try {
+      return await rawClient[key](...args);
+    } catch (err) {
+      const retryable =
+        BAKED_API_URL &&
+        !err.status &&
+        currentBaseUrl !== BAKED_API_URL;
+      if (retryable) {
+        currentBaseUrl = BAKED_API_URL;
+        API_BASE_URL = BAKED_API_URL;
+        return rawClient[key](...args);
+      }
+      throw err;
+    }
+  };
+}
 
 // Generic path-based helpers (unchanged public surface).
 export const apiGet = client.apiGet;
