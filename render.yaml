@@ -1,27 +1,25 @@
 # Render Blueprint — one-click deploy for INVENTRAK.
 #
-# Deploy: push this repo to GitHub → render.com → New Blueprint → pick the
+# CURRENT schema: services use `runtime: <type>` and `rootDir` (the old
+# `env:` / `rootDirectory` field names are rejected by today's validator).
+#
+# Deploy: push this repo to GitHub → render.com → New → Blueprint → pick the
 # repo → Render reads this file and creates both services. Full runbook with
-# the Firebase setup and the admin/mobile URL steps: see DEPLOY.md.
+# the Firebase setup and admin/mobile URL steps: see DEPLOY.md.
 #
-# Backend (inventrak-api): runs the unified npm-free server. It serves the
-# local JSON files by default and AUTO-SELECTS Firebase Firestore whenever
-# FIREBASE_PROJECT_ID + a service account are set — so setting the two env
-# vars below makes "everything run on Firestore".
-#
-# IMPORTANT: FIREBASE_SERVICE_ACCOUNT_JSON is a secret — do NOT put it in this
-# committed file. After the blueprint creates the service, paste it in the
-# Render dashboard: Service → Environment → Environment Variables
+# The API runs the unified npm-free server: local JSON files by default, and
+# AUTO-SELECTS Firebase Firestore whenever FIREBASE_PROJECT_ID + a service
+# account are set. FIREBASE_SERVICE_ACCOUNT_JSON is a SECRET — do not put it
+# in this file; paste it in the dashboard after deploy:
+#   Service → Environment → Environment Variables
 #   FIREBASE_SERVICE_ACCOUNT_JSON = <the whole JSON, including braces>
-# (or use Render "Secret Files" and set GOOGLE_APPLICATION_CREDENTIALS
-#  to the mounted path instead — the server supports both.)
 
 services:
   # ---------- Backend API ----------
   - type: web
     name: inventrak-api
-    env: node
-    rootDirectory: backend
+    runtime: node
+    rootDir: backend
     plan: free
     buildCommand: npm install
     startCommand: node src/server_npmfree.js
@@ -30,36 +28,25 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
-      # Your real Firebase project id (Project settings -> General). Without a
-      # service-account JSON the API still runs on the local JSON files
-      # (ephemeral disk on the free plan) — fully demoable either way.
+      # Your real Firebase project id. Without a service-account JSON the API
+      # still runs on the local JSON files (ephemeral disk on the free plan).
       - key: FIREBASE_PROJECT_ID
         value: inventrak-6b079
-      # Optional pins:
-      # - key: DB_DRIVER
-      #   value: json          # force JSON files even with creds present
-      # - key: NPMFREE_TOKEN_SECRET
-      #   generateValue: true  # HMAC token signing key (set a fixed one in prod)
 
   # ---------- Admin dashboard (static site) ----------
-  # NOTE: no rootDirectory here — the Render blueprint validator rejects
-  # rootDirectory on static (env: static) services, so the build command
-  # cd's into frontend-admin itself and staticPublishPath is repo-root
-  # relative.
   - type: web
     name: inventrak-admin
-    env: static
-    buildCommand: cd frontend-admin && npm install && npm run build
-    staticPublishPath: ./frontend-admin/build
+    runtime: static
+    rootDir: frontend-admin
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
     envVars:
       # Baked into the JS bundle at build time (CRA REACT_APP_* convention).
       # Match this to the URL Render assigns the api service above.
       - key: REACT_APP_API_BASE_URL
         value: https://inventrak-api.onrender.com
     # SPA fallback: client-side routes (/products, /inventory, ...) must
-    # rewrite to index.html. If the blueprint validator rejects this block,
-    # delete it and add the rewrite in the dashboard (Redirects/Rewrites ->
-    # Rewrite `/(.*)` -> `/index.html`).
+    # rewrite to index.html.
     routes:
       - type: rewrite
         source: /*
