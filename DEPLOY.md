@@ -24,25 +24,30 @@ GitHub repo ──► Render blueprint (render.yaml)
 ## Step 0 — Firebase project + Firestore (5 minutes, once)
 
 The one thing that requires your Google account. You're already logged into
-the Firebase CLI locally (verified), so from `backend/`:
+the Firebase CLI locally (verified). The project already exists:
 
 ```bash
-# Option A: create a brand-new project (then enable Firestore in the console)
-firebase projects:create inventrak-prod
-
-# Option B: reuse an existing project listed under your account, e.g.
 firebase projects:list
-#   agrinest-c01e0 / firestore-library-e481e
+#   INVENTRAK  /  inventrak-6b079   ← use this one
 ```
 
-Then, in the Firebase console (console.firebase.google.com):
+In the Firebase console (console.firebase.google.com), open the **INVENTRAK**
+project and check it's fully set up:
 
-1. Open the project → **Build → Firestore Database → Create database**
-   (production mode is fine).
-2. **Project settings → Service accounts → Generate new private key** — you
+1. **Enable the Cloud Firestore API** (one click) if the project was just
+   created — visit
+   <https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=inventrak-6b079>
+   → **Enable**. (If `firebase firestore:databases:list --project
+   inventrak-6b079` lists `databases/(default)`, this is already done.)
+2. **Build → Firestore Database → Create database** if no database exists yet
+   (production mode is fine) — the project currently has the `(default)`
+   database. A custom name (e.g. `inventrak`) also works: set
+   `FIREBASE_DATABASE_ID` in the backend env and the driver targets it.
+3. **Project settings → Service accounts → Generate new private key** — you
    get a `*.json` credentials file. Keep it safe; it is the key to your data.
 
-Do **not** commit that key. You'll paste it into Render's dashboard (Step 2).
+Do **not** commit that key. You'll paste it into the host's dashboard (Step 2)
+or into the env when running locally:
 
 ---
 
@@ -54,8 +59,10 @@ local machine** (never run the migration from the server):
 
 ```bash
 cd backend
-export FIREBASE_PROJECT_ID="your-project-id"
+export FIREBASE_PROJECT_ID="inventrak-6b079"
 export FIREBASE_SERVICE_ACCOUNT_JSON="$(cat /path/to/serviceAccountKey.json)"
+# optional, only if you created a named database instead of (default):
+# export FIREBASE_DATABASE_ID="inventrak"
 
 npm run migrate:firestore -- --dry-run   # preview the row counts
 npm run migrate:firestore                # write it (REPLACES Firestore contents)

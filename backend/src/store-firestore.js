@@ -77,6 +77,23 @@ function isReady() {
   return ready;
 }
 
+// Optional named-database support: Firestore allows multiple databases per
+// project (e.g. 'inventrak'). The driver uses '(default)' unless
+// FIREBASE_DATABASE_ID is set. Database IDs must be '(default)' or lowercase
+// letters/digits/hyphens; reject anything else loudly so a typo can't
+// silently target a different database. Returns null for the default DB.
+function normalizedDatabaseId() {
+  const id = process.env.FIREBASE_DATABASE_ID || process.env.FIRESTORE_DATABASE_ID;
+  if (!id) return null;
+  if (id === '(default)') return null;
+  if (!/^[a-z][a-z0-9-]{3,}$/.test(id)) {
+    throw new Error(
+      `Invalid FIREBASE_DATABASE_ID "${id}" — use '(default)' or lowercase letters/digits/hyphens (e.g. 'inventrak').`
+    ); // >= 4 chars per Firestore's database-id rules
+  }
+  return id;
+}
+
 // Test hook: inject a fake Firestore (implements collection/orderBy/get/
 // listDocuments/doc/batch) and force a cache reload on next init().
 function _setDb(instance) {
@@ -193,6 +210,7 @@ async function init() {
         );
       }
       const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
+      const databaseId = normalizedDatabaseId();
       // admin.initializeApp() throws if the default app already exists; guard
       // so re-init in a single process (tests, migrate-then-serve) is a no-op.
       if (admin.apps.length === 0) {
@@ -228,7 +246,10 @@ async function init() {
           admin.initializeApp({ credential: admin.credential.cert(cred), projectId });
         }
       }
-      db = admin.firestore();
+      // Named databases: admin.firestore({ databaseId }) targets a specific
+      // DB in the project (emulator and real cloud both honor it); the
+      // '(default)' database needs no argument.
+      db = databaseId ? admin.firestore({ databaseId }) : admin.firestore();
     }
   }
   const files = Object.keys(COLLECTIONS);
@@ -285,4 +306,14 @@ function flush() {
   return writeChain;
 }
 
-module.exports = { read, write, init, flush, isReady, _setDb, collectionFor, sanitize };
+module.exports = {
+  read,
+  write,
+  init,
+  flush,
+  isReady,
+  _setDb,
+  collectionFor,
+  sanitize,
+  normalizedDatabaseId,
+};

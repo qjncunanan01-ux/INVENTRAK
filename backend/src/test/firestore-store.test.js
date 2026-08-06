@@ -147,6 +147,31 @@ test('json and firestore drivers agree on the stored shape (value parity)', asyn
   assert.ok(json !== null, 'json driver should read the existing repo file');
 });
 
+// ---- Named-database support ----
+
+test('normalizedDatabaseId accepts named databases and rejects invalid ids', () => {
+  const prev = process.env.FIREBASE_DATABASE_ID;
+  try {
+    delete process.env.FIREBASE_DATABASE_ID;
+    assert.strictEqual(fsStore.normalizedDatabaseId(), null, 'unset -> default db');
+    process.env.FIREBASE_DATABASE_ID = '(default)';
+    assert.strictEqual(fsStore.normalizedDatabaseId(), null, '(default) -> null');
+    process.env.FIREBASE_DATABASE_ID = 'inventrak';
+    assert.strictEqual(fsStore.normalizedDatabaseId(), 'inventrak');
+    process.env.FIREBASE_DATABASE_ID = 'INVENTRAK';
+    assert.throws(
+      () => fsStore.normalizedDatabaseId(),
+      /FIREBASE_DATABASE_ID.*lowercase/,
+      'uppercase ids must be rejected loudly'
+    );
+    process.env.FIREBASE_DATABASE_ID = 'inv';
+    assert.throws(() => fsStore.normalizedDatabaseId(), /FIREBASE_DATABASE_ID/);
+  } finally {
+    if (prev === undefined) delete process.env.FIREBASE_DATABASE_ID;
+    else process.env.FIREBASE_DATABASE_ID = prev;
+  }
+});
+
 // ---- Error paths (no credentials / no package) ----
 
 test('firestore driver throws a clear error when Firebase is not configured', async () => {
