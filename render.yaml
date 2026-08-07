@@ -36,11 +36,25 @@ services:
       # Real email + SMS delivery (see DEPLOY.md -> "Real email + SMS
       # notifications"). Without these, notifications are LOGGED, not sent.
       # These are SECRETS — paste the real values in the dashboard after the
-      # blueprint creates the service (do NOT commit them here):
+      # blueprint creates the service (do NOT commit them here).
+      # Email (pick ONE option):
+      #   Generic SMTP (delivers to ANY recipient — recommended):
+      # - key: SMTP_HOST
+      #   value: smtp.gmail.com
+      # - key: SMTP_PORT
+      #   value: "587"
+      # - key: SMTP_USER
+      #   value: you@gmail.com
+      # - key: SMTP_PASS
+      #   value: xxxx xxxx xxxx xxxx
+      # - key: EMAIL_FROM
+      #   value: "INVENTRAK <you@gmail.com>"
+      #   ...or Resend (owner-inbox-only until a domain is verified):
       # - key: RESEND_API_KEY
       #   value: re_xxx
       # - key: EMAIL_FROM
       #   value: "INVENTRAK <onboarding@resend.dev>"
+      # SMS (Semaphore):
       # - key: SEMAPHORE_API_KEY
       #   value: xxx
       # - key: SEMAPHORE_SENDER_NAME

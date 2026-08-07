@@ -301,7 +301,34 @@ env-configured and fire-and-forget, so nothing breaks when they're missing —
 but without keys, messages are only **logged**, not delivered. To enable real
 delivery on the deployed server:
 
-### 1. Email — Resend (free tier, ~100 emails/day)
+### 1. Email — generic SMTP (recommended, delivers to ANY recipient)
+
+The backend has a **zero-dependency SMTP client** (`SMTP_HOST` + `SMTP_PORT` +
+`SMTP_USER` + `SMTP_PASS` + `EMAIL_FROM`), so any provider that offers SMTP
+works and delivers to **any** recipient — no domain required:
+
+- **Gmail / Google Workspace** (fastest): enable 2-Step Verification on the
+  account, create an **App Password** (myaccount.google.com → Security →
+  2-Step Verification → App passwords), then:
+  ```
+  SMTP_HOST=smtp.gmail.com
+  SMTP_PORT=587
+  SMTP_USER=you@gmail.com
+  SMTP_PASS=<the 16-char app password>
+  EMAIL_FROM=INVENTRAK <you@gmail.com>
+  ```
+- **Brevo** (free tier, 300 emails/day): add + verify a sender email, then use
+  their SMTP (`smtp-relay.brevo.com:587`, your Brevo login + SMTP key).
+- Port convention: `587` → STARTTLS, `465` → implicit TLS (`SMTP_SECURE`
+  overrides). When `SMTP_HOST` is set it takes priority over Resend.
+
+  > **Two operational notes:** (1) if `SMTP_HOST` is unreachable, each
+  > notification waits up to ~15s before logging the failure — keep the host
+  > correct. (2) Always use port 465 or a STARTTLS-capable 587 server with
+  > real credentials: on a plain 587 connection with no STARTTLS, `AUTH PLAIN`
+  > would send the password in the clear (fine for sandbox SMTP only).
+
+### 1b. Email (alternative) — Resend (free tier, ~100 emails/day)
 
 1. Go to <https://resend.com> → sign up (free) → **API Keys** → create a key
    (starts with `re_`).
@@ -314,8 +341,8 @@ delivery on the deployed server:
    > deliver to **the Resend account owner's own inbox** until you verify a
    > domain. So for a live demo, register the test account with the same email
    > you used for Resend — otherwise the verification code email is rejected
-   > and signup stalls. Add a verified domain before letting real customers
-   > register.
+   > and signup stalls. Add a verified domain (or switch to SMTP above) before
+   > letting real customers register.
 
 ### 2. SMS — Semaphore (Philippines) or Twilio
 
@@ -335,8 +362,12 @@ Variables** → add the keys (or fill the commented placeholders in
 `render.yaml` and redeploy):
 
 ```
-RESEND_API_KEY
-EMAIL_FROM
+# Email (pick one):
+SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / EMAIL_FROM
+# or
+RESEND_API_KEY / EMAIL_FROM
+
+# SMS:
 SEMAPHORE_API_KEY
 SEMAPHORE_SENDER_NAME
 ```

@@ -5,13 +5,15 @@
 // to Resend / Semaphore / Twilio.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, normalizePhNumber } = require('../notify');
+const net = require('node:net');
+const { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, normalizePhNumber, smtpSendMail } = require('../notify');
 
 // Force an unconfigured state regardless of the machine's env.
 const SAVED = {};
 const KEYS = [
   'RESEND_API_KEY', 'EMAIL_FROM', 'SEMAPHORE_API_KEY', 'SEMAPHORE_SENDER_NAME',
   'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM',
+  'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE',
 ];
 
 test('notify: unconfigured email and SMS resolve to { sent: false } without throwing', async () => {
@@ -162,6 +164,145 @@ test('notify: normalizePhNumber handles all PH input styles', () => {
   assert.strictEqual(normalizePhNumber('12345', 'semaphore'), null);
   assert.strictEqual(normalizePhNumber('', 'semaphore'), null);
   assert.strictEqual(normalizePhNumber(null, 'twilio'), null);
+});
+
+// ---------- SMTP client tests (fake local SMTP server, no network) ----------
+
+// A minimal in-process SMTP server that speaks enough of the protocol to
+// exercise the client: greeting, multiline EHLO (AUTH, no STARTTLS), AUTH
+// PLAIN, MAIL FROM, RCPT TO, DATA (captures the message), QUIT.
+function startFakeSmtp() {
+  return new Promise((resolve) => {
+    const commands = [];
+    let lastMessage = '';
+    const server = net.createServer((sock) => {
+      let dataMode = false;
+      let msg = [];
+      sock.write('220 fake.smtp.test ESMTP ready\r\n');
+      sock.on('data', (chunk) => {
+        const text = chunk.toString();
+        for (const line of text.split('\r\n')) {
+          if (line === '') continue;
+          if (dataMode) {
+            if (line === '.') {
+              dataMode = false;
+              lastMessage = msg.join('\n');
+              sock.write('250 2.0.0 queued\r\n');
+            } else {
+              msg.push(line);
+            }
+            continue;
+          }
+          commands.push(line);
+          if (/^EHLO/i.test(line)) {
+            sock.write('250-fake.smtp.test hello\r\n250-AUTH PLAIN LOGIN\r\n250 8BITMIME\r\n');
+          } else if (/^AUTH PLAIN/i.test(line)) {
+            sock.write('235 2.7.0 authentication successful\r\n');
+          } else if (/^MAIL FROM/i.test(line)) {
+            sock.write('250 2.1.0 ok\r\n');
+          } else if (/^RCPT TO/i.test(line)) {
+            sock.write('250 2.1.5 ok\r\n');
+          } else if (/^DATA/i.test(line)) {
+            dataMode = true;
+            msg = [];
+            sock.write('354 end with <CRLF>.<CRLF>\r\n');
+          } else if (/^QUIT/i.test(line)) {
+            sock.write('221 2.0.0 bye\r\n');
+            sock.end();
+          } else {
+            sock.write('250 2.0.0 ok\r\n');
+          }
+        }
+      });
+    });
+    server.listen(0, '127.0.0.1', () => {
+      resolve({
+        port: server.address().port,
+        getCommands: () => commands.slice(),
+        getLastMessage: () => lastMessage,
+        close: () => new Promise((r) => server.close(r)),
+      });
+    });
+  });
+}
+
+test('notify: SMTP runs the full protocol (EHLO/AUTH/MAIL/RCPT/DATA/QUIT) and delivers', async () => {
+  const fake = await startFakeSmtp();
+  KEYS.forEach((k) => { delete process.env[k]; });
+  process.env.SMTP_HOST = '127.0.0.1';
+  process.env.SMTP_PORT = String(fake.port);
+  process.env.SMTP_SECURE = 'false';
+  process.env.SMTP_USER = 'user@test';
+  process.env.SMTP_PASS = 'secret';
+  process.env.EMAIL_FROM = 'INVENTRAK <no-reply@inventrak.ph>';
+  try {
+    const r = await sendEmail({ to: 'buyer@example.com', subject: 'Hi', text: 'Plain body', html: '<b>Rich</b>' });
+    assert.deepStrictEqual(r, { sent: true });
+    const cmds = fake.getCommands();
+    const verbs = cmds.map((c) => c.split(' ')[0]);
+    assert.ok(verbs.includes('EHLO'), 'client sends EHLO');
+    assert.ok(verbs.includes('AUTH'), 'client authenticates');
+    assert.ok(verbs.includes('MAIL'), 'client sends MAIL FROM');
+    assert.ok(verbs.includes('RCPT'), 'client sends RCPT TO');
+    assert.ok(verbs.includes('DATA'), 'client sends DATA');
+    assert.ok(verbs.includes('QUIT'), 'client quits cleanly');
+    const msg = fake.getLastMessage();
+    assert.ok(msg.includes('Subject: Hi'), 'subject in the message');
+    assert.ok(msg.includes('Content-Type: multipart/alternative'), 'multipart body');
+    assert.ok(msg.includes('<b>Rich</b>'), 'html part present');
+    assert.ok(msg.includes('Plain body'), 'text part present');
+  } finally {
+    KEYS.forEach((k) => { delete process.env[k]; });
+    await fake.close();
+  }
+});
+
+test('notify: SMTP without credentials skips AUTH and still delivers', async () => {
+  const fake = await startFakeSmtp();
+  KEYS.forEach((k) => { delete process.env[k]; });
+  process.env.SMTP_HOST = '127.0.0.1';
+  process.env.SMTP_PORT = String(fake.port);
+  process.env.SMTP_SECURE = 'false';
+  try {
+    const r = await smtpSendMail({
+      host: '127.0.0.1', port: fake.port, secure: false, user: '', pass: '',
+      from: 'a@b.com', to: 'c@d.com', subject: 'S', text: 'T', html: '',
+    });
+    assert.deepStrictEqual(r, { sent: true });
+    const verbs = fake.getCommands().map((c) => c.split(' ')[0]);
+    assert.ok(!verbs.includes('AUTH'), 'no AUTH without credentials');
+    assert.ok(verbs.includes('MAIL'));
+  } finally {
+    KEYS.forEach((k) => { delete process.env[k]; });
+    await fake.close();
+  }
+});
+
+test('notify: SMTP failure (bad recipient code) resolves { sent: false } without throwing', async () => {
+  // A fake server that rejects RCPT TO with 550.
+  const server = await new Promise((resolve) => {
+    const srv = net.createServer((sock) => {
+      sock.write('220 fake ESMTP\r\n');
+      sock.on('data', (chunk) => {
+        const line = chunk.toString().split('\r\n')[0];
+        if (/^EHLO/.test(line)) sock.write('250-fake\r\n250-AUTH PLAIN\r\n250 ok\r\n');
+        else if (/^AUTH/.test(line)) sock.write('235 ok\r\n');
+        else if (/^MAIL FROM/.test(line)) sock.write('250 ok\r\n');
+        else if (/^RCPT TO/.test(line)) sock.write('550 5.1.1 no such user\r\n');
+        else sock.write('250 ok\r\n');
+      });
+    });
+    srv.listen(0, '127.0.0.1', () => resolve({ port: srv.address().port, close: () => new Promise((r) => srv.close(r)) }));
+  });
+  try {
+    const r = await smtpSendMail({
+      host: '127.0.0.1', port: server.port, secure: false, user: 'u', pass: 'p',
+      from: 'a@b.com', to: 'nobody@example.com', subject: 'S', text: 'T', html: '',
+    });
+    assert.deepStrictEqual(r, { sent: false });
+  } finally {
+    await server.close();
+  }
 });
 
 test('notify: provider failure (non-ok) resolves { sent: false } and logs', async () => {

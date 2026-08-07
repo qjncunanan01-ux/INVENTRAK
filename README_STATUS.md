@@ -16,7 +16,14 @@
 - **Inventory optimization features: 100%**
   - EOQ, ROP, Safety Stock, ABC, Turnover, FIFO lots — demand data is dynamic, not hardcoded.
 - **Integration testing / end-to-end demo: 100%**
-  - 209 backend tests (SQLite suite + npm-free suite + contract + OpenAPI conformance + Firestore store + password policy + notifications + driver selection + SQLite→Firestore migration bridge + password hashing + re-hash migration + bidirectional sync + migration-catalog drift guard + login lockout + Firestore-mode auth hashing e2e + password reset incl. expiry + reset brute-force lockout + lockout-clear-on-reset + signup email/SMS verification incl. expiry + admin-role enforcement parity + admin promote), admin smoke tests, Docker Compose, GitHub Actions CI.
+  - 212 backend tests (SQLite suite + npm-free suite + contract + OpenAPI conformance + Firestore store + password policy + notifications incl. SMTP client + driver selection + SQLite→Firestore migration bridge + password hashing + re-hash migration + bidirectional sync + migration-catalog drift guard + login lockout + Firestore-mode auth hashing e2e + password reset incl. expiry + reset brute-force lockout + lockout-clear-on-reset + signup email/SMS verification incl. expiry + admin-role enforcement parity + admin promote), admin smoke tests, Docker Compose, GitHub Actions CI.
+
+## What was added in the latest pass (generic SMTP email + branded HTML emails)
+
+1. **Zero-dependency SMTP client** — `notify.js` gains `smtpSendMail` (raw `net`/`tls`): implicit TLS on 465, STARTTLS upgrade on 587, `AUTH PLAIN` (skipped when no credentials), full multiline reply parsing, dot-stuffing, multipart/alternative bodies, 15s timeout — resolves `{sent}` and never throws. `sendEmail` now prefers generic SMTP (`SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`EMAIL_FROM`) over the Resend API, so the app can deliver verification codes to **any** recipient with e.g. a Gmail app password or Brevo — no domain required (the free Resend sender is owner-inbox-only).
+2. **Branded HTML emails** — every message (verification code, welcome, password reset, order status) now renders a styled template with the brand header and the code in a big dashed box (proper HTML escaping; plain-text part preserved).
+3. **Tests** — 212 total: `notify.test.js` gains 3 SMTP tests against an in-process fake SMTP server (full EHLO/AUTH/MAIL/RCPT/DATA/QUIT flow + multipart contents, no-credentials skips AUTH, RCPT-550 failure resolves `{sent:false}`); the env-key isolation list now includes the `SMTP_*` vars.
+4. **Docs** — DEPLOY.md "Real email + SMS notifications" rewritten around generic SMTP (Gmail app password + Brevo recipes, port conventions, the 15s-timeout and plain-AUTH gotchas), `backend/.env.example` updated, render.yaml placeholder env vars extended.
 
 ## What was added in the latest pass (real email/SMS delivery + admin-only roles)
 
