@@ -772,6 +772,114 @@ test('contract: OCR validation rejects bad payloads identically', async () => {
   await both('OCR non-base64', '/api/ocr', { method: 'POST', body: { image: 'not base64 !!!' } });
 });
 
+// ===== Stock adjustments / transfers + approvals + reports =====
+
+test('contract: stock adjustments + transfers approval workflow is identical', async () => {
+  // Create a pending adjustment on both backends.
+  const adj = await both('POST /api/stock-adjustments', '/api/stock-adjustments', {
+    method: 'POST', auth: 'admin', body: { product_id: 1, location_id: 1, new_qty: 150, reason: 'physical count' },
+  });
+  assert.strictEqual(adj.a.status, 201);
+  assert.strictEqual(adj.b.status, 201);
+  assert.strictEqual(shapeOf(adj.a.json), shapeOf(adj.b.json), 'create adjustment shapes');
+
+  // Both pending queues expose the same shape and one pending row.
+  const q1 = await both('GET /api/approvals (after adjustment)', '/api/approvals', { auth: 'admin' });
+  assert.strictEqual(shapeOf(q1.a.json), shapeOf(q1.b.json), 'approvals shape parity');
+  assert.ok(Array.isArray(q1.a.json.adjustments) && q1.a.json.adjustments.length >= 1, 'sqlite has a pending adjustment');
+  assert.ok(Array.isArray(q1.b.json.adjustments) && q1.b.json.adjustments.length >= 1, 'npmfree has a pending adjustment');
+
+  // Create a pending transfer on both backends.
+  const tr = await both('POST /api/stock-transfers', '/api/stock-transfers', {
+    method: 'POST', auth: 'admin', body: { product_id: 1, src_location: 2, dst_location: 3, qty: 10, reason: 'restock showroom' },
+  });
+  assert.strictEqual(tr.a.status, 201);
+  assert.strictEqual(shapeOf(tr.a.json), shapeOf(tr.b.json), 'create transfer shapes');
+
+  // Invalid inputs 400 identically.
+  await both('POST /api/stock-adjustments (bad qty)', '/api/stock-adjustments', {
+    method: 'POST', auth: 'admin', body: { product_id: 1, location_id: 1, new_qty: -5 },
+  });
+  await both('POST /api/stock-transfers (same location)', '/api/stock-transfers', {
+    method: 'POST', auth: 'admin', body: { product_id: 1, src_location: 1, dst_location: 1, qty: 5 },
+  });
+  await both('POST /api/stock-transfers (bad product)', '/api/stock-transfers', {
+    method: 'POST', auth: 'admin', body: { product_id: 99999, src_location: 1, dst_location: 2, qty: 5 },
+  });
+
+  // Approve the adjustment on each side (each side has its own id).
+  const listA = await call(sqlite.url, '/api/stock-adjustments', { token: sqlite.token.admin });
+  const listB = await call(npmfree.url, '/api/stock-adjustments', { token: npmfree.token.admin });
+  const idA = listA.json[0].id;
+  const idB = listB.json[0].id;
+  assert.strictEqual(shapeOf(listA.json[0]), shapeOf(listB.json[0]), 'adjustment row shape parity');
+
+  const appr = await both('POST approve adjustment', `/api/stock-adjustments/${idA}/approve`, {
+    method: 'POST', auth: 'admin',
+  });
+  assert.strictEqual(appr.a.status, 200);
+  await call(npmfree.url, `/api/stock-adjustments/${idB}/approve`, { method: 'POST', token: npmfree.token.admin });
+
+  // Approving an approved adjustment 400s identically.
+  await both('POST approve adjustment (already decided)', `/api/stock-adjustments/${idA}/approve`, {
+    method: 'POST', auth: 'admin',
+  });
+
+  // Approve the transfer per-side.
+  const tlistA = await call(sqlite.url, '/api/stock-transfers', { token: sqlite.token.admin });
+  const tlistB = await call(npmfree.url, '/api/stock-transfers', { token: npmfree.token.admin });
+  assert.strictEqual(shapeOf(tlistA.json[0]), shapeOf(tlistB.json[0]), 'transfer row shape parity');
+  const tidA = tlistA.json[0].id;
+  const tidB = tlistB.json[0].id;
+  await both('POST approve transfer', `/api/stock-transfers/${tidA}/approve`, {
+    method: 'POST', auth: 'admin',
+  });
+  await call(npmfree.url, `/api/stock-transfers/${tidB}/approve`, { method: 'POST', token: npmfree.token.admin });
+
+  // The movement ledger now contains adjustment + transfer rows on both sides.
+  const movA = await call(sqlite.url, '/api/stock-movements?type=transfer', { token: sqlite.token.admin });
+  const movB = await call(npmfree.url, '/api/stock-movements?type=transfer', { token: npmfree.token.admin });
+  assert.strictEqual(shapeOf(movA.json), shapeOf(movB.json), 'movement ledger parity');
+
+  // Reject flow on a fresh request (product 3 stays active in this suite;
+  // product 2 was soft-deleted by an earlier contract test).
+  await both('POST /api/stock-transfers (reject me)', '/api/stock-transfers', {
+    method: 'POST', auth: 'admin', body: { product_id: 3, src_location: 1, dst_location: 3, qty: 3, reason: 'cancel' },
+  });
+  const rlistA = await call(sqlite.url, '/api/stock-transfers?status=pending', { token: sqlite.token.admin });
+  const rlistB = await call(npmfree.url, '/api/stock-transfers?status=pending', { token: npmfree.token.admin });
+  await both('POST reject transfer', `/api/stock-transfers/${rlistA.json[0].id}/reject`, {
+    method: 'POST', auth: 'admin',
+  });
+  await call(npmfree.url, `/api/stock-transfers/${rlistB.json[0].id}/reject`, { method: 'POST', token: npmfree.token.admin });
+
+  // Status filter + full list still parity.
+  await both('GET /api/stock-adjustments?status=approved', '/api/stock-adjustments?status=approved', { auth: 'admin' });
+  await both('GET /api/stock-transfers', '/api/stock-transfers', { auth: 'admin' });
+  await both('GET /api/approvals (empty pending)', '/api/approvals', { auth: 'admin' });
+});
+
+test('contract: reports endpoint exposes the printable report shape identically', async () => {
+  const res = await both('GET /api/reports', '/api/reports', { auth: 'admin' });
+  assert.strictEqual(res.a.status, 200);
+  assert.strictEqual(shapeOf(res.a.json), shapeOf(res.b.json), 'reports shape parity');
+  for (const side of [sqlite, npmfree]) {
+    const body = side === sqlite ? res.a.json : res.b.json;
+    assert.ok(body.generated_at, `${side} generated_at`);
+    assert.ok(Array.isArray(body.dailySales), `${side} dailySales`);
+    assert.ok(Array.isArray(body.stockByLocation), `${side} stockByLocation`);
+    assert.ok(body.orderStatusSummary && typeof body.orderStatusSummary === 'object', `${side} orderStatusSummary`);
+    assert.ok(Array.isArray(body.lowStock), `${side} lowStock`);
+    assert.ok(Array.isArray(body.fastMovers), `${side} fastMovers`);
+    assert.ok(Array.isArray(body.slowMovers), `${side} slowMovers`);
+    assert.ok(body.summary && Number.isFinite(body.summary.total_products), `${side} summary.total_products`);
+    assert.ok(Number.isFinite(body.summary.transactions), `${side} summary.transactions`);
+  }
+  // Auth: reports + approvals require an admin token.
+  await both('GET /api/reports (no token)', '/api/reports', {});
+  await both('GET /api/approvals (no token)', '/api/approvals', {});
+});
+
 // ===== Analytics extensions =====
 
 test('contract: analytics summary exposes the new dashboard data identically', async () => {

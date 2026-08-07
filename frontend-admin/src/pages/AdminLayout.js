@@ -7,9 +7,13 @@ const navItems = [
   { label: 'Products', path: '/products' },
   { label: 'Inventory', path: '/inventory' },
   { label: 'Stock Movement', path: '/stock-movement' },
+  { label: 'Stock Adjustments', path: '/stock-adjustments' },
+  { label: 'Stock Transfers', path: '/stock-transfers' },
+  { label: 'Approvals', path: '/approvals' },
   { label: 'Order Inquiries', path: '/order-inquiries' },
   { label: 'Locations', path: '/locations' },
   { label: 'Optimization', path: '/optimization' },
+  { label: 'Reports', path: '/reports' },
 ];
 
 export default function AdminLayout({ title, children, onLogout }) {

@@ -978,6 +978,492 @@
         }
       }
     },
+    "/api/stock-adjustments": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "listStockAdjustments",
+        "summary": "List stock adjustment requests (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Adjustments (pending until approved; approval applies the correction)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockAdjustment"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "createStockAdjustment",
+        "summary": "Create a stock adjustment request (admin only) — PENDING until approved",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustmentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Adjustment created (pending approval)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Product or location not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-adjustments/{id}/approve": {
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "approveStockAdjustment",
+        "summary": "Approve a pending adjustment and apply it to stock (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Adjustment approved and applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Already decided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/stock-adjustments/{id}/reject": {
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "rejectStockAdjustment",
+        "summary": "Reject a pending adjustment (stock unchanged) (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Adjustment rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/stock-transfers": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "listStockTransfers",
+        "summary": "List stock transfer requests (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transfers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockTransfer"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "createStockTransfer",
+        "summary": "Create a stock transfer request (admin only) — PENDING until approved",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockTransferInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transfer created (pending approval)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Product or location not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-transfers/{id}/approve": {
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "approveStockTransfer",
+        "summary": "Approve a pending transfer and move the stock (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transfer approved and applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Already decided or insufficient stock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/stock-transfers/{id}/reject": {
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "rejectStockTransfer",
+        "summary": "Reject a pending transfer (stock unchanged) (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transfer rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/approvals": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "getApprovals",
+        "summary": "Pending stock adjustments and transfers in one approval queue (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending approvals queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalsQueue"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/reports": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "operationId": "getReports",
+        "summary": "Printable management report: daily sales, stock by location, order status, low stock, movers (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90,
+              "default": 14
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportData"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/api/order-inquiries": {
       "get": {
         "tags": [
@@ -2492,6 +2978,390 @@
           },
           "received_at": {
             "type": "string"
+          }
+        }
+      },
+      "StockAdjustmentInput": {
+        "type": "object",
+        "required": [
+          "product_id",
+          "location_id",
+          "new_qty"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "location_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "new_qty": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Corrected quantity at the location"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "StockAdjustment": {
+        "type": "object",
+        "required": [
+          "id",
+          "product_id",
+          "product_name",
+          "location_id",
+          "location_name",
+          "new_qty",
+          "reason",
+          "status",
+          "created_at",
+          "current_qty"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "product_id": {
+            "type": "integer"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "location_id": {
+            "type": "integer"
+          },
+          "location_name": {
+            "type": "string"
+          },
+          "new_qty": {
+            "type": "number"
+          },
+          "current_qty": {
+            "type": "number",
+            "description": "Stock at the location before approval"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "decided_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "decided_by": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "StockTransferInput": {
+        "type": "object",
+        "required": [
+          "product_id",
+          "src_location",
+          "dst_location",
+          "qty"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "src_location": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "dst_location": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "qty": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "StockTransfer": {
+        "type": "object",
+        "required": [
+          "id",
+          "product_id",
+          "product_name",
+          "src_location",
+          "src_location_name",
+          "dst_location",
+          "dst_location_name",
+          "qty",
+          "reason",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "product_id": {
+            "type": "integer"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "src_location": {
+            "type": "integer"
+          },
+          "src_location_name": {
+            "type": "string"
+          },
+          "dst_location": {
+            "type": "integer"
+          },
+          "dst_location_name": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "decided_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "decided_by": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreatedMessage": {
+        "type": "object",
+        "required": [
+          "ok",
+          "id",
+          "message"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ApprovalsQueue": {
+        "type": "object",
+        "required": [
+          "adjustments",
+          "transfers"
+        ],
+        "properties": {
+          "adjustments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockAdjustment"
+            }
+          },
+          "transfers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockTransfer"
+            }
+          }
+        }
+      },
+      "ReportData": {
+        "type": "object",
+        "required": [
+          "generated_at",
+          "days",
+          "dailySales",
+          "stockByLocation",
+          "orderStatusSummary",
+          "lowStock",
+          "fastMovers",
+          "slowMovers",
+          "summary"
+        ],
+        "properties": {
+          "generated_at": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer"
+          },
+          "dailySales": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "date",
+                "transactions",
+                "value"
+              ],
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "transactions": {
+                  "type": "integer"
+                },
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "stockByLocation": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "location",
+                "total"
+              ],
+              "properties": {
+                "location": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "orderStatusSummary": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "lowStock": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "total"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "fastMovers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "qty_sold",
+                "value"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "qty_sold": {
+                  "type": "number"
+                },
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "slowMovers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "qty_sold"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "qty_sold": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "required": [
+              "total_products",
+              "total_stock",
+              "total_sales",
+              "transactions",
+              "customers_served",
+              "pending_approvals"
+            ],
+            "properties": {
+              "total_products": {
+                "type": "integer"
+              },
+              "total_stock": {
+                "type": "number"
+              },
+              "total_sales": {
+                "type": "number"
+              },
+              "transactions": {
+                "type": "integer"
+              },
+              "customers_served": {
+                "type": "integer"
+              },
+              "pending_approvals": {
+                "type": "integer"
+              }
+            }
           }
         }
       },

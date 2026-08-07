@@ -135,6 +135,45 @@ CREATE TABLE IF NOT EXISTS verification_codes (
   expires_at TEXT NOT NULL,
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
+
+-- Stock adjustment requests: an admin proposes a corrected quantity at a
+-- location (inventory count, damaged goods, shrinkage) with a reason. It is
+-- created PENDING and only changes stock after an admin APPROVES it (the
+-- 'approval of important transactions' workflow); REJECTED requests leave
+-- stock untouched. Approving records the change as an 'adjustment' movement
+-- in stock_movements so the ledger stays complete.
+CREATE TABLE IF NOT EXISTS stock_adjustments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL,
+  location_id INTEGER NOT NULL,
+  new_qty REAL NOT NULL,
+  reason TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TEXT DEFAULT (datetime('now')),
+  decided_at TEXT,
+  decided_by TEXT,
+  FOREIGN KEY(product_id) REFERENCES products(id),
+  FOREIGN KEY(location_id) REFERENCES locations(id)
+);
+
+-- Stock transfer requests: an admin proposes moving qty of a product between
+-- two locations. PENDING until approved; approval performs the transfer and
+-- records a 'transfer' movement; rejection leaves stock untouched.
+CREATE TABLE IF NOT EXISTS stock_transfers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL,
+  src_location INTEGER NOT NULL,
+  dst_location INTEGER NOT NULL,
+  qty REAL NOT NULL,
+  reason TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TEXT DEFAULT (datetime('now')),
+  decided_at TEXT,
+  decided_by TEXT,
+  FOREIGN KEY(product_id) REFERENCES products(id),
+  FOREIGN KEY(src_location) REFERENCES locations(id),
+  FOREIGN KEY(dst_location) REFERENCES locations(id)
+);
 `;
 
 module.exports = SCHEMA;

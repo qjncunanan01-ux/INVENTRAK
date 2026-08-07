@@ -88,6 +88,26 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listStockMovements: (params) => request('GET', '/api/stock-movements', { query: params }),
   // GET /api/stock-lots — List FIFO stock lots
   listStockLots: (params) => request('GET', '/api/stock-lots', { query: params }),
+  // GET /api/stock-adjustments — List stock adjustment requests (admin only)
+  listStockAdjustments: (params) => request('GET', '/api/stock-adjustments', { query: params }),
+  // POST /api/stock-adjustments — Create a stock adjustment request (admin only) — PENDING until approved
+  createStockAdjustment: (body) => request('POST', '/api/stock-adjustments', { body }),
+  // POST /api/stock-adjustments/{id}/approve — Approve a pending adjustment and apply it to stock (admin only)
+  approveStockAdjustment: ({ id }) => request('POST', '/api/stock-adjustments/{id}/approve', { params: { id } }),
+  // POST /api/stock-adjustments/{id}/reject — Reject a pending adjustment (stock unchanged) (admin only)
+  rejectStockAdjustment: ({ id }) => request('POST', '/api/stock-adjustments/{id}/reject', { params: { id } }),
+  // GET /api/stock-transfers — List stock transfer requests (admin only)
+  listStockTransfers: (params) => request('GET', '/api/stock-transfers', { query: params }),
+  // POST /api/stock-transfers — Create a stock transfer request (admin only) — PENDING until approved
+  createStockTransfer: (body) => request('POST', '/api/stock-transfers', { body }),
+  // POST /api/stock-transfers/{id}/approve — Approve a pending transfer and move the stock (admin only)
+  approveStockTransfer: ({ id }) => request('POST', '/api/stock-transfers/{id}/approve', { params: { id } }),
+  // POST /api/stock-transfers/{id}/reject — Reject a pending transfer (stock unchanged) (admin only)
+  rejectStockTransfer: ({ id }) => request('POST', '/api/stock-transfers/{id}/reject', { params: { id } }),
+  // GET /api/approvals — Pending stock adjustments and transfers in one approval queue (admin only)
+  getApprovals: (_) => request('GET', '/api/approvals', {  }),
+  // GET /api/reports — Printable management report: daily sales, stock by location, order status, low stock, movers (admin only)
+  getReports: (params) => request('GET', '/api/reports', { query: params }),
   // GET /api/order-inquiries — List order inquiries
   listOrderInquiries: (params) => request('GET', '/api/order-inquiries', { query: params }),
   // POST /api/order-inquiries — Submit an order inquiry

@@ -70,6 +70,8 @@ const productsFile = path.join(dataDir, 'products.json');
 const inventoryFile = path.join(dataDir, 'inventory.json');
 const movementsFile = path.join(dataDir, 'stock_movements.json');
 const orderFile = path.join(dataDir, 'order_inquiries.json');
+const adjustmentsFile = path.join(dataDir, 'stock_adjustments.json');
+const transfersFile = path.join(dataDir, 'stock_transfers.json');
 const openapiFile = path.join(__dirname, '..', 'openapi.json');
 
 // In-memory datasets. The JSON driver keeps users/sales/alerts in memory (as
@@ -227,6 +229,8 @@ function bootstrap() {
 
   if (!readJSON(movementsFile)) writeJSON(movementsFile, []);
   if (!readJSON(orderFile)) writeJSON(orderFile, []);
+  if (!readJSON(adjustmentsFile)) writeJSON(adjustmentsFile, []);
+  if (!readJSON(transfersFile)) writeJSON(transfersFile, []);
 
   // Firestore mode: persist the demo users/sales/alerts so registrations and
   // sales accumulate on them across restarts.
@@ -1152,6 +1156,341 @@ const server = http.createServer((req, res) => {
 
         return sendJson(res, 200, { ok: true, message: `Stock ${obj.type} recorded successfully` });
       });
+    });
+  }
+
+  // ================= STOCK ADJUSTMENT / TRANSFER + APPROVAL ROUTES =================
+  //
+  // Mirrors the SQLite backend's dedicated modules (same shapes, same flow):
+  // adjustments and transfers are created PENDING and only change stock once
+  // an admin approves them — the 'approval of important transactions' workflow.
+
+  // Rich row builders: SQLite joins product/location names at read time, so
+  // the npm-free store snapshots the same fields onto each row.
+  function adjustmentRow(a, inv, products) {
+    const product = products[Number(a.product_id) - 1] || null;
+    const locationName = a.location_name || (inv.locations[Number(a.location_id) - 1]) || `Location ${a.location_id}`;
+    let currentQty = 0;
+    const item = inv.items.find(i => i.product && Number(i.product.id) === Number(a.product_id));
+    if (item) currentQty = item.locations[locationName] || 0;
+    return {
+      id: Number(a.id),
+      product_id: Number(a.product_id),
+      product_name: (product && (product['Product Name'] || product.name)) || `Product ${a.product_id}`,
+      location_id: Number(a.location_id),
+      location_name: locationName,
+      new_qty: Number(a.new_qty),
+      reason: a.reason || '',
+      status: a.status || 'pending',
+      created_at: a.created_at,
+      decided_at: a.decided_at === undefined || a.decided_at === '' ? null : a.decided_at,
+      decided_by: a.decided_by === undefined || a.decided_by === '' ? null : a.decided_by,
+      current_qty: currentQty,
+    };
+  }
+
+  function transferRow(t, inv, products) {
+    const product = products[Number(t.product_id) - 1] || null;
+    const srcName = t.src_location_name || (inv.locations[Number(t.src_location) - 1]) || `Location ${t.src_location}`;
+    const dstName = t.dst_location_name || (inv.locations[Number(t.dst_location) - 1]) || `Location ${t.dst_location}`;
+    return {
+      id: Number(t.id),
+      product_id: Number(t.product_id),
+      product_name: (product && (product['Product Name'] || product.name)) || `Product ${t.product_id}`,
+      src_location: Number(t.src_location),
+      src_location_name: srcName,
+      dst_location: Number(t.dst_location),
+      dst_location_name: dstName,
+      qty: Number(t.qty),
+      reason: t.reason || '',
+      status: t.status || 'pending',
+      created_at: t.created_at,
+      decided_at: t.decided_at === undefined || t.decided_at === '' ? null : t.decided_at,
+      decided_by: t.decided_by === undefined || t.decided_by === '' ? null : t.decided_by,
+    };
+  }
+
+  function loadRows(kind, status) {
+    const raw = readJSON(kind === 'adjustment' ? adjustmentsFile : transfersFile) || [];
+    const inv = getInventory();
+    const products = readJSON(productsFile) || [];
+    let rows = raw.map(r => (kind === 'adjustment' ? adjustmentRow(r, inv, products) : transferRow(r, inv, products)));
+    if (status) rows = rows.filter(r => r.status === status);
+    return rows;
+  }
+
+  const pathPart = url.split('?')[0];
+
+  if (req.method === 'GET' && pathPart === '/api/stock-adjustments') {
+    return requireAuth(req, res, true, (req, res) => {
+      const parsed = new URL(url, 'http://localhost');
+      return sendJson(res, 200, loadRows('adjustment', parsed.searchParams.get('status')));
+    });
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/stock-adjustments') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const productId = Number(obj.product_id);
+        const locationId = Number(obj.location_id);
+        const newQty = Number(obj.new_qty);
+        if (!Number.isFinite(productId) || productId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
+        if (!Number.isFinite(locationId) || locationId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
+        if (!Number.isFinite(newQty) || newQty < 0) return sendJson(res, 400, { error: 'Validation failed', details: ['new_qty must be a number >= 0'] });
+        const products = readJSON(productsFile) || [];
+        if (!products[productId - 1] || !isProductActive(products[productId - 1])) return sendJson(res, 404, { error: 'Product not found or inactive' });
+        const inv = getInventory();
+        if (!inv.locations[locationId - 1]) return sendJson(res, 404, { error: 'Location not found' });
+        const rows = readJSON(adjustmentsFile) || [];
+        const row = {
+          id: rows.length + 1,
+          product_id: productId,
+          location_id: locationId,
+          location_name: inv.locations[locationId - 1],
+          new_qty: newQty,
+          reason: obj.reason || '',
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          decided_at: null,
+          decided_by: null,
+        };
+        rows.unshift(row);
+        writeJSON(adjustmentsFile, rows);
+        return sendJson(res, 201, { ok: true, id: row.id, message: 'Adjustment created (pending approval)' });
+      });
+    });
+  }
+
+  // /api/stock-adjustments/{id}/approve | /reject (admin only)
+  if (req.method === 'POST' && url.startsWith('/api/stock-adjustments/') && /^\/api\/stock-adjustments\/\d+\/(approve|reject)$/.test(pathPart)) {
+    return requireAuth(req, res, true, (req, res) => {
+      const id = Number(pathPart.split('/')[3]);
+      const action = pathPart.split('/')[4];
+      const rows = readJSON(adjustmentsFile) || [];
+      const row = rows.find(r => Number(r.id) === id);
+      if (!row) return sendJson(res, 404, { error: 'Adjustment not found' });
+      if (row.status !== 'pending') return sendJson(res, 400, { error: 'Adjustment already decided' });
+
+      const now = new Date().toISOString();
+      const actor = (req.user && req.user.username) || 'admin';
+
+      if (action === 'approve') {
+        // Apply the correction: set the location's stock to the proposed qty.
+        const inv = getInventory();
+        const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
+        if (item) {
+          const locName = row.location_name || inv.locations[Number(row.location_id) - 1];
+          item.locations[locName] = Number(row.new_qty);
+          item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
+          writeJSON(inventoryFile, inv);
+        }
+        // Record the movement in the ledger (mirrors SQLite).
+        const movements = readJSON(movementsFile) || [];
+        movements.unshift({
+          id: movements.length + 1,
+          product_id: Number(row.product_id),
+          qty: Number(row.new_qty),
+          type: 'adjustment',
+          src_location: null,
+          dst_location: Number(row.location_id),
+          notes: `Adjustment #${row.id}: ${row.reason || 'approved correction'}`,
+          created_at: now,
+          user: actor,
+        });
+        writeJSON(movementsFile, movements);
+        row.status = 'approved';
+        row.decided_at = now;
+        row.decided_by = actor;
+        writeJSON(adjustmentsFile, rows);
+        return sendJson(res, 200, { ok: true, message: 'Adjustment approved and applied to stock' });
+      }
+
+      row.status = 'rejected';
+      row.decided_at = now;
+      row.decided_by = actor;
+      writeJSON(adjustmentsFile, rows);
+      return sendJson(res, 200, { ok: true, message: 'Adjustment rejected (stock unchanged)' });
+    });
+  }
+
+  if (req.method === 'GET' && pathPart === '/api/stock-transfers') {
+    return requireAuth(req, res, true, (req, res) => {
+      const parsed = new URL(url, 'http://localhost');
+      return sendJson(res, 200, loadRows('transfer', parsed.searchParams.get('status')));
+    });
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/stock-transfers') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const productId = Number(obj.product_id);
+        const srcId = Number(obj.src_location);
+        const dstId = Number(obj.dst_location);
+        const qty = Number(obj.qty);
+        if (!Number.isFinite(productId) || productId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
+        if (!Number.isFinite(srcId) || srcId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['src_location must be a positive number'] });
+        if (!Number.isFinite(dstId) || dstId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['dst_location must be a positive number'] });
+        if (!Number.isFinite(qty) || qty <= 0) return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
+        if (srcId === dstId) return sendJson(res, 400, { error: 'Source and destination must differ' });
+        const products = readJSON(productsFile) || [];
+        if (!products[productId - 1] || !isProductActive(products[productId - 1])) return sendJson(res, 404, { error: 'Product not found or inactive' });
+        const inv = getInventory();
+        if (!inv.locations[srcId - 1] || !inv.locations[dstId - 1]) return sendJson(res, 404, { error: 'Location not found' });
+        const rows = readJSON(transfersFile) || [];
+        const row = {
+          id: rows.length + 1,
+          product_id: productId,
+          src_location: srcId,
+          src_location_name: inv.locations[srcId - 1],
+          dst_location: dstId,
+          dst_location_name: inv.locations[dstId - 1],
+          qty,
+          reason: obj.reason || '',
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          decided_at: null,
+          decided_by: null,
+        };
+        rows.unshift(row);
+        writeJSON(transfersFile, rows);
+        return sendJson(res, 201, { ok: true, id: row.id, message: 'Transfer created (pending approval)' });
+      });
+    });
+  }
+
+  // /api/stock-transfers/{id}/approve | /reject (admin only)
+  if (req.method === 'POST' && url.startsWith('/api/stock-transfers/') && /^\/api\/stock-transfers\/\d+\/(approve|reject)$/.test(pathPart)) {
+    return requireAuth(req, res, true, (req, res) => {
+      const id = Number(pathPart.split('/')[3]);
+      const action = pathPart.split('/')[4];
+      const rows = readJSON(transfersFile) || [];
+      const row = rows.find(r => Number(r.id) === id);
+      if (!row) return sendJson(res, 404, { error: 'Transfer not found' });
+      if (row.status !== 'pending') return sendJson(res, 400, { error: 'Transfer already decided' });
+
+      const now = new Date().toISOString();
+      const actor = (req.user && req.user.username) || 'admin';
+
+      if (action === 'approve') {
+        const inv = getInventory();
+        const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
+        const srcName = row.src_location_name || inv.locations[Number(row.src_location) - 1];
+        const dstName = row.dst_location_name || inv.locations[Number(row.dst_location) - 1];
+        const available = item ? (item.locations[srcName] || 0) : 0;
+        if (available < Number(row.qty)) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
+        if (item) {
+          item.locations[srcName] = (item.locations[srcName] || 0) - Number(row.qty);
+          item.locations[dstName] = (item.locations[dstName] || 0) + Number(row.qty);
+          item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
+          writeJSON(inventoryFile, inv);
+          upsertLowStockAlert(item.product.id, Number(row.src_location), item.locations[srcName] || 0);
+        }
+        const movements = readJSON(movementsFile) || [];
+        movements.unshift({
+          id: movements.length + 1,
+          product_id: Number(row.product_id),
+          qty: Number(row.qty),
+          type: 'transfer',
+          src_location: Number(row.src_location),
+          dst_location: Number(row.dst_location),
+          notes: `Transfer #${row.id}: ${row.reason || 'approved transfer'}`,
+          created_at: now,
+          user: actor,
+        });
+        writeJSON(movementsFile, movements);
+        row.status = 'approved';
+        row.decided_at = now;
+        row.decided_by = actor;
+        writeJSON(transfersFile, rows);
+        return sendJson(res, 200, { ok: true, message: 'Transfer approved and applied to stock' });
+      }
+
+      row.status = 'rejected';
+      row.decided_at = now;
+      row.decided_by = actor;
+      writeJSON(transfersFile, rows);
+      return sendJson(res, 200, { ok: true, message: 'Transfer rejected (stock unchanged)' });
+    });
+  }
+
+  // Combined pending queue (Approvals page).
+  if (req.method === 'GET' && url.split('?')[0] === '/api/approvals') {
+    return requireAuth(req, res, true, (req, res) => {
+      return sendJson(res, 200, {
+        adjustments: loadRows('adjustment', 'pending'),
+        transfers: loadRows('transfer', 'pending'),
+      });
+    });
+  }
+
+  // Printable report data (Report Viewing module).
+  if (req.method === 'GET' && url.split('?')[0] === '/api/reports') {
+    return requireAuth(req, res, true, (req, res) => {
+      const parsed = new URL(url, 'http://localhost');
+      const days = Math.min(90, Math.max(1, parseInt(parsed.searchParams.get('days'), 10) || 14));
+      const generated_at = new Date().toISOString();
+      const cutoff = Date.now() - days * 86400000;
+      const sales = salesTransactions.length ? salesTransactions : (readJSON('@sales') || []);
+
+      const dateKey = (iso) => (iso || '').slice(0, 10);
+      const dailyMap = {};
+      sales.forEach(s => {
+        if (new Date(s.transaction_date).getTime() < cutoff) return;
+        const d = dateKey(s.transaction_date);
+        dailyMap[d] = dailyMap[d] || { date: d, transactions: 0, value: 0 };
+        dailyMap[d].transactions += 1;
+        dailyMap[d].value += Number(s.total_amount) || 0;
+      });
+      const dailySales = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+      const inv = getInventory();
+      const stockByLocation = (inv.locations || []).map(name => ({
+        location: name,
+        total: (inv.items || []).reduce((sum, it) => sum + (it.locations[name] || 0), 0),
+      }));
+
+      const orders = readJSON(orderFile) || [];
+      const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+      orders.forEach(o => { const s = o.status || 'pending'; if (orderStatusSummary[s] !== undefined) orderStatusSummary[s] += 1; });
+
+      const products = readJSON(productsFile) || [];
+      const lowStock = (inv.items || [])
+        .filter(it => it.total < 80)
+        .map(it => ({ id: it.product.id, name: it.product.name, total: it.total }))
+        .sort((a, b) => a.total - b.total);
+
+      const qtyByProduct = {};
+      const valueByProduct = {};
+      sales.forEach(s => {
+        const pid = Number(s.product_id);
+        qtyByProduct[pid] = (qtyByProduct[pid] || 0) + (Number(s.qty) || 0);
+        valueByProduct[pid] = (valueByProduct[pid] || 0) + (Number(s.total_amount) || 0);
+      });
+      const moverRows = products.map((p, idx) => ({
+        name: p['Product Name'] || p.name || '',
+        qty_sold: qtyByProduct[idx + 1] || 0,
+        value: valueByProduct[idx + 1] || 0,
+      }));
+      const fastMovers = moverRows.filter(r => r.qty_sold > 0).sort((a, b) => b.qty_sold - a.qty_sold).slice(0, 10);
+      // SQLite's slow-mover rows carry only name + qty_sold — strip the value
+      // key here so the report shapes stay byte-identical across backends.
+      const slowMovers = moverRows
+        .sort((a, b) => a.qty_sold - b.qty_sold || a.name.localeCompare(b.name))
+        .slice(0, 10)
+        .map(({ name, qty_sold }) => ({ name, qty_sold }));
+
+      const summary = {
+        total_products: products.filter(isProductActive).length,
+        total_stock: (inv.items || []).reduce((sum, it) => sum + (it.total || 0), 0),
+        total_sales: sales.reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0),
+        transactions: sales.length,
+        customers_served: new Set(sales.map(s => s.customer_name)).size,
+        pending_approvals: loadRows('adjustment', 'pending').length + loadRows('transfer', 'pending').length,
+      };
+
+      return sendJson(res, 200, { generated_at, days, dailySales, stockByLocation, orderStatusSummary, lowStock, fastMovers, slowMovers, summary });
     });
   }
 

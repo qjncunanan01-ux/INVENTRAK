@@ -1125,6 +1125,84 @@ function resolveLocation(value) {
   return row ? row.id : null;
 }
 
+// Applies a movement's stock effect (stock rows, FIFO lots, low-stock alert)
+// to the database. Shared by the approval endpoints: approving a pending
+// stock adjustment or transfer performs exactly the same stock math as the
+// immediate POST /api/stock-movement handler, so an approved transaction
+// moves stock identically to a manually recorded one.
+function applyMovementEffect({
+  product_id,
+  qty,
+  type,
+  srcId,
+  dstId,
+  now,
+}) {
+  const ensureStockRow = db.prepare(
+    'INSERT OR IGNORE INTO stock (product_id, location_id, quantity) VALUES (?, ?, 0)'
+  );
+
+  if (srcId) ensureStockRow.run(product_id, srcId);
+  if (dstId) ensureStockRow.run(product_id, dstId);
+
+  if (type === 'stock-in' && dstId) {
+    db.prepare(
+      'UPDATE stock SET quantity = quantity + ? WHERE product_id = ? AND location_id = ?'
+    ).run(qty, product_id, dstId);
+    db.prepare(
+      'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
+    ).run(product_id, dstId, qty, now);
+  } else if (type === 'stock-out' && srcId) {
+    consumeStockLots(product_id, srcId, qty);
+    db.prepare(
+      'UPDATE stock SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?'
+    ).run(qty, product_id, srcId);
+  } else if (type === 'transfer' && srcId && dstId) {
+    consumeStockLots(product_id, srcId, qty);
+    db.prepare(
+      'UPDATE stock SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?'
+    ).run(qty, product_id, srcId);
+    db.prepare(
+      'UPDATE stock SET quantity = quantity + ? WHERE product_id = ? AND location_id = ?'
+    ).run(qty, product_id, dstId);
+    db.prepare(
+      'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
+    ).run(product_id, dstId, qty, now);
+  } else if (type === 'adjustment' && (srcId || dstId)) {
+    const loc = dstId || srcId;
+    db.prepare(
+      'UPDATE stock SET quantity = ? WHERE product_id = ? AND location_id = ?'
+    ).run(qty, product_id, loc);
+    // Keep FIFO lots consistent with the adjusted quantity: replace the
+    // product's lots at this location with a single lot of the new qty.
+    db.prepare('DELETE FROM stock_lots WHERE product_id = ? AND location_id = ?').run(product_id, loc);
+    db.prepare(
+      'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
+    ).run(product_id, loc, qty, now);
+  }
+
+  const threshold = 80;
+  if (srcId) {
+    const updated = db
+      .prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?')
+      .get(product_id, srcId);
+    if (updated && updated.quantity < threshold) {
+      const existingAlert = db
+        .prepare(
+          'SELECT id FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = ? AND status = ?'
+        )
+        .get(product_id, srcId, 'low_stock', 'active');
+      if (!existingAlert) {
+        db.prepare(
+          'INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(product_id, srcId, 'low_stock', threshold, updated.quantity, 'active');
+      } else {
+        db.prepare('UPDATE inventory_alerts SET current_qty = ? WHERE id = ?').run(updated.quantity, existingAlert.id);
+      }
+    }
+  }
+}
+
 function consumeStockLots(
   productId,
   locationId,
@@ -1543,6 +1621,268 @@ app.get('/api/stock-lots', (req, res) => {
     .all(...params);
 
   res.json(rows);
+});
+
+// ================= STOCK ADJUSTMENT / TRANSFER + APPROVAL ROUTES =================
+//
+// Dedicated modules for the reviewer checklist:
+//   - Stock adjustment: propose a corrected quantity at a location (count,
+//     damage, shrinkage) with a reason. Created PENDING; only an APPROVED
+//     adjustment changes stock (the 'approval of important transactions'
+//     workflow).
+//   - Stock transfer: propose moving qty between two locations. PENDING until
+//     approved; approval performs the move and records a 'transfer' movement.
+//   - Approvals: one queue of pending adjustments + transfers.
+
+function listAdjustments(dbRef, status) {
+  const where = status ? ' WHERE a.status = ?' : '';
+  const params = status ? [status] : [];
+  return dbRef
+    .prepare(
+      `SELECT a.id, a.product_id, p.name as product_name, a.location_id, l.name as location_name,
+              a.new_qty, a.reason, a.status, a.created_at, a.decided_at, a.decided_by,
+              COALESCE(s.quantity, 0) as current_qty
+       FROM stock_adjustments a
+       JOIN products p ON p.id = a.product_id
+       JOIN locations l ON l.id = a.location_id
+       LEFT JOIN stock s ON s.product_id = a.product_id AND s.location_id = a.location_id
+       ${where}
+       ORDER BY a.created_at DESC`
+    )
+    .all(...params);
+}
+
+function listTransfers(dbRef, status) {
+  const where = status ? ' WHERE t.status = ?' : '';
+  const params = status ? [status] : [];
+  return dbRef
+    .prepare(
+      `SELECT t.id, t.product_id, p.name as product_name,
+              t.src_location, s.name as src_location_name,
+              t.dst_location, d.name as dst_location_name,
+              t.qty, t.reason, t.status, t.created_at, t.decided_at, t.decided_by
+       FROM stock_transfers t
+       JOIN products p ON p.id = t.product_id
+       JOIN locations s ON s.id = t.src_location
+       JOIN locations d ON d.id = t.dst_location
+       ${where}
+       ORDER BY t.created_at DESC`
+    )
+    .all(...params);
+}
+
+app.get('/api/stock-adjustments', authenticateToken, adminOnly, (req, res) => {
+  res.json(listAdjustments(db, req.query.status || null));
+});
+
+app.post(
+  '/api/stock-adjustments',
+  authenticateToken,
+  adminOnly,
+  validate({
+    product_id: { required: true, type: 'number', min: 1 },
+    location_id: { required: true, type: 'number', min: 1 },
+    new_qty: { required: true, type: 'number', min: 0 },
+    reason: { maxLength: 300 },
+  }),
+  (req, res) => {
+    const { product_id, location_id, new_qty, reason } = req.body;
+    const product = db.prepare('SELECT id FROM products WHERE id = ? AND status = ?').get(product_id, 'active');
+    if (!product) return res.status(404).json({ error: 'Product not found or inactive' });
+    const loc = db.prepare('SELECT id FROM locations WHERE id = ?').get(location_id);
+    if (!loc) return res.status(404).json({ error: 'Location not found' });
+
+    const info = db
+      .prepare(
+        'INSERT INTO stock_adjustments (product_id, location_id, new_qty, reason, status) VALUES (?, ?, ?, ?, ?)'
+      )
+      .run(product_id, location_id, new_qty, reason || '', 'pending');
+
+    res.status(201).json({ ok: true, id: info.lastInsertRowid, message: 'Adjustment created (pending approval)' });
+  }
+);
+
+function decideAdjustment(req, res, action) {
+  const row = db.prepare('SELECT * FROM stock_adjustments WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Adjustment not found' });
+  if (row.status !== 'pending') return res.status(400).json({ error: 'Adjustment already decided' });
+
+  const now = new Date().toISOString();
+  const actor = req.user?.username || 'admin';
+
+  if (action === 'approve') {
+    // Apply the correction: set the location's stock to the proposed qty and
+    // record an 'adjustment' movement so the ledger stays complete.
+    applyMovementEffect({
+      product_id: row.product_id,
+      qty: row.new_qty,
+      type: 'adjustment',
+      srcId: null,
+      dstId: row.location_id,
+      now,
+    });
+    db.prepare(
+      'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(row.product_id, row.new_qty, 'adjustment', null, row.location_id, `Adjustment #${row.id}: ${row.reason || 'approved correction'}`, now, actor);
+    db.prepare(
+      "UPDATE stock_adjustments SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ?"
+    ).run(now, actor, row.id);
+    return res.json({ ok: true, message: 'Adjustment approved and applied to stock' });
+  }
+
+  db.prepare(
+    "UPDATE stock_adjustments SET status = 'rejected', decided_at = ?, decided_by = ? WHERE id = ?"
+  ).run(now, actor, row.id);
+  res.json({ ok: true, message: 'Adjustment rejected (stock unchanged)' });
+}
+
+app.post('/api/stock-adjustments/:id/approve', authenticateToken, adminOnly, (req, res) => decideAdjustment(req, res, 'approve'));
+app.post('/api/stock-adjustments/:id/reject', authenticateToken, adminOnly, (req, res) => decideAdjustment(req, res, 'reject'));
+
+app.get('/api/stock-transfers', authenticateToken, adminOnly, (req, res) => {
+  res.json(listTransfers(db, req.query.status || null));
+});
+
+app.post(
+  '/api/stock-transfers',
+  authenticateToken,
+  adminOnly,
+  validate({
+    product_id: { required: true, type: 'number', min: 1 },
+    src_location: { required: true, type: 'number', min: 1 },
+    dst_location: { required: true, type: 'number', min: 1 },
+    qty: { required: true, type: 'number', min: 0.01 },
+    reason: { maxLength: 300 },
+  }),
+  (req, res) => {
+    const { product_id, src_location, dst_location, qty, reason } = req.body;
+    if (Number(src_location) === Number(dst_location)) {
+      return res.status(400).json({ error: 'Source and destination must differ' });
+    }
+    const product = db.prepare('SELECT id FROM products WHERE id = ? AND status = ?').get(product_id, 'active');
+    if (!product) return res.status(404).json({ error: 'Product not found or inactive' });
+    const src = db.prepare('SELECT id FROM locations WHERE id = ?').get(src_location);
+    const dst = db.prepare('SELECT id FROM locations WHERE id = ?').get(dst_location);
+    if (!src || !dst) return res.status(404).json({ error: 'Location not found' });
+
+    const info = db
+      .prepare(
+        'INSERT INTO stock_transfers (product_id, src_location, dst_location, qty, reason, status) VALUES (?, ?, ?, ?, ?, ?)'
+      )
+      .run(product_id, src_location, dst_location, qty, reason || '', 'pending');
+
+    res.status(201).json({ ok: true, id: info.lastInsertRowid, message: 'Transfer created (pending approval)' });
+  }
+);
+
+function decideTransfer(req, res, action) {
+  const row = db.prepare('SELECT * FROM stock_transfers WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Transfer not found' });
+  if (row.status !== 'pending') return res.status(400).json({ error: 'Transfer already decided' });
+
+  const now = new Date().toISOString();
+  const actor = req.user?.username || 'admin';
+
+  if (action === 'approve') {
+    // Pre-flight availability exactly like the immediate movement handler.
+    const srcStock = db.prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?').get(row.product_id, row.src_location);
+    if (!srcStock || srcStock.quantity < row.qty) {
+      return res.status(400).json({ error: 'Insufficient stock at source location' });
+    }
+    applyMovementEffect({
+      product_id: row.product_id,
+      qty: row.qty,
+      type: 'transfer',
+      srcId: row.src_location,
+      dstId: row.dst_location,
+      now,
+    });
+    db.prepare(
+      'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(row.product_id, row.qty, 'transfer', row.src_location, row.dst_location, `Transfer #${row.id}: ${row.reason || 'approved transfer'}`, now, actor);
+    db.prepare(
+      "UPDATE stock_transfers SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ?"
+    ).run(now, actor, row.id);
+    return res.json({ ok: true, message: 'Transfer approved and applied to stock' });
+  }
+
+  db.prepare(
+    "UPDATE stock_transfers SET status = 'rejected', decided_at = ?, decided_by = ? WHERE id = ?"
+  ).run(now, actor, row.id);
+  res.json({ ok: true, message: 'Transfer rejected (stock unchanged)' });
+}
+
+app.post('/api/stock-transfers/:id/approve', authenticateToken, adminOnly, (req, res) => decideTransfer(req, res, 'approve'));
+app.post('/api/stock-transfers/:id/reject', authenticateToken, adminOnly, (req, res) => decideTransfer(req, res, 'reject'));
+
+// Combined pending queue for the Approvals page.
+app.get('/api/approvals', authenticateToken, adminOnly, (req, res) => {
+  res.json({
+    adjustments: listAdjustments(db, 'pending'),
+    transfers: listTransfers(db, 'pending'),
+  });
+});
+
+// Printable report data for the Report Viewing module.
+app.get('/api/reports', authenticateToken, adminOnly, (req, res) => {
+  const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 14));
+  const generated_at = new Date().toISOString();
+
+  const dailySales = db
+    .prepare(
+      `SELECT substr(transaction_date, 1, 10) as date, COUNT(*) as transactions, SUM(total_amount) as value
+       FROM sales_transactions WHERE transaction_date >= datetime('now', ?)
+       GROUP BY date ORDER BY date ASC`
+    )
+    .all(`-${days} days`);
+
+  const stockByLocation = db
+    .prepare(
+      `SELECT l.name as location, COALESCE(SUM(s.quantity), 0) as total
+       FROM locations l LEFT JOIN stock s ON s.location_id = l.id GROUP BY l.id ORDER BY l.id`
+    )
+    .all();
+
+  const statusRows = db.prepare('SELECT status, COUNT(*) as count FROM order_inquiries GROUP BY status').all();
+  const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+  statusRows.forEach((r) => { if (orderStatusSummary[r.status] !== undefined) orderStatusSummary[r.status] = r.count; });
+
+  const lowStock = db
+    .prepare(
+      `SELECT p.id, p.name, SUM(s.quantity) as total
+       FROM stock s JOIN products p ON s.product_id = p.id
+       WHERE p.status = ? GROUP BY p.id HAVING SUM(s.quantity) < 80 ORDER BY total ASC`
+    )
+    .all('active');
+
+  const fastMovers = db
+    .prepare(
+      `SELECT p.name, SUM(t.qty) as qty_sold, SUM(t.total_amount) as value
+       FROM sales_transactions t JOIN products p ON t.product_id = p.id
+       WHERE p.status = ? GROUP BY t.product_id ORDER BY qty_sold DESC LIMIT 10`
+    )
+    .all('active');
+
+  const slowMovers = db
+    .prepare(
+      `SELECT p.name, COALESCE(SUM(t.qty), 0) as qty_sold
+       FROM products p LEFT JOIN sales_transactions t ON t.product_id = p.id
+       WHERE p.status = ? GROUP BY p.id ORDER BY qty_sold ASC, p.name ASC LIMIT 10`
+    )
+    .all('active');
+
+  const summary = {
+    total_products: db.prepare("SELECT COUNT(*) as c FROM products WHERE status = 'active'").get().c,
+    total_stock: db.prepare('SELECT COALESCE(SUM(quantity), 0) as t FROM stock').get().t,
+    total_sales: db.prepare('SELECT COALESCE(SUM(total_amount), 0) as t FROM sales_transactions').get().t,
+    transactions: db.prepare('SELECT COUNT(*) as c FROM sales_transactions').get().c,
+    customers_served: db.prepare('SELECT COUNT(DISTINCT customer_name) as c FROM sales_transactions').get().c,
+    pending_approvals:
+      db.prepare("SELECT COUNT(*) as c FROM stock_adjustments WHERE status = 'pending'").get().c +
+      db.prepare("SELECT COUNT(*) as c FROM stock_transfers WHERE status = 'pending'").get().c,
+  };
+
+  res.json({ generated_at, days, dailySales, stockByLocation, orderStatusSummary, lowStock, fastMovers, slowMovers, summary });
 });
 
 // ================= LOCATION ROUTES =================

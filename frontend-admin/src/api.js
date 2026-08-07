@@ -70,5 +70,15 @@ export const resolveAlert = client.resolveAlert;
 export const listSales = client.listSales;
 export const createSale = client.createSale;
 export const listUsers = client.listUsers;
+export const listStockAdjustments = client.listStockAdjustments;
+export const createStockAdjustment = client.createStockAdjustment;
+export const approveStockAdjustment = client.approveStockAdjustment;
+export const rejectStockAdjustment = client.rejectStockAdjustment;
+export const listStockTransfers = client.listStockTransfers;
+export const createStockTransfer = client.createStockTransfer;
+export const approveStockTransfer = client.approveStockTransfer;
+export const rejectStockTransfer = client.rejectStockTransfer;
+export const getApprovals = client.getApprovals;
+export const getReports = client.getReports;
 
 export default client;
