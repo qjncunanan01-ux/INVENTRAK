@@ -15,7 +15,6 @@ export default function HomeScreen({ route, navigation }) {
   // Guest-first: the catalog opens with no account; the welcome line reflects
   // the session once a customer logs in.
   const username = useSessionUsername(route.params?.username || null) || 'Customer';
-  const [products, setProducts] = useState([]);
   const [featured, setFeatured] = useState([]);
   const [categories, setCategories] = useState(['All']);
 
@@ -24,7 +23,6 @@ export default function HomeScreen({ route, navigation }) {
       // listAllProducts pages past the 100-row clamp so the featured row and
       // the derived categories cover the WHOLE 192-product catalog.
       const items = await listAllProducts();
-      setProducts(items);
       // Featured = first few non-empty stock products (placeholder for a real
       // recommendation feed, which is available via the Recommendations tab).
       setFeatured(items.slice(0, 4));

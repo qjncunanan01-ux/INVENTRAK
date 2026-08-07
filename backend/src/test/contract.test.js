@@ -559,6 +559,24 @@ test('contract: product images serve on both backends without crashing the serve
   assert.notStrictEqual(evil.status, 200, 'traversal must not serve a file');
 });
 
+test('contract: unpaginated list endpoints return the FULL catalog on both backends', async () => {
+  // Regression lock for the hidden-LIMIT parity bug: /api/sales and
+  // /api/products used to apply a default LIMIT 50 even on the unpaginated
+  // path, so with a 192-product catalog the SQLite side returned 50 rows
+  // while the npm-free side returned all 192 (silently truncating the
+  // order-inquiry picker and any client that fetches without page/limit).
+  const s = await call(sqlite.url, '/api/products');
+  const n = await call(npmfree.url, '/api/products');
+  assert.ok(Array.isArray(s.json) && Array.isArray(n.json), 'no page/limit -> bare array');
+  assert.ok(s.json.length >= 150, `sqlite returns full catalog (got ${s.json.length})`);
+  assert.strictEqual(s.json.length, n.json.length, 'same product count on both backends');
+
+  const ss = await call(sqlite.url, '/api/sales', { token: sqlite.token.admin });
+  const ns = await call(npmfree.url, '/api/sales', { token: npmfree.token.admin });
+  assert.ok(Array.isArray(ss.json) && Array.isArray(ns.json));
+  assert.strictEqual(ss.json.length, ns.json.length, 'same sales count on both backends');
+});
+
 test('contract: admin-only write routes reject a CUSTOMER token with 403 on both backends', async () => {
   // A customer account can never create an admin (register hardcodes role
   // 'customer'), so its token must not be able to mutate store data.

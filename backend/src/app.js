@@ -836,6 +836,19 @@ app.get('/api/products', (req, res) => {
     params.push(category);
   }
 
+  // Match the npm-free fallback: no page/limit params means the FULL list —
+  // not a default-50 window. With a 192-product catalog a hidden LIMIT here
+  // would silently truncate the order-inquiry picker and any unpaginated
+  // client fetch on this backend while the other returns everything.
+  if (!req.query.page && !req.query.limit) {
+    const rows = db
+      .prepare(
+        `SELECT * FROM products ${where} ORDER BY name ASC`
+      )
+      .all(...params);
+    return res.json(rows);
+  }
+
   const countRow = db
     .prepare(
       `SELECT COUNT(*) as total FROM products ${where}`
@@ -851,13 +864,6 @@ app.get('/api/products', (req, res) => {
       limitNum,
       offset
     );
-
-  if (
-    !req.query.page &&
-    !req.query.limit
-  ) {
-    return res.json(rows);
-  }
 
   res.json({
     data: rows,
