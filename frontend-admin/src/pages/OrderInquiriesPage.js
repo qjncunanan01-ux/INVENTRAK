@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPut } from '../api';
 import { colors } from '../theme';
@@ -12,6 +12,15 @@ const STATUS_COLORS = {
   rejected: 'error',
 };
 
+const STATUS_FILTERS = [
+  { key: '', label: 'All statuses' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'fulfilled', label: 'Fulfilled' },
+  { key: 'delivered', label: 'Delivered' },
+  { key: 'rejected', label: 'Rejected' },
+];
+
 export default function OrderInquiriesPage({ onLogout }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +28,7 @@ export default function OrderInquiriesPage({ onLogout }) {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '' });
   const [details, setDetails] = useState(null);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   const loadOrders = () => {
     setLoading(true);
@@ -46,7 +56,11 @@ export default function OrderInquiriesPage({ onLogout }) {
     }
   };
 
+  // Status dropdown filter (combined with the search bar): 'All statuses'
+  // shows everything; a specific status narrows first, then the text search
+  // runs on the remaining rows.
   const orderList = (Array.isArray(orders) ? orders : []).filter(order => {
+    if (statusFilter && order.status !== statusFilter) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     let productsText = '';
@@ -100,6 +114,12 @@ export default function OrderInquiriesPage({ onLogout }) {
             </Typography>
           </div>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <FormControl size="small" sx={{ minWidth: 160, backgroundColor: colors.surface }}>
+              <InputLabel>Status</InputLabel>
+              <Select value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
+                {STATUS_FILTERS.map(f => <MenuItem key={f.key || 'all'} value={f.key}>{f.label}</MenuItem>)}
+              </Select>
+            </FormControl>
             <TextField
               size="small"
               label="Search customer / email / status..."

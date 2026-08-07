@@ -58,12 +58,13 @@ export default function InventoryPage({ onLogout }) {
                 {locs.map(loc => <MenuItem key={loc.name} value={loc.name}>{loc.name}</MenuItem>)}
               </Select>
             </FormControl>
-            <Chip
-              label={lowStockOnly ? 'Showing low stock' : 'All items'}
-              color={lowStockOnly ? 'warning' : 'default'}
-              onClick={() => setLowStockOnly(!lowStockOnly)}
-              variant={lowStockOnly ? 'filled' : 'outlined'}
-            />
+            <FormControl size="small" sx={{ minWidth: 150, backgroundColor: colors.surface }}>
+              <InputLabel>Stock level</InputLabel>
+              <Select value={lowStockOnly ? 'low' : ''} label="Stock level" onChange={e => setLowStockOnly(e.target.value === 'low')}>
+                <MenuItem value="">All items</MenuItem>
+                <MenuItem value="low">Low stock only</MenuItem>
+              </Select>
+            </FormControl>
             <Typography variant="subtitle2" color="text.secondary">{locs.length} locations</Typography>
           </Box>
         </Box>

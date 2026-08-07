@@ -83,7 +83,11 @@ test('normalizeProductRow maps a sparse committed row to the transform shape', (
     'Size': '2 L',
     'Unit': '',
     'Price': 1070,
+    'Image': '',
   });
   assert.ok(!('status' in normalized), 'active products carry no status key');
   assert.strictEqual(normalizeProductRow({ ...sparse, status: 'inactive' }).status, 'inactive');
+  // A row with an Image key maps it through unchanged (catalog products carry
+  // '/images/<file>' paths that must survive the transform).
+  assert.strictEqual(normalizeProductRow({ ...sparse, Image: '/images/butterscotch.jpg' }).Image, '/images/butterscotch.jpg');
 });
