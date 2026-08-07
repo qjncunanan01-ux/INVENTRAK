@@ -12,6 +12,7 @@ export default function ProductsPage({ onLogout }) {
   const [form, setForm] = useState({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '', image: '' });
   const [saving, setSaving] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
+  const [search, setSearch] = useState('');
 
   const loadProducts = () => {
     setLoading(true);
@@ -91,7 +92,22 @@ export default function ProductsPage({ onLogout }) {
     }
   };
 
-  const prodList = Array.isArray(products) ? products : [];
+  // Only numeric characters (plus a single decimal point) can ever enter the
+  // price field — letters/symbols are stripped as the user types.
+  const sanitizePrice = (value) => {
+    let v = String(value || '').replace(/[^0-9.]/g, '');
+    const firstDot = v.indexOf('.');
+    if (firstDot !== -1) v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+    return v;
+  };
+
+  const prodList = Array.isArray(products) ? products.filter(p => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (p.name || '').toLowerCase().includes(q) ||
+      (p.category || '').toLowerCase().includes(q) ||
+      (p.brand || '').toLowerCase().includes(q);
+  }) : [];
 
   return (
     <AdminLayout title="Product Management" onLogout={onLogout}>
@@ -106,7 +122,7 @@ export default function ProductsPage({ onLogout }) {
           <Grid item xs={12} md={4}><TextField fullWidth variant="outlined" label="Brand" value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} /></Grid>
           <Grid item xs={12} sm={6} md={4}><TextField fullWidth variant="outlined" label="Size (e.g. 1.5 KG, 2 L)" value={form.size} onChange={e => setForm({ ...form, size: e.target.value })} /></Grid>
           <Grid item xs={12} sm={6} md={2}><TextField fullWidth variant="outlined" label="Unit" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="pcs" /></Grid>
-          <Grid item xs={12} sm={6} md={3}><TextField fullWidth variant="outlined" label="Price" type="number" inputProps={{ min: 0 }} value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} /></Grid>
+          <Grid item xs={12} sm={6} md={3}><TextField fullWidth variant="outlined" label="Price" type="text" inputMode="decimal" inputProps={{ inputMode: 'decimal' }} value={form.price} onChange={e => setForm({ ...form, price: sanitizePrice(e.target.value) })} /></Grid>
           <Grid item xs={12} md={9}><TextField fullWidth variant="outlined" label="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} multiline minRows={2} /></Grid>
           <Grid item xs={12} md={6}>
             <TextField fullWidth variant="outlined" label="Image URL or /images/... path" value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} placeholder="/images/da-vinci-sauces--butterscotch.jpg" />
@@ -132,9 +148,18 @@ export default function ProductsPage({ onLogout }) {
       </Paper>
 
       <Paper sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h6">Active products</Typography>
-          <Typography variant="body2" color="text.secondary">Total {prodList.length}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              size="small"
+              label="Search products..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              sx={{ minWidth: 240, backgroundColor: colors.surface }}
+            />
+            <Typography variant="body2" color="text.secondary">Total {prodList.length}</Typography>
+          </Box>
         </Box>
         <Table>
           <TableHead>

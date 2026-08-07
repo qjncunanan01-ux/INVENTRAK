@@ -1,4 +1,4 @@
-import { Box, Card, CardContent, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Card, CardContent, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api';
 import { colors } from '../theme';
@@ -10,6 +10,7 @@ export default function OptimizationPage({ onLogout }) {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -39,7 +40,10 @@ export default function OptimizationPage({ onLogout }) {
       .catch(() => setMetrics(null));
   }, [selectedProductId]);
 
-  const abcList = Array.isArray(abc) ? abc : [];
+  const abcList = (Array.isArray(abc) ? abc : []).filter(item => {
+    const q = search.trim().toLowerCase();
+    return !q || (item.name || '').toLowerCase().includes(q) || (item.classification || '').toLowerCase().includes(q);
+  });
   const prodList = Array.isArray(products) ? products : [];
 
   const getClassificationColor = (cls) => {
@@ -51,10 +55,21 @@ export default function OptimizationPage({ onLogout }) {
   return (
     <AdminLayout title="Inventory Optimization" onLogout={onLogout}>
       <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
-        <Typography variant="h6" mb={1}>ABC Classification</Typography>
-        <Typography variant="body2" color="text.secondary" mb={2}>
-          View product classification and prioritize inventory decisions.
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+          <div>
+            <Typography variant="h6">ABC Classification</Typography>
+            <Typography variant="body2" color="text.secondary">
+              View product classification and prioritize inventory decisions.
+            </Typography>
+          </div>
+          <TextField
+            size="small"
+            label="Search products..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            sx={{ minWidth: 220, backgroundColor: colors.surface }}
+          />
+        </Box>
         <Table>
           <TableHead>
             <TableRow>

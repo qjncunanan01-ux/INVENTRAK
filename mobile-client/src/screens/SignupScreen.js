@@ -141,7 +141,7 @@ export default function SignupScreen({ navigation }) {
         <TextInput
           style={styles.input}
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={(v) => setPhone(v.replace(/[^0-9+]/g, ''))}
           placeholder="09171234567 or +639171234567"
           keyboardType="phone-pad"
           editable={!loading}

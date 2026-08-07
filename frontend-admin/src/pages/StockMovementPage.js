@@ -110,7 +110,7 @@ export default function StockMovementPage({ onLogout }) {
               ))}
             </Select>
           </FormControl>
-          <TextField label="Quantity" type="number" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value })} fullWidth />
+          <TextField label="Quantity" type="text" inputMode="decimal" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value.replace(/[^0-9.]/g, '') })} fullWidth />
           {showSrc && (
             <FormControl fullWidth>
               <InputLabel>Source location</InputLabel>

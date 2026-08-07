@@ -200,7 +200,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
       <Text style={styles.sectionTitle}>1 · Contact details</Text>
       <TextInput style={styles.input} placeholder="Customer name" value={customerName} onChangeText={setCustomerName} />
       <TextInput style={styles.input} placeholder="Email" value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" autoCapitalize="none" />
-      <TextInput style={styles.input} placeholder="Phone (for SMS updates, optional)" value={customerPhone} onChangeText={setCustomerPhone} keyboardType="phone-pad" />
+      <TextInput style={styles.input} placeholder="Phone (for SMS updates, optional)" value={customerPhone} onChangeText={(v) => setCustomerPhone(v.replace(/[^0-9+]/g, ''))} keyboardType="phone-pad" />
 
       <Text style={styles.sectionTitle}>2 · Delivery address</Text>
       <TextInput

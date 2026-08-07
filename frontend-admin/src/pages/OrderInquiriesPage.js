@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPut } from '../api';
 import { colors } from '../theme';
@@ -18,6 +18,7 @@ export default function OrderInquiriesPage({ onLogout }) {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '' });
   const [details, setDetails] = useState(null);
+  const [search, setSearch] = useState('');
 
   const loadOrders = () => {
     setLoading(true);
@@ -45,7 +46,17 @@ export default function OrderInquiriesPage({ onLogout }) {
     }
   };
 
-  const orderList = Array.isArray(orders) ? orders : [];
+  const orderList = (Array.isArray(orders) ? orders : []).filter(order => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    let productsText = '';
+    try { productsText = JSON.parse(order.products || '[]').join(' '); } catch (err) { productsText = order.products || ''; }
+    return (order.customer_name || '').toLowerCase().includes(q) ||
+      (order.customer_email || '').toLowerCase().includes(q) ||
+      (order.status || '').toLowerCase().includes(q) ||
+      (order.payment_method || '').toLowerCase().includes(q) ||
+      productsText.toLowerCase().includes(q);
+  });
 
   const renderActions = (order) => {
     if (order.status === 'pending') {
@@ -88,7 +99,16 @@ export default function OrderInquiriesPage({ onLogout }) {
               Review incoming customer requests and update status: Pending → Approved → Fulfilled → Delivered.
             </Typography>
           </div>
-          <Typography variant="subtitle2" color="text.secondary">{orderList.length} inquiries</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              size="small"
+              label="Search customer / email / status..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              sx={{ minWidth: 260, backgroundColor: colors.surface }}
+            />
+            <Typography variant="subtitle2" color="text.secondary">{orderList.length} inquiries</Typography>
+          </Box>
         </Box>
         <Table>
           <TableHead>

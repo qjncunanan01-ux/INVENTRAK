@@ -11,6 +11,7 @@ export default function LocationsPage({ onLogout }) {
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [search, setSearch] = useState('');
 
   const loadLocations = async () => {
     setLoading(true);
@@ -54,7 +55,10 @@ export default function LocationsPage({ onLogout }) {
     }
   };
 
-  const locList = Array.isArray(locations) ? locations : [];
+  const locList = (Array.isArray(locations) ? locations : []).filter(loc => {
+    const q = search.trim().toLowerCase();
+    return !q || (loc.name || '').toLowerCase().includes(q);
+  });
 
   return (
     <AdminLayout title="Location Management" onLogout={onLogout}>
@@ -76,7 +80,16 @@ export default function LocationsPage({ onLogout }) {
         </Box>
       </Paper>
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
-        <Typography variant="h6" mb={2}>Locations</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+          <Typography variant="h6">Locations</Typography>
+          <TextField
+            size="small"
+            label="Search locations..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            sx={{ minWidth: 220, backgroundColor: colors.surface }}
+          />
+        </Box>
         <Table>
           <TableHead>
             <TableRow>
