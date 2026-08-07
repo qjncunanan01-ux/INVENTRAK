@@ -6,6 +6,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { getInventory, imageUrl } from '../api';
@@ -18,6 +19,7 @@ export default function StockAvailabilityScreen() {
   const [data, setData] = useState({ locations: [], items: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -40,7 +42,14 @@ export default function StockAvailabilityScreen() {
   }, [fetchData]);
 
   const locations = (data.locations || []).map((l) => (typeof l === 'object' ? l.name : l));
-  const items = (data.items || []).filter((i) => i.total > 0);
+  // Live search: filter products by name or category.
+  const items = (data.items || []).filter((i) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (i.total > 0) &&
+      ((i.product?.name || '').toLowerCase().includes(q) ||
+       (i.product?.category || '').toLowerCase().includes(q));
+  });
 
   if (loading) {
     return (
@@ -55,6 +64,13 @@ export default function StockAvailabilityScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Available Supplies</Text>
         <Text style={styles.subtitle}>Stock levels across all {locations.length} location(s)</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search products..."
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+        />
       </View>
 
       <FlatList
@@ -99,6 +115,15 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
   subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  searchInput: {
+    marginTop: 12,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    color: colors.textPrimary,
+    fontSize: 15,
+  },
   list: { paddingHorizontal: 16, paddingBottom: 24 },
   locRow: { flexDirection: 'row', backgroundColor: colors.brandPrimary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 10, marginBottom: 8 },
   locName: { color: '#fff' },

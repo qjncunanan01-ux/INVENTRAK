@@ -5,6 +5,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -28,6 +29,7 @@ export default function InquiryHistoryScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('all');
+  const [search, setSearch] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -69,8 +71,7 @@ export default function InquiryHistoryScreen({ navigation }) {
     return c;
   }, [inquiries]);
 
-  const shown = tab === 'all' ? inquiries : inquiries.filter((i) => i.status === tab);
-
+  // Rendered product names for a card (also used by the search filter).
   const renderProducts = (raw) => {
     try {
       const parsed = JSON.parse(raw);
@@ -79,6 +80,19 @@ export default function InquiryHistoryScreen({ navigation }) {
       return raw;
     }
   };
+
+  // Live search (reviewer-style): filter by customer name, email, product,
+  // payment method, or status — combined with the status tabs below.
+  const shown = (tab === 'all' ? inquiries : inquiries.filter((i) => i.status === tab)).filter((i) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const productsText = renderProducts(i.products).toLowerCase();
+    return (i.customer_name || '').toLowerCase().includes(q) ||
+      (i.customer_email || '').toLowerCase().includes(q) ||
+      (i.status || '').toLowerCase().includes(q) ||
+      (i.payment_method || '').toLowerCase().includes(q) ||
+      productsText.includes(q);
+  });
 
   // Status timeline (Shopee-style): Placed -> Approved -> Fulfilled -> Delivered.
   const renderTimeline = (item) => {
@@ -139,6 +153,17 @@ export default function InquiryHistoryScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Live search bar */}
+      <View style={styles.searchWrap}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search orders, products, status..."
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="none"
+        />
+      </View>
+
       {/* Status tabs with counts, Shopee To Pay/To Ship/To Receive style */}
       <View style={styles.tabs}>
         <FlatList
@@ -222,6 +247,15 @@ export default function InquiryHistoryScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  searchWrap: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
+  searchInput: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    color: colors.textPrimary,
+    fontSize: 15,
+  },
   tabs: { paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
   tab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, marginHorizontal: 4, borderRadius: 18, backgroundColor: colors.background },
   tabActive: { backgroundColor: colors.brandPrimary },

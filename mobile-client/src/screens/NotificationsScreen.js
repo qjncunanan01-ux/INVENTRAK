@@ -5,6 +5,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,6 +25,7 @@ export default function NotificationsScreen({ navigation }) {
   const [inquiries, setInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -73,6 +75,15 @@ export default function NotificationsScreen({ navigation }) {
     return events.sort((a, b) => String(b.at).localeCompare(String(a.at)));
   }, [inquiries]);
 
+  // Live search: filter notifications by order id, status, or label.
+  const shown = notifications.filter((n) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return String(n.orderId).includes(q) ||
+      (n.status || '').toLowerCase().includes(q) ||
+      (LABELS[n.status] || '').toLowerCase().includes(q);
+  });
+
   if (!isLoggedIn) {
     return (
       <View style={styles.center}>
@@ -103,8 +114,16 @@ export default function NotificationsScreen({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>Notifications</Text>
       <Text style={styles.subtitle}>Latest order status updates</Text>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search by order # or status..."
+        value={search}
+        onChangeText={setSearch}
+        autoCapitalize="none"
+        keyboardType="default"
+      />
       <FlatList
-        data={notifications}
+        data={shown}
         keyExtractor={(n) => n.key}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         contentContainerStyle={styles.list}
@@ -136,6 +155,15 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 24 },
   title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
   subtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 14 },
+  searchInput: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    color: colors.textPrimary,
+    fontSize: 15,
+    marginBottom: 12,
+  },
   list: { paddingBottom: 24 },
   card: {
     flexDirection: 'row',
