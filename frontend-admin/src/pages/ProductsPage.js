@@ -128,16 +128,20 @@ export default function ProductsPage({ onLogout }) {
       let cols;
       if (line.includes('\t')) cols = line.split('\t');
       else {
-        const m = line.match(/^(.*?)[,\t]([\d,.]+)$/);
+        const m = line.match(/^(.*?)[,\t]([₱P]?\s*[\d,.]+)$/);
         if (!m) continue;
         cols = [m[1].trim(), m[2].trim()];
       }
-      const name = String(cols[0] || '').trim().replace(/^["']|["']$/g, '');
+      // A 3-column tab row (id\tname\tprice) carries the name in the MIDDLE
+      // column; the first is the numeric id we don't need for matching.
+      const name = String(cols.length >= 3 ? cols[1] : cols[0] || '').trim().replace(/^["']|["']$/g, '');
       const priceStr = String(cols[cols.length - 1] || '').replace(/[^\d.]/g, '');
       const price = Number(priceStr);
       if (!name || !Number.isFinite(price)) continue;
-      // Skip a header row like "name" / "Product Name" / "price".
-      if (isHeader && /^(name|product\s*name|price|id)$/i.test(name) && !Number.isFinite(Number(name))) {
+      // Skip a header row like "name" / "Product Name" / "price" — only on
+      // the first non-empty line, and only when the name column is exactly the
+      // header word.
+      if (isHeader && /^(name|product\s*name|price|id)$/i.test(name)) {
         isHeader = false;
         continue;
       }

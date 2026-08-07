@@ -1076,14 +1076,17 @@ app.post(
     }
 
     const skipped = [];
-    const update = db.prepare(
+    // Prepared once (not per row — a 2000-row batch would otherwise re-prepare
+    // 4000 statements). Arrow-wrapped so `this` stays bound to the statement
+    // (better-sqlite3's .get() requires the statement as receiver).
+    const stmtUpdate = db.prepare(
       "UPDATE products SET price = ?, updated_at = datetime('now') WHERE id = ?"
     );
-
-    // Arrow-wrapped so `this` stays bound to the prepared statement
-    // (better-sqlite3's .get() requires the statement as receiver).
-    const byId = (id) => db.prepare('SELECT id FROM products WHERE id = ?').get(id);
-    const byName = (name) => db.prepare('SELECT id FROM products WHERE LOWER(name) = LOWER(?)').get(name);
+    const stmtById = db.prepare('SELECT id FROM products WHERE id = ?');
+    // TRIM() on the stored column too: the npm-free fallback trims both sides,
+    // so a product created with a padded name (e.g. "  Widget  ") must match on
+    // both backends, not just one.
+    const stmtByName = db.prepare('SELECT id FROM products WHERE TRIM(LOWER(name)) = LOWER(?)');
 
     let updated = 0;
 
@@ -1092,8 +1095,15 @@ app.post(
       const price = entry && entry.price;
 
       // A row with no usable price is skipped (never aborts the batch).
-      if (price === undefined || price === null || price === '' || !Number.isFinite(Number(price)) || Number(price) < 0) {
+      // String(price).trim() catches whitespace-only strings that Number()
+      // would silently coerce to 0 (e.g. '   ').
+      if (price === undefined || price === null || price === '' || (typeof price === 'string' && price.trim() === '') || !Number.isFinite(Number(price)) || Number(price) < 0) {
         skipped.push({ name: name || '(unnamed)', reason: 'invalid price' });
+        continue;
+      }
+      // Mirrors the single-product validate() cap (name maxLength 200).
+      if (name && name.length > 200) {
+        skipped.push({ name: name.slice(0, 60) + '…', reason: 'name too long' });
         continue;
       }
 
@@ -1104,11 +1114,11 @@ app.post(
       if (entry.id !== undefined && entry.id !== null && entry.id !== '') {
         const idNum = Number(entry.id);
         if (Number.isInteger(idNum) && idNum >= 1) {
-          row = byId(idNum);
+          row = stmtById.get(idNum);
         }
       }
       if (!row && name) {
-        row = byName(name);
+        row = stmtByName.get(name);
       }
 
       if (!row) {
@@ -1116,7 +1126,7 @@ app.post(
         continue;
       }
 
-      update.run(priceNum, row.id);
+      stmtUpdate.run(priceNum, row.id);
       updated += 1;
     }
 

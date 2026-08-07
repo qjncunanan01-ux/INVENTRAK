@@ -922,8 +922,17 @@ const server = http.createServer((req, res) => {
         for (const entry of obj.prices) {
           const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
           const price = entry && entry.price;
-          if (price === undefined || price === null || price === '' || !Number.isFinite(Number(price)) || Number(price) < 0) {
+          // String(price).trim() catches whitespace-only strings that Number()
+          // would silently coerce to 0 (e.g. '   '). Mirrors SQLite exactly.
+          if (price === undefined || price === null || price === '' || (typeof price === 'string' && price.trim() === '') || !Number.isFinite(Number(price)) || Number(price) < 0) {
             skipped.push({ name: name || '(unnamed)', reason: 'invalid price' });
+            continue;
+          }
+          // Mirrors the single-product validate() cap (name maxLength 200) and
+          // the SQLite bulk handler: over-long names can never match, so they
+          // are reported instead of silently dropped.
+          if (name && name.length > 200) {
+            skipped.push({ name: name.slice(0, 60) + '…', reason: 'name too long' });
             continue;
           }
           const priceNum = Number(price);

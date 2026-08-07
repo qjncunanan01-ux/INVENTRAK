@@ -166,25 +166,35 @@ test('contract: bulk price update matches by name and id identically on both bac
   assert.strictEqual(s.status, 201);
   assert.strictEqual(n.status, 201);
 
-  // Batch: one exact-name match, one missing name, one invalid price, and one
-  // id-based match (using each backend's own product id). Response key set and
-  // skipped reasons must be identical on both.
+  // Batch: one exact-name match, one missing name, one invalid price, one
+  // whitespace-only price, one over-long name, and one id-based match (using
+  // each backend's own product id). Response key set AND the skipped entries
+  // themselves must be identical on both (deep-equal, not just same shape — a
+  // shapeOf comparison would pass even if one side said 'not found' where the
+  // other said 'name too long').
   const prices = [
     { name: uname, price: 777 },
     { name: 'No Such Product ' + Date.now(), price: 99 },
     { name: 'Bad Price', price: 'abc' },
+    { name: 'Blank Price', price: '   ' },
+    { name: 'X'.repeat(250), price: 1 },
     { id: s.json.id, name: uname, price: 888 },
   ];
   const body = { prices };
   const sRes = await call(sqlite.url, '/api/products/bulk-prices', { method: 'POST', token: sqlite.token.admin, body });
-  const nRes = await call(npmfree.url, '/api/products/bulk-prices', { method: 'POST', token: npmfree.token.admin, body: { prices: prices.map((p, i) => i === 3 ? { ...p, id: n.json.id } : p) } });
+  const nRes = await call(npmfree.url, '/api/products/bulk-prices', { method: 'POST', token: npmfree.token.admin, body: { prices: prices.map((p, i) => i === 5 ? { ...p, id: n.json.id } : p) } });
   assert.strictEqual(sRes.status, 200);
   assert.strictEqual(nRes.status, 200);
   assert.strictEqual(shapeOf(sRes.json), shapeOf(nRes.json), 'bulk price result shapes');
   assert.strictEqual(sRes.json.updated, 2, 'sqlite updated name + id matches');
   assert.strictEqual(nRes.json.updated, 2, 'npmfree updated name + id matches');
-  assert.strictEqual(sRes.json.total, 4);
-  assert.strictEqual(shapeOf(sRes.json.skipped), shapeOf(nRes.json.skipped), 'skipped shapes');
+  assert.strictEqual(sRes.json.total, 6);
+  assert.deepStrictEqual(sRes.json.skipped, nRes.json.skipped, 'skipped entries identical (name + reason)');
+  const reasons = sRes.json.skipped.map(x => x.reason);
+  assert.ok(reasons.includes('not found'), 'missing name skipped as not found');
+  assert.ok(reasons.includes('invalid price'), 'bad + whitespace prices skipped');
+  assert.ok(reasons.includes('name too long'), 'over-long name skipped as name too long');
+  assert.strictEqual(reasons.filter(r => r === 'invalid price').length, 2, 'abc + spaces both invalid price');
 
   // The id-based match is the last write: the product price must be 888 on
   // both backends after the batch.
