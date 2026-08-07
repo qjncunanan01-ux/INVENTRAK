@@ -784,7 +784,12 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/auth/me') {
     return requireAuth(req, res, false, (req, res) => {
-      return sendJson(res, 200, { id: req.user.id, username: req.user.username, role: req.user.role, email: req.user.email, email_verified: req.user.email_verified !== false, created_at: req.user.created_at });
+      return sendJson(res, 200, {
+        id: req.user.id, username: req.user.username, role: req.user.role, email: req.user.email,
+        email_verified: req.user.email_verified !== false,
+        phone: req.user.phone === undefined || req.user.phone === '' ? null : req.user.phone,
+        created_at: req.user.created_at,
+      });
     });
   }
 
@@ -1145,7 +1150,14 @@ const server = http.createServer((req, res) => {
     // Normalize so every row carries customer_phone (null when absent) — the
     // SQLite backend always returns the column, and the contract suites assert
     // identical shapes, so an old row without the key would break parity.
-    orders = orders.map(o => ({ ...o, customer_phone: o.customer_phone === undefined || o.customer_phone === '' ? null : o.customer_phone }));
+    orders = orders.map(o => ({
+      ...o,
+      customer_phone: o.customer_phone === undefined || o.customer_phone === '' ? null : o.customer_phone,
+      // Firestore stores null as '' — normalize back; payment_method defaults to
+      // 'cod' for rows created before checkout existed (SQLite parity).
+      delivery_address: o.delivery_address === undefined || o.delivery_address === '' ? null : o.delivery_address,
+      payment_method: o.payment_method === undefined || o.payment_method === '' ? 'cod' : o.payment_method,
+    }));
     if (status) orders = orders.filter(o => o.status === status);
     if (page !== null || limit !== null) {
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -1190,6 +1202,15 @@ const server = http.createServer((req, res) => {
       if (!obj.customer_name || !obj.customer_email) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['customer_name and customer_email are required'] });
       }
+      // Checkout fields (optional but validated when present) — mirrors the
+      // SQLite backend: delivery_address <= 500 chars, payment_method enum.
+      const validPayments = ['cod', 'gcash', 'card', 'other'];
+      if (obj.delivery_address !== undefined && String(obj.delivery_address).length > 500) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['delivery_address must be at most 500 characters'] });
+      }
+      if (obj.payment_method !== undefined && !validPayments.includes(obj.payment_method)) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['payment_method must be one of cod, gcash, card, other'] });
+      }
       const orders = readJSON(orderFile) || [];
       const newOrder = {
         id: orders.length + 1,
@@ -1199,6 +1220,8 @@ const server = http.createServer((req, res) => {
         products: JSON.stringify(obj.products || []),
         estimated_cost: obj.estimated_cost || 0,
         notes: obj.notes || '',
+        delivery_address: obj.delivery_address || null,
+        payment_method: obj.payment_method || 'cod',
         status: 'pending',
         created_at: new Date().toISOString()
       };

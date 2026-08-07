@@ -46,13 +46,18 @@ if (!hasUniqueStockPair) {
   })();
 }
 
-// Migration: order inquiries may carry a customer phone number for SMS status
-// updates (added after launch). Additive, so existing databases are untouched
-// apart from the new nullable column.
+// Migrations: order inquiries gained a customer phone number (SMS status
+// updates), then a delivery address + payment method (checkout). Additive, so
+// existing databases are untouched apart from the new nullable columns.
 const inquiryColumns = db.prepare("PRAGMA table_info(order_inquiries)").all();
-const hasPhone = inquiryColumns.some((c) => c.name === 'customer_phone');
-if (!hasPhone) {
+if (!inquiryColumns.some((c) => c.name === 'customer_phone')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN customer_phone TEXT');
+}
+if (!inquiryColumns.some((c) => c.name === 'delivery_address')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN delivery_address TEXT');
+}
+if (!inquiryColumns.some((c) => c.name === 'payment_method')) {
+  db.exec("ALTER TABLE order_inquiries ADD COLUMN payment_method TEXT DEFAULT 'cod'");
 }
 
 // Migration: users gained email verification + an optional phone number for

@@ -134,8 +134,9 @@ function canonicalFromSqlite(snap) {
     'order_inquiries.json': (s.order_inquiries || []).map((o) => unset({
       id: o.id, customer_name: o.customer_name, customer_email: o.customer_email,
       customer_phone: o.customer_phone, products: o.products,
-      estimated_cost: o.estimated_cost, notes: o.notes, status: o.status,
-      created_at: o.created_at,
+      estimated_cost: o.estimated_cost, notes: o.notes,
+      delivery_address: o.delivery_address, payment_method: o.payment_method,
+      status: o.status, created_at: o.created_at,
     })),
     '@users': (s.users || []).map((u) => unset({
       id: u.id, username: u.username, password: u.password, role: u.role,
@@ -197,8 +198,9 @@ function canonicalFromFirestore(read) {
     'order_inquiries.json': mk(read['order_inquiries.json'], (o) => ({
       id: o.id, customer_name: o.customer_name, customer_email: o.customer_email,
       customer_phone: o.customer_phone, products: o.products,
-      estimated_cost: o.estimated_cost, notes: o.notes, status: o.status,
-      created_at: o.created_at,
+      estimated_cost: o.estimated_cost, notes: o.notes,
+      delivery_address: o.delivery_address, payment_method: o.payment_method,
+      status: o.status, created_at: o.created_at,
     })),
     '@users': mk(read['@users'], (u) => ({
       id: u.id, username: u.username, password: u.password, role: u.role,
@@ -458,16 +460,17 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
   }
 
   const upsertInquiry = db.prepare(
-    `INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        customer_name=excluded.customer_name, customer_email=excluded.customer_email,
        customer_phone=excluded.customer_phone, products=excluded.products,
        estimated_cost=excluded.estimated_cost, notes=excluded.notes,
+       delivery_address=excluded.delivery_address, payment_method=excluded.payment_method,
        status=excluded.status, created_at=excluded.created_at`
   );
   for (const o of byId(canonical['order_inquiries.json'])) {
-    upsertInquiry.run(o.id, o.customer_name, o.customer_email, o.customer_phone, o.products, o.estimated_cost, o.notes, o.status, o.created_at);
+    upsertInquiry.run(o.id, o.customer_name, o.customer_email, o.customer_phone, o.products, o.estimated_cost, o.notes, o.delivery_address, o.payment_method, o.status, o.created_at);
   }
 
   const upsertUser = db.prepare(

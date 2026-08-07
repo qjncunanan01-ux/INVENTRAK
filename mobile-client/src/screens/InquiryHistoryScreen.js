@@ -153,8 +153,14 @@ export default function InquiryHistoryScreen({ navigation }) {
 
             <Text style={styles.detail}>Email: {item.customer_email}</Text>
             <Text style={styles.detail}>
-              Cost: P{Number(item.estimated_cost).toFixed(2)}
+              Cost: P{Number(item.estimated_cost).toFixed(2)} ·{' '}
+              Payment: {(item.payment_method || 'cod').toUpperCase()}
             </Text>
+            {item.delivery_address ? (
+              <Text style={styles.detail} numberOfLines={2}>
+                📍 {item.delivery_address}
+              </Text>
+            ) : null}
             <Text style={styles.detail} numberOfLines={2}>
               Products: {renderProducts(item.products)}
             </Text>

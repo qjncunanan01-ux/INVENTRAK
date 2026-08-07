@@ -16,7 +16,17 @@
 - **Inventory optimization features: 100%**
   - EOQ, ROP, Safety Stock, ABC, Turnover, FIFO lots — demand data is dynamic, not hardcoded.
 - **Integration testing / end-to-end demo: 100%**
-  - 212 backend tests (SQLite suite + npm-free suite + contract + OpenAPI conformance + Firestore store + password policy + notifications incl. SMTP client + driver selection + SQLite→Firestore migration bridge + password hashing + re-hash migration + bidirectional sync + migration-catalog drift guard + login lockout + Firestore-mode auth hashing e2e + password reset incl. expiry + reset brute-force lockout + lockout-clear-on-reset + signup email/SMS verification incl. expiry + admin-role enforcement parity + admin promote), admin smoke tests, Docker Compose, GitHub Actions CI.
+  - 213 backend tests (SQLite suite + npm-free suite + contract + OpenAPI conformance + Firestore store + password policy + notifications incl. SMTP client + driver selection + SQLite→Firestore migration bridge + password hashing + re-hash migration + bidirectional sync + migration-catalog drift guard + login lockout + Firestore-mode auth hashing e2e + password reset incl. expiry + reset brute-force lockout + lockout-clear-on-reset + signup email/SMS verification incl. expiry + admin-role enforcement parity + admin promote + checkout fields parity), admin smoke tests, Docker Compose, GitHub Actions CI.
+
+## What was added in the latest pass (Shopee-style checkout: delivery address + payment method)
+
+1. **Checkout fields on order inquiries** — `delivery_address` (max 500 chars) + `payment_method` (enum `cod | gcash | card | other`, default `cod`) added to both backends (SQLite DDL + additive migration; npm-free storage + read normalization `'' → null` / default `cod`), carried through the SQLite↔Firestore sync canonicalizers and the upsert SQL, and documented in OpenAPI (`OrderInquiryInput`/`OrderInquiry`).
+2. **`/api/auth/me` now returns `phone`** — so the mobile app can prefill the customer's registered number at checkout (null-normalized on both backends; `User` schema gains `phone`).
+3. **Mobile checkout screen** — the Order Inquiry screen became a numbered 4-step checkout: **1 · Contact details** (prefilled from the account via `getMe` when logged in — keyed per session user, so switching accounts re-prefills), **2 · Delivery address** (required), **3 · Payment method** (COD / GCash / Card selector chips), **4 · Items**. Placing an order (account required, Shopee-style gate) shows a success alert with **"View my orders"** → order history.
+4. **Order history shows the new info** — each row now displays the payment method and 📍 delivery address.
+5. **Admin dashboard** — Order Inquiries gains a **Delivery & Payment** column (payment method + address) so the store sees exactly what the customer chose.
+6. **Tests** — 213 total: new contract case stores and returns the checkout fields identically on both backends, invalid `payment_method` → identical 400, oversized `delivery_address` → identical 400.
+7. **Live-verified** — an admin-created product appears in the customer product list instantly (same Firestore backend, no cache lag).
 
 ## What was added in the latest pass (generic SMTP email + branded HTML emails)
 

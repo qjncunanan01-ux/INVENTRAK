@@ -55,6 +55,7 @@ export default function OrderInquiriesPage({ onLogout }) {
               <TableCell>Email</TableCell>
               <TableCell>Products</TableCell>
               <TableCell>Estimated Cost</TableCell>
+              <TableCell>Delivery & Payment</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Date</TableCell>
               <TableCell>Actions</TableCell>
@@ -62,9 +63,9 @@ export default function OrderInquiriesPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}>Loading...</TableCell></TableRow>
             ) : orderList.length === 0 ? (
-              <TableRow><TableCell colSpan={7}>No order inquiries</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}>No order inquiries</TableCell></TableRow>
             ) : orderList.map(order => {
               let products = [];
               try { products = JSON.parse(order.products); } catch (err) { products = [order.products]; }
@@ -74,6 +75,14 @@ export default function OrderInquiriesPage({ onLogout }) {
                   <TableCell>{order.customer_email}</TableCell>
                   <TableCell>{Array.isArray(products) ? products.join(', ') : products}</TableCell>
                   <TableCell>P{order.estimated_cost}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {(order.payment_method || 'cod').toUpperCase()}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {order.delivery_address || '—'}
+                    </Typography>
+                  </TableCell>
                   <TableCell>{order.status}</TableCell>
                   <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>

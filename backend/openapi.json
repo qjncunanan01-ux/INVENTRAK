@@ -1768,6 +1768,11 @@
             "type": "boolean",
             "description": "False for accounts that registered but have not yet redeemed their email/SMS verification code"
           },
+          "phone": {
+            "type": "string",
+            "nullable": true,
+            "description": "PH mobile number required at registration (for SMS verification + order updates)"
+          },
           "created_at": {
             "type": "string"
           }
@@ -2394,6 +2399,22 @@
             "maxLength": 20,
             "description": "Mobile number for SMS status updates (optional)"
           },
+          "delivery_address": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Delivery address collected at checkout (optional)"
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cod",
+              "gcash",
+              "card",
+              "other"
+            ],
+            "default": "cod",
+            "description": "Payment method chosen at checkout"
+          },
           "products": {
             "type": "array",
             "items": {
@@ -2439,6 +2460,20 @@
           },
           "notes": {
             "type": "string"
+          },
+          "delivery_address": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cod",
+              "gcash",
+              "card",
+              "other"
+            ],
+            "default": "cod"
           },
           "status": {
             "type": "string",

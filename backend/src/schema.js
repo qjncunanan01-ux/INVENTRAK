@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS order_inquiries (
   products TEXT,
   estimated_cost REAL,
   notes TEXT,
+  delivery_address TEXT,
+  payment_method TEXT DEFAULT 'cod',
   status TEXT DEFAULT 'pending',
   created_at TEXT DEFAULT (datetime('now'))
 );

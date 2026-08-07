@@ -630,7 +630,7 @@ app.get(
   (req, res) => {
     const user = db
       .prepare(
-        'SELECT id, username, role, email, email_verified, created_at FROM users WHERE id = ?'
+        'SELECT id, username, role, email, email_verified, phone, created_at FROM users WHERE id = ?'
       )
       .get(req.user.id);
 
@@ -643,6 +643,8 @@ app.get(
     res.json({
       ...user,
       email_verified: !!user.email_verified,
+      // Firestore maps null → '' in storage; normalize back for parity.
+      phone: user.phone === '' ? null : user.phone,
     });
   }
 );
@@ -1978,12 +1980,31 @@ app.post(
       products,
       estimated_cost,
       notes,
+      delivery_address,
+      payment_method,
     } = req.body;
+
+    // Checkout fields (optional, but validated when present): the delivery
+    // address the customer typed and the payment method they picked
+    // (cod | gcash | card | other). Mirrors the npm-free fallback exactly.
+    const validPayments = ['cod', 'gcash', 'card', 'other'];
+    if (delivery_address !== undefined && String(delivery_address).length > 500) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: ['delivery_address must be at most 500 characters'],
+      });
+    }
+    if (payment_method !== undefined && !validPayments.includes(payment_method)) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: ['payment_method must be one of cod, gcash, card, other'],
+      });
+    }
 
     const now = new Date().toISOString();
 
     db.prepare(
-      'INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       customer_name,
       customer_email,
@@ -1991,6 +2012,8 @@ app.post(
       JSON.stringify(products || []),
       estimated_cost || 0,
       notes || '',
+      delivery_address || null,
+      payment_method || 'cod',
       'pending',
       now
     );

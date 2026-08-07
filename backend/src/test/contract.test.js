@@ -549,6 +549,53 @@ test('contract: admin-only write routes reject a CUSTOMER token with 403 on both
   }
 });
 
+test('contract: checkout fields (delivery_address + payment_method) are stored and returned identically', async () => {
+  const uname = `addr_${Date.now().toString(36)}`;
+  await both('register for checkout test', '/api/auth/register', {
+    method: 'POST',
+    body: { username: uname, password: 'Test123!', email: `${uname}@example.com`, phone: '09171234567' },
+  });
+
+  for (const side of [sqlite, npmfree]) {
+    const login = await call(side.url, '/api/auth/login', {
+      method: 'POST', body: { username: uname, password: 'Test123!' },
+    });
+    const token = login.json.token;
+
+    // Place an order with checkout info.
+    const posted = await call(side.url, '/api/order-inquiries', {
+      method: 'POST', token,
+      body: {
+        customer_name: uname, customer_email: `${uname}@example.com`, customer_phone: '09171234567',
+        products: ['Widget x2'], estimated_cost: 200, notes: 'checkout test',
+        delivery_address: '123 Mabini St, Brgy. San Isidro, Manila', payment_method: 'gcash',
+      },
+    });
+    assert.strictEqual(posted.status, 201);
+
+    // The inquiry list carries the checkout fields back.
+    const list = await call(side.url, '/api/order-inquiries', { token });
+    assert.strictEqual(list.status, 200);
+    const rows = list.json.data || list.json;
+    const mine = rows.find((r) => r.customer_name === uname);
+    assert.ok(mine, `${side === sqlite ? 'sqlite' : 'npmfree'} inquiry found`);
+    assert.strictEqual(mine.delivery_address, '123 Mabini St, Brgy. San Isidro, Manila');
+    assert.strictEqual(mine.payment_method, 'gcash');
+  }
+
+  // Invalid payment_method -> identical 400 on both.
+  await both('invalid payment_method', '/api/order-inquiries', {
+    method: 'POST',
+    body: { customer_name: 'x', customer_email: 'x@y.com', payment_method: 'crypto' },
+  });
+
+  // Oversized delivery_address -> identical 400 on both.
+  await both('oversized delivery_address', '/api/order-inquiries', {
+    method: 'POST',
+    body: { customer_name: 'x', customer_email: 'x@y.com', delivery_address: 'a'.repeat(501) },
+  });
+});
+
 test('contract: promote is admin-only and promotes a customer identically on both backends', async () => {
   const uname = `promo_${Date.now().toString(36)}`;
   await both('register user to promote', '/api/auth/register', {

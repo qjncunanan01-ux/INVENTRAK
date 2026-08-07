@@ -1,16 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Button, FlatList, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
-import { createOrderInquiry, listProducts, useSessionUsername } from '../api';
+import { ActivityIndicator, Alert, Button, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { createOrderInquiry, getMe, listProducts, useSessionUsername } from '../api';
 import { colors } from '../theme';
+
+const PAYMENT_METHODS = [
+  { id: 'cod', label: 'COD', hint: 'Cash on delivery' },
+  { id: 'gcash', label: 'GCash', hint: 'Pay via GCash' },
+  { id: 'card', label: 'Card', hint: 'Credit / debit card' },
+];
 
 export default function OrderInquiryScreen({ route, navigation }) {
   const preselectId = route.params?.preselectId;
   // Guests can fill the whole form, but must log in / create an account to
   // actually submit — the account is only required at the point of buying.
-  const isLoggedIn = !!useSessionUsername(null);
+  const sessionUser = useSessionUsername(null);
+  const isLoggedIn = !!sessionUser;
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('cod');
   const [products, setProducts] = useState([]);
   const [quantities, setQuantities] = useState({});
   const [notes, setNotes] = useState('');
@@ -32,6 +41,23 @@ export default function OrderInquiryScreen({ route, navigation }) {
   };
 
   useEffect(() => { fetchProducts(); }, []);
+
+  // Logged-in customers get their account details prefilled (name, email and
+  // the mobile number from their profile) — no re-typing at checkout. Keyed on
+  // the session username so switching accounts re-prefills for the new user.
+  const [prefilledFor, setPrefilledFor] = useState(null);
+  useEffect(() => {
+    if (isLoggedIn && sessionUser && prefilledFor !== sessionUser) {
+      setPrefilledFor(sessionUser);
+      getMe()
+        .then((me) => {
+          if (me && me.username) setCustomerName((prev) => prev || me.username);
+          if (me && me.email) setCustomerEmail((prev) => prev || me.email);
+          if (me && me.phone) setCustomerPhone((prev) => prev || me.phone);
+        })
+        .catch(() => {});
+    }
+  }, [isLoggedIn, sessionUser, prefilledFor]);
 
   // Deep link from a product detail page: pre-fill that product's qty to 1,
   // but only ONCE per preselectId — refreshes must not re-fill after the
@@ -86,6 +112,10 @@ export default function OrderInquiryScreen({ route, navigation }) {
       Alert.alert('Validation', 'Please select at least one product');
       return;
     }
+    if (!deliveryAddress.trim()) {
+      Alert.alert('Validation', 'Please enter your delivery address');
+      return;
+    }
     setSubmitting(true);
     try {
       await createOrderInquiry({
@@ -95,14 +125,23 @@ export default function OrderInquiryScreen({ route, navigation }) {
         products: selectedItems.map(item => `${item.name} x${item.qty}`),
         estimated_cost: estimatedCost,
         notes,
+        delivery_address: deliveryAddress.trim(),
+        payment_method: paymentMethod,
       });
-      setMessage('Inquiry submitted successfully!');
-      Alert.alert('Success', 'Your order inquiry has been submitted.');
-      setCustomerName('');
-      setCustomerEmail('');
-      setCustomerPhone('');
+      setMessage('Order placed successfully!');
+      // Checkout done (Shopee/Lazada style): the order is in as "pending" —
+      // lead straight to order history to watch it get approved/fulfilled.
+      Alert.alert(
+        'Order Placed 🎉',
+        `Your order (${selectedItems.length} item${selectedItems.length > 1 ? 's' : ''}, ${paymentMethod.toUpperCase()}) has been submitted. The store will review it shortly.`,
+        [
+          { text: 'View my orders', onPress: () => navigation.navigate('InquiryHistory') },
+          { text: 'Done', style: 'cancel' },
+        ]
+      );
       setQuantities({});
       setNotes('');
+      setDeliveryAddress('');
     } catch (err) {
       setMessage('Failed to submit inquiry.');
       Alert.alert('Error', err.message);
@@ -122,8 +161,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Order Inquiry</Text>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
+      <Text style={styles.title}>Checkout</Text>
       {!isLoggedIn ? (
         <View style={styles.guestBanner}>
           <Text style={styles.guestBannerText}>
@@ -132,13 +171,44 @@ export default function OrderInquiryScreen({ route, navigation }) {
           </Text>
         </View>
       ) : null}
+
+      <Text style={styles.sectionTitle}>1 · Contact details</Text>
       <TextInput style={styles.input} placeholder="Customer name" value={customerName} onChangeText={setCustomerName} />
       <TextInput style={styles.input} placeholder="Email" value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" autoCapitalize="none" />
       <TextInput style={styles.input} placeholder="Phone (for SMS updates, optional)" value={customerPhone} onChangeText={setCustomerPhone} keyboardType="phone-pad" />
-      <Text style={styles.sectionTitle}>Select products and quantities</Text>
+
+      <Text style={styles.sectionTitle}>2 · Delivery address</Text>
+      <TextInput
+        style={[styles.input, styles.addressInput]}
+        placeholder="House no., street, barangay, city, province"
+        value={deliveryAddress}
+        onChangeText={setDeliveryAddress}
+        multiline
+      />
+
+      <Text style={styles.sectionTitle}>3 · Payment method</Text>
+      <View style={styles.paymentRow}>
+        {PAYMENT_METHODS.map((m) => {
+          const active = paymentMethod === m.id;
+          return (
+            <TouchableOpacity
+              key={m.id}
+              style={[styles.paymentChip, active && styles.paymentChipActive]}
+              onPress={() => setPaymentMethod(m.id)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.paymentChipLabel, active && styles.paymentChipLabelActive]}>{m.label}</Text>
+              <Text style={[styles.paymentChipHint, active && styles.paymentChipHintActive]}>{m.hint}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <Text style={styles.sectionTitle}>4 · Items</Text>
       <FlatList
         data={prodList}
         keyExtractor={item => item.id?.toString()}
+        scrollEnabled={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         renderItem={({ item }) => (
           <View style={styles.productRow}>
@@ -157,16 +227,16 @@ export default function OrderInquiryScreen({ route, navigation }) {
         )}
         ListEmptyComponent={<Text style={styles.empty}>No products available.</Text>}
       />
-      <Text style={styles.estimate}>Estimated cost: P{estimatedCost.toFixed(2)}</Text>
+      <Text style={styles.estimate}>Estimated total: P{estimatedCost.toFixed(2)}</Text>
       <TextInput style={styles.input} placeholder="Notes (optional)" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
       <Button
-        title={submitting ? 'Submitting...' : 'Submit Inquiry'}
+        title={submitting ? 'Placing order...' : 'Place Order'}
         onPress={submit}
         disabled={submitting || selectedItems.length === 0}
         color={colors.brandPrimary}
       />
       {message ? <Text style={styles.message}>{message}</Text> : null}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -176,6 +246,22 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: colors.textPrimary },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginVertical: 12, color: colors.textSecondary },
   input: { backgroundColor: colors.surface, padding: 12, borderRadius: 10, marginBottom: 12, color: colors.textPrimary, fontSize: 15 },
+  addressInput: { minHeight: 68, textAlignVertical: 'top' },
+  paymentRow: { flexDirection: 'row', marginBottom: 14, gap: 10 },
+  paymentChip: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,0,0,0.08)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  paymentChipActive: { borderColor: colors.brandPrimary, backgroundColor: '#e9f7ee' },
+  paymentChipLabel: { fontWeight: '700', color: colors.textPrimary, fontSize: 15 },
+  paymentChipLabelActive: { color: colors.brandPrimary },
+  paymentChipHint: { fontSize: 10, color: colors.textSecondary, marginTop: 2 },
+  paymentChipHintActive: { color: colors.brandPrimary },
   productRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between', backgroundColor: colors.surface, padding: 10, borderRadius: 10 },
   productInfo: { flex: 1, marginRight: 12 },
   productName: { fontWeight: '600', color: colors.textPrimary, fontSize: 15 },
