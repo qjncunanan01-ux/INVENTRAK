@@ -1049,7 +1049,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/stock-movement') {
-    return requireAuth(req, res, false, (req, res) => {
+    return requireAuth(req, res, true, (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         if (!obj.product_id || !obj.qty || !obj.type) {
@@ -1167,7 +1167,7 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'PUT' && isParamPath(url, 'api/order-inquiries', 3)) {
     const id = Number(url.split('?')[0].split('/').pop());
-    return requireAuth(req, res, false, (req, res) => {
+    return requireAuth(req, res, true, (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         const orders = readJSON(orderFile) || [];
@@ -1402,7 +1402,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url === '/api/sales') {
-    return requireAuth(req, res, false, (req, res) => {
+    return requireAuth(req, res, true, (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         // Mirror the SQLite validate() schema: qty must be a positive number
@@ -1443,6 +1443,23 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.split('?')[0] === '/api/users') {
     return requireAuth(req, res, true, (req, res) => {
       return sendJson(res, 200, users.map(u => ({ id: u.id, username: u.username, role: u.role, email: u.email, email_verified: u.email_verified !== false, created_at: u.created_at })));
+    });
+  }
+
+  // Promote a customer to admin (admin-only). The public register endpoint
+  // hardcodes role 'customer', so a customer can never self-promote.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/admin/promote') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        if (!obj.username) return sendJson(res, 400, { error: 'Validation failed', details: ['username is required'] });
+        if (String(obj.username).length > 50) return sendJson(res, 400, { error: 'Validation failed', details: ['username must be at most 50 characters'] });
+        const user = users.find(u => u.username === obj.username);
+        if (!user || user.role !== 'customer') return sendJson(res, 404, { error: 'Customer not found or already an admin' });
+        user.role = 'admin';
+        if (useFirestore) writeJSON('@users', users);
+        return sendJson(res, 200, { ok: true, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
+      });
     });
   }
 

@@ -46,6 +46,13 @@ export default function LoginPage({ onLogin }) {
         setError(data.error || 'Login failed');
         return;
       }
+      // Admin-only sign-in: only accounts with the admin role may open the
+      // dashboard. Register (customer app) can never create an admin, so this
+      // gate keeps the store's controls out of customer accounts.
+      if (!data.user || data.user.role !== 'admin') {
+        setError('This account does not have admin access. Sign in with an admin account.');
+        return;
+      }
       setToken(data.token);
       setSnackbar({ open: true, message: 'Login successful!', severity: 'success' });
       setTimeout(() => onLogin(data.user), 500);

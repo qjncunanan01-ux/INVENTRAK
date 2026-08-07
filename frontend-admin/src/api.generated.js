@@ -114,6 +114,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createSale: (body) => request('POST', '/api/sales', { body }),
   // GET /api/users — List users (admin only)
   listUsers: (_) => request('GET', '/api/users', {  }),
+  // POST /api/admin/promote — Promote a customer account to admin (admin only) — the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)
+  promoteUser: (body) => request('POST', '/api/admin/promote', { body }),
   // GET /api/health/integrity — Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
   };

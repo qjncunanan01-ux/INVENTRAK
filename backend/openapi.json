@@ -1562,6 +1562,54 @@
         }
       }
     },
+    "/api/admin/promote": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "promoteUser",
+        "summary": "Promote a customer account to admin (admin only) — the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PromoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User promoted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "No customer with that username"
+          }
+        }
+      }
+    },
     "/api/health/integrity": {
       "get": {
         "tags": [
@@ -1991,6 +2039,57 @@
               },
               "sms": {
                 "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "PromoteRequest": {
+        "type": "object",
+        "required": [
+          "username"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 50
+          }
+        }
+      },
+      "PromoteResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "user"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "user": {
+            "type": "object",
+            "required": [
+              "id",
+              "username",
+              "role",
+              "email"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "username": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "customer"
+                ]
+              },
+              "email": {
+                "type": "string"
               }
             }
           }

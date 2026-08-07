@@ -1157,6 +1157,7 @@ function consumeStockLots(
 app.post(
   '/api/stock-movement',
   authenticateToken,
+  adminOnly,
   validate({
     product_id: {
       required: true,
@@ -1901,6 +1902,7 @@ app.get(
 app.put(
   '/api/order-inquiries/:id',
   authenticateToken,
+  adminOnly,
   (req, res) => {
     const { status } = req.body;
 
@@ -2209,6 +2211,7 @@ app.put(
 app.post(
   '/api/sales',
   authenticateToken,
+  adminOnly,
   validate({
     product_id: {
       required: true,
@@ -2341,6 +2344,34 @@ app.get(
       .map((u) => ({ ...u, email_verified: !!u.email_verified }));
 
     res.json(users);
+  }
+);
+
+// Promote a customer to admin (admin-only). This is the only way to create
+// admins — the public register endpoint hardcodes role 'customer', so a
+// customer can never self-promote (Firebase-console style role management).
+app.post(
+  '/api/admin/promote',
+  authenticateToken,
+  adminOnly,
+  validate({
+    username: {
+      required: true,
+      maxLength: 50,
+    },
+  }),
+  (req, res) => {
+    const { username } = req.body;
+    const result = db
+      .prepare('UPDATE users SET role = ? WHERE username = ? AND role = ?')
+      .run('admin', username, 'customer');
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Customer not found or already an admin' });
+    }
+    const user = db
+      .prepare('SELECT id, username, role, email FROM users WHERE username = ?')
+      .get(username);
+    res.json({ ok: true, user });
   }
 );
 

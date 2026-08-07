@@ -501,3 +501,93 @@ test('contract: unknown routes return the same JSON 404', async () => {
   await both('GET /api/does-not-exist', '/api/does-not-exist');
   await both('DELETE /api/does-not-exist', '/api/does-not-exist', { auth: 'admin' });
 });
+
+test('contract: admin-only write routes reject a CUSTOMER token with 403 on both backends', async () => {
+  // A customer account can never create an admin (register hardcodes role
+  // 'customer'), so its token must not be able to mutate store data.
+  const uname = `cust_${Date.now().toString(36)}`;
+  await both('register customer for role test', '/api/auth/register', {
+    method: 'POST',
+    body: { username: uname, password: 'Test123!', email: `${uname}@example.com`, phone: '09171234567' },
+  });
+
+  for (const side of [sqlite, npmfree]) {
+    const login = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: uname, password: 'Test123!' },
+    });
+    assert.strictEqual(login.status, 200);
+    assert.strictEqual(login.json.user.role, 'customer');
+    const customerToken = login.json.token;
+
+    // Write routes the customer must NOT be able to use.
+    const cases = [
+      ['POST /api/products', '/api/products', { method: 'POST', body: { name: 'Hack', category: 'X', price: 1 } }],
+      ['PUT /api/products/:id', '/api/products/1', { method: 'PUT', body: { name: 'Hack' } }],
+      ['DELETE /api/products/:id', '/api/products/1', { method: 'DELETE' }],
+      ['POST /api/stock-movement', '/api/stock-movement', { method: 'POST', body: { product_id: 1, qty: 1, type: 'in' } }],
+      ['POST /api/locations', '/api/locations', { method: 'POST', body: { name: 'Hack Site' } }],
+      ['PUT /api/order-inquiries/:id', '/api/order-inquiries/1', { method: 'PUT', body: { status: 'approved' } }],
+      ['POST /api/sales', '/api/sales', { method: 'POST', body: { product_id: 1, qty: 1 } }],
+      ['GET /api/users', '/api/users', { method: 'GET' }],
+    ];
+    for (const [label, path, opts] of cases) {
+      const res = await call(side.url, path, { ...opts, token: customerToken });
+      assert.strictEqual(res.status, 403, `${side === sqlite ? 'sqlite' : 'npmfree'} ${label} must 403 for a customer`);
+    }
+
+    // The customer's OWN flows still work: place an inquiry (201) and read
+    // the inquiry list back (200 — the mobile history screen relies on this
+    // GET staying customer-accessible on BOTH backends).
+    const own = await call(side.url, '/api/order-inquiries', { method: 'POST', token: customerToken, body: {
+      customer_name: uname, customer_email: `${uname}@example.com`, customer_phone: '09171234567',
+      products: ['Widget x1'], estimated_cost: 100,
+    } });
+    assert.strictEqual(own.status, 201, 'customer can still place an inquiry');
+    const hist = await call(side.url, '/api/order-inquiries', { token: customerToken });
+    assert.strictEqual(hist.status, 200, `${side === sqlite ? 'sqlite' : 'npmfree'} customer can read inquiry history`);
+  }
+});
+
+test('contract: promote is admin-only and promotes a customer identically on both backends', async () => {
+  const uname = `promo_${Date.now().toString(36)}`;
+  await both('register user to promote', '/api/auth/register', {
+    method: 'POST',
+    body: { username: uname, password: 'Test123!', email: `${uname}@example.com`, phone: '09171234567' },
+  });
+
+  // A customer token cannot promote anyone.
+  for (const side of [sqlite, npmfree]) {
+    const login = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: uname, password: 'Test123!' },
+    });
+    const res = await call(side.url, '/api/admin/promote', {
+      method: 'POST', token: login.json.token, body: { username: uname },
+    });
+    assert.strictEqual(res.status, 403, 'customer token cannot promote');
+  }
+
+  // An admin promotes the customer -> role flips to admin, then the new admin
+  // can log in and reach the users list.
+  for (const side of [sqlite, npmfree]) {
+    const prom = await call(side.url, '/api/admin/promote', {
+      method: 'POST', token: side.token.admin, body: { username: uname },
+    });
+    assert.strictEqual(prom.status, 200, `${side === sqlite ? 'sqlite' : 'npmfree'} admin can promote`);
+    assert.strictEqual(prom.json.user.role, 'admin');
+
+    const relogin = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: uname, password: 'Test123!' },
+    });
+    assert.strictEqual(relogin.json.user.role, 'admin');
+    const users = await call(side.url, '/api/users', { token: relogin.json.token });
+    assert.strictEqual(users.status, 200, 'promoted user can read the users list');
+  }
+
+  // Promoting again (already an admin) 404s identically.
+  await both('promote again -> 404', '/api/admin/promote', {
+    method: 'POST', body: { username: uname }, auth: 'admin',
+  });
+});
