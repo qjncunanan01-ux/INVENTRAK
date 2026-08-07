@@ -534,6 +534,31 @@ test('contract: unknown routes return the same JSON 404', async () => {
   await both('DELETE /api/does-not-exist', '/api/does-not-exist', { auth: 'admin' });
 });
 
+test('contract: product images serve on both backends without crashing the server', async () => {
+  // Regression lock for the ERR_HTTP_HEADERS_SENT crash: the npm-free server
+  // used to write the 404 headers BEFORE the /images handler, so every image
+  // request threw and killed the whole process. Both backends must serve a
+  // real catalog image AND survive the request (subsequent API call still
+  // answers).
+  const p = await call(sqlite.url, '/api/products?limit=200');
+  const items = p.json.data || p.json;
+  const withImg = items.find((x) => x.image);
+  assert.ok(withImg, 'catalog has a product with an image');
+
+  for (const side of [sqlite, npmfree]) {
+    const img = await call(side.url, withImg.image);
+    assert.strictEqual(img.status, 200, `${side.name} serves ${withImg.image}`);
+    assert.ok(img.text && img.text.length > 100, 'image bytes returned');
+    // Server must still be alive afterwards (this crashed before the fix).
+    const alive = await call(side.url, '/api/products/categories');
+    assert.strictEqual(alive.status, 200, `${side.name} alive after image request`);
+  }
+
+  // Directory traversal is blocked, not served.
+  const evil = await call(npmfree.url, '/images/../src/app.js');
+  assert.notStrictEqual(evil.status, 200, 'traversal must not serve a file');
+});
+
 test('contract: admin-only write routes reject a CUSTOMER token with 403 on both backends', async () => {
   // A customer account can never create an admin (register hardcodes role
   // 'customer'), so its token must not be able to mutate store data.

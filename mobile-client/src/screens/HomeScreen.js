@@ -17,15 +17,24 @@ export default function HomeScreen({ route, navigation }) {
   const username = useSessionUsername(route.params?.username || null) || 'Customer';
   const [products, setProducts] = useState([]);
   const [featured, setFeatured] = useState([]);
+  const [categories, setCategories] = useState(['All']);
 
   const fetchProducts = useCallback(async () => {
     try {
-      const data = await listProducts({ limit: 100 });
+      const data = await listProducts({ limit: 200 });
       const items = data.data || (Array.isArray(data) ? data : []);
       setProducts(items);
       // Featured = first few non-empty stock products (placeholder for a real
       // recommendation feed, which is available via the Recommendations tab).
       setFeatured(items.slice(0, 4));
+      // Category chips are DERIVED from the live catalog (not hardcoded), so
+      // the 23 supplier categories from the image library show up automatically.
+      const seen = ['All'];
+      for (const it of items) {
+        const c = (it.category || '').trim();
+        if (c && !seen.includes(c)) seen.push(c);
+      }
+      setCategories(seen);
     } catch (err) {
       // Home still renders without data
     }
@@ -39,8 +48,6 @@ export default function HomeScreen({ route, navigation }) {
   const openSearch = () => {
     navigation.navigate('CatalogTab', { screen: 'Search' });
   };
-
-  const categories = ['All', 'Sauces', 'Powders', 'Milk', 'Beans', 'Cups', 'Matcha'];
 
   return (
     <View style={styles.container}>

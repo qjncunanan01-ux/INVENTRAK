@@ -12,7 +12,32 @@ import { listCategories, listProducts } from '../api';
 import { colors } from '../theme';
 
 // Simple per-category glyphs so the grid reads like a real category page.
+// Covers the supplier library's 23 categories; unknown ones get a generic tile.
 const CATEGORY_GLYPHS = {
+  Achievers: '🍬',
+  'Baking Chocolate': '🍫',
+  'Chicken Pastil': '🍗',
+  'Coffee Beans': '☕',
+  'Condense Milk': '🥛',
+  'Cups and Lid': '🥤',
+  'Da Vinci BeverageMix': '🧋',
+  'Da Vinci Mixologies': '🍹',
+  'Da Vinci Powders': '🧂',
+  'Da Vinci Sauces': '🍯',
+  'Da Vinci Syrup': '🍯',
+  'Dripp Flavours': '🍯',
+  'Full Cream Milk': '🥛',
+  'MATCHA POWDER': '🍵',
+  Monin: '🍯',
+  'Non Dairy Creamer': '🥛',
+  Others: '📦',
+  Others1: '📦',
+  'Plant Based Milk': '🥛',
+  Spread_Jams_Biscuits: '🍪',
+  'Top Creamery': '🧁',
+  Torani: '🍯',
+  'Whip Cream': '🍦',
+  // Legacy category names from the original 8-product catalog.
   Beans: '☕',
   Cups: '🥤',
   Matcha: '🍵',

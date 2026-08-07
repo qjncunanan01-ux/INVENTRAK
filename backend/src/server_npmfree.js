@@ -2087,11 +2087,12 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  res.writeHead(404, { 'Content-Type': 'application/json' });
   // Product photos: /images/<file> serves the image library committed under
   // backend/images (the product `image` field holds '/images/...'). Not an
   // /api path, so the route<->spec audit ignores it; traversal is blocked by
-  // resolving within the images directory.
+  // resolving within the images directory. MUST run before the default 404
+  // writeHead below — writing the 404 first then a 200 here would throw
+  // ERR_HTTP_HEADERS_SENT and crash the whole server on every image request.
   if (req.method === 'GET' && url.split('?')[0].startsWith('/images/')) {
     const imagesDir = path.join(__dirname, '..', 'images');
     const file = url.split('?')[0].slice('/images/'.length);
@@ -2106,6 +2107,7 @@ const server = http.createServer((req, res) => {
     return fs.createReadStream(safe).pipe(res);
   }
 
+  res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 

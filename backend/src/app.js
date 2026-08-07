@@ -2915,6 +2915,19 @@ app.get(
       )
       .get();
 
+    // Match the npm-free fallback: no page/limit params means the FULL list
+    // (not a default-50 window) — with a catalog of 193 products the seeded
+    // sales ledger far exceeds 50 rows, so a hidden LIMIT here would silently
+    // truncate the ledger on one backend but not the other.
+    if (!req.query.page && !req.query.limit) {
+      const rows = db
+        .prepare(
+          'SELECT s.*, p.name as product_name FROM sales_transactions s JOIN products p ON s.product_id = p.id ORDER BY s.transaction_date DESC'
+        )
+        .all();
+      return res.json(rows);
+    }
+
     const rows = db
       .prepare(
         'SELECT s.*, p.name as product_name FROM sales_transactions s JOIN products p ON s.product_id = p.id ORDER BY s.transaction_date DESC LIMIT ? OFFSET ?'
@@ -2923,13 +2936,6 @@ app.get(
         limitNum,
         offset
       );
-
-    if (
-      !req.query.page &&
-      !req.query.limit
-    ) {
-      return res.json(rows);
-    }
 
     res.json({
       data: rows,
