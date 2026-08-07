@@ -153,6 +153,61 @@ test('contract: product auth enforcement (401 without token, 403 for customer)',
   });
 });
 
+test('contract: bulk price update matches by name and id identically on both backends', async () => {
+  // Create a uniquely-named product on both backends so the name match is
+  // unambiguous (the seeded catalog has thousands of rows on the shared files).
+  const uname = `Bulk ${Date.now().toString(36)}`;
+  const s = await call(sqlite.url, '/api/products', {
+    method: 'POST', token: sqlite.token.admin, body: { name: uname, category: 'Contract', price: 1 },
+  });
+  const n = await call(npmfree.url, '/api/products', {
+    method: 'POST', token: npmfree.token.admin, body: { name: uname, category: 'Contract', price: 1 },
+  });
+  assert.strictEqual(s.status, 201);
+  assert.strictEqual(n.status, 201);
+
+  // Batch: one exact-name match, one missing name, one invalid price, and one
+  // id-based match (using each backend's own product id). Response key set and
+  // skipped reasons must be identical on both.
+  const prices = [
+    { name: uname, price: 777 },
+    { name: 'No Such Product ' + Date.now(), price: 99 },
+    { name: 'Bad Price', price: 'abc' },
+    { id: s.json.id, name: uname, price: 888 },
+  ];
+  const body = { prices };
+  const sRes = await call(sqlite.url, '/api/products/bulk-prices', { method: 'POST', token: sqlite.token.admin, body });
+  const nRes = await call(npmfree.url, '/api/products/bulk-prices', { method: 'POST', token: npmfree.token.admin, body: { prices: prices.map((p, i) => i === 3 ? { ...p, id: n.json.id } : p) } });
+  assert.strictEqual(sRes.status, 200);
+  assert.strictEqual(nRes.status, 200);
+  assert.strictEqual(shapeOf(sRes.json), shapeOf(nRes.json), 'bulk price result shapes');
+  assert.strictEqual(sRes.json.updated, 2, 'sqlite updated name + id matches');
+  assert.strictEqual(nRes.json.updated, 2, 'npmfree updated name + id matches');
+  assert.strictEqual(sRes.json.total, 4);
+  assert.strictEqual(shapeOf(sRes.json.skipped), shapeOf(nRes.json.skipped), 'skipped shapes');
+
+  // The id-based match is the last write: the product price must be 888 on
+  // both backends after the batch.
+  const sGet = await call(sqlite.url, `/api/products/${s.json.id}`);
+  const nGet = await call(npmfree.url, `/api/products/${n.json.id}`);
+  assert.strictEqual(sGet.json.price, 888, 'sqlite final price');
+  assert.strictEqual(nGet.json.price, 888, 'npmfree final price');
+
+  // Validation errors: non-array / empty / oversized batches 400 identically.
+  await both('bulk not an array', '/api/products/bulk-prices', { method: 'POST', auth: 'admin', body: { prices: 'nope' } });
+  await both('bulk empty', '/api/products/bulk-prices', { method: 'POST', auth: 'admin', body: { prices: [] } });
+  await both('bulk no token', '/api/products/bulk-prices', { method: 'POST', body: { prices: [{ name: 'x', price: 1 }] } });
+  await both('bulk customer forbidden', '/api/products/bulk-prices', { method: 'POST', auth: 'customer', body: { prices: [{ name: 'x', price: 1 }] } });
+
+  // A negative price is skipped (never aborts), identically on both.
+  const neg = await both('bulk negative price', '/api/products/bulk-prices', {
+    method: 'POST', auth: 'admin', body: { prices: [{ name: uname, price: -5 }] },
+  });
+  assert.strictEqual(neg.a.json.updated, 0);
+  assert.strictEqual(neg.b.json.updated, 0);
+  assert.strictEqual(shapeOf(neg.a.json.skipped), shapeOf(neg.b.json.skipped), 'negative-price skip shapes');
+});
+
 // ===== Inventory & Locations =====
 
 test('contract: inventory list + low-stock + location filter', async () => {

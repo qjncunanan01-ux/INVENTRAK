@@ -1039,6 +1039,96 @@ app.delete(
   }
 );
 
+// Bulk price update: one request sets prices for many products (the admin
+// price-list CSV import). Mirrors the npm-free fallback exactly:
+//   - body: { prices: [{ id?, name, price }] } — an entry matches by numeric
+//     id first, then by exact (case-insensitive, trimmed) name
+//   - a price must be a finite number >= 0, else the entry is skipped with a
+//     reason (a bad row never aborts the rest of the batch)
+//   - response: { ok, total, updated, skipped: [{ name, reason }] } with the
+//     same key set on both backends (contract parity)
+const MAX_BULK_PRICES = 2000;
+
+app.post(
+  '/api/products/bulk-prices',
+  authenticateToken,
+  adminOnly,
+  (req, res) => {
+    const { prices } = req.body || {};
+
+    if (!Array.isArray(prices)) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: ['prices must be an array of { name, price } entries'],
+      });
+    }
+    if (prices.length === 0) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: ['prices must not be empty'],
+      });
+    }
+    if (prices.length > MAX_BULK_PRICES) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: [`prices must not exceed ${MAX_BULK_PRICES} entries`],
+      });
+    }
+
+    const skipped = [];
+    const update = db.prepare(
+      "UPDATE products SET price = ?, updated_at = datetime('now') WHERE id = ?"
+    );
+
+    // Arrow-wrapped so `this` stays bound to the prepared statement
+    // (better-sqlite3's .get() requires the statement as receiver).
+    const byId = (id) => db.prepare('SELECT id FROM products WHERE id = ?').get(id);
+    const byName = (name) => db.prepare('SELECT id FROM products WHERE LOWER(name) = LOWER(?)').get(name);
+
+    let updated = 0;
+
+    for (const entry of prices) {
+      const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
+      const price = entry && entry.price;
+
+      // A row with no usable price is skipped (never aborts the batch).
+      if (price === undefined || price === null || price === '' || !Number.isFinite(Number(price)) || Number(price) < 0) {
+        skipped.push({ name: name || '(unnamed)', reason: 'invalid price' });
+        continue;
+      }
+
+      const priceNum = Number(price);
+      let row = null;
+
+      // Numeric id wins when provided (stable AUTOINCREMENT ids).
+      if (entry.id !== undefined && entry.id !== null && entry.id !== '') {
+        const idNum = Number(entry.id);
+        if (Number.isInteger(idNum) && idNum >= 1) {
+          row = byId(idNum);
+        }
+      }
+      if (!row && name) {
+        row = byName(name);
+      }
+
+      if (!row) {
+        skipped.push({ name: name || '(unnamed)', reason: 'not found' });
+        continue;
+      }
+
+      update.run(priceNum, row.id);
+      updated += 1;
+    }
+
+    res.json({
+      ok: true,
+      total: prices.length,
+      updated,
+      skipped,
+    });
+  }
+);
+
 // ================= INVENTORY ROUTES =================
 
 app.get('/api/inventory', (req, res) => {

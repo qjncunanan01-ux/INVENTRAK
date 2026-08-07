@@ -16,9 +16,7 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-sauces--butterscotch.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--butterscotch.jpg"
       },
       "locations": {
         "Showroom": 113,
@@ -38,9 +36,7 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-sauces--caramel-2l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--caramel-2l.jpg"
       },
       "locations": {
         "Showroom": 50,
@@ -60,9 +56,7 @@
         "unit": "",
         "price": 1060,
         "status": "active",
-        "image": "/images/da-vinci-sauces--chocolate-2l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--chocolate-2l.jpg"
       },
       "locations": {
         "Showroom": 147,
@@ -82,9 +76,7 @@
         "unit": "",
         "price": 1175,
         "status": "active",
-        "image": "/images/matcha-powder--da-vinci.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/matcha-powder--da-vinci.jpg"
       },
       "locations": {
         "Showroom": 46,
@@ -104,9 +96,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--arla-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--arla-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 46,
@@ -126,9 +116,7 @@
         "unit": "",
         "price": 198,
         "status": "active",
-        "image": "/images/cups-and-lid--dabba-elegant-cups-12oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--dabba-elegant-cups-12oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 128,
@@ -148,9 +136,7 @@
         "unit": "",
         "price": 1400,
         "status": "active",
-        "image": "/images/coffee-beans--arabica-coffee-beans-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/coffee-beans--arabica-coffee-beans-1kg.jpg"
       },
       "locations": {
         "Showroom": 146,
@@ -170,9 +156,7 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-powders--frappease-powder-1-5kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-powders--frappease-powder-1-5kg.jpg"
       },
       "locations": {
         "Showroom": 120,
@@ -192,9 +176,7 @@
         "unit": "",
         "price": 420,
         "status": "active",
-        "image": "/images/achievers--acc-caramel-syrup-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/achievers--acc-caramel-syrup-1kg.jpg"
       },
       "locations": {
         "Showroom": 77,
@@ -214,9 +196,7 @@
         "unit": "",
         "price": 420,
         "status": "active",
-        "image": "/images/achievers--acc-choco-syrup-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/achievers--acc-choco-syrup-1kg.jpg"
       },
       "locations": {
         "Showroom": 72,
@@ -236,9 +216,7 @@
         "unit": "",
         "price": 420,
         "status": "active",
-        "image": "/images/achievers--acc-strawberry-syrup-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/achievers--acc-strawberry-syrup-1kg.jpg"
       },
       "locations": {
         "Showroom": 113,
@@ -258,9 +236,7 @@
         "unit": "",
         "price": 420,
         "status": "active",
-        "image": "/images/achievers--acc-ube-syrup-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/achievers--acc-ube-syrup-1kg.jpg"
       },
       "locations": {
         "Showroom": 139,
@@ -280,9 +256,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-dark-chocolate-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--beryl-s-dark-chocolate-1kg.jpg"
       },
       "locations": {
         "Showroom": 47,
@@ -302,9 +276,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-dark-chocolate.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--beryl-s-dark-chocolate.jpg"
       },
       "locations": {
         "Showroom": 152,
@@ -324,9 +296,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-milk-chocolate-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--beryl-s-milk-chocolate-1kg.jpg"
       },
       "locations": {
         "Showroom": 165,
@@ -346,9 +316,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-white-chocolate-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--beryl-s-white-chocolate-1kg.jpg"
       },
       "locations": {
         "Showroom": 155,
@@ -368,9 +336,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-white-chocolate-chips-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--beryl-s-white-chocolate-chips-1kg.jpg"
       },
       "locations": {
         "Showroom": 147,
@@ -390,9 +356,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--callebaut-dark-couvertre-callets-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--callebaut-dark-couvertre-callets-1kg.jpg"
       },
       "locations": {
         "Showroom": 157,
@@ -412,9 +376,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--van-houten-dark-compound-intense.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--van-houten-dark-compound-intense.jpg"
       },
       "locations": {
         "Showroom": 25,
@@ -434,9 +396,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--van-houten-dark-compound-semi-sweet.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--van-houten-dark-compound-semi-sweet.jpg"
       },
       "locations": {
         "Showroom": 108,
@@ -456,9 +416,7 @@
         "unit": "",
         "price": 820,
         "status": "active",
-        "image": "/images/baking-chocolate--van-houten-milk-compound-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/baking-chocolate--van-houten-milk-compound-1kg.jpg"
       },
       "locations": {
         "Showroom": 162,
@@ -478,9 +436,7 @@
         "unit": "",
         "price": 150,
         "status": "active",
-        "image": "/images/chicken-pastil--original-chicken-pastil-by-silong.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/chicken-pastil--original-chicken-pastil-by-silong.jpg"
       },
       "locations": {
         "Showroom": 27,
@@ -500,9 +456,7 @@
         "unit": "",
         "price": 150,
         "status": "active",
-        "image": "/images/chicken-pastil--spicy-chicken-pastil-by-silong.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/chicken-pastil--spicy-chicken-pastil-by-silong.jpg"
       },
       "locations": {
         "Showroom": 97,
@@ -522,9 +476,7 @@
         "unit": "",
         "price": 1250,
         "status": "active",
-        "image": "/images/coffee-beans--arabica-coffee-beans-250g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/coffee-beans--arabica-coffee-beans-250g.jpg"
       },
       "locations": {
         "Showroom": 59,
@@ -544,9 +496,7 @@
         "unit": "",
         "price": 1250,
         "status": "active",
-        "image": "/images/coffee-beans--seezione-speciale-coffe-beans-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/coffee-beans--seezione-speciale-coffe-beans-1kg.jpg"
       },
       "locations": {
         "Showroom": 158,
@@ -566,9 +516,7 @@
         "unit": "",
         "price": 1250,
         "status": "active",
-        "image": "/images/coffee-beans--sylver-blend-coffee-beans70-arabic-30-robusta-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/coffee-beans--sylver-blend-coffee-beans70-arabic-30-robusta-1kg.jpg"
       },
       "locations": {
         "Showroom": 46,
@@ -588,9 +536,7 @@
         "unit": "",
         "price": 700,
         "status": "active",
-        "image": "/images/condense-milk--jersey-condensed-milk-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/condense-milk--jersey-condensed-milk-1kg.jpg"
       },
       "locations": {
         "Showroom": 127,
@@ -610,9 +556,7 @@
         "unit": "",
         "price": 700,
         "status": "active",
-        "image": "/images/condense-milk--jersey-condensed-milk-2-5-kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/condense-milk--jersey-condensed-milk-2-5-kg.jpg"
       },
       "locations": {
         "Showroom": 26,
@@ -632,9 +576,7 @@
         "unit": "",
         "price": 700,
         "status": "active",
-        "image": "/images/condense-milk--jersey-condensed-milk-390g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/condense-milk--jersey-condensed-milk-390g.jpg"
       },
       "locations": {
         "Showroom": 68,
@@ -654,9 +596,7 @@
         "unit": "",
         "price": 700,
         "status": "active",
-        "image": "/images/condense-milk--marie-condensada-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/condense-milk--marie-condensada-1kg.jpg"
       },
       "locations": {
         "Showroom": 166,
@@ -676,9 +616,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--dabba-elegant-cups-16oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--dabba-elegant-cups-16oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 126,
@@ -698,9 +636,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--dabba-elegant-cups-22oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--dabba-elegant-cups-22oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 32,
@@ -720,9 +656,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--dome-lid-95mm-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--dome-lid-95mm-50pcs.jpg"
       },
       "locations": {
         "Showroom": 104,
@@ -742,9 +676,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--double-walled-brown-12oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--double-walled-brown-12oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 150,
@@ -764,9 +696,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--double-walled-brown-16oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--double-walled-brown-16oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 123,
@@ -786,9 +716,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--double-walled-brown-8oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--double-walled-brown-8oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 159,
@@ -808,9 +736,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--flat-lid-95mm-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--flat-lid-95mm-50pcs.jpg"
       },
       "locations": {
         "Showroom": 95,
@@ -830,9 +756,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--hard-straw-individual-wrap-100pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--hard-straw-individual-wrap-100pcs.jpg"
       },
       "locations": {
         "Showroom": 163,
@@ -852,9 +776,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--hot-lid-black-80mm-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--hot-lid-black-80mm-50pcs.jpg"
       },
       "locations": {
         "Showroom": 68,
@@ -874,9 +796,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--hot-lid-black-90mm-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--hot-lid-black-90mm-50pcs.jpg"
       },
       "locations": {
         "Showroom": 39,
@@ -896,9 +816,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--pet-cups-12oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--pet-cups-12oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 145,
@@ -918,9 +836,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--pet-cups-16oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--pet-cups-16oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 148,
@@ -940,9 +856,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--pet-cups-22oz-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--pet-cups-22oz-50pcs.jpg"
       },
       "locations": {
         "Showroom": 56,
@@ -962,9 +876,7 @@
         "unit": "",
         "price": 200,
         "status": "active",
-        "image": "/images/cups-and-lid--strawless-lid-95mm-50pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/cups-and-lid--strawless-lid-95mm-50pcs.jpg"
       },
       "locations": {
         "Showroom": 23,
@@ -984,9 +896,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-beveragemix--black-tea-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-beveragemix--black-tea-1l.jpg"
       },
       "locations": {
         "Showroom": 148,
@@ -1006,9 +916,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-beveragemix--mixed-berries-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-beveragemix--mixed-berries-1l.jpg"
       },
       "locations": {
         "Showroom": 103,
@@ -1028,9 +936,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-beveragemix--strawberry-fruit-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-beveragemix--strawberry-fruit-1l.jpg"
       },
       "locations": {
         "Showroom": 102,
@@ -1050,9 +956,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--blue-ocean-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--blue-ocean-750ml.jpg"
       },
       "locations": {
         "Showroom": 139,
@@ -1072,9 +976,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--european-strawberry-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--european-strawberry-750ml.jpg"
       },
       "locations": {
         "Showroom": 105,
@@ -1094,9 +996,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--forest-berries-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--forest-berries-750ml.jpg"
       },
       "locations": {
         "Showroom": 102,
@@ -1116,9 +1016,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--fragrant-lychee-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--fragrant-lychee-750ml.jpg"
       },
       "locations": {
         "Showroom": 78,
@@ -1138,9 +1036,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--green-apple-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--green-apple-750ml.jpg"
       },
       "locations": {
         "Showroom": 165,
@@ -1160,9 +1056,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--grenadine-pomegranate-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--grenadine-pomegranate-750ml.jpg"
       },
       "locations": {
         "Showroom": 148,
@@ -1182,9 +1076,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--majestic-mango-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--majestic-mango-750ml.jpg"
       },
       "locations": {
         "Showroom": 124,
@@ -1204,9 +1096,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--menta-cubano-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--menta-cubano-750ml.jpg"
       },
       "locations": {
         "Showroom": 149,
@@ -1226,9 +1116,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--peach-garden-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--peach-garden-750ml.jpg"
       },
       "locations": {
         "Showroom": 42,
@@ -1248,9 +1136,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--pink-guava-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--pink-guava-750ml.jpg"
       },
       "locations": {
         "Showroom": 141,
@@ -1270,9 +1156,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--raspberry-rhapsody-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--raspberry-rhapsody-750ml.jpg"
       },
       "locations": {
         "Showroom": 175,
@@ -1292,9 +1176,7 @@
         "unit": "",
         "price": 620,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--tropical-passionfruit-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-mixologies--tropical-passionfruit-750ml.jpg"
       },
       "locations": {
         "Showroom": 86,
@@ -1314,9 +1196,7 @@
         "unit": "",
         "price": 950,
         "status": "active",
-        "image": "/images/da-vinci-powders--chocolate-sipping-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-powders--chocolate-sipping-1kg.jpg"
       },
       "locations": {
         "Showroom": 99,
@@ -1336,9 +1216,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--caramel-500ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--caramel-500ml.jpg"
       },
       "locations": {
         "Showroom": 59,
@@ -1358,9 +1236,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--cheesecake-2l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--cheesecake-2l.jpg"
       },
       "locations": {
         "Showroom": 96,
@@ -1380,9 +1256,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--chocolate-500ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--chocolate-500ml.jpg"
       },
       "locations": {
         "Showroom": 141,
@@ -1402,9 +1276,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--creamy-vanilla.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--creamy-vanilla.jpg"
       },
       "locations": {
         "Showroom": 35,
@@ -1424,9 +1296,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--gourmet-pistachio-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--gourmet-pistachio-1l.jpg"
       },
       "locations": {
         "Showroom": 119,
@@ -1446,9 +1316,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--pandan-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--pandan-1l.jpg"
       },
       "locations": {
         "Showroom": 146,
@@ -1468,9 +1336,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--salted-caramel-2l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--salted-caramel-2l.jpg"
       },
       "locations": {
         "Showroom": 31,
@@ -1490,9 +1356,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--vanilla-bean-2l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--vanilla-bean-2l.jpg"
       },
       "locations": {
         "Showroom": 104,
@@ -1512,9 +1376,7 @@
         "unit": "",
         "price": 1000,
         "status": "active",
-        "image": "/images/da-vinci-sauces--white-chocolate-sauce-2l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-sauces--white-chocolate-sauce-2l.jpg"
       },
       "locations": {
         "Showroom": 65,
@@ -1534,9 +1396,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--acadamia-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--acadamia-750ml.jpg"
       },
       "locations": {
         "Showroom": 121,
@@ -1556,9 +1416,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--almond-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--almond-750ml.jpg"
       },
       "locations": {
         "Showroom": 166,
@@ -1576,11 +1434,9 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 495,
         "status": "active",
-        "image": "/images/da-vinci-syrup--blueberry-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--blueberry-750ml.jpg"
       },
       "locations": {
         "Showroom": 42,
@@ -1600,9 +1456,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--caramel-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--caramel-750ml.jpg"
       },
       "locations": {
         "Showroom": 32,
@@ -1622,9 +1476,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--hazelnut-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--hazelnut-750ml.jpg"
       },
       "locations": {
         "Showroom": 66,
@@ -1644,9 +1496,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--mint-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--mint-750ml.jpg"
       },
       "locations": {
         "Showroom": 89,
@@ -1666,9 +1516,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--pecan-praline-mixologies-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--pecan-praline-mixologies-750ml.jpg"
       },
       "locations": {
         "Showroom": 63,
@@ -1688,9 +1536,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--peppermint-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--peppermint-750ml.jpg"
       },
       "locations": {
         "Showroom": 124,
@@ -1710,9 +1556,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--shortbread-cookies-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--shortbread-cookies-750ml.jpg"
       },
       "locations": {
         "Showroom": 146,
@@ -1732,9 +1576,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--strawberry-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--strawberry-750ml.jpg"
       },
       "locations": {
         "Showroom": 91,
@@ -1754,9 +1596,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--sugar-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--sugar-750ml.jpg"
       },
       "locations": {
         "Showroom": 73,
@@ -1776,9 +1616,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--toffee-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--toffee-750ml.jpg"
       },
       "locations": {
         "Showroom": 105,
@@ -1798,9 +1636,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--vanilla-750lm.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--vanilla-750lm.jpg"
       },
       "locations": {
         "Showroom": 149,
@@ -1820,9 +1656,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--vanilla-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--vanilla-750ml.jpg"
       },
       "locations": {
         "Showroom": 33,
@@ -1842,9 +1676,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/da-vinci-syrup--white-chocolate-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/da-vinci-syrup--white-chocolate-750ml.jpg"
       },
       "locations": {
         "Showroom": 169,
@@ -1864,9 +1696,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--buttersotch-syrup-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--buttersotch-syrup-760ml.jpg"
       },
       "locations": {
         "Showroom": 113,
@@ -1886,9 +1716,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--caramel-sauce-500ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--caramel-sauce-500ml.jpg"
       },
       "locations": {
         "Showroom": 119,
@@ -1908,9 +1736,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--caramel-syrup-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--caramel-syrup-760ml.jpg"
       },
       "locations": {
         "Showroom": 89,
@@ -1930,9 +1756,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--cream-cheese-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--cream-cheese-760ml.jpg"
       },
       "locations": {
         "Showroom": 120,
@@ -1952,9 +1776,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--hazelnut-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--hazelnut-760ml.jpg"
       },
       "locations": {
         "Showroom": 81,
@@ -1974,9 +1796,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--hazelnut-sauce-500ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--hazelnut-sauce-500ml.jpg"
       },
       "locations": {
         "Showroom": 125,
@@ -1996,9 +1816,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--lychee-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--lychee-760ml.jpg"
       },
       "locations": {
         "Showroom": 66,
@@ -2018,9 +1836,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--osmanthus-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--osmanthus-760ml.jpg"
       },
       "locations": {
         "Showroom": 126,
@@ -2040,9 +1856,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--pal-sugar-760lm.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--pal-sugar-760lm.jpg"
       },
       "locations": {
         "Showroom": 65,
@@ -2062,9 +1876,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--pandan-760lm.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--pandan-760lm.jpg"
       },
       "locations": {
         "Showroom": 79,
@@ -2084,9 +1896,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--passion-fruit-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--passion-fruit-760ml.jpg"
       },
       "locations": {
         "Showroom": 49,
@@ -2106,9 +1916,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--peach-760lm.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--peach-760lm.jpg"
       },
       "locations": {
         "Showroom": 27,
@@ -2128,9 +1936,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--pistachio-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--pistachio-760ml.jpg"
       },
       "locations": {
         "Showroom": 164,
@@ -2150,9 +1956,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--rose-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--rose-760ml.jpg"
       },
       "locations": {
         "Showroom": 81,
@@ -2172,9 +1976,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--strawberry-760lm.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--strawberry-760lm.jpg"
       },
       "locations": {
         "Showroom": 135,
@@ -2194,9 +1996,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--tiramisu-760lm.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--tiramisu-760lm.jpg"
       },
       "locations": {
         "Showroom": 137,
@@ -2216,9 +2016,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--vanilla-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--vanilla-760ml.jpg"
       },
       "locations": {
         "Showroom": 31,
@@ -2238,9 +2036,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/dripp-flavours--yuzu-fruit-760ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/dripp-flavours--yuzu-fruit-760ml.jpg"
       },
       "locations": {
         "Showroom": 40,
@@ -2260,9 +2056,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--arla-pro-barista-milk-10l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--arla-pro-barista-milk-10l.jpg"
       },
       "locations": {
         "Showroom": 122,
@@ -2282,9 +2076,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--conaprole-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--conaprole-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 25,
@@ -2304,9 +2096,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--emborg-chef-selection-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--emborg-chef-selection-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 141,
@@ -2326,9 +2116,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--emborg-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--emborg-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 27,
@@ -2348,9 +2136,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--happy-barn-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--happy-barn-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 25,
@@ -2370,9 +2156,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--jersey-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--jersey-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 24,
@@ -2392,9 +2176,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--laciate-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--laciate-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 107,
@@ -2414,9 +2196,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--milklab-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--milklab-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 30,
@@ -2436,9 +2216,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--mlekovita-full-cream-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--mlekovita-full-cream-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 80,
@@ -2458,9 +2236,7 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--yarra-s-farm-master-barista-milk-12l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/full-cream-milk--yarra-s-farm-master-barista-milk-12l.jpg"
       },
       "locations": {
         "Showroom": 89,
@@ -2480,9 +2256,7 @@
         "unit": "",
         "price": 1175,
         "status": "active",
-        "image": "/images/matcha-powder--allegro.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/matcha-powder--allegro.jpg"
       },
       "locations": {
         "Showroom": 157,
@@ -2502,9 +2276,7 @@
         "unit": "",
         "price": 1175,
         "status": "active",
-        "image": "/images/matcha-powder--top-creamery.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/matcha-powder--top-creamery.jpg"
       },
       "locations": {
         "Showroom": 171,
@@ -2524,9 +2296,7 @@
         "unit": "",
         "price": 520,
         "status": "active",
-        "image": "/images/monin--caramel-syrup-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/monin--caramel-syrup-1l.jpg"
       },
       "locations": {
         "Showroom": 58,
@@ -2546,9 +2316,7 @@
         "unit": "",
         "price": 520,
         "status": "active",
-        "image": "/images/monin--mango-syrup-700ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/monin--mango-syrup-700ml.jpg"
       },
       "locations": {
         "Showroom": 129,
@@ -2568,9 +2336,7 @@
         "unit": "",
         "price": 700,
         "status": "active",
-        "image": "/images/non-dairy-creamer--malaysian-non-dairy-creamer-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/non-dairy-creamer--malaysian-non-dairy-creamer-1kg.jpg"
       },
       "locations": {
         "Showroom": 91,
@@ -2590,9 +2356,7 @@
         "unit": "",
         "price": 300,
         "status": "active",
-        "image": "/images/others--brew-with-sylver.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/others--brew-with-sylver.jpg"
       },
       "locations": {
         "Showroom": 97,
@@ -2612,9 +2376,7 @@
         "unit": "",
         "price": 400,
         "status": "active",
-        "image": "/images/others1--cream-chargers-10pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/others1--cream-chargers-10pcs.jpg"
       },
       "locations": {
         "Showroom": 79,
@@ -2634,9 +2396,7 @@
         "unit": "",
         "price": 400,
         "status": "active",
-        "image": "/images/others1--frozen-croissant.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/others1--frozen-croissant.jpg"
       },
       "locations": {
         "Showroom": 127,
@@ -2656,9 +2416,7 @@
         "unit": "",
         "price": 400,
         "status": "active",
-        "image": "/images/others1--sauce-pump-15ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/others1--sauce-pump-15ml.jpg"
       },
       "locations": {
         "Showroom": 161,
@@ -2678,9 +2436,7 @@
         "unit": "",
         "price": 400,
         "status": "active",
-        "image": "/images/others1--soda-chargers-10pcs.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/others1--soda-chargers-10pcs.jpg"
       },
       "locations": {
         "Showroom": 72,
@@ -2700,9 +2456,7 @@
         "unit": "",
         "price": 400,
         "status": "active",
-        "image": "/images/others1--syrup-pump-7-5ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/others1--syrup-pump-7-5ml.jpg"
       },
       "locations": {
         "Showroom": 125,
@@ -2722,9 +2476,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--farm-fresh-oat-barista-milk-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--farm-fresh-oat-barista-milk-1l.jpg"
       },
       "locations": {
         "Showroom": 44,
@@ -2744,9 +2496,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--freenow-coconut-milk-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--freenow-coconut-milk-1l.jpg"
       },
       "locations": {
         "Showroom": 120,
@@ -2766,9 +2516,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--milklab-almond-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--milklab-almond-1l.jpg"
       },
       "locations": {
         "Showroom": 52,
@@ -2788,9 +2536,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--milklab-oat-milk-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--milklab-oat-milk-1l.jpg"
       },
       "locations": {
         "Showroom": 84,
@@ -2810,9 +2556,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--milklab-soy-milk-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--milklab-soy-milk-1l.jpg"
       },
       "locations": {
         "Showroom": 90,
@@ -2832,9 +2576,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--oatbedient-artisan-oatmilk-barista-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--oatbedient-artisan-oatmilk-barista-1l.jpg"
       },
       "locations": {
         "Showroom": 36,
@@ -2854,9 +2596,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--oatbedient-oat-milk-barista-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--oatbedient-oat-milk-barista-1l.jpg"
       },
       "locations": {
         "Showroom": 91,
@@ -2876,9 +2616,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--oatside-barista-blend-oatmilk-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--oatside-barista-blend-oatmilk-1l.jpg"
       },
       "locations": {
         "Showroom": 94,
@@ -2898,9 +2636,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--oatside-chocolate-oatmilk-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--oatside-chocolate-oatmilk-1l.jpg"
       },
       "locations": {
         "Showroom": 157,
@@ -2920,9 +2656,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/plant-based-milk--so-good-oat-barista-1l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/plant-based-milk--so-good-oat-barista-1l.jpg"
       },
       "locations": {
         "Showroom": 176,
@@ -2942,9 +2676,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--dla-lafruta-blueberry-610g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--dla-lafruta-blueberry-610g.jpg"
       },
       "locations": {
         "Showroom": 72,
@@ -2964,9 +2696,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--dla-lafruta-strawberry-610g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--dla-lafruta-strawberry-610g.jpg"
       },
       "locations": {
         "Showroom": 122,
@@ -2986,9 +2716,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--dla-pistachio-filling-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--dla-pistachio-filling-1kg.jpg"
       },
       "locations": {
         "Showroom": 64,
@@ -3008,9 +2736,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--doking-blueberry-jam-3kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--doking-blueberry-jam-3kg.jpg"
       },
       "locations": {
         "Showroom": 125,
@@ -3030,9 +2756,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--doking-mango-jam-3kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--doking-mango-jam-3kg.jpg"
       },
       "locations": {
         "Showroom": 177,
@@ -3052,9 +2776,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--doking-strawberry-jam-3kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--doking-strawberry-jam-3kg.jpg"
       },
       "locations": {
         "Showroom": 178,
@@ -3074,9 +2796,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--jersey-industrial-cheese-2kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--jersey-industrial-cheese-2kg.jpg"
       },
       "locations": {
         "Showroom": 55,
@@ -3096,9 +2816,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-biscuits-200g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-biscuits-200g.jpg"
       },
       "locations": {
         "Showroom": 168,
@@ -3118,9 +2836,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-creamy-spread-400g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-creamy-spread-400g.jpg"
       },
       "locations": {
         "Showroom": 74,
@@ -3140,9 +2856,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-biscuits-250g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-biscuits-250g.jpg"
       },
       "locations": {
         "Showroom": 155,
@@ -3162,9 +2876,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-cookie-crumbs-750g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-cookie-crumbs-750g.jpg"
       },
       "locations": {
         "Showroom": 53,
@@ -3184,9 +2896,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-crunchy-spread-380g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-crunchy-spread-380g.jpg"
       },
       "locations": {
         "Showroom": 50,
@@ -3206,9 +2916,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-smooth-spread-3kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-smooth-spread-3kg.jpg"
       },
       "locations": {
         "Showroom": 81,
@@ -3228,9 +2936,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-topping-sauce-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-topping-sauce-1kg.jpg"
       },
       "locations": {
         "Showroom": 106,
@@ -3250,9 +2956,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--magnolia-cheese-sauce-2-5kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--magnolia-cheese-sauce-2-5kg.jpg"
       },
       "locations": {
         "Showroom": 108,
@@ -3272,9 +2976,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--master-martini-gran-delice-pistachio-creamy-spread-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--master-martini-gran-delice-pistachio-creamy-spread-1kg.jpg"
       },
       "locations": {
         "Showroom": 120,
@@ -3294,9 +2996,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--maulin-coffee-jelly-3-3-kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--maulin-coffee-jelly-3-3-kg.jpg"
       },
       "locations": {
         "Showroom": 171,
@@ -3316,9 +3016,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--milin-crystal-jelly-2-5kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--milin-crystal-jelly-2-5kg.jpg"
       },
       "locations": {
         "Showroom": 155,
@@ -3338,9 +3036,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--milin-nata-jelly-2-5kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--milin-nata-jelly-2-5kg.jpg"
       },
       "locations": {
         "Showroom": 56,
@@ -3360,9 +3056,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--nutella-ferrero-food-service-3kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--nutella-ferrero-food-service-3kg.jpg"
       },
       "locations": {
         "Showroom": 37,
@@ -3382,9 +3076,7 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--oreo-crushed-cookie-454g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/spread-jams-biscuits--oreo-crushed-cookie-454g.jpg"
       },
       "locations": {
         "Showroom": 156,
@@ -3404,9 +3096,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--brown-sugar-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--brown-sugar-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 64,
@@ -3426,9 +3116,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--caramel-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--caramel-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 171,
@@ -3448,9 +3136,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--chocolate-syrup-750lm.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--chocolate-syrup-750lm.jpg"
       },
       "locations": {
         "Showroom": 140,
@@ -3470,9 +3156,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--cookies-cream-powder-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--cookies-cream-powder-1kg.jpg"
       },
       "locations": {
         "Showroom": 146,
@@ -3492,9 +3176,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--creamy-vanilla-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--creamy-vanilla-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 22,
@@ -3514,9 +3196,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--espresso-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--espresso-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 89,
@@ -3536,9 +3216,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--frappe-base-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--frappe-base-1kg.jpg"
       },
       "locations": {
         "Showroom": 108,
@@ -3558,9 +3236,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--hazelnut-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--hazelnut-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 49,
@@ -3580,9 +3256,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--salted-caramel-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--salted-caramel-750ml.jpg"
       },
       "locations": {
         "Showroom": 133,
@@ -3602,9 +3276,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--salted-cheese-foam-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--salted-cheese-foam-1kg.jpg"
       },
       "locations": {
         "Showroom": 171,
@@ -3624,9 +3296,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--supreme-doppio-chocolate-powder-750g.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--supreme-doppio-chocolate-powder-750g.jpg"
       },
       "locations": {
         "Showroom": 98,
@@ -3646,9 +3316,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--ube-powder-1kg.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--ube-powder-1kg.jpg"
       },
       "locations": {
         "Showroom": 77,
@@ -3668,9 +3336,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/top-creamery--ube-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/top-creamery--ube-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 179,
@@ -3688,11 +3354,9 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 520,
         "status": "active",
-        "image": "/images/torani--almond-roca-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--almond-roca-750ml.jpg"
       },
       "locations": {
         "Showroom": 62,
@@ -3712,9 +3376,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--brown-sugar-cinnamon-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--brown-sugar-cinnamon-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 44,
@@ -3734,9 +3396,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--butterscotch-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--butterscotch-750ml.jpg"
       },
       "locations": {
         "Showroom": 119,
@@ -3756,9 +3416,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--caramel-sauce1-89l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--caramel-sauce1-89l.jpg"
       },
       "locations": {
         "Showroom": 172,
@@ -3778,9 +3436,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--caramel-sause-16-5oz.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--caramel-sause-16-5oz.jpg"
       },
       "locations": {
         "Showroom": 179,
@@ -3800,9 +3456,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--caramel-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--caramel-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 26,
@@ -3822,9 +3476,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--chocolate-sause-16-5oz.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--chocolate-sause-16-5oz.jpg"
       },
       "locations": {
         "Showroom": 172,
@@ -3844,9 +3496,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--coconu-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--coconu-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 96,
@@ -3866,9 +3516,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--creme-de-menthe-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--creme-de-menthe-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 128,
@@ -3888,9 +3536,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--dark-chocolate-1-89l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--dark-chocolate-1-89l.jpg"
       },
       "locations": {
         "Showroom": 63,
@@ -3910,9 +3556,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--english-toffee-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--english-toffee-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 57,
@@ -3932,9 +3576,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--french-vanilla-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--french-vanilla-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 63,
@@ -3954,9 +3596,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--hazelnut-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--hazelnut-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 92,
@@ -3976,9 +3616,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--lemon-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--lemon-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 28,
@@ -3998,9 +3636,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--peppermint-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--peppermint-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 165,
@@ -4020,9 +3656,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--pumpkin-spice-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--pumpkin-spice-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 161,
@@ -4042,9 +3676,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--salted-caramel-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--salted-caramel-750ml.jpg"
       },
       "locations": {
         "Showroom": 77,
@@ -4064,9 +3696,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--strawberry-puree-64oz.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--strawberry-puree-64oz.jpg"
       },
       "locations": {
         "Showroom": 171,
@@ -4086,9 +3716,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--strawberry-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--strawberry-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 171,
@@ -4108,9 +3736,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--toasted-marshmallow-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--toasted-marshmallow-750ml.jpg"
       },
       "locations": {
         "Showroom": 44,
@@ -4130,9 +3756,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--vanilla-syrup-750ml.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--vanilla-syrup-750ml.jpg"
       },
       "locations": {
         "Showroom": 159,
@@ -4152,9 +3776,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--white-chocolate-16-5oz.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--white-chocolate-16-5oz.jpg"
       },
       "locations": {
         "Showroom": 26,
@@ -4174,9 +3796,7 @@
         "unit": "",
         "price": 460,
         "status": "active",
-        "image": "/images/torani--white-chocolate-sause-1-89l.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/torani--white-chocolate-sause-1-89l.jpg"
       },
       "locations": {
         "Showroom": 52,
@@ -4196,9 +3816,7 @@
         "unit": "",
         "price": 350,
         "status": "active",
-        "image": "/images/whip-cream--ever-whip.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/whip-cream--ever-whip.jpg"
       },
       "locations": {
         "Showroom": 112,
@@ -4218,9 +3836,7 @@
         "unit": "",
         "price": 350,
         "status": "active",
-        "image": "/images/whip-cream--vivo.jpg",
-        "created_at": "2026-08-07 08:56:49",
-        "updated_at": "2026-08-07 08:56:49"
+        "image": "/images/whip-cream--vivo.jpg"
       },
       "locations": {
         "Showroom": 125,

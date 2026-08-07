@@ -899,6 +899,58 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  // Bulk price update: sets prices for many products in one request (the admin
+  // price-list CSV import). Mirrors the SQLite backend exactly — same request
+  // shape, same matching rules (numeric id first, then exact case-insensitive
+  // name), same response key set for contract parity.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/products/bulk-prices') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        if (!Array.isArray(obj.prices)) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['prices must be an array of { name, price } entries'] });
+        }
+        if (obj.prices.length === 0) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['prices must not be empty'] });
+        }
+        if (obj.prices.length > 2000) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['prices must not exceed 2000 entries'] });
+        }
+        const products = readJSON(productsFile) || [];
+        const skipped = [];
+        let updated = 0;
+        for (const entry of obj.prices) {
+          const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
+          const price = entry && entry.price;
+          if (price === undefined || price === null || price === '' || !Number.isFinite(Number(price)) || Number(price) < 0) {
+            skipped.push({ name: name || '(unnamed)', reason: 'invalid price' });
+            continue;
+          }
+          const priceNum = Number(price);
+          let idx = -1;
+          // Numeric id wins when provided (stable array-position + 1 ids).
+          if (entry.id !== undefined && entry.id !== null && entry.id !== '') {
+            const idNum = Number(entry.id);
+            if (Number.isInteger(idNum) && idNum >= 1 && idNum <= products.length) {
+              idx = idNum - 1;
+            }
+          }
+          if (idx === -1 && name) {
+            idx = products.findIndex((p) => String(p['Product Name'] || p.name || '').trim().toLowerCase() === name.toLowerCase());
+          }
+          if (idx === -1) {
+            skipped.push({ name: name || '(unnamed)', reason: 'not found' });
+            continue;
+          }
+          products[idx]['Price'] = priceNum;
+          updated += 1;
+        }
+        writeJSON(productsFile, products);
+        return sendJson(res, 200, { ok: true, total: obj.prices.length, updated, skipped });
+      });
+    });
+  }
+
   if (req.method === 'PUT' && isParamPath(url, 'api/products', 3)) {
     const id = parseInt(url.split('?')[0].split('/').pop(), 10);
     return requireAuth(req, res, true, (req, res) => {

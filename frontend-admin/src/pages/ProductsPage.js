@@ -1,6 +1,6 @@
-import { Box, Button, Dialog, DialogActions, DialogTitle, Grid, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
-import { apiDelete, apiGet, apiPost, apiPut, API_BASE_URL } from '../api';
+import { Alert, AlertTitle, Box, Button, Dialog, DialogActions, DialogTitle, Grid, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { useEffect, useRef, useState } from 'react';
+import { apiDelete, apiGet, apiPost, apiPut, bulkUpdatePrices, API_BASE_URL } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
 
@@ -13,6 +13,13 @@ export default function ProductsPage({ onLogout }) {
   const [saving, setSaving] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
   const [search, setSearch] = useState('');
+  // Bulk price-list upload state (CSV paste or file).
+  const [bulkText, setBulkText] = useState('');
+  const [bulkRows, setBulkRows] = useState([]); // parsed [{ id?, name, price }]
+  const [bulkPreview, setBulkPreview] = useState(null); // { matched, unmatched }
+  const [bulkResult, setBulkResult] = useState(null); // { updated, skipped }
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const fileInputRef = useRef(null);
 
   const loadProducts = () => {
     setLoading(true);
@@ -101,6 +108,109 @@ export default function ProductsPage({ onLogout }) {
     return v;
   };
 
+  // --- Bulk price-list helpers ---
+
+  // Parses pasted/uploaded CSV text into [{ id?, name, price }] rows.
+  // Accepted layouts (header row optional):
+  //   Product Name,Price
+  //   id,name,price
+  //   Name	Price  (tab-separated)
+  //   Name,1,234.50
+  const parseCsvRows = (text) => {
+    const rows = [];
+    const lines = String(text || '').split(/\r?\n/);
+    let isHeader = true;
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) continue;
+      // Split on tab first (Excel paste), then on the LAST comma that is
+      // followed by a number so product names containing commas survive.
+      let cols;
+      if (line.includes('\t')) cols = line.split('\t');
+      else {
+        const m = line.match(/^(.*?)[,\t]([\d,.]+)$/);
+        if (!m) continue;
+        cols = [m[1].trim(), m[2].trim()];
+      }
+      const name = String(cols[0] || '').trim().replace(/^["']|["']$/g, '');
+      const priceStr = String(cols[cols.length - 1] || '').replace(/[^\d.]/g, '');
+      const price = Number(priceStr);
+      if (!name || !Number.isFinite(price)) continue;
+      // Skip a header row like "name" / "Product Name" / "price".
+      if (isHeader && /^(name|product\s*name|price|id)$/i.test(name) && !Number.isFinite(Number(name))) {
+        isHeader = false;
+        continue;
+      }
+      isHeader = false;
+      rows.push({ name, price });
+    }
+    return rows;
+  };
+
+  const runBulkPreview = () => {
+    const rows = parseCsvRows(bulkText);
+    if (!rows.length) {
+      setBulkPreview(null);
+      setSnackbar({ open: true, message: 'No parseable rows. Use name,price per line (header row optional).', severity: 'warning' });
+      return;
+    }
+    const lookup = new Map();
+    for (const p of Array.isArray(products) ? products : []) lookup.set(String(p.name || '').trim().toLowerCase(), p);
+    const matched = rows.filter(r => lookup.has(r.name.trim().toLowerCase()));
+    setBulkRows(rows);
+    setBulkResult(null);
+    setBulkPreview({
+      total: rows.length,
+      matched: matched.length,
+      unmatched: rows.filter(r => !lookup.has(r.name.trim().toLowerCase())).map(r => r.name),
+    });
+  };
+
+  const applyBulkPrices = async () => {
+    if (!bulkRows.length) {
+      setSnackbar({ open: true, message: 'Parse the price list first', severity: 'warning' });
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const res = await bulkUpdatePrices({ prices: bulkRows.map(r => ({ name: r.name, price: r.price })) });
+      setBulkResult({ updated: res.updated, skipped: res.skipped || [] });
+      setBulkText('');
+      setBulkRows([]);
+      setBulkPreview(null);
+      setSnackbar({ open: true, message: `Updated ${res.updated} of ${res.total} prices`, severity: res.updated > 0 ? 'success' : 'warning' });
+      loadProducts();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  // Downloads the current catalog as a name,price CSV so the user can fill in
+  // real supplier prices in Excel and re-import (the 'fill all 192 in one go'
+  // workflow this panel exists for).
+  const downloadPriceTemplate = () => {
+    const rows = Array.isArray(products) ? products.map(p => `${p.name},${p.price}`) : [];
+    const csv = 'Product Name,Price\n' + rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventrak-prices.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setBulkText(String(reader.result || ''));
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const prodList = Array.isArray(products) ? products.filter(p => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -145,6 +255,69 @@ export default function ProductsPage({ onLogout }) {
             </Grid>
           ) : null}
         </Grid>
+      </Paper>
+
+      <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+          <Typography variant="h6">Bulk price update</Typography>
+          <Button size="small" variant="outlined" onClick={downloadPriceTemplate}>
+            Download current prices (CSV)
+          </Button>
+        </Box>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          Paste a price list or upload a .csv file to set all prices in one go.
+          Format: <code>Product Name,Price</code> per line (header row optional).
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              multiline
+              minRows={6}
+              variant="outlined"
+              placeholder={"Almond Roca,520\nBlueberry,495\nCaramel Syrup (750 ML) - Torani,499"}
+              value={bulkText}
+              onChange={e => setBulkText(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button variant="contained" component="label">
+              Upload .csv
+              <input type="file" accept=".csv,text/csv,text/plain" hidden ref={fileInputRef} onChange={handleBulkFile} />
+            </Button>
+            <Button variant="outlined" onClick={runBulkPreview} disabled={!bulkText.trim()}>Parse preview</Button>
+            <Button variant="contained" color="success" onClick={applyBulkPrices} disabled={bulkBusy || !bulkRows.length}>
+              {bulkBusy ? 'Applying...' : `Apply ${bulkRows.length || ''} price${bulkRows.length === 1 ? '' : 's'}`}
+            </Button>
+          </Grid>
+        </Grid>
+        {bulkPreview ? (
+          <Alert severity={bulkPreview.matched === bulkPreview.total ? 'success' : 'warning'} sx={{ mt: 2 }}>
+            <AlertTitle>Parsed {bulkPreview.total} row{bulkPreview.total === 1 ? '' : 's'}</AlertTitle>
+            {bulkPreview.matched} of {bulkPreview.total} names match the catalog.
+            {bulkPreview.unmatched.length > 0 && (
+              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                {bulkPreview.unmatched.slice(0, 8).map((n, i) => (
+                  <li key={i}>{n}</li>
+                ))}
+                {bulkPreview.unmatched.length > 8 && <li>…and {bulkPreview.unmatched.length - 8} more</li>}
+              </Box>
+            )}
+          </Alert>
+        ) : null}
+        {bulkResult ? (
+          <Alert severity={bulkResult.skipped.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+            <AlertTitle>Applied — {bulkResult.updated} price{bulkResult.updated === 1 ? '' : 's'} updated</AlertTitle>
+            {bulkResult.skipped.length > 0 && (
+              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                {bulkResult.skipped.slice(0, 8).map((s, i) => (
+                  <li key={i}>{s.name}: {s.reason}</li>
+                ))}
+                {bulkResult.skipped.length > 8 && <li>…and {bulkResult.skipped.length - 8} more</li>}
+              </Box>
+            )}
+          </Alert>
+        ) : null}
       </Paper>
 
       <Paper sx={{ p: 3 }}>

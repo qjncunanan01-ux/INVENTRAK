@@ -716,8 +716,9 @@
     "Description": "",
     "Size": "750 ML",
     "Unit": "",
-    "Price": 460,
-    "Image": "/images/da-vinci-syrup--blueberry-750ml.jpg"
+    "Price": 495,
+    "Image": "/images/da-vinci-syrup--blueberry-750ml.jpg",
+    "status": "active"
   },
   {
     "Product Name": "Caramel (750 ML)",
@@ -1676,8 +1677,9 @@
     "Description": "",
     "Size": "750 ML",
     "Unit": "",
-    "Price": 460,
-    "Image": "/images/torani--almond-roca-750ml.jpg"
+    "Price": 520,
+    "Image": "/images/torani--almond-roca-750ml.jpg",
+    "status": "active"
   },
   {
     "Product Name": "Brown Sugar Cinnamon Syrup",

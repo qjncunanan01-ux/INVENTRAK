@@ -485,6 +485,51 @@
         }
       }
     },
+    "/api/products/bulk-prices": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "bulkUpdatePrices",
+        "summary": "Set prices for many products in one request (admin only) — the price-list CSV import",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkPriceInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch result: how many were updated and which entries were skipped (with reasons)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkPriceResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/api/products/categories": {
       "get": {
         "tags": [
@@ -2599,6 +2644,92 @@
             "type": "string",
             "maxLength": 300,
             "description": "Product photo: '/images/<file>' served by the backend, or a full URL"
+          }
+        }
+      },
+      "BulkPriceEntry": {
+        "type": "object",
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional product id; matched first when present"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Product name; matched case-insensitively when no id matches"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "BulkPriceInput": {
+        "type": "object",
+        "required": [
+          "prices"
+        ],
+        "properties": {
+          "prices": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2000,
+            "items": {
+              "$ref": "#/components/schemas/BulkPriceEntry"
+            }
+          }
+        }
+      },
+      "BulkSkippedEntry": {
+        "type": "object",
+        "required": [
+          "name",
+          "reason"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "invalid price",
+              "not found"
+            ]
+          }
+        }
+      },
+      "BulkPriceResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "total",
+          "updated",
+          "skipped"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkSkippedEntry"
+            }
           }
         }
       },

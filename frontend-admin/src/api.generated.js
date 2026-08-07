@@ -66,6 +66,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listProducts: (params) => request('GET', '/api/products', { query: params }),
   // POST /api/products — Create a product (admin only)
   createProduct: (body) => request('POST', '/api/products', { body }),
+  // POST /api/products/bulk-prices — Set prices for many products in one request (admin only) — the price-list CSV import
+  bulkUpdatePrices: (body) => request('POST', '/api/products/bulk-prices', { body }),
   // GET /api/products/categories — List distinct product categories
   listCategories: (_) => request('GET', '/api/products/categories', {  }),
   // GET /api/products/{id} — Get a single product

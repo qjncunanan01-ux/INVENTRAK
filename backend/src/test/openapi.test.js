@@ -263,6 +263,51 @@ test('openapi: product CRUD + auth enforcement', async () => {
   await bothConform('create customer forbidden', 'POST', '/api/products', { auth: 'customer', body: payload });
 });
 
+// ===== Bulk price update =====
+
+test('openapi: bulk price update conforms to spec on both backends', async () => {
+  const uname = `BulkOpenapi ${Date.now().toString(36)}`;
+  // Create a uniquely-named product so the name match is unambiguous, then
+  // batch-update it by name and verify the response + resulting product
+  // conform to the documented schemas.
+  for (const side of [{ ...sqlite, name: 'sqlite' }, { ...npmfree, name: 'npmfree' }]) {
+    const created = await call(side.url, '/api/products', {
+      method: 'POST', token: side.token.admin, body: { name: uname, category: 'OpenAPI', price: 1 },
+    });
+    assert.strictEqual(created.status, 201);
+  }
+
+  const res = await bothConform('bulk prices', 'POST', '/api/products/bulk-prices', {
+    auth: 'admin',
+    body: {
+      prices: [
+        { name: uname, price: 555 },
+        { name: `Missing ${Date.now()}`, price: 99 },
+      ],
+    },
+  });
+  assert.strictEqual(res.a.status, 200);
+  assert.strictEqual(res.a.json.updated, 1);
+  assert.strictEqual(res.b.json.updated, 1);
+  assert.strictEqual(res.a.json.total, 2);
+  assert.strictEqual(res.b.json.total, 2);
+
+  // Invalid batches (non-array, empty) conform to BadRequest on both.
+  await bothConform('bulk not array', 'POST', '/api/products/bulk-prices', {
+    auth: 'admin', body: { prices: 'nope' }, checkRequest: false,
+  });
+  await bothConform('bulk empty', 'POST', '/api/products/bulk-prices', {
+    auth: 'admin', body: { prices: [] }, checkRequest: false,
+  });
+  // Auth: no token -> 401, customer -> 403 (documented).
+  await bothConform('bulk no token', 'POST', '/api/products/bulk-prices', {
+    body: { prices: [{ name: 'x', price: 1 }] },
+  });
+  await bothConform('bulk customer forbidden', 'POST', '/api/products/bulk-prices', {
+    auth: 'customer', body: { prices: [{ name: 'x', price: 1 }] },
+  });
+});
+
 // ===== Inventory & Locations =====
 
 test('openapi: inventory list + low stock + location filter', async () => {
