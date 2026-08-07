@@ -149,4 +149,19 @@ function notifyWelcome(email, username) {
   });
 }
 
-module.exports = { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome };
+// Password reset code email (fire-and-forget). Sent by the forgot-password
+// endpoint; the code is single-use and expires after ttlMinutes (the backend
+// passes the real RESET_CODE_TTL_MS converted to minutes so the email never
+// lies about the expiry).
+function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
+  if (!email) return Promise.resolve({ sent: false });
+  return sendEmail({
+    to: email,
+    subject: 'Your INVENTRAK password reset code',
+    text: `Hi ${username},\n\nUse this code to reset your INVENTRAK password:\n\n  ${code}\n\nIt expires in ${ttlMinutes} minutes. If you didn't request this, you can safely ignore this email.\n\n— INVENTRAK`,
+  }).catch((err) => {
+    console.error(`[notify] password reset email error: ${err && err.message}`);
+  });
+}
+
+module.exports = { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, notifyPasswordReset };

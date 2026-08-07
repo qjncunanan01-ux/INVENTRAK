@@ -54,6 +54,10 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   login: (body) => request('POST', '/api/auth/login', { body }),
   // GET /api/auth/me — Get the authenticated user's profile
   getMe: (_) => request('GET', '/api/auth/me', {  }),
+  // POST /api/auth/forgot-password — Request a password reset code (emailed to the account, if the email exists)
+  forgotPassword: (body) => request('POST', '/api/auth/forgot-password', { body }),
+  // POST /api/auth/reset-password — Set a new password using a single-use reset code
+  resetPassword: (body) => request('POST', '/api/auth/reset-password', { body }),
   // GET /api/products — List products (optionally paginated, searched, filtered)
   listProducts: (params) => request('GET', '/api/products', { query: params }),
   // POST /api/products — Create a product (admin only)

@@ -3,11 +3,12 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { db } = require('./db');
 const { passwordError } = require('./password-policy');
 const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
-const { notifyInquiryStatus, notifyWelcome } = require('./notify');
+const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 
@@ -15,6 +16,12 @@ const { createLoginLockout } = require('./login-lockout');
 // semantics): failed logins per (username, IP) lock the account with an
 // exponentially growing wait.
 const loginLockout = createLoginLockout();
+
+// Password reset codes are single-use and expire after this long (env-tunable
+// so tests can exercise expiry without sleeping for 30 minutes). The raw code
+// is never stored — only its SHA-256 hash, so a database leak can't be used
+// to reset accounts.
+const RESET_CODE_TTL_MS = Number(process.env.RESET_CODE_TTL_MS) || 30 * 60 * 1000;
 
 const JWT_SECRET = process.env.JWT_SECRET || 'inventrak-secret-key-2024';
 const dataDir = path.join(__dirname, '..', 'data');
@@ -464,6 +471,140 @@ app.get(
     }
 
     res.json(user);
+  }
+);
+
+app.post(
+  '/api/auth/forgot-password',
+  validate({
+    email: {
+      required: true,
+      maxLength: 100,
+    },
+  }),
+  (req, res) => {
+    const { email } = req.body;
+
+    // Per-IP quota so a victim's inbox can't be flooded with reset emails
+    // (keyed on a reserved account name; identical for every email, so it
+    // cannot act as an enumeration oracle).
+    const sourceIp = req.socket?.remoteAddress || req.ip || '';
+    const lock = loginLockout.check('forgot-password', sourceIp);
+    if (lock.locked) {
+      return res.status(429).json({
+        error: 'Too many reset requests. Try again later.',
+        retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+      });
+    }
+    // Every request consumes quota (the action IS sending an email).
+    loginLockout.recordFailure('forgot-password', sourceIp);
+
+    // Case-insensitive lookup (the npm-free fallback compares lowercased).
+    const user = db
+      .prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE')
+      .get(email);
+
+    if (user) {
+      const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      const nowIso = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + RESET_CODE_TTL_MS).toISOString();
+
+      // Prune this user's previous codes and anything already expired, then
+      // store the new code (hash at rest, single-use).
+      db.prepare('DELETE FROM password_resets WHERE user_id = ? OR expires_at < ?')
+        .run(user.id, nowIso);
+      db.prepare('INSERT INTO password_resets (code_hash, user_id, expires_at) VALUES (?, ?, ?)')
+        .run(codeHash, user.id, expiresAt);
+
+      notifyPasswordReset(
+        user.email,
+        user.username,
+        code,
+        Math.max(1, Math.round(RESET_CODE_TTL_MS / 60000))
+      );
+    }
+
+    // Always 200 — never reveal whether the email belongs to an account
+    // (no user-enumeration oracle, same as the npm-free fallback).
+    res.json({
+      ok: true,
+      message: 'If an account exists for that email, a reset code has been sent.',
+    });
+  }
+);
+
+app.post(
+  '/api/auth/reset-password',
+  validate({
+    code: {
+      required: true,
+      maxLength: 10,
+    },
+    password: {
+      required: true,
+      maxLength: 100,
+    },
+  }),
+  (req, res) => {
+    const { code, password } = req.body;
+
+    // Same strong-password policy as registration.
+    const pwError = passwordError(password);
+    if (pwError) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: [pwError],
+      });
+    }
+
+    // A 6-digit code has only 1M combinations, so wrong guesses must be
+    // throttled per IP — otherwise anyone could brute-force a victim's code
+    // inside its TTL window. Same shared lockout module as login (exponential
+    // backoff, IP-scoped); keyed on a reserved account name so an attacker
+    // cannot tell WHOSE code they are guessing.
+    const sourceIp = req.socket?.remoteAddress || req.ip || '';
+    const lock = loginLockout.check('reset-password', sourceIp);
+    if (lock.locked) {
+      return res.status(429).json({
+        error: 'Too many reset attempts. Try again later.',
+        retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+      });
+    }
+
+    const codeHash = crypto.createHash('sha256').update(String(code)).digest('hex');
+    const row = db
+      .prepare('SELECT * FROM password_resets WHERE code_hash = ?')
+      .get(codeHash);
+
+    if (!row || new Date(row.expires_at).getTime() < Date.now()) {
+      loginLockout.recordFailure('reset-password', sourceIp);
+      return res.status(401).json({
+        error: 'Invalid or expired reset code',
+      });
+    }
+
+    // Single-use: consume the code BEFORE applying the new hash, so a replayed
+    // request can never reset the password twice.
+    db.prepare('DELETE FROM password_resets WHERE code_hash = ?').run(codeHash);
+    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(
+      hashPassword(password),
+      row.user_id
+    );
+
+    // A successful reset proves account ownership: clear the per-IP reset
+    // quota and lift any login lockout on the account (otherwise a locked-out
+    // owner couldn't get back in even with their new password).
+    loginLockout.recordSuccess('reset-password', sourceIp);
+    const owner = db
+      .prepare('SELECT username FROM users WHERE id = ?')
+      .get(row.user_id);
+    if (owner) loginLockout.clearAccount(owner.username);
+
+    res.json({
+      ok: true,
+      message: 'Password updated',
+    });
   }
 );
 

@@ -100,6 +100,18 @@ CREATE TABLE IF NOT EXISTS inventory_alerts (
   FOREIGN KEY(product_id) REFERENCES products(id),
   FOREIGN KEY(location_id) REFERENCES locations(id)
 );
+
+-- Password reset codes: SHA-256 hash of the code (never the raw code), the
+-- user it belongs to, and its expiry. Single-use: the row is deleted the
+-- moment the code is redeemed. Because SCHEMA is re-executed on every boot
+-- with CREATE TABLE IF NOT EXISTS, existing databases get the table for free
+-- (no separate additive migration needed).
+CREATE TABLE IF NOT EXISTS password_resets (
+  code_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
 `;
 
 module.exports = SCHEMA;

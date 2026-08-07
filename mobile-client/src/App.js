@@ -12,6 +12,7 @@ import OrderInquiryScreen from './screens/OrderInquiryScreen';
 import ProductScreen from './screens/ProductScreen';
 import RecommendationScreen from './screens/RecommendationScreen';
 import SignupScreen from './screens/SignupScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import AccountScreen from './screens/AccountScreen';
 import CategoriesScreen from './screens/CategoriesScreen';
 import SearchScreen from './screens/SearchScreen';
@@ -102,6 +103,7 @@ export default function App() {
       <AuthStack.Navigator initialRouteName="Main">
         <AuthStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <AuthStack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
+        <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
         <AuthStack.Screen
           name="Main"
           component={MainTabsNavigator}

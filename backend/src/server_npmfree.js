@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { passwordError } = require('./password-policy');
 const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
-const { notifyInquiryStatus, notifyWelcome } = require('./notify');
+const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 
@@ -12,6 +12,12 @@ const { createLoginLockout } = require('./login-lockout');
 // semantics): failed logins per (username, IP) lock the account with an
 // exponentially growing wait.
 const loginLockout = createLoginLockout();
+
+// Password reset codes are single-use and expire after this long (env-tunable
+// so tests can exercise expiry without sleeping for 30 minutes). The raw code
+// is never stored — only its SHA-256 hash, so a database leak can't be used
+// to reset accounts. Mirrors the SQLite backend's constant exactly.
+const RESET_CODE_TTL_MS = Number(process.env.RESET_CODE_TTL_MS) || 30 * 60 * 1000;
 
 // --- Storage driver selection: 'json' (default, zero-dep) or 'firestore' ---
 // The REST API surface is identical either way; only where the data lives
@@ -69,6 +75,21 @@ let salesTransactions = [];
 let nextSaleId = 1;
 let alerts = [];
 let nextAlertId = 1;
+
+// Password reset codes: code SHA-256 hash -> { user_id, expires_at }. In
+// Firestore mode this map is persisted as the '@resetTokens' dataset so an
+// issued code survives a backend restart (single-use, hash at rest, expiry
+// pruned on read). Mirrors the SQLite backend's password_resets table.
+let resetTokens = new Map();
+
+function persistResetTokens() {
+  if (!useFirestore) return;
+  writeJSON('@resetTokens', [...resetTokens.entries()].map(([codeHash, t]) => ({
+    code_hash: codeHash,
+    user_id: t.user_id,
+    expires_at: t.expires_at
+  })));
+}
 
 // --- Demo-token auth: HMAC-signed so a token cannot be forged. The SQLite
 // backend signs JWTs with a secret; this mirrors that with zero dependencies.
@@ -140,6 +161,10 @@ function bootstrap() {
     if (Array.isArray(persistedAlerts) && persistedAlerts.length) {
       alerts = persistedAlerts;
       nextAlertId = Math.max(...persistedAlerts.map(a => a.id)) + 1;
+    }
+    const persistedResets = readJSON('@resetTokens');
+    if (Array.isArray(persistedResets)) {
+      resetTokens = new Map(persistedResets.map(t => [t.code_hash, { user_id: t.user_id, expires_at: t.expires_at }]));
     }
   }
 
@@ -507,6 +532,107 @@ const server = http.createServer((req, res) => {
         token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email }
       });
+    });
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/forgot-password') {
+    return parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!obj.email) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['email is required'] });
+      }
+      // Mirror the SQLite validate(): maxLength on email before anything else.
+      if (String(obj.email).length > 100) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['email must be at most 100 characters'] });
+      }
+      // Per-IP quota so a victim's inbox can't be flooded with reset emails
+      // (keyed on a reserved account name; identical for every email, so it
+      // cannot act as an enumeration oracle). Parity with the SQLite backend.
+      const sourceIp = req.socket?.remoteAddress || '';
+      const lock = loginLockout.check('forgot-password', sourceIp);
+      if (lock.locked) {
+        return sendJson(res, 429, {
+          error: 'Too many reset requests. Try again later.',
+          retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+        });
+      }
+      // Every request consumes quota (the action IS sending an email).
+      loginLockout.recordFailure('forgot-password', sourceIp);
+      const user = users.find(u => u.email && u.email.toLowerCase() === String(obj.email).toLowerCase());
+      if (user) {
+        const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+        const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+        const now = Date.now();
+        const expiresAt = new Date(now + RESET_CODE_TTL_MS).toISOString();
+        // Prune this user's previous codes and anything already expired, then
+        // store the new code (hash at rest, single-use).
+        for (const [h, t] of [...resetTokens]) {
+          if (t.user_id === user.id || new Date(t.expires_at).getTime() < now) resetTokens.delete(h);
+        }
+        resetTokens.set(codeHash, { user_id: user.id, expires_at: expiresAt });
+        persistResetTokens();
+        notifyPasswordReset(
+          user.email,
+          user.username,
+          code,
+          Math.max(1, Math.round(RESET_CODE_TTL_MS / 60000))
+        );
+      }
+      // Always 200 — never reveal whether the email belongs to an account
+      // (no user-enumeration oracle, same as the SQLite backend).
+      return sendJson(res, 200, { ok: true, message: 'If an account exists for that email, a reset code has been sent.' });
+    });
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/reset-password') {
+    return parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!obj.code || !obj.password) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['code and password are required'] });
+      }
+      // Mirror the SQLite validate(): maxLength on password before the policy.
+      if (String(obj.password).length > 100) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['password must be at most 100 characters'] });
+      }
+      const pwError = passwordError(obj.password);
+      if (pwError) {
+        return sendJson(res, 400, { error: 'Validation failed', details: [pwError] });
+      }
+      // A 6-digit code has only 1M combinations, so wrong guesses must be
+      // throttled per IP (parity with the SQLite backend) — otherwise anyone
+      // could brute-force a victim's code inside its TTL window. Keyed on a
+      // reserved account name so an attacker cannot tell WHOSE code they are
+      // guessing.
+      const sourceIp = req.socket?.remoteAddress || '';
+      const lock = loginLockout.check('reset-password', sourceIp);
+      if (lock.locked) {
+        return sendJson(res, 429, {
+          error: 'Too many reset attempts. Try again later.',
+          retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+        });
+      }
+      const codeHash = crypto.createHash('sha256').update(String(obj.code)).digest('hex');
+      const token = resetTokens.get(codeHash);
+      if (!token || new Date(token.expires_at).getTime() < Date.now()) {
+        loginLockout.recordFailure('reset-password', sourceIp);
+        return sendJson(res, 401, { error: 'Invalid or expired reset code' });
+      }
+      // Single-use: consume the code BEFORE applying the new hash, so a
+      // replayed request can never reset the password twice.
+      resetTokens.delete(codeHash);
+      const user = users.find(u => u.id === token.user_id);
+      if (!user) {
+        persistResetTokens();
+        return sendJson(res, 401, { error: 'Invalid or expired reset code' });
+      }
+      user.password = hashPassword(obj.password);
+      persistResetTokens();
+      if (useFirestore) writeJSON('@users', users);
+      // A successful reset proves account ownership: clear the per-IP reset
+      // quota and lift any login lockout on the account.
+      loginLockout.recordSuccess('reset-password', sourceIp);
+      loginLockout.clearAccount(user.username);
+      return sendJson(res, 200, { ok: true, message: 'Password updated' });
     });
   }
 

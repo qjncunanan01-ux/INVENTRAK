@@ -108,7 +108,19 @@ function createLoginLockout(opts = {}) {
     buckets.delete(keyFor(username, ip));
   }
 
-  return { check, recordFailure, recordSuccess, _buckets: buckets, _defaults: { maxFailures, windowMs, baseLockoutMs, maxLockoutMs } };
+  // Remove every bucket for an account regardless of source IP. Used after a
+  // successful password reset: resetting the password proves account
+  // ownership, so any lockout that accumulated on that account is lifted
+  // (otherwise a legitimate owner who was locked out could never get back in
+  // with their new password until the lockout window passed).
+  function clearAccount(username) {
+    const prefix = `${String(username || '').toLowerCase()}|`;
+    for (const k of [...buckets.keys()]) {
+      if (k.startsWith(prefix)) buckets.delete(k);
+    }
+  }
+
+  return { check, recordFailure, recordSuccess, clearAccount, _buckets: buckets, _defaults: { maxFailures, windowMs, baseLockoutMs, maxLockoutMs } };
 }
 
 module.exports = { createLoginLockout, DEFAULTS };

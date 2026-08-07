@@ -16,10 +16,20 @@
 - **Inventory optimization features: 100%**
   - EOQ, ROP, Safety Stock, ABC, Turnover, FIFO lots — demand data is dynamic, not hardcoded.
 - **Integration testing / end-to-end demo: 100%**
-  - 180 backend tests (SQLite suite + npm-free suite + contract + OpenAPI conformance + Firestore store + password policy + notifications + driver selection + SQLite→Firestore migration bridge + password hashing + re-hash migration + bidirectional sync + migration-catalog drift guard + login lockout + Firestore-mode auth hashing e2e), admin smoke tests, Docker Compose, GitHub Actions CI.
+  - 192 backend tests (SQLite suite + npm-free suite + contract + OpenAPI conformance + Firestore store + password policy + notifications + driver selection + SQLite→Firestore migration bridge + password hashing + re-hash migration + bidirectional sync + migration-catalog drift guard + login lockout + Firestore-mode auth hashing e2e + password reset incl. expiry + reset brute-force lockout + lockout-clear-on-reset), admin smoke tests, Docker Compose, GitHub Actions CI.
 - **Firebase (Firestore) deployment path: implemented** — same REST API, same generated clients. **Auto-selected** whenever `FIREBASE_PROJECT_ID` + a service account exist (no flag needed); `DB_DRIVER` pins as an escape hatch. One command migrates the live SQLite database into Firestore (`npm run migrate:firestore`). Requires a Firebase project + service account (see README "Firebase (Firestore)").
 
 > Overall completion: **100%**
+
+## What was added in the latest pass (forgot-password / reset-code flow)
+
+1. **Email password reset** — `POST /api/auth/forgot-password` (email → 6-digit single-use code, emailed via the existing notify layer) and `POST /api/auth/reset-password` (code + strong new password) on BOTH backends with full contract parity. The raw code is never stored — only its SHA-256 hash — and the response never reveals whether an email has an account (no enumeration oracle). Codes expire after `RESET_CODE_TTL_MS` (default 30 min, env-tunable; the email states the real TTL so it never lies) and are consumed before the new hash is applied, so a replayed request can never reset twice.
+2. **Brute-force protection on the reset endpoints** — the shared login-lockout module now also throttles `reset-password` wrong-code guessing per IP (a 6-digit code has only 1M combinations, so guessing must be rate-limited inside the TTL window) and `forgot-password` per IP (prevents inbox flooding). Both keyed on reserved account names so they can't act as enumeration oracles; `429 Too Many Requests` matches the documented `LockoutError` shape.
+3. **Reset clears login lockout** — `login-lockout` gained `clearAccount(username)`; a successful reset (which proves account ownership) lifts any login lockout on that account, so a legitimately locked-out owner can get back in with their new password immediately.
+4. **OpenAPI + clients** — the two endpoints are documented (28 paths, 35 schemas) with `forgotPassword` / `resetPassword` operationIds; both generated clients regenerated and exported from the admin + mobile `api.js` facades.
+5. **Mobile UI** — new `ForgotPasswordScreen` (email → code → strong-password with live checklist) reached from the Login screen's "Forgot password?" link.
+6. **Tests** — 192 total: `reset-password.test.js` (8: parity, no-enumeration, single-use, case-insensitive email, weak-password rejection, shape checks), `reset-password-expiry.test.js` (1: 1ms-TTL expiry in its own process), `reset-password-lockout.test.js` (2: real-default 429 throttle on both backends + login-lockout cleared by reset).
+7. **Code-review fixes applied** — brute-force throttle (was the review's #1 finding), lockout-clear on reset, and the email's honest TTL.
 
 ## What was added in the latest pass (emulator project alignment)
 
