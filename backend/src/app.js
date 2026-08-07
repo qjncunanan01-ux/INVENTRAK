@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 const { db } = require('./db');
 const { passwordError } = require('./password-policy');
 const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
-const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset } = require('./notify');
+const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 
@@ -22,6 +22,19 @@ const loginLockout = createLoginLockout();
 // is never stored — only its SHA-256 hash, so a database leak can't be used
 // to reset accounts.
 const RESET_CODE_TTL_MS = Number(process.env.RESET_CODE_TTL_MS) || 30 * 60 * 1000;
+
+// Signup verification codes: same single-use hashed-at-rest model, same
+// default lifetime (env-tunable so tests can exercise expiry quickly).
+const VERIFICATION_CODE_TTL_MS = Number(process.env.VERIFICATION_CODE_TTL_MS) || 30 * 60 * 1000;
+
+// Shared code-generation helpers for reset + verification codes: 6 random
+// digits, hashed at rest (SHA-256) so a leaked database can't be replayed.
+function generateCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+}
+function hashCode(code) {
+  return crypto.createHash('sha256').update(String(code)).digest('hex');
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'inventrak-secret-key-2024';
 const dataDir = path.join(__dirname, '..', 'data');
@@ -297,13 +310,27 @@ app.post(
       required: true,
       maxLength: 100,
     },
+    phone: {
+      required: true,
+      maxLength: 20,
+    },
   }),
   (req, res) => {
     const {
       username,
       password,
       email,
+      phone,
     } = req.body;
+
+    // Mobile number is REQUIRED (used for SMS verification + order updates).
+    // Mirrors the npm-free fallback's pattern exactly.
+    if (!/^\+?[0-9]{9,15}$/.test(String(phone).trim())) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: ['phone must be a valid mobile number (e.g. 09171234567 or +639171234567)'],
+      });
+    }
 
     // Strong password policy (shared with the npm-free fallback).
     const pwError = passwordError(password);
@@ -326,13 +353,18 @@ app.post(
 
     const hashedPw = hashPassword(password);
 
+    // New accounts start UNVERIFIED (email_verified = 0) — the customer must
+    // redeem the verification code emailed/SMS'd below before the welcome
+    // email is sent. The token is still issued so the app can walk them
+    // through verification immediately after signup.
     const result = db.prepare(
-      'INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
+      'INSERT INTO users (username, password, role, email, phone, email_verified) VALUES (?, ?, ?, ?, ?, 0)'
     ).run(
       username,
       hashedPw,
       'customer',
-      email
+      email,
+      phone || null
     );
 
     const token = jwt.sign(
@@ -347,8 +379,22 @@ app.post(
       }
     );
 
-    // Welcome email (fire-and-forget; no-op/log-only when email is unconfigured).
-    notifyWelcome(email, username);
+    // Verification code (email always; SMS when a phone was provided).
+    // Fire-and-forget; the welcome email is sent only after verification.
+    const code = generateCode();
+    db.prepare('INSERT INTO verification_codes (code_hash, user_id, expires_at) VALUES (?, ?, ?)')
+      .run(
+        hashCode(code),
+        result.lastInsertRowid,
+        new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString()
+      );
+    notifyVerificationCode({
+      email,
+      username,
+      code,
+      phone: phone || null,
+      ttlMinutes: Math.max(1, Math.round(VERIFICATION_CODE_TTL_MS / 60000)),
+    });
 
     res.json({
       token,
@@ -357,7 +403,115 @@ app.post(
         username,
         role: 'customer',
         email,
+        email_verified: false,
       },
+    });
+  }
+);
+
+app.post(
+  '/api/auth/verify-email',
+  validate({
+    code: {
+      required: true,
+      maxLength: 10,
+    },
+  }),
+  (req, res) => {
+    const { code } = req.body;
+
+    // Brute-force protection: a 6-digit code has only 1M combinations, so
+    // wrong guesses are throttled per IP (shared lockout module, reserved
+    // account key — no enumeration oracle).
+    const sourceIp = req.socket?.remoteAddress || req.ip || '';
+    const lock = loginLockout.check('verify-email', sourceIp);
+    if (lock.locked) {
+      return res.status(429).json({
+        error: 'Too many verification attempts. Try again later.',
+        retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+      });
+    }
+
+    const row = db
+      .prepare('SELECT * FROM verification_codes WHERE code_hash = ?')
+      .get(hashCode(code));
+
+    if (!row || new Date(row.expires_at).getTime() < Date.now()) {
+      loginLockout.recordFailure('verify-email', sourceIp);
+      return res.status(401).json({
+        error: 'Invalid or expired verification code',
+      });
+    }
+
+    // Single-use: consume the code BEFORE flipping the flag.
+    db.prepare('DELETE FROM verification_codes WHERE code_hash = ?').run(row.code_hash);
+    db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(row.user_id);
+
+    // Now that the address is proven, the welcome lands (fire-and-forget).
+    const owner = db
+      .prepare('SELECT username, email FROM users WHERE id = ?')
+      .get(row.user_id);
+    if (owner) notifyWelcome(owner.email, owner.username);
+
+    loginLockout.recordSuccess('verify-email', sourceIp);
+
+    res.json({
+      ok: true,
+      message: 'Email verified',
+    });
+  }
+);
+
+app.post(
+  '/api/auth/resend-verification',
+  validate({
+    email: {
+      required: true,
+      maxLength: 100,
+    },
+  }),
+  (req, res) => {
+    const { email } = req.body;
+
+    // Per-IP quota (identical for every email, so no enumeration oracle).
+    const sourceIp = req.socket?.remoteAddress || req.ip || '';
+    const lock = loginLockout.check('resend-verification', sourceIp);
+    if (lock.locked) {
+      return res.status(429).json({
+        error: 'Too many verification requests. Try again later.',
+        retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+      });
+    }
+    loginLockout.recordFailure('resend-verification', sourceIp);
+
+    // Case-insensitive lookup; only UNVERIFIED accounts get a new code
+    // (verified accounts get nothing — still 200, still no oracle).
+    const user = db
+      .prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE AND email_verified = 0')
+      .get(email);
+
+    if (user) {
+      const code = generateCode();
+      db.prepare('DELETE FROM verification_codes WHERE user_id = ? OR expires_at < ?')
+        .run(user.id, new Date().toISOString());
+      db.prepare('INSERT INTO verification_codes (code_hash, user_id, expires_at) VALUES (?, ?, ?)')
+        .run(
+          hashCode(code),
+          user.id,
+          new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString()
+        );
+      notifyVerificationCode({
+        email: user.email,
+        username: user.username,
+        code,
+        phone: user.phone || null,
+        ttlMinutes: Math.max(1, Math.round(VERIFICATION_CODE_TTL_MS / 60000)),
+      });
+    }
+
+    res.json({
+      ok: true,
+      message: 'If an unverified account exists for that email, a new code has been sent.',
     });
   }
 );
@@ -449,6 +603,7 @@ app.post(
         username: user.username,
         role: user.role,
         email: user.email,
+        email_verified: !!user.email_verified,
       },
     });
   }
@@ -460,7 +615,7 @@ app.get(
   (req, res) => {
     const user = db
       .prepare(
-        'SELECT id, username, role, email, created_at FROM users WHERE id = ?'
+        'SELECT id, username, role, email, email_verified, created_at FROM users WHERE id = ?'
       )
       .get(req.user.id);
 
@@ -470,7 +625,10 @@ app.get(
       });
     }
 
-    res.json(user);
+    res.json({
+      ...user,
+      email_verified: !!user.email_verified,
+    });
   }
 );
 
@@ -2162,9 +2320,10 @@ app.get(
   (req, res) => {
     const users = db
       .prepare(
-        'SELECT id, username, role, email, created_at FROM users ORDER BY id'
+        'SELECT id, username, role, email, email_verified, created_at FROM users ORDER BY id'
       )
-      .all();
+      .all()
+      .map((u) => ({ ...u, email_verified: !!u.email_verified }));
 
     res.json(users);
   }

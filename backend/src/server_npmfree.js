@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { passwordError } = require('./password-policy');
 const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
-const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset } = require('./notify');
+const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 
@@ -18,6 +18,17 @@ const loginLockout = createLoginLockout();
 // is never stored — only its SHA-256 hash, so a database leak can't be used
 // to reset accounts. Mirrors the SQLite backend's constant exactly.
 const RESET_CODE_TTL_MS = Number(process.env.RESET_CODE_TTL_MS) || 30 * 60 * 1000;
+
+// Signup verification codes: same model as reset codes (single-use, hashed at
+// rest, env-tunable TTL). Mirrors the SQLite backend's constant.
+const VERIFICATION_CODE_TTL_MS = Number(process.env.VERIFICATION_CODE_TTL_MS) || 30 * 60 * 1000;
+
+function generateCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+}
+function hashCode(code) {
+  return crypto.createHash('sha256').update(String(code)).digest('hex');
+}
 
 // --- Storage driver selection: 'json' (default, zero-dep) or 'firestore' ---
 // The REST API surface is identical either way; only where the data lives
@@ -67,14 +78,28 @@ const openapiFile = path.join(__dirname, '..', 'openapi.json');
 // PLAINTEXT rows (old registrations, pre-hashing migrations) are upgraded on
 // successful login via verifyPassword().needsRehash.
 let users = [
-  { id: 1, username: 'admin', password: hashPassword('admin123'), role: 'admin', email: 'admin@inventrak.com', created_at: new Date().toISOString() },
-  { id: 2, username: 'customer', password: hashPassword('customer123'), role: 'customer', email: 'customer@example.com', created_at: new Date().toISOString() },
+  { id: 1, username: 'admin', password: hashPassword('admin123'), role: 'admin', email: 'admin@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
+  { id: 2, username: 'customer', password: hashPassword('customer123'), role: 'customer', email: 'customer@example.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
 ];
 let nextUserId = 3;
 let salesTransactions = [];
 let nextSaleId = 1;
 let alerts = [];
 let nextAlertId = 1;
+
+// Signup verification codes: code SHA-256 hash -> { user_id, expires_at }.
+// Persisted as '@verificationCodes' in Firestore mode (single-use, hash at
+// rest, expiry pruned on read). Mirrors the SQLite verification_codes table.
+let verificationCodes = new Map();
+
+function persistVerificationCodes() {
+  if (!useFirestore) return;
+  writeJSON('@verificationCodes', [...verificationCodes.entries()].map(([codeHash, t]) => ({
+    code_hash: codeHash,
+    user_id: t.user_id,
+    expires_at: t.expires_at
+  })));
+}
 
 // Password reset codes: code SHA-256 hash -> { user_id, expires_at }. In
 // Firestore mode this map is persisted as the '@resetTokens' dataset so an
@@ -162,9 +187,17 @@ function bootstrap() {
       alerts = persistedAlerts;
       nextAlertId = Math.max(...persistedAlerts.map(a => a.id)) + 1;
     }
+    // Hydrated users may predate verification (or come from a plaintext-era
+    // migration) — treat any row that isn't explicitly false as verified, so
+    // existing accounts are never locked out by the new signup gate.
+    users = users.map(u => ({ ...u, email_verified: u.email_verified !== false, phone: u.phone == null ? null : u.phone }));
     const persistedResets = readJSON('@resetTokens');
     if (Array.isArray(persistedResets)) {
       resetTokens = new Map(persistedResets.map(t => [t.code_hash, { user_id: t.user_id, expires_at: t.expires_at }]));
+    }
+    const persistedVerifications = readJSON('@verificationCodes');
+    if (Array.isArray(persistedVerifications)) {
+      verificationCodes = new Map(persistedVerifications.map(t => [t.code_hash, { user_id: t.user_id, expires_at: t.expires_at }]));
     }
   }
 
@@ -492,7 +525,7 @@ const server = http.createServer((req, res) => {
       }
       return sendJson(res, 200, {
         token: signToken(user.id),
-        user: { id: user.id, username: user.username, role: user.role, email: user.email }
+        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false }
       });
     });
   }
@@ -500,8 +533,8 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/register') {
     return parseBody(req, (err, obj) => {
       if (err) return bodyError(res, err);
-      if (!obj.username || !obj.password || !obj.email) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['username, password and email are required'] });
+      if (!obj.username || !obj.password || !obj.email || !obj.phone) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['username, password, email and phone are required'] });
       }
       // Mirror the SQLite backend's register validation: maxLength on
       // password/email/username (SQLite rejects >100-char passwords, so must
@@ -519,19 +552,115 @@ const server = http.createServer((req, res) => {
       if (String(obj.username).length > 50) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username must be at most 50 characters'] });
       }
+      if (String(obj.phone).length > 20 || !/^\+?[0-9]{9,15}$/.test(String(obj.phone).trim())) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['phone must be a valid mobile number (e.g. 09171234567 or +639171234567)'] });
+      }
       const pwError = passwordError(obj.password);
       if (pwError) {
         return sendJson(res, 400, { error: 'Validation failed', details: [pwError] });
       }
       if (users.some(u => u.username === obj.username)) return sendJson(res, 409, { error: 'Username already exists' });
-      const user = { id: nextUserId++, username: obj.username, password: hashPassword(obj.password), role: 'customer', email: obj.email, created_at: new Date().toISOString() };
+      // New accounts start UNVERIFIED — the customer must redeem the
+      // verification code emailed/SMS'd below; the welcome email waits.
+      const user = { id: nextUserId++, username: obj.username, password: hashPassword(obj.password), role: 'customer', email: obj.email, phone: obj.phone, email_verified: false, created_at: new Date().toISOString() };
       users.push(user);
       if (useFirestore) writeJSON('@users', users);
-      notifyWelcome(obj.email, obj.username);
+      const code = generateCode();
+      verificationCodes.set(hashCode(code), { user_id: user.id, expires_at: new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString() });
+      persistVerificationCodes();
+      notifyVerificationCode({
+        email: obj.email,
+        username: obj.username,
+        code,
+        phone: obj.phone,
+        ttlMinutes: Math.max(1, Math.round(VERIFICATION_CODE_TTL_MS / 60000)),
+      });
       return sendJson(res, 200, {
         token: signToken(user.id),
-        user: { id: user.id, username: user.username, role: user.role, email: user.email }
+        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: false }
       });
+    });
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/verify-email') {
+    return parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!obj.code) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['code is required'] });
+      }
+      if (String(obj.code).length > 10) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['code must be at most 10 characters'] });
+      }
+      // Brute-force protection: a 6-digit code has only 1M combinations, so
+      // wrong guesses are throttled per IP (parity with the SQLite backend).
+      const sourceIp = req.socket?.remoteAddress || '';
+      const lock = loginLockout.check('verify-email', sourceIp);
+      if (lock.locked) {
+        return sendJson(res, 429, {
+          error: 'Too many verification attempts. Try again later.',
+          retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+        });
+      }
+      const token = verificationCodes.get(hashCode(obj.code));
+      if (!token || new Date(token.expires_at).getTime() < Date.now()) {
+        loginLockout.recordFailure('verify-email', sourceIp);
+        return sendJson(res, 401, { error: 'Invalid or expired verification code' });
+      }
+      // Single-use: consume the code BEFORE flipping the flag.
+      verificationCodes.delete(hashCode(obj.code));
+      const user = users.find(u => u.id === token.user_id);
+      if (!user) {
+        persistVerificationCodes();
+        return sendJson(res, 401, { error: 'Invalid or expired verification code' });
+      }
+      user.email_verified = true;
+      persistVerificationCodes();
+      if (useFirestore) writeJSON('@users', users);
+      // Now that the address is proven, the welcome lands (fire-and-forget).
+      notifyWelcome(user.email, user.username);
+      loginLockout.recordSuccess('verify-email', sourceIp);
+      return sendJson(res, 200, { ok: true, message: 'Email verified' });
+    });
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/resend-verification') {
+    return parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!obj.email) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['email is required'] });
+      }
+      if (String(obj.email).length > 100) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['email must be at most 100 characters'] });
+      }
+      // Per-IP quota (identical for every email, so no enumeration oracle).
+      const sourceIp = req.socket?.remoteAddress || '';
+      const lock = loginLockout.check('resend-verification', sourceIp);
+      if (lock.locked) {
+        return sendJson(res, 429, {
+          error: 'Too many verification requests. Try again later.',
+          retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+        });
+      }
+      loginLockout.recordFailure('resend-verification', sourceIp);
+      // Only UNVERIFIED accounts get a new code (still 200 either way).
+      const user = users.find(u => u.email && u.email.toLowerCase() === String(obj.email).toLowerCase() && u.email_verified === false);
+      if (user) {
+        const code = generateCode();
+        const now = Date.now();
+        for (const [h, t] of [...verificationCodes]) {
+          if (t.user_id === user.id || new Date(t.expires_at).getTime() < now) verificationCodes.delete(h);
+        }
+        verificationCodes.set(hashCode(code), { user_id: user.id, expires_at: new Date(now + VERIFICATION_CODE_TTL_MS).toISOString() });
+        persistVerificationCodes();
+        notifyVerificationCode({
+          email: user.email,
+          username: user.username,
+          code,
+          phone: user.phone,
+          ttlMinutes: Math.max(1, Math.round(VERIFICATION_CODE_TTL_MS / 60000)),
+        });
+      }
+      return sendJson(res, 200, { ok: true, message: 'If an unverified account exists for that email, a new code has been sent.' });
     });
   }
 
@@ -638,7 +767,7 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/auth/me') {
     return requireAuth(req, res, false, (req, res) => {
-      return sendJson(res, 200, { id: req.user.id, username: req.user.username, role: req.user.role, email: req.user.email, created_at: req.user.created_at });
+      return sendJson(res, 200, { id: req.user.id, username: req.user.username, role: req.user.role, email: req.user.email, email_verified: req.user.email_verified !== false, created_at: req.user.created_at });
     });
   }
 
@@ -1296,7 +1425,7 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/users') {
     return requireAuth(req, res, true, (req, res) => {
-      return sendJson(res, 200, users.map(u => ({ id: u.id, username: u.username, role: u.role, email: u.email, created_at: u.created_at })));
+      return sendJson(res, 200, users.map(u => ({ id: u.id, username: u.username, role: u.role, email: u.email, email_verified: u.email_verified !== false, created_at: u.created_at })));
     });
   }
 

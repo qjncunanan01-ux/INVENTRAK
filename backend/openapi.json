@@ -134,6 +134,90 @@
         }
       }
     },
+    "/api/auth/verify-email": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "verifyEmail",
+        "summary": "Redeem the signup verification code to verify the account email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "description": "Invalid or expired verification code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/api/auth/resend-verification": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "resendVerification",
+        "summary": "Resend the signup verification code (only acts on unverified accounts; never reveals whether the email has an account)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendVerificationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Always succeeds — never reveals whether the email has an unverified account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
     "/api/auth/login": {
       "post": {
         "tags": [
@@ -1612,7 +1696,8 @@
           "id",
           "username",
           "role",
-          "email"
+          "email",
+          "email_verified"
         ],
         "properties": {
           "id": {
@@ -1630,6 +1715,10 @@
           },
           "email": {
             "type": "string"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "description": "False for accounts that registered but have not yet redeemed their email/SMS verification code"
           },
           "created_at": {
             "type": "string"
@@ -1656,7 +1745,8 @@
         "required": [
           "username",
           "password",
-          "email"
+          "email",
+          "phone"
         ],
         "properties": {
           "username": {
@@ -1673,6 +1763,37 @@
           "email": {
             "type": "string",
             "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "^\\+?[0-9]{9,15}$",
+            "description": "Mobile number (e.g. 09171234567 or +639171234567). Required — used for SMS verification and order updates under the Data Privacy Act (RA 10173)."
+          }
+        }
+      },
+      "VerifyEmailRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 10,
+            "description": "6-digit code emailed/SMS'd at registration"
+          }
+        }
+      },
+      "ResendVerificationRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 100
           }
         }
       },

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
-import { clearSession, clearToken, useSessionUsername } from '../api';
+import { clearSession, clearToken, useSessionEmail, useSessionUsername, useSessionVerified } from '../api';
 import { colors } from '../theme';
 
 export default function AccountScreen({ route, navigation }) {
@@ -7,6 +7,8 @@ export default function AccountScreen({ route, navigation }) {
   // session is the source of truth; route params are only a first-mount hint.
   const session = useSessionUsername(null);
   const isLoggedIn = !!session;
+  const verified = useSessionVerified();
+  const sessionEmail = useSessionEmail();
   const username = session || route.params?.username || 'Guest';
 
   const handleLogout = () => {
@@ -36,6 +38,23 @@ export default function AccountScreen({ route, navigation }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        {isLoggedIn && !verified ? (
+          <TouchableOpacity
+            style={styles.verifyBanner}
+            onPress={() => navigation.navigate('VerifyEmail', { email: sessionEmail || '' })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.verifyIcon}>🔔</Text>
+            <View style={styles.verifyBody}>
+              <Text style={styles.verifyTitle}>Verify your email</Text>
+              <Text style={styles.verifyDesc}>
+                Tap to enter the verification code we sent to {sessionEmail || 'your inbox'}.
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {isLoggedIn ? (
           <>
             <Text style={styles.sectionTitle}>My Orders</Text>
@@ -140,6 +159,21 @@ const styles = StyleSheet.create({
   name: { color: '#fff', fontSize: 20, fontWeight: '800' },
   role: { color: '#fff', opacity: 0.85, fontSize: 13, marginTop: 2 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.textSecondary, marginLeft: 20, marginTop: 20, marginBottom: 8 },
+  verifyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff8e1',
+    borderWidth: 1,
+    borderColor: '#f0d48a',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+  },
+  verifyIcon: { fontSize: 20, marginRight: 10 },
+  verifyBody: { flex: 1 },
+  verifyTitle: { fontSize: 14, fontWeight: '700', color: '#7a5c00' },
+  verifyDesc: { fontSize: 12, color: '#7a5c00', opacity: 0.85, marginTop: 2, lineHeight: 16 },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',

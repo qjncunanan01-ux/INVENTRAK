@@ -139,7 +139,8 @@ function canonicalFromSqlite(snap) {
     })),
     '@users': (s.users || []).map((u) => unset({
       id: u.id, username: u.username, password: u.password, role: u.role,
-      email: u.email, created_at: u.created_at,
+      email: u.email, email_verified: u.email_verified === 0 ? false : true,
+      phone: u.phone, created_at: u.created_at,
     })),
     '@sales': (s.sales_transactions || []).map((t) => unset({
       id: t.id, product_id: t.product_id, qty: t.qty, unit_price: t.unit_price,
@@ -201,7 +202,8 @@ function canonicalFromFirestore(read) {
     })),
     '@users': mk(read['@users'], (u) => ({
       id: u.id, username: u.username, password: u.password, role: u.role,
-      email: u.email, created_at: u.created_at,
+      email: u.email, email_verified: u.email_verified !== false, phone: u.phone,
+      created_at: u.created_at,
     })),
     '@sales': mk(read['@sales'], (t) => ({
       id: t.id, product_id: t.product_id, qty: t.qty, unit_price: t.unit_price,
@@ -469,14 +471,15 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
   }
 
   const upsertUser = db.prepare(
-    `INSERT INTO users (id, username, password, role, email, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO users (id, username, password, role, email, email_verified, phone, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        username=excluded.username, password=excluded.password, role=excluded.role,
-       email=excluded.email, created_at=excluded.created_at`
+       email=excluded.email, email_verified=excluded.email_verified,
+       phone=excluded.phone, created_at=excluded.created_at`
   );
   for (const u of byId(canonical['@users'])) {
-    upsertUser.run(u.id, u.username, u.password, u.role, u.email, u.created_at);
+    upsertUser.run(u.id, u.username, u.password, u.role, u.email, u.email_verified ? 1 : 0, u.phone, u.created_at);
   }
 
   const upsertSale = db.prepare(

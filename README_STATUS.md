@@ -16,10 +16,20 @@
 - **Inventory optimization features: 100%**
   - EOQ, ROP, Safety Stock, ABC, Turnover, FIFO lots — demand data is dynamic, not hardcoded.
 - **Integration testing / end-to-end demo: 100%**
-  - 192 backend tests (SQLite suite + npm-free suite + contract + OpenAPI conformance + Firestore store + password policy + notifications + driver selection + SQLite→Firestore migration bridge + password hashing + re-hash migration + bidirectional sync + migration-catalog drift guard + login lockout + Firestore-mode auth hashing e2e + password reset incl. expiry + reset brute-force lockout + lockout-clear-on-reset), admin smoke tests, Docker Compose, GitHub Actions CI.
+  - 201 backend tests (SQLite suite + npm-free suite + contract + OpenAPI conformance + Firestore store + password policy + notifications + driver selection + SQLite→Firestore migration bridge + password hashing + re-hash migration + bidirectional sync + migration-catalog drift guard + login lockout + Firestore-mode auth hashing e2e + password reset incl. expiry + reset brute-force lockout + lockout-clear-on-reset + signup email/SMS verification incl. expiry), admin smoke tests, Docker Compose, GitHub Actions CI.
 - **Firebase (Firestore) deployment path: implemented** — same REST API, same generated clients. **Auto-selected** whenever `FIREBASE_PROJECT_ID` + a service account exist (no flag needed); `DB_DRIVER` pins as an escape hatch. One command migrates the live SQLite database into Firestore (`npm run migrate:firestore`). Requires a Firebase project + service account (see README "Firebase (Firestore)").
 
 > Overall completion: **100%**
+
+## What was added in the latest pass (signup email/SMS verification + required phone + Data Privacy Act)
+
+1. **Required mobile number** — `POST /api/auth/register` now REQUIRES `phone` (pattern `^\+?[0-9]{9,15}$`, e.g. `09171234567` / `+639171234567`), stored on the user in both backends (SQLite `users.phone` + Firestore `@users`), carried through the sync canonicalizers and the migration (dumpSnapshot uses `SELECT *`). Missing or malformed phone → 400 with the standard error shape.
+2. **Email/SMS verification code at signup** — new accounts start `email_verified: false`; register emails a 6-digit single-use code (SHA-256 hash at rest, `VERIFICATION_CODE_TTL_MS` default 30 min) and SMS's it when a phone was provided (Semaphore/Twilio when configured, logged otherwise). The welcome email is deferred until AFTER verification. Codes are never returned in responses.
+3. **verify-email + resend-verification endpoints** — `POST /api/auth/verify-email { code }` (single-use, TTL-checked, marks verified, then sends the welcome) and `POST /api/auth/resend-verification { email }` (only acts on unverified accounts; always 200 — no enumeration oracle). Both are per-IP throttled by the shared login lockout (429 + exponential backoff), so a 1M-combination code can't be brute-forced inside its window.
+4. **`email_verified` in every user response** — register/login/me/users return `email_verified` (boolean) on BOTH backends (parity-tested); the OpenAPI `User` schema requires it. Legacy/seeded users default to verified (SQLite column default 1; hydration treats any Firestore row that isn't explicitly false as verified), so nothing existing is locked out.
+5. **Data Privacy Act (RA 10173) consent on signup** — the mobile SignupScreen shows a consent checkbox (name/email/number collected only for verification, order inquiries, and status updates; never sold or shared; deletion on request) that must be checked before the account is created.
+6. **Mobile flow** — new `VerifyEmailScreen` (6-digit entry, resend, skip-for-now) reached right after signup; Account tab shows a "Verify your email" banner while unverified; login/signup record the verification state in the session store.
+7. **Tests** — 201 total: `verify-email.test.js` (8: phone required, invalid phone, code emailed + unverified start, wrong/right code, login reflects verification, single-use replay, resend + verified/unknown no-oracle, me/users shapes) + `verify-email-expiry.test.js` (1: 1ms-TTL expiry in its own process). Existing suites updated for the required phone.
 
 ## What was added in the latest pass (forgot-password / reset-code flow)
 

@@ -127,6 +127,8 @@ export function clearToken() {
 // pops back to the tabs (preserving a filled-in inquiry form) is reflected
 // everywhere instantly.
 let sessionUsername = null;
+let sessionEmail = null;
+let sessionVerified = false;
 const sessionListeners = new Set();
 
 export function setSessionUsername(name) {
@@ -134,12 +136,31 @@ export function setSessionUsername(name) {
   sessionListeners.forEach((fn) => fn(sessionUsername));
 }
 
+// Sets the profile fields that ride along with the session (the email the
+// account was registered with, and whether it has passed verification).
+// Kept separate from setSessionUsername so the guest-first flow stays intact.
+export function setSessionDetails({ email, verified }) {
+  sessionEmail = email || null;
+  sessionVerified = !!verified;
+  sessionListeners.forEach((fn) => fn(sessionUsername));
+}
+
 export function getSessionUsername() {
   return sessionUsername;
 }
 
+export function getSessionEmail() {
+  return sessionEmail;
+}
+
+export function getSessionVerified() {
+  return sessionVerified;
+}
+
 export function clearSession() {
   setSessionUsername(null);
+  sessionEmail = null;
+  sessionVerified = false;
 }
 
 export function subscribeSession(listener) {
@@ -156,6 +177,20 @@ export function useSessionUsername(fallback) {
     [fallback]
   );
   return name;
+}
+
+// React hook: whether the logged-in account has verified its email.
+export function useSessionVerified() {
+  const [verified, setVerified] = useState(getSessionVerified());
+  useEffect(() => subscribeSession(() => setVerified(getSessionVerified())), []);
+  return verified;
+}
+
+// React hook: the email of the logged-in account (for resend/verify flows).
+export function useSessionEmail() {
+  const [email, setEmail] = useState(getSessionEmail());
+  useEffect(() => subscribeSession(() => setEmail(getSessionEmail())), []);
+  return email;
 }
 
 // Shared client instance wired to this app's base URL + token store.
@@ -202,6 +237,8 @@ export const login = client.login;
 export const getMe = client.getMe;
 export const forgotPassword = client.forgotPassword;
 export const resetPassword = client.resetPassword;
+export const verifyEmail = client.verifyEmail;
+export const resendVerification = client.resendVerification;
 export const listProducts = client.listProducts;
 export const createProduct = client.createProduct;
 export const listCategories = client.listCategories;

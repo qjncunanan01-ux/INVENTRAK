@@ -50,6 +50,10 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
     apiGet, apiPost, apiPut, apiDelete,
   // POST /api/auth/register — Register a new customer user
   register: (body) => request('POST', '/api/auth/register', { body }),
+  // POST /api/auth/verify-email — Redeem the signup verification code to verify the account email
+  verifyEmail: (body) => request('POST', '/api/auth/verify-email', { body }),
+  // POST /api/auth/resend-verification — Resend the signup verification code (only acts on unverified accounts; never reveals whether the email has an account)
+  resendVerification: (body) => request('POST', '/api/auth/resend-verification', { body }),
   // POST /api/auth/login — Log in and receive a JWT token
   login: (body) => request('POST', '/api/auth/login', { body }),
   // GET /api/auth/me — Get the authenticated user's profile

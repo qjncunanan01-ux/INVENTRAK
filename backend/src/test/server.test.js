@@ -70,18 +70,19 @@ test('POST /api/auth/register creates a new customer user', async () => {
   const username = `newuser_${Date.now()}`;
   const { status, body } = await request('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username, password: 'Test123!', email: `${username}@example.com` }),
+    body: JSON.stringify({ username, password: 'Test123!', email: `${username}@example.com`, phone: '09171234567' }),
   });
   assert.strictEqual(status, 200);
   assert.strictEqual(body.user.username, username);
   assert.strictEqual(body.user.role, 'customer');
+  assert.strictEqual(body.user.email_verified, false, 'new registrations start unverified');
   assert.ok(body.token);
 });
 
 test('POST /api/auth/register rejects duplicate usernames', async () => {
   const { status } = await request('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username: 'admin', password: 'Test123!', email: 'admin2@example.com' }),
+    body: JSON.stringify({ username: 'admin', password: 'Test123!', email: 'admin2@example.com', phone: '09171234567' }),
   });
   assert.strictEqual(status, 409);
 });

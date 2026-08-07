@@ -43,29 +43,33 @@ test('contract: register happy path + duplicates + validation', async () => {
   const username = `contract_user_${Date.now()}`;
   await both('POST /api/auth/register', '/api/auth/register', {
     method: 'POST',
-    body: { username, password: 'Test123!', email: `${username}@example.com` },
+    body: { username, password: 'Test123!', email: `${username}@example.com`, phone: '09171234567' },
   });
   await both('POST /api/auth/register (duplicate)', '/api/auth/register', {
     method: 'POST',
-    body: { username, password: 'Test123!', email: `${username}@example.com` },
+    body: { username, password: 'Test123!', email: `${username}@example.com`, phone: '09171234567' },
   });
   await both('POST /api/auth/register (missing email)', '/api/auth/register', {
     method: 'POST',
-    body: { username: `nofield_${Date.now()}`, password: 'Test123!' },
+    body: { username: `nofield_${Date.now()}`, password: 'Test123!', phone: '09171234567' },
+  });
+  await both('POST /api/auth/register (missing phone)', '/api/auth/register', {
+    method: 'POST',
+    body: { username: `nophone_${Date.now()}`, password: 'Test123!', email: 'x@y.com' },
   });
   await both('POST /api/auth/register (short password)', '/api/auth/register', {
     method: 'POST',
-    body: { username: `shortpw_${Date.now()}`, password: '123', email: 'x@y.com' },
+    body: { username: `shortpw_${Date.now()}`, password: '123', email: 'x@y.com', phone: '09171234567' },
   });
   // Password policy: 8 chars but no symbol -> rejected identically on both.
   await both('POST /api/auth/register (password missing symbol)', '/api/auth/register', {
     method: 'POST',
-    body: { username: `nosymbol_${Date.now()}`, password: 'Test1234', email: 'x@y.com' },
+    body: { username: `nosymbol_${Date.now()}`, password: 'Test1234', email: 'x@y.com', phone: '09171234567' },
   });
   // Over-long password -> rejected identically on both (parity for maxLength).
   await both('POST /api/auth/register (password too long)', '/api/auth/register', {
     method: 'POST',
-    body: { username: `longpw_${Date.now()}`, password: 'Test123!'.repeat(20), email: 'x@y.com' },
+    body: { username: `longpw_${Date.now()}`, password: 'Test123!'.repeat(20), email: 'x@y.com', phone: '09171234567' },
   });
 });
 

@@ -62,7 +62,7 @@ test('reset: a successful reset clears the account LOGIN lockout on BOTH backend
     const uname = `${user}_login_${side === sqlite ? 's' : 'n'}`;
     await call(side.url, '/api/auth/register', {
       method: 'POST',
-      body: { username: uname, password: 'OldPass!123', email: `${uname}@example.com` },
+      body: { username: uname, password: 'OldPass!123', email: `${uname}@example.com`, phone: '09171234567' },
     });
 
     // Lock the account out of LOGIN: 6 wrong passwords.
@@ -102,7 +102,7 @@ test('reset: wrong-code guessing is throttled to 429 on BOTH backends (brute-for
     const uname = `${user}_${side === sqlite ? 's' : 'n'}`;
     const reg = await call(side.url, '/api/auth/register', {
       method: 'POST',
-      body: { username: uname, password: 'OldPass!123', email: `${uname}@example.com` },
+      body: { username: uname, password: 'OldPass!123', email: `${uname}@example.com`, phone: '09171234567' },
     });
     assert.strictEqual(reg.status, 200);
 

@@ -149,6 +149,23 @@ function notifyWelcome(email, username) {
   });
 }
 
+// Signup verification code (fire-and-forget): email always, SMS when a phone
+// number was provided. Sent by the register / resend-verification endpoints;
+// the code is single-use and expires after ttlMinutes. The welcome email is
+// sent only AFTER the account is verified.
+function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 }) {
+  const text = `Hi ${username},\n\nYour INVENTRAK verification code is:\n\n  ${code}\n\nEnter it in the app to verify your account. It expires in ${ttlMinutes} minutes.\n\n— INVENTRAK`;
+  const emailP = email
+    ? sendEmail({ to: email, subject: 'Your INVENTRAK verification code', text })
+    : Promise.resolve({ sent: false });
+  const smsP = phone
+    ? sendSms({ to: phone, message: `INVENTRAK: Your verification code is ${code}.` })
+    : Promise.resolve({ sent: false });
+  return Promise.all([emailP, smsP]).catch((err) => {
+    console.error(`[notify] verification notification error: ${err && err.message}`);
+  });
+}
+
 // Password reset code email (fire-and-forget). Sent by the forgot-password
 // endpoint; the code is single-use and expires after ttlMinutes (the backend
 // passes the real RESET_CODE_TTL_MS converted to minutes so the email never
@@ -164,4 +181,4 @@ function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
   });
 }
 
-module.exports = { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, notifyPasswordReset };
+module.exports = { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode };

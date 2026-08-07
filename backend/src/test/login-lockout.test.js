@@ -174,7 +174,7 @@ test('lockout: a successful login clears the counter (single typo then success i
   for (const side of [sqlite, npmfree]) {
     const reg = await call(side.url, '/api/auth/register', {
       method: 'POST',
-      body: { username: user, password: 'Strong!Pass123', email: `${user}@example.com` },
+      body: { username: user, password: 'Strong!Pass123', email: `${user}@example.com`, phone: '09171234567' },
     });
     assert.strictEqual(reg.status, 200, 'register for clear test');
   }

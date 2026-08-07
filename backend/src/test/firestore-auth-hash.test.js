@@ -46,7 +46,7 @@ before(async () => {
   const res = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'cloud_user', password: PASSWORD, email: 'cloud@test.com' }),
+    body: JSON.stringify({ username: 'cloud_user', password: PASSWORD, email: 'cloud@test.com', phone: '09171234567' }),
   });
   if (res.status !== 200) throw new Error(`shared user registration failed: ${res.status}`);
 });
@@ -66,7 +66,7 @@ test('register persists a bcrypt hash in the Firestore @users row (never plainte
   const res = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'cloud_user_reg', password: PASSWORD, email: 'reg@test.com' }),
+    body: JSON.stringify({ username: 'cloud_user_reg', password: PASSWORD, email: 'reg@test.com', phone: '09171234567' }),
   });
   assert.strictEqual(res.status, 200);
   const body = await res.json();
@@ -113,7 +113,7 @@ test('register is salted per user even with the same password (cloud rows differ
   const res = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'cloud_user_salt', password: PASSWORD, email: 'salt@test.com' }),
+    body: JSON.stringify({ username: 'cloud_user_salt', password: PASSWORD, email: 'salt@test.com', phone: '09171234567' }),
   });
   assert.strictEqual(res.status, 200);
   await fsStore.flush();

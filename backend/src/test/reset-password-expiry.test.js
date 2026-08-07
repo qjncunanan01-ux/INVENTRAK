@@ -42,7 +42,7 @@ test('reset: a code older than the TTL is rejected as expired on BOTH backends',
   for (const side of [sqlite, npmfree]) {
     await call(side.url, '/api/auth/register', {
       method: 'POST',
-      body: { username: user, password: 'OldPass!123', email: `${user}@example.com` },
+      body: { username: user, password: 'OldPass!123', email: `${user}@example.com`, phone: '09171234567' },
     });
 
     let lines = [];

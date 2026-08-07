@@ -186,10 +186,10 @@ test('openapi: both servers serve the identical, valid spec document', async () 
 test('openapi: register validates request + response', async () => {
   const username = `openapi_user_${Date.now()}`;
   await bothConform('register', 'POST', '/api/auth/register', {
-    body: { username, password: 'Test123!', email: `${username}@example.com` },
+    body: { username, password: 'Test123!', email: `${username}@example.com`, phone: '09171234567' },
   });
   await bothConform('register duplicate', 'POST', '/api/auth/register', {
-    body: { username, password: 'Test123!', email: `${username}@example.com` },
+    body: { username, password: 'Test123!', email: `${username}@example.com`, phone: '09171234567' },
   });
   await bothConform('register invalid', 'POST', '/api/auth/register', {
     body: { username: 'x', password: '123' }, checkRequest: false,

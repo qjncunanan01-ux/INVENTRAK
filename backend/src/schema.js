@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
   password TEXT,
   role TEXT DEFAULT 'customer',
   email TEXT,
+  phone TEXT,
+  email_verified INTEGER DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -107,6 +109,17 @@ CREATE TABLE IF NOT EXISTS inventory_alerts (
 -- with CREATE TABLE IF NOT EXISTS, existing databases get the table for free
 -- (no separate additive migration needed).
 CREATE TABLE IF NOT EXISTS password_resets (
+  code_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+-- Signup email/SMS verification codes: same shape as password_resets (SHA-256
+-- hash at rest, single-use, TTL). A user created by register starts with
+-- email_verified = 0 and must redeem one of these to become verified; the
+-- welcome email is only sent after verification.
+CREATE TABLE IF NOT EXISTS verification_codes (
   code_hash TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL,
   expires_at TEXT NOT NULL,

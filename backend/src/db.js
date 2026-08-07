@@ -55,4 +55,17 @@ if (!hasPhone) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN customer_phone TEXT');
 }
 
+// Migration: users gained email verification + an optional phone number for
+// SMS codes (signup verification). Existing rows default to VERIFIED (1) so
+// accounts created before verification existed are never locked out; only new
+// registrations start unverified. Additive.
+const userColumns = db.prepare('PRAGMA table_info(users)').all();
+const userNames = new Set(userColumns.map((c) => c.name));
+if (!userNames.has('email_verified')) {
+  db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1');
+}
+if (!userNames.has('phone')) {
+  db.exec('ALTER TABLE users ADD COLUMN phone TEXT');
+}
+
 module.exports = { db };

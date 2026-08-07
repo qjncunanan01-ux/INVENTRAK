@@ -70,7 +70,7 @@ test('reset: forgot-password returns 200 + identical shape on both backends, cod
   for (const side of [sqlite, npmfree]) {
     const reg = await call(side.url, '/api/auth/register', {
       method: 'POST',
-      body: { username: user, password: 'OldPass!123', email: `${user}@example.com` },
+      body: { username: user, password: 'OldPass!123', email: `${user}@example.com`, phone: '09171234567' },
     });
     assert.strictEqual(reg.status, 200, `${side === sqlite ? 'sqlite' : 'npmfree'} register`);
   }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { getApiBaseUrl, loadSavedApiUrl, login, setApiBaseUrl, setSessionUsername, setToken } from '../api';
+import { getApiBaseUrl, loadSavedApiUrl, login, setApiBaseUrl, setSessionDetails, setSessionUsername, setToken } from '../api';
 import { colors } from '../theme';
 
 export default function LoginScreen({ navigation }) {
@@ -40,6 +40,10 @@ export default function LoginScreen({ navigation }) {
       if (response.token) setToken(response.token);
       const loggedInAs = response.user?.username || username;
       setSessionUsername(loggedInAs);
+      setSessionDetails({
+        email: response.user?.email || loggedInAs,
+        verified: response.user?.email_verified !== false,
+      });
       // Pop back to the tabs instead of replacing Main: a guest who logged in
       // at checkout keeps their filled-in inquiry form and tab position.
       const state = navigation.getState();
