@@ -1737,6 +1737,18 @@
           },
           "user": {
             "$ref": "#/components/schemas/User"
+          },
+          "notify": {
+            "type": "object",
+            "description": "Verification-code delivery status (register only; login does not send codes)",
+            "properties": {
+              "email": {
+                "type": "boolean"
+              },
+              "sms": {
+                "type": "boolean"
+              }
+            }
           }
         }
       },
@@ -1767,8 +1779,8 @@
           "phone": {
             "type": "string",
             "maxLength": 20,
-            "pattern": "^\\+?[0-9]{9,15}$",
-            "description": "Mobile number (e.g. 09171234567 or +639171234567). Required — used for SMS verification and order updates under the Data Privacy Act (RA 10173)."
+            "pattern": "^(\\+63|63|0)?9[0-9]{9}$",
+            "description": "Valid PH mobile number (09171234567, +639171234567 or 639171234567). Required — used for SMS verification and order updates under the Data Privacy Act (RA 10173)."
           }
         }
       },
@@ -1969,6 +1981,18 @@
           },
           "message": {
             "type": "string"
+          },
+          "notify": {
+            "type": "object",
+            "description": "Delivery status of the verification code (present only when a code was actually generated: register + resend-verification). email is always attempted; sms only when a phone was provided.",
+            "properties": {
+              "email": {
+                "type": "boolean"
+              },
+              "sms": {
+                "type": "boolean"
+              }
+            }
           }
         }
       },

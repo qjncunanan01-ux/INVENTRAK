@@ -16,6 +16,24 @@ function logMessage(channel, data) {
   console.log(`[notify] ${channel} :: ${JSON.stringify(data)}`);
 }
 
+// Normalize a Philippine mobile number for a specific SMS provider:
+//   Semaphore expects a leading-zero format:  09171234567
+//   Twilio expects E.164 format:             +639171234567
+// Handles either input style on either provider; returns null if the number
+// is not a plausible PH mobile number (11 digits with 09, or +63 + 10 digits).
+function normalizePhNumber(input, provider) {
+  const raw = String(input || '').replace(/[^0-9+]/g, '');
+  if (!raw) return null;
+  let digits;
+  if (raw.startsWith('+63')) digits = raw.slice(3);
+  else if (raw.startsWith('63')) digits = raw.slice(2);
+  else if (raw.startsWith('0')) digits = raw.slice(1);
+  else digits = raw;
+  if (!/^9\d{9}$/.test(digits)) return null;
+  if (provider === 'twilio') return `+63${digits}`;
+  return `0${digits}`; // semaphore + default
+}
+
 async function sendEmail({ to, subject, text, html }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
@@ -49,7 +67,12 @@ async function sendSms({ to, message }) {
   const semaphoreKey = process.env.SEMAPHORE_API_KEY;
   if (semaphoreKey) {
     try {
-      const params = new URLSearchParams({ apikey: semaphoreKey, number: to, message });
+      const number = normalizePhNumber(to, 'semaphore');
+      if (!number) {
+        console.error(`[notify] sms (semaphore) skipped: unparseable PH number "${to}"`);
+        return { sent: false };
+      }
+      const params = new URLSearchParams({ apikey: semaphoreKey, number, message });
       if (process.env.SEMAPHORE_SENDER_NAME) params.set('sendername', process.env.SEMAPHORE_SENDER_NAME);
       const res = await fetch('https://api.semaphore.co/api/v4/messages', {
         method: 'POST',
@@ -71,8 +94,13 @@ async function sendSms({ to, message }) {
   const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
   if (twilioSid && twilioAuth) {
     try {
+      const number = normalizePhNumber(to, 'twilio');
+      if (!number) {
+        console.error(`[notify] sms (twilio) skipped: unparseable PH number "${to}"`);
+        return { sent: false };
+      }
       const params = new URLSearchParams({
-        To: to,
+        To: number,
         From: process.env.TWILIO_FROM || '',
         Body: message,
       });
@@ -181,4 +209,4 @@ function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
   });
 }
 
-module.exports = { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode };
+module.exports = { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode, normalizePhNumber };

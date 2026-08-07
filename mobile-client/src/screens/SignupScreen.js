@@ -85,7 +85,7 @@ export default function SignupScreen({ navigation }) {
       // screen (code was emailed/SMS'd). After verifying, the app pops back
       // to wherever the customer came from (e.g. a filled-in order form).
       if (response.user?.email_verified === false) {
-        navigation.replace('VerifyEmail', { email: mail, phone: ph });
+        navigation.replace('VerifyEmail', { email: mail, phone: ph, notify: response.notify });
         return;
       }
       // Legacy/verified account: pop back to the tabs as before.

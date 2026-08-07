@@ -315,7 +315,7 @@ app.post(
       maxLength: 20,
     },
   }),
-  (req, res) => {
+  async (req, res) => {
     const {
       username,
       password,
@@ -325,10 +325,10 @@ app.post(
 
     // Mobile number is REQUIRED (used for SMS verification + order updates).
     // Mirrors the npm-free fallback's pattern exactly.
-    if (!/^\+?[0-9]{9,15}$/.test(String(phone).trim())) {
+    if (!/^(\+63|63|0)?9\d{9}$/.test(String(phone).trim())) {
       return res.status(400).json({
         error: 'Validation failed',
-        details: ['phone must be a valid mobile number (e.g. 09171234567 or +639171234567)'],
+        details: ['phone must be a valid PH mobile number (e.g. 09171234567 or +639171234567)'],
       });
     }
 
@@ -388,7 +388,10 @@ app.post(
         result.lastInsertRowid,
         new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString()
       );
-    notifyVerificationCode({
+    // Await so the response can tell the app whether the code actually went
+    // out (email always, SMS when a phone was provided) — a failed send is
+    // visible instead of a silent dead-end.
+    const delivery = await notifyVerificationCode({
       email,
       username,
       code,
@@ -404,6 +407,10 @@ app.post(
         role: 'customer',
         email,
         email_verified: false,
+      },
+      notify: {
+        email: !!(delivery && delivery[0] && delivery[0].sent),
+        sms: !!(delivery && delivery[1] && delivery[1].sent),
       },
     });
   }
@@ -470,7 +477,7 @@ app.post(
       maxLength: 100,
     },
   }),
-  (req, res) => {
+  async (req, res) => {
     const { email } = req.body;
 
     // Per-IP quota (identical for every email, so no enumeration oracle).
@@ -490,6 +497,7 @@ app.post(
       .prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE AND email_verified = 0')
       .get(email);
 
+    let notifyDelivery = null;
     if (user) {
       const code = generateCode();
       db.prepare('DELETE FROM verification_codes WHERE user_id = ? OR expires_at < ?')
@@ -500,18 +508,25 @@ app.post(
           user.id,
           new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString()
         );
-      notifyVerificationCode({
+      const delivery = await notifyVerificationCode({
         email: user.email,
         username: user.username,
         code,
         phone: user.phone || null,
         ttlMinutes: Math.max(1, Math.round(VERIFICATION_CODE_TTL_MS / 60000)),
       });
+      // Delivery status is only included when a code was actually generated
+      // (the response never reveals whether the email has an account).
+      notifyDelivery = {
+        email: !!(delivery && delivery[0] && delivery[0].sent),
+        sms: !!(delivery && delivery[1] && delivery[1].sent),
+      };
     }
 
     res.json({
       ok: true,
       message: 'If an unverified account exists for that email, a new code has been sent.',
+      ...(notifyDelivery ? { notify: notifyDelivery } : {}),
     });
   }
 );

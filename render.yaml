@@ -33,6 +33,19 @@ services:
       - key: FIREBASE_PROJECT_ID
         value: inventrak-6b079
 
+      # Real email + SMS delivery (see DEPLOY.md -> "Real email + SMS
+      # notifications"). Without these, notifications are LOGGED, not sent.
+      # These are SECRETS — paste the real values in the dashboard after the
+      # blueprint creates the service (do NOT commit them here):
+      # - key: RESEND_API_KEY
+      #   value: re_xxx
+      # - key: EMAIL_FROM
+      #   value: "INVENTRAK <onboarding@resend.dev>"
+      # - key: SEMAPHORE_API_KEY
+      #   value: xxx
+      # - key: SEMAPHORE_SENDER_NAME
+      #   value: INVENTRAK
+
   # ---------- Admin dashboard (static site) ----------
   - type: web
     name: inventrak-admin

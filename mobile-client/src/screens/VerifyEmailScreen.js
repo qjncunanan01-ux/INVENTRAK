@@ -20,9 +20,16 @@ import { colors } from '../theme';
 export default function VerifyEmailScreen({ route, navigation }) {
   const email = route.params?.email || '';
   const phone = route.params?.phone || null;
+  const notify = route.params?.notify || null;
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+
+  // True when the code could not actually be delivered anywhere (e.g. the
+  // server has no email/SMS provider configured, or the key is invalid) —
+  // surface it instead of leaving the customer waiting forever.
+  const deliveryFailed = notify && !notify.email && !notify.sms;
+  const smsFailed = notify && notify.email && !notify.sms;
 
   const handleVerify = async () => {
     if (!/^\d{6}$/.test(code.trim())) {
@@ -46,8 +53,15 @@ export default function VerifyEmailScreen({ route, navigation }) {
   const handleResend = async () => {
     setResending(true);
     try {
-      await resendVerification({ email });
-      Alert.alert('Code Sent', 'A new verification code has been sent to your email.');
+      const res = await resendVerification({ email });
+      const n = res && res.notify;
+      if (n && !n.email && !n.sms) {
+        Alert.alert('Not Sent', 'The server could not deliver the code (no email/SMS provider configured). Contact support or try again later.');
+      } else if (n && !n.sms) {
+        Alert.alert('Code Sent', 'A new verification code has been emailed to you. (SMS delivery failed — check your mobile number.)');
+      } else {
+        Alert.alert('Code Sent', 'A new verification code has been sent to your email.');
+      }
     } catch (err) {
       Alert.alert('Request Failed', `${err.message || 'Please try again later.'}`);
     } finally {
@@ -70,6 +84,22 @@ export default function VerifyEmailScreen({ route, navigation }) {
           <Text style={styles.subtitleStrong}>{sentTo}</Text>. Enter it below to prove this
           account is really yours. It expires in 30 minutes.
         </Text>
+
+        {deliveryFailed && (
+          <View style={styles.warnBanner}>
+            <Text style={styles.warnText}>
+              ⚠️ The code could not be delivered (no email/SMS provider is configured on the
+              server). Tap “Resend code” once it's fixed, or contact the store.
+            </Text>
+          </View>
+        )}
+        {smsFailed && (
+          <View style={styles.warnBanner}>
+            <Text style={styles.warnText}>
+              ⚠️ SMS delivery failed — check your mobile number. The code was sent by email instead.
+            </Text>
+          </View>
+        )}
 
         <Text style={styles.label}>Verification code</Text>
         <TextInput
@@ -128,6 +158,15 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.brandPrimary },
   primaryText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   spinner: { marginTop: 18 },
+  warnBanner: {
+    backgroundColor: 'rgba(230, 126, 34, 0.12)',
+    borderColor: 'rgba(230, 126, 34, 0.4)',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  warnText: { fontSize: 13, color: colors.warning, lineHeight: 18 },
   linkRow: { marginTop: 16, alignItems: 'center' },
   linkResend: { fontSize: 14, color: colors.info, fontWeight: '600' },
   linkSkip: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },

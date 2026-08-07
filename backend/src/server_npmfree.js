@@ -531,7 +531,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/register') {
-    return parseBody(req, (err, obj) => {
+    return parseBody(req, async (err, obj) => {
       if (err) return bodyError(res, err);
       if (!obj.username || !obj.password || !obj.email || !obj.phone) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username, password, email and phone are required'] });
@@ -552,8 +552,8 @@ const server = http.createServer((req, res) => {
       if (String(obj.username).length > 50) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username must be at most 50 characters'] });
       }
-      if (String(obj.phone).length > 20 || !/^\+?[0-9]{9,15}$/.test(String(obj.phone).trim())) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['phone must be a valid mobile number (e.g. 09171234567 or +639171234567)'] });
+      if (String(obj.phone).length > 20 || !/^(\+63|63|0)?9\d{9}$/.test(String(obj.phone).trim())) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['phone must be a valid PH mobile number (e.g. 09171234567 or +639171234567)'] });
       }
       const pwError = passwordError(obj.password);
       if (pwError) {
@@ -568,7 +568,9 @@ const server = http.createServer((req, res) => {
       const code = generateCode();
       verificationCodes.set(hashCode(code), { user_id: user.id, expires_at: new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString() });
       persistVerificationCodes();
-      notifyVerificationCode({
+      // Await so the response can tell the app whether the code actually went
+      // out (email always, SMS when a phone was provided).
+      const delivery = await notifyVerificationCode({
         email: obj.email,
         username: obj.username,
         code,
@@ -577,7 +579,11 @@ const server = http.createServer((req, res) => {
       });
       return sendJson(res, 200, {
         token: signToken(user.id),
-        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: false }
+        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: false },
+        notify: {
+          email: !!(delivery && delivery[0] && delivery[0].sent),
+          sms: !!(delivery && delivery[1] && delivery[1].sent),
+        }
       });
     });
   }
@@ -624,7 +630,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/resend-verification') {
-    return parseBody(req, (err, obj) => {
+    return parseBody(req, async (err, obj) => {
       if (err) return bodyError(res, err);
       if (!obj.email) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['email is required'] });
@@ -644,6 +650,7 @@ const server = http.createServer((req, res) => {
       loginLockout.recordFailure('resend-verification', sourceIp);
       // Only UNVERIFIED accounts get a new code (still 200 either way).
       const user = users.find(u => u.email && u.email.toLowerCase() === String(obj.email).toLowerCase() && u.email_verified === false);
+      let notifyDelivery = null;
       if (user) {
         const code = generateCode();
         const now = Date.now();
@@ -652,15 +659,25 @@ const server = http.createServer((req, res) => {
         }
         verificationCodes.set(hashCode(code), { user_id: user.id, expires_at: new Date(now + VERIFICATION_CODE_TTL_MS).toISOString() });
         persistVerificationCodes();
-        notifyVerificationCode({
+        const delivery = await notifyVerificationCode({
           email: user.email,
           username: user.username,
           code,
           phone: user.phone,
           ttlMinutes: Math.max(1, Math.round(VERIFICATION_CODE_TTL_MS / 60000)),
         });
+        // Delivery status only when a code was actually generated (the
+        // response never reveals whether the email has an account).
+        notifyDelivery = {
+          email: !!(delivery && delivery[0] && delivery[0].sent),
+          sms: !!(delivery && delivery[1] && delivery[1].sent),
+        };
       }
-      return sendJson(res, 200, { ok: true, message: 'If an unverified account exists for that email, a new code has been sent.' });
+      return sendJson(res, 200, {
+        ok: true,
+        message: 'If an unverified account exists for that email, a new code has been sent.',
+        ...(notifyDelivery ? { notify: notifyDelivery } : {}),
+      });
     });
   }
 

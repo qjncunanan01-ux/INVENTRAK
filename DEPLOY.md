@@ -293,6 +293,70 @@ Then point the admin and mobile at the `*.run.app` URL Cloud Run prints.
 
 ---
 
+## Real email + SMS notifications (verification codes, order updates)
+
+The backend already sends real messages through **Resend** (email) and
+**Semaphore** (SMS, PH gateway — or Twilio as an alternative). Providers are
+env-configured and fire-and-forget, so nothing breaks when they're missing —
+but without keys, messages are only **logged**, not delivered. To enable real
+delivery on the deployed server:
+
+### 1. Email — Resend (free tier, ~100 emails/day)
+
+1. Go to <https://resend.com> → sign up (free) → **API Keys** → create a key
+   (starts with `re_`).
+2. **Sender**: for testing, `EMAIL_FROM=INVENTRAK <onboarding@resend.dev>`
+   works out of the box (no domain setup). To send as your own address, add a
+   domain in Resend (**Domains** → add → verify DNS) and set
+   `EMAIL_FROM=INVENTRAK <hello@yourdomain.com>`.
+
+   > **Important caveat:** the free `onboarding@resend.dev` sender can only
+   > deliver to **the Resend account owner's own inbox** until you verify a
+   > domain. So for a live demo, register the test account with the same email
+   > you used for Resend — otherwise the verification code email is rejected
+   > and signup stalls. Add a verified domain before letting real customers
+   > register.
+
+### 2. SMS — Semaphore (Philippines) or Twilio
+
+**Semaphore** (recommended for PH numbers, prepaid credits):
+1. <https://semaphore.co> → sign up → **Account** → **API Key**.
+2. **Settings → Sender Names** → register a sender name (e.g. `INVENTRAK`,
+   approval takes minutes) → set `SEMAPHORE_SENDER_NAME=INVENTRAK`.
+3. Top up a small amount — each SMS is roughly ₱0.35–0.70.
+
+**Twilio** (alternative, international): create an account, buy a number,
+set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`.
+
+### 3. Wire the keys into the deployed server
+
+In the Render dashboard: **inventrak-api → Environment → Environment
+Variables** → add the keys (or fill the commented placeholders in
+`render.yaml` and redeploy):
+
+```
+RESEND_API_KEY
+EMAIL_FROM
+SEMAPHORE_API_KEY
+SEMAPHORE_SENDER_NAME
+```
+
+### 4. Prove it actually sends (before the demo)
+
+```bash
+cd backend
+RESEND_API_KEY=re_xxx SEMAPHORE_API_KEY=xxx \
+TEST_EMAIL=you@example.com TEST_PHONE=09171234567 \
+EMAIL_FROM='INVENTRAK <onboarding@resend.dev>' \
+SEMAPHORE_SENDER_NAME=INVENTRAK \
+npm run notify:test
+```
+
+It sends a real test email + test SMS and prints `PASS`/`FAIL` per channel
+(exit code 0 = all configured channels delivered). Then do the live check:
+register a new account in the mobile app → you'll receive the 6-digit
+verification code by email (and SMS if you added a phone).
+
 ## Verification checklist
 
 - [ ] `GET /api/openapi.json` returns the spec (200)
