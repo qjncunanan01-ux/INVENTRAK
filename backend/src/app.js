@@ -1723,8 +1723,11 @@ function decideAdjustment(req, res, action) {
     // Atomic apply: stock change + ledger movement + status flip happen in ONE
     // transaction. Without it, a failure between the statements could leave
     // stock moved but the request still pending — and a retry would then
-    // apply the adjustment a second time.
-    db.transaction(() => {
+    // apply the adjustment a second time. The status flip also re-filters on
+    // status='pending' inside the transaction (not just in the pre-check
+    // above), so a second concurrent approve can never double-apply even if
+    // this handler is later refactored to async.
+    const applied = db.transaction(() => {
       applyMovementEffect({
         product_id: row.product_id,
         qty: row.new_qty,
@@ -1736,10 +1739,11 @@ function decideAdjustment(req, res, action) {
       db.prepare(
         'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(row.product_id, row.new_qty, 'adjustment', null, row.location_id, `Adjustment #${row.id}: ${row.reason || 'approved correction'}`, now, actor);
-      db.prepare(
-        "UPDATE stock_adjustments SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ?"
+      return db.prepare(
+        "UPDATE stock_adjustments SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ? AND status = 'pending'"
       ).run(now, actor, row.id);
     })();
+    if (applied.changes === 0) return res.status(400).json({ error: 'Adjustment already decided' });
     return res.json({ ok: true, message: 'Adjustment approved and applied to stock' });
   }
 
@@ -1809,8 +1813,9 @@ function decideTransfer(req, res, action) {
     if (!srcStock || srcStock.quantity < row.qty) {
       return res.status(400).json({ error: 'Insufficient stock at source location' });
     }
-    // Atomic apply (see decideAdjustment — same double-apply hazard).
-    db.transaction(() => {
+    // Atomic apply (see decideAdjustment — same double-apply hazard). The
+    // status flip re-filters on status='pending' inside the transaction.
+    const applied = db.transaction(() => {
       applyMovementEffect({
         product_id: row.product_id,
         qty: row.qty,
@@ -1822,10 +1827,11 @@ function decideTransfer(req, res, action) {
       db.prepare(
         'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(row.product_id, row.qty, 'transfer', row.src_location, row.dst_location, `Transfer #${row.id}: ${row.reason || 'approved transfer'}`, now, actor);
-      db.prepare(
-        "UPDATE stock_transfers SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ?"
+      return db.prepare(
+        "UPDATE stock_transfers SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ? AND status = 'pending'"
       ).run(now, actor, row.id);
     })();
+    if (applied.changes === 0) return res.status(400).json({ error: 'Transfer already decided' });
     return res.json({ ok: true, message: 'Transfer approved and applied to stock' });
   }
 
