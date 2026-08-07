@@ -248,6 +248,24 @@ export const resetPassword = client.resetPassword;
 export const verifyEmail = client.verifyEmail;
 export const resendVerification = client.resendVerification;
 export const listProducts = client.listProducts;
+
+// Fetch EVERY product across all pages (the API clamps limit to 100 per
+// request, and with a 192-product catalog a single page would silently hide
+// the later categories/brands — search, chips and counts must see it all).
+export async function listAllProducts() {
+  const all = [];
+  let page = 1;
+  // Safety cap: 10 pages x 100 = 1000 products, far beyond the catalog.
+  while (page <= 10) {
+    const data = await client.listProducts({ page, limit: 100 });
+    const rows = data.data || (Array.isArray(data) ? data : []);
+    all.push(...rows);
+    const total = data.pagination?.total ?? all.length;
+    if (all.length >= total || rows.length === 0) break;
+    page += 1;
+  }
+  return all;
+}
 export const createProduct = client.createProduct;
 export const listCategories = client.listCategories;
 export const getProduct = client.getProduct;

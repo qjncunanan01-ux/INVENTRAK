@@ -67,6 +67,19 @@ const CURATED_IMAGES = new Set([
   'coffee-beans--arabica-coffee-beans-1kg.jpg',
   'da-vinci-powders--frappease-powder-1-5kg.jpg',
 ]);
+
+// Normalize the 8 curated rows' legacy category names onto the supplier
+// library's taxonomy, so the whole catalog uses one clean category set
+// (e.g. "Da Vinci Gourmet Sauces" -> "Da Vinci Sauces", "Cups" ->
+// "Cups and Lid") instead of 28 near-duplicate categories.
+const CATEGORY_ALIASES = {
+  'Da Vinci Gourmet Sauces': 'Da Vinci Sauces',
+  Matcha: 'MATCHA POWDER',
+  Cups: 'Cups and Lid',
+  Beans: 'Coffee Beans',
+  Powders: 'Da Vinci Powders',
+  'Full Cream Milk': 'Full Cream Milk',
+};
 const allExisting = JSON.parse(fs.readFileSync(OUT, 'utf8'));
 const existing = allExisting.filter((p) =>
   CURATED_IMAGES.has(String(p.Image || '').replace('/images/', ''))
@@ -84,10 +97,12 @@ function deriveSize(filename) {
 
 function cleanName(base) {
   // Strip the trailing size token so the product name reads naturally,
-  // e.g. "Chocolate 2L" -> "Chocolate", "1KG" suffix dropped.
+  // e.g. "Chocolate 2L" -> "Chocolate", "1KG" suffix dropped. OZ stays in the
+  // name because cup sizes like "Dabba Elegant Cups 12oz" carry it as the
+  // product's identity (12oz vs 16oz are DIFFERENT products).
   return base
     .replace(/\([^)]*\)/g, '')
-    .replace(/\s*\d+(?:\.\d+)?\s*(KG|G|L|ML|OZ|PCS)\s*$/i, '')
+    .replace(/\s*\d+(?:\.\d+)?\s*(KG|G|L|ML|PCS)\s*$/i, '')
     .replace(/[_]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -112,6 +127,9 @@ for (const dir of dirs) {
     // Strip a REAL image extension explicitly — path.extname misreads sizes
     // like "1.5KG" as an extension, which would corrupt the slug.
     const base = path.basename(f).replace(/\.(jpe?g|png|webp)$/i, '');
+    // Skip obvious re-download variants like "(3KG)(1).jpg" — the same
+    // product photographed/downloaded twice (they'd collide on name+size).
+    if (/\)\(\d+\)$/.test(base)) continue;
     const imgSlug = slug(base);
     const imageFile = `${catSlug}--${imgSlug}.jpg`;
     const committed = fs.existsSync(path.join(IMAGES_DIR, imageFile))
@@ -139,6 +157,37 @@ for (const dir of dirs) {
   }
 }
 
-const merged = [...existing, ...added];
+const merged = [...existing, ...added].map((p) => ({
+  ...p,
+  'Category': CATEGORY_ALIASES[p['Category']] || p['Category'],
+}));
+
+// Disambiguate duplicate display names: when the same name appears more than
+// once (e.g. "Caramel" 2L and 500ml, "Vanilla" 750ML/760ML), append the size
+// so customers and admins can tell the SKUs apart. If the name+size still
+// collides (same product sold under two brands, e.g. Torani vs Top Creamery
+// "Caramel Syrup 750ML"), append the category as the brand qualifier.
+const nameCount = {};
+merged.forEach((p) => {
+  const key = (p['Product Name'] || '').toLowerCase();
+  nameCount[key] = (nameCount[key] || 0) + 1;
+});
+merged.forEach((p) => {
+  if (nameCount[(p['Product Name'] || '').toLowerCase()] > 1) {
+    p['Product Name'] = p['Size'] ? `${p['Product Name']} (${p['Size']})` : p['Product Name'];
+  }
+});
+const nameSizeCount = {};
+merged.forEach((p) => {
+  const key = `${(p['Product Name'] || '').toLowerCase()}|${p['Size'] || ''}`;
+  nameSizeCount[key] = (nameSizeCount[key] || 0) + 1;
+});
+merged.forEach((p) => {
+  const key = `${(p['Product Name'] || '').toLowerCase()}|${p['Size'] || ''}`;
+  if (nameSizeCount[key] > 1 && p['Category']) {
+    p['Product Name'] = `${p['Product Name']} - ${p['Category']}`;
+  }
+});
+
 fs.writeFileSync(OUT, JSON.stringify(merged, null, 2) + '\n');
 console.log(`Wrote ${merged.length} products (${existing.length} curated + ${added.length} from images) to ${OUT}`);

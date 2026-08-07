@@ -35,10 +35,11 @@ const dbPathFor = (name) => path.join(tmpDir, `${name}-${Math.random().toString(
 test('fresh seed + transform reproduces the committed catalog (the CI pass case)', () => {
   const result = checkCatalog({ dbPath: dbPathFor('pass'), dataDir: DATA_DIR });
   assert.strictEqual(result.ok, true, JSON.stringify(result.diffs));
-  // 193 committed products / 193 inventory items, and the catalog datasets
-  // are clean (the full supplier catalog was imported from the image library).
-  assert.strictEqual(result.counts['products.json'], 193);
-  assert.strictEqual(result.counts['inventory.json'], 193);
+  // 192 committed products / 192 inventory items, and the catalog datasets
+  // are clean (the full supplier catalog was imported from the image library;
+  // one duplicate Lotus re-download image is intentionally unused).
+  assert.strictEqual(result.counts['products.json'], 192);
+  assert.strictEqual(result.counts['inventory.json'], 192);
   assert.strictEqual(result.counts['stock_movements.json'], 0);
   assert.strictEqual(result.counts['order_inquiries.json'], 0);
 });
@@ -65,9 +66,9 @@ test('adding a product to products.json without an inventory entry fails the che
   const result = checkCatalog({ dbPath: dbPathFor('product'), dataDir });
   assert.strictEqual(result.ok, false);
   // The transform emits an inventory item for EVERY product, so the ghost
-  // product surfaces as an inventory.json items count mismatch (194 vs 193).
+  // product surfaces as an inventory.json items count mismatch (193 vs 192).
   assert.ok(
-    result.diffs.some((d) => d.dataset === 'inventory.json' && d.path === '$.items' && d.actual === 'array[194]'),
+    result.diffs.some((d) => d.dataset === 'inventory.json' && d.path === '$.items' && d.actual === 'array[193]'),
     JSON.stringify(result.diffs)
   );
 });

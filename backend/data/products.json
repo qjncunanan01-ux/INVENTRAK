@@ -1,7 +1,7 @@
 [
   {
     "Product Name": "Butterscotch Sauce",
-    "Category": "Da Vinci Gourmet Sauces",
+    "Category": "Da Vinci Sauces",
     "Brand": "",
     "Description": "",
     "Size": "2 L",
@@ -10,8 +10,8 @@
     "Image": "/images/da-vinci-sauces--butterscotch.jpg"
   },
   {
-    "Product Name": "Caramel Sauce",
-    "Category": "Da Vinci Gourmet Sauces",
+    "Product Name": "Caramel Sauce (2 L)",
+    "Category": "Da Vinci Sauces",
     "Brand": "",
     "Description": "",
     "Size": "2 L",
@@ -21,7 +21,7 @@
   },
   {
     "Product Name": "Chocolate Sauce",
-    "Category": "Da Vinci Gourmet Sauces",
+    "Category": "Da Vinci Sauces",
     "Brand": "",
     "Description": "",
     "Size": "2 L",
@@ -31,7 +31,7 @@
   },
   {
     "Product Name": "Da Vinci Matcha Powder",
-    "Category": "Matcha",
+    "Category": "MATCHA POWDER",
     "Brand": "",
     "Description": "",
     "Size": "1 KG",
@@ -51,7 +51,7 @@
   },
   {
     "Product Name": "Dabba Elegant Cups 12oz",
-    "Category": "Cups",
+    "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
     "Size": "50 pcs",
@@ -61,7 +61,7 @@
   },
   {
     "Product Name": "Sylver Arabica Coffee Beans",
-    "Category": "Beans",
+    "Category": "Coffee Beans",
     "Brand": "",
     "Description": "",
     "Size": "1 KG",
@@ -71,7 +71,7 @@
   },
   {
     "Product Name": "Frappase Powder",
-    "Category": "Powders",
+    "Category": "Da Vinci Powders",
     "Brand": "",
     "Description": "",
     "Size": "1.5 KG",
@@ -120,7 +120,7 @@
     "Image": "/images/achievers--acc-ube-syrup-1kg.jpg"
   },
   {
-    "Product Name": "Beryl s Dark Chocolate",
+    "Product Name": "Beryl s Dark Chocolate (1 KG)",
     "Category": "Baking Chocolate",
     "Brand": "",
     "Description": "",
@@ -260,7 +260,7 @@
     "Image": "/images/coffee-beans--sylver-blend-coffee-beans70-arabic-30-robusta-1kg.jpg"
   },
   {
-    "Product Name": "Jersey Condensed Milk",
+    "Product Name": "Jersey Condensed Milk (1KG)",
     "Category": "Condense Milk",
     "Brand": "",
     "Description": "",
@@ -270,7 +270,7 @@
     "Image": "/images/condense-milk--jersey-condensed-milk-1kg.jpg"
   },
   {
-    "Product Name": "Jersey Condensed Milk",
+    "Product Name": "Jersey Condensed Milk (2.5 KG)",
     "Category": "Condense Milk",
     "Brand": "",
     "Description": "",
@@ -280,7 +280,7 @@
     "Image": "/images/condense-milk--jersey-condensed-milk-2-5-kg.jpg"
   },
   {
-    "Product Name": "Jersey Condensed Milk",
+    "Product Name": "Jersey Condensed Milk (390G)",
     "Category": "Condense Milk",
     "Brand": "",
     "Description": "",
@@ -300,7 +300,7 @@
     "Image": "/images/condense-milk--marie-condensada-1kg.jpg"
   },
   {
-    "Product Name": "Dabba Elegant Cups",
+    "Product Name": "Dabba Elegant Cups 16oz",
     "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
@@ -310,7 +310,7 @@
     "Image": "/images/cups-and-lid--dabba-elegant-cups-16oz-50pcs.jpg"
   },
   {
-    "Product Name": "Dabba Elegant Cups",
+    "Product Name": "Dabba Elegant Cups 22oz",
     "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
@@ -330,7 +330,7 @@
     "Image": "/images/cups-and-lid--dome-lid-95mm-50pcs.jpg"
   },
   {
-    "Product Name": "Double Walled Brown",
+    "Product Name": "Double Walled Brown 12oz",
     "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
@@ -340,7 +340,7 @@
     "Image": "/images/cups-and-lid--double-walled-brown-12oz-50pcs.jpg"
   },
   {
-    "Product Name": "Double Walled Brown",
+    "Product Name": "Double Walled Brown 16oz",
     "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
@@ -350,7 +350,7 @@
     "Image": "/images/cups-and-lid--double-walled-brown-16oz-50pcs.jpg"
   },
   {
-    "Product Name": "Double Walled Brown",
+    "Product Name": "Double Walled Brown 8oz",
     "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
@@ -400,7 +400,7 @@
     "Image": "/images/cups-and-lid--hot-lid-black-90mm-50pcs.jpg"
   },
   {
-    "Product Name": "PET Cups",
+    "Product Name": "PET Cups 12oz",
     "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
@@ -410,7 +410,7 @@
     "Image": "/images/cups-and-lid--pet-cups-12oz-50pcs.jpg"
   },
   {
-    "Product Name": "PET Cups",
+    "Product Name": "PET Cups 16oz",
     "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
@@ -420,7 +420,7 @@
     "Image": "/images/cups-and-lid--pet-cups-16oz-50pcs.jpg"
   },
   {
-    "Product Name": "PET Cups",
+    "Product Name": "PET Cups 22oz",
     "Category": "Cups and Lid",
     "Brand": "",
     "Description": "",
@@ -600,7 +600,7 @@
     "Image": "/images/da-vinci-powders--chocolate-sipping-1kg.jpg"
   },
   {
-    "Product Name": "Caramel",
+    "Product Name": "Caramel (500 ML)",
     "Category": "Da Vinci Sauces",
     "Brand": "",
     "Description": "",
@@ -660,7 +660,7 @@
     "Image": "/images/da-vinci-sauces--pandan-1l.jpg"
   },
   {
-    "Product Name": "Salted Caramel",
+    "Product Name": "Salted Caramel (2 L)",
     "Category": "Da Vinci Sauces",
     "Brand": "",
     "Description": "",
@@ -720,7 +720,7 @@
     "Image": "/images/da-vinci-syrup--blueberry-750ml.jpg"
   },
   {
-    "Product Name": "Caramel",
+    "Product Name": "Caramel (750 ML)",
     "Category": "Da Vinci Syrup",
     "Brand": "",
     "Description": "",
@@ -730,7 +730,7 @@
     "Image": "/images/da-vinci-syrup--caramel-750ml.jpg"
   },
   {
-    "Product Name": "Hazelnut",
+    "Product Name": "Hazelnut (750 ML)",
     "Category": "Da Vinci Syrup",
     "Brand": "",
     "Description": "",
@@ -820,7 +820,7 @@
     "Image": "/images/da-vinci-syrup--vanilla-750lm.jpg"
   },
   {
-    "Product Name": "Vanilla",
+    "Product Name": "Vanilla (750 ML)",
     "Category": "Da Vinci Syrup",
     "Brand": "",
     "Description": "",
@@ -850,7 +850,7 @@
     "Image": "/images/dripp-flavours--buttersotch-syrup-760ml.jpg"
   },
   {
-    "Product Name": "Caramel Sauce",
+    "Product Name": "Caramel Sauce (500 ML)",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -860,7 +860,7 @@
     "Image": "/images/dripp-flavours--caramel-sauce-500ml.jpg"
   },
   {
-    "Product Name": "Caramel Syrup",
+    "Product Name": "Caramel Syrup (760 ML)",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -880,7 +880,7 @@
     "Image": "/images/dripp-flavours--cream-cheese-760ml.jpg"
   },
   {
-    "Product Name": "Hazelnut",
+    "Product Name": "Hazelnut (760 ML)",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -1000,7 +1000,7 @@
     "Image": "/images/dripp-flavours--tiramisu-760lm.jpg"
   },
   {
-    "Product Name": "Vanilla",
+    "Product Name": "Vanilla (760 ML)",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -1140,7 +1140,7 @@
     "Image": "/images/matcha-powder--top-creamery.jpg"
   },
   {
-    "Product Name": "Caramel Syrup",
+    "Product Name": "Caramel Syrup (1 L)",
     "Category": "Monin",
     "Brand": "",
     "Description": "",
@@ -1460,16 +1460,6 @@
     "Image": "/images/spread-jams-biscuits--lotus-biscoff-smooth-spread-3kg.jpg"
   },
   {
-    "Product Name": "Lotus Biscoff Smooth Spread",
-    "Category": "Spread_Jams_Biscuits",
-    "Brand": "",
-    "Description": "",
-    "Size": "3KG",
-    "Unit": "",
-    "Price": 500,
-    "Image": "/images/spread-jams-biscuits--lotus-biscoff-smooth-spread-3kg-1.jpg"
-  },
-  {
     "Product Name": "Lotus Biscoff Topping Sauce",
     "Category": "Spread_Jams_Biscuits",
     "Brand": "",
@@ -1560,7 +1550,7 @@
     "Image": "/images/top-creamery--brown-sugar-syrup-750ml.jpg"
   },
   {
-    "Product Name": "Caramel Syrup",
+    "Product Name": "Caramel Syrup (750 ML) - Top Creamery",
     "Category": "Top Creamery",
     "Brand": "",
     "Description": "",
@@ -1620,7 +1610,7 @@
     "Image": "/images/top-creamery--frappe-base-1kg.jpg"
   },
   {
-    "Product Name": "Hazelnut Syrup",
+    "Product Name": "Hazelnut Syrup (750 ML) - Top Creamery",
     "Category": "Top Creamery",
     "Brand": "",
     "Description": "",
@@ -1630,7 +1620,7 @@
     "Image": "/images/top-creamery--hazelnut-syrup-750ml.jpg"
   },
   {
-    "Product Name": "Salted Caramel",
+    "Product Name": "Salted Caramel (750 ML) - Top Creamery",
     "Category": "Top Creamery",
     "Brand": "",
     "Description": "",
@@ -1710,7 +1700,7 @@
     "Image": "/images/torani--butterscotch-750ml.jpg"
   },
   {
-    "Product Name": "Caramel Sauce",
+    "Product Name": "Caramel Sauce (1.89 L)",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1720,7 +1710,7 @@
     "Image": "/images/torani--caramel-sauce1-89l.jpg"
   },
   {
-    "Product Name": "Caramel Sause",
+    "Product Name": "Caramel Sause 16.5OZ",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1730,7 +1720,7 @@
     "Image": "/images/torani--caramel-sause-16-5oz.jpg"
   },
   {
-    "Product Name": "Caramel Syrup",
+    "Product Name": "Caramel Syrup (750 ML) - Torani",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1740,7 +1730,7 @@
     "Image": "/images/torani--caramel-syrup-750ml.jpg"
   },
   {
-    "Product Name": "Chocolate Sause",
+    "Product Name": "Chocolate Sause 16.5OZ",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1800,7 +1790,7 @@
     "Image": "/images/torani--french-vanilla-syrup-750ml.jpg"
   },
   {
-    "Product Name": "Hazelnut Syrup",
+    "Product Name": "Hazelnut Syrup (750 ML) - Torani",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1840,7 +1830,7 @@
     "Image": "/images/torani--pumpkin-spice-syrup-750ml.jpg"
   },
   {
-    "Product Name": "Salted Caramel",
+    "Product Name": "Salted Caramel (750 ML) - Torani",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1850,7 +1840,7 @@
     "Image": "/images/torani--salted-caramel-750ml.jpg"
   },
   {
-    "Product Name": "Strawberry Puree",
+    "Product Name": "Strawberry Puree 64OZ",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1890,7 +1880,7 @@
     "Image": "/images/torani--vanilla-syrup-750ml.jpg"
   },
   {
-    "Product Name": "White Chocolate",
+    "Product Name": "White Chocolate 16.5OZ",
     "Category": "Torani",
     "Brand": "",
     "Description": "",

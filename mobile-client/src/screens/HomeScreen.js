@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { imageUrl, listProducts, useSessionUsername } from '../api';
+import { imageUrl, listAllProducts, listCategories, useSessionUsername } from '../api';
 import { colors } from '../theme';
 
 export default function HomeScreen({ route, navigation }) {
@@ -21,20 +21,17 @@ export default function HomeScreen({ route, navigation }) {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const data = await listProducts({ limit: 200 });
-      const items = data.data || (Array.isArray(data) ? data : []);
+      // listAllProducts pages past the 100-row clamp so the featured row and
+      // the derived categories cover the WHOLE 192-product catalog.
+      const items = await listAllProducts();
       setProducts(items);
       // Featured = first few non-empty stock products (placeholder for a real
       // recommendation feed, which is available via the Recommendations tab).
       setFeatured(items.slice(0, 4));
-      // Category chips are DERIVED from the live catalog (not hardcoded), so
-      // the 23 supplier categories from the image library show up automatically.
-      const seen = ['All'];
-      for (const it of items) {
-        const c = (it.category || '').trim();
-        if (c && !seen.includes(c)) seen.push(c);
-      }
-      setCategories(seen);
+      // Category chips come from the live catalog endpoint (not hardcoded, and
+      // not truncated to one page), so all 23 supplier categories show up.
+      const cats = await listCategories();
+      setCategories(['All', ...(Array.isArray(cats) ? cats : [])]);
     } catch (err) {
       // Home still renders without data
     }

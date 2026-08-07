@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { listProducts } from '../api';
+import { listAllProducts } from '../api';
 import { colors } from '../theme';
 
 export default function SearchScreen({ navigation }) {
@@ -25,8 +25,10 @@ export default function SearchScreen({ navigation }) {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const data = await listProducts({ limit: 100 });
-      setProducts(data.data || (Array.isArray(data) ? data : []));
+      // Page past the 100-row clamp so searching finds ANY of the 192
+      // products, not just the first page.
+      const items = await listAllProducts();
+      setProducts(items);
     } catch (err) {
       // Keep the screen usable with no data
     } finally {

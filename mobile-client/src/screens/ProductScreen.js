@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getInventory, imageUrl, listProducts } from '../api';
+import { getInventory, imageUrl, listAllProducts } from '../api';
 import { colors } from '../theme';
 
 export default function ProductScreen({ route, navigation }) {
@@ -29,8 +29,8 @@ export default function ProductScreen({ route, navigation }) {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const data = await listProducts({ limit: 100 });
-      setProducts(data.data || (Array.isArray(data) ? data : []));
+      const items = await listAllProducts();
+      setProducts(items);
     } catch (err) {
       Alert.alert('Error', 'Failed to load products. Please pull down to retry.');
     } finally {

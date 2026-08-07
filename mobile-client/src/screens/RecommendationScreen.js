@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getOptimizationAbc, imageUrl, listProducts } from '../api';
+import { getOptimizationAbc, imageUrl, listAllProducts } from '../api';
 import { colors } from '../theme';
 
 // Recommendation + Costing modules (reviewer requirement): the recommended
@@ -24,9 +24,9 @@ export default function RecommendationScreen({ navigation }) {
 
   const fetchData = async () => {
     try {
-      const [abcData, prodData] = await Promise.all([getOptimizationAbc(), listProducts()]);
+      const [abcData, prodItems] = await Promise.all([getOptimizationAbc(), listAllProducts()]);
       const abc = abcData.data ? abcData.data : (Array.isArray(abcData) ? abcData : []);
-      const prods = prodData.data ? prodData.data : (Array.isArray(prodData) ? prodData : []);
+      const prods = prodItems;
       setRecommendations(abc);
       setProducts(prods);
     } catch (err) {

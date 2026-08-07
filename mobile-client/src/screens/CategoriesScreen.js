@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { listCategories, listProducts } from '../api';
+import { listAllProducts, listCategories } from '../api';
 import { colors } from '../theme';
 
 // Simple per-category glyphs so the grid reads like a real category page.
@@ -55,12 +55,11 @@ export default function CategoriesScreen({ navigation }) {
 
   const fetchData = useCallback(async () => {
     try {
-      const [catData, prodData] = await Promise.all([
+      const [catData, products] = await Promise.all([
         listCategories(),
-        listProducts({ limit: 100 }),
+        listAllProducts(),
       ]);
       const cats = Array.isArray(catData) ? catData : [];
-      const products = prodData.data || (Array.isArray(prodData) ? prodData : []);
       const c = {};
       cats.forEach((name) => { c[name] = 0; });
       products.forEach((p) => {
