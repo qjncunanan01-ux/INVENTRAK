@@ -47,6 +47,9 @@ const { isHashed } = require('./password-hash');
 const DATASETS = {
   'products.json': { updated: 'updated_at' },
   'stock_movements.json': { updated: 'created_at' },
+  // Approval-workflow datasets: same timestamp policy as movements.
+  'stock_adjustments.json': { updated: 'created_at' },
+  'stock_transfers.json': { updated: 'created_at' },
   'order_inquiries.json': { updated: 'created_at' },
   '@users': { updated: 'created_at' },
   '@sales': { updated: 'transaction_date' },
@@ -54,6 +57,7 @@ const DATASETS = {
 };
 const ORDER = [
   'products.json', 'inventory.json', 'stock_movements.json',
+  'stock_adjustments.json', 'stock_transfers.json',
   'order_inquiries.json', '@users', '@sales', '@alerts',
 ];
 
@@ -132,6 +136,16 @@ function canonicalFromSqlite(snap) {
       src_location: m.src_location, dst_location: m.dst_location,
       notes: m.notes, created_at: m.created_at, user: m.user,
     })),
+    'stock_adjustments.json': (s.stock_adjustments || []).map((a) => unset({
+      id: a.id, product_id: a.product_id, location_id: a.location_id,
+      new_qty: a.new_qty, reason: a.reason, status: a.status,
+      created_at: a.created_at, decided_at: a.decided_at, decided_by: a.decided_by,
+    })),
+    'stock_transfers.json': (s.stock_transfers || []).map((t) => unset({
+      id: t.id, product_id: t.product_id, src_location: t.src_location,
+      dst_location: t.dst_location, qty: t.qty, reason: t.reason, status: t.status,
+      created_at: t.created_at, decided_at: t.decided_at, decided_by: t.decided_by,
+    })),
     'order_inquiries.json': (s.order_inquiries || []).map((o) => unset({
       id: o.id, customer_name: o.customer_name, customer_email: o.customer_email,
       customer_phone: o.customer_phone, products: o.products,
@@ -199,6 +213,16 @@ function canonicalFromFirestore(read) {
       id: m.id, product_id: m.product_id, qty: m.qty, type: m.type,
       src_location: m.src_location, dst_location: m.dst_location,
       notes: m.notes, created_at: m.created_at, user: m.user,
+    })),
+    'stock_adjustments.json': mk(read['stock_adjustments.json'], (a) => ({
+      id: a.id, product_id: a.product_id, location_id: a.location_id,
+      new_qty: a.new_qty, reason: a.reason, status: a.status,
+      created_at: a.created_at, decided_at: a.decided_at, decided_by: a.decided_by,
+    })),
+    'stock_transfers.json': mk(read['stock_transfers.json'], (t) => ({
+      id: t.id, product_id: t.product_id, src_location: t.src_location,
+      dst_location: t.dst_location, qty: t.qty, reason: t.reason, status: t.status,
+      created_at: t.created_at, decided_at: t.decided_at, decided_by: t.decided_by,
     })),
     'order_inquiries.json': mk(read['order_inquiries.json'], (o) => ({
       id: o.id, customer_name: o.customer_name, customer_email: o.customer_email,
@@ -472,6 +496,33 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
     upsertMovement.run(m.id, m.product_id, m.qty, m.type, m.src_location, m.dst_location, m.notes, m.created_at, m.user);
   }
 
+  // Adjustments + transfers: upsert by id (approval-workflow datasets).
+  const upsertAdjustment = db.prepare(
+    `INSERT INTO stock_adjustments (id, product_id, location_id, new_qty, reason, status, created_at, decided_at, decided_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       product_id=excluded.product_id, location_id=excluded.location_id,
+       new_qty=excluded.new_qty, reason=excluded.reason, status=excluded.status,
+       created_at=excluded.created_at, decided_at=excluded.decided_at,
+       decided_by=excluded.decided_by`
+  );
+  for (const a of byId(canonical['stock_adjustments.json'])) {
+    upsertAdjustment.run(a.id, a.product_id, a.location_id, a.new_qty, a.reason, a.status, a.created_at, a.decided_at || null, a.decided_by || null);
+  }
+
+  const upsertTransfer = db.prepare(
+    `INSERT INTO stock_transfers (id, product_id, src_location, dst_location, qty, reason, status, created_at, decided_at, decided_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       product_id=excluded.product_id, src_location=excluded.src_location,
+       dst_location=excluded.dst_location, qty=excluded.qty, reason=excluded.reason,
+       status=excluded.status, created_at=excluded.created_at,
+       decided_at=excluded.decided_at, decided_by=excluded.decided_by`
+  );
+  for (const t of byId(canonical['stock_transfers.json'])) {
+    upsertTransfer.run(t.id, t.product_id, t.src_location, t.dst_location, t.qty, t.reason, t.status, t.created_at, t.decided_at || null, t.decided_by || null);
+  }
+
   const upsertInquiry = db.prepare(
     `INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, payment_status, payment_reference, payment_url, payment_qr, payment_provider, user_id, status_history, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -542,6 +593,8 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
       db.prepare(`DELETE FROM ${table} WHERE id NOT IN (${ph})`).run(...ids);
     };
     delNotIn('stock_movements', canonical['stock_movements.json']);
+    delNotIn('stock_adjustments', canonical['stock_adjustments.json']);
+    delNotIn('stock_transfers', canonical['stock_transfers.json']);
     delNotIn('order_inquiries', canonical['order_inquiries.json']);
     delNotIn('users', canonical['@users']);
     delNotIn('sales_transactions', canonical['@sales']);
@@ -592,6 +645,8 @@ function applyToFirestore(store, canonical) {
   store.write('inventory.json', { locations: inv.locations, items });
 
   store.write('stock_movements.json', sortById(canonical['stock_movements.json']));
+  store.write('stock_adjustments.json', sortById(canonical['stock_adjustments.json']));
+  store.write('stock_transfers.json', sortById(canonical['stock_transfers.json']));
   store.write('order_inquiries.json', sortById(canonical['order_inquiries.json']));
   store.write('@users', sortById(canonical['@users']));
   store.write('@sales', sortById(canonical['@sales']));

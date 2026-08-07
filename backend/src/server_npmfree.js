@@ -1011,6 +1011,16 @@ const server = http.createServer((req, res) => {
       if (hasStock) {
         return sendJson(res, 400, { error: 'Cannot delete location with existing stock. Transfer stock first.' });
       }
+      // Referential integrity for the approval-workflow modules (mirrors the
+      // SQLite backend): a location referenced by any pending adjustment or
+      // transfer cannot be deleted.
+      const adjustments = readJSON(adjustmentsFile) || [];
+      const transfers = readJSON(transfersFile) || [];
+      const adjRefs = adjustments.some(a => Number(a.location_id) === id);
+      const trfRefs = transfers.some(t => Number(t.src_location) === id || Number(t.dst_location) === id);
+      if (adjRefs || trfRefs) {
+        return sendJson(res, 400, { error: 'Cannot delete location referenced by stock adjustments or transfers. Resolve them first.' });
+      }
       inv.locations.splice(id - 1, 1);
       inv.items.forEach(item => { delete item.locations[removedName]; });
       writeJSON(inventoryFile, inv);
@@ -1238,6 +1248,7 @@ const server = http.createServer((req, res) => {
         if (!Number.isFinite(productId) || productId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
         if (!Number.isFinite(locationId) || locationId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
         if (!Number.isFinite(newQty) || newQty < 0) return sendJson(res, 400, { error: 'Validation failed', details: ['new_qty must be a number >= 0'] });
+        if (obj.reason && String(obj.reason).length > 300) return sendJson(res, 400, { error: 'Validation failed', details: ['reason must be at most 300 characters'] });
         const products = readJSON(productsFile) || [];
         if (!products[productId - 1] || !isProductActive(products[productId - 1])) return sendJson(res, 404, { error: 'Product not found or inactive' });
         const inv = getInventory();
@@ -1276,6 +1287,16 @@ const server = http.createServer((req, res) => {
       const actor = (req.user && req.user.username) || 'admin';
 
       if (action === 'approve') {
+        // Staleness guards (mirror SQLite): the product may have been
+        // soft-deleted or the location removed since the request was created.
+        const products = readJSON(productsFile) || [];
+        if (!products[Number(row.product_id) - 1] || !isProductActive(products[Number(row.product_id) - 1])) {
+          return sendJson(res, 400, { error: 'Product is no longer active' });
+        }
+        const invNow = getInventory();
+        if (!invNow.locations[Number(row.location_id) - 1]) {
+          return sendJson(res, 400, { error: 'Location no longer exists' });
+        }
         // Apply the correction: set the location's stock to the proposed qty.
         const inv = getInventory();
         const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
@@ -1333,6 +1354,7 @@ const server = http.createServer((req, res) => {
         if (!Number.isFinite(srcId) || srcId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['src_location must be a positive number'] });
         if (!Number.isFinite(dstId) || dstId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['dst_location must be a positive number'] });
         if (!Number.isFinite(qty) || qty <= 0) return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
+        if (obj.reason && String(obj.reason).length > 300) return sendJson(res, 400, { error: 'Validation failed', details: ['reason must be at most 300 characters'] });
         if (srcId === dstId) return sendJson(res, 400, { error: 'Source and destination must differ' });
         const products = readJSON(productsFile) || [];
         if (!products[productId - 1] || !isProductActive(products[productId - 1])) return sendJson(res, 404, { error: 'Product not found or inactive' });
@@ -1374,7 +1396,16 @@ const server = http.createServer((req, res) => {
       const actor = (req.user && req.user.username) || 'admin';
 
       if (action === 'approve') {
+        // Staleness guards (mirror SQLite): product active + both locations
+        // still exist.
+        const products = readJSON(productsFile) || [];
+        if (!products[Number(row.product_id) - 1] || !isProductActive(products[Number(row.product_id) - 1])) {
+          return sendJson(res, 400, { error: 'Product is no longer active' });
+        }
         const inv = getInventory();
+        if (!inv.locations[Number(row.src_location) - 1] || !inv.locations[Number(row.dst_location) - 1]) {
+          return sendJson(res, 400, { error: 'Location no longer exists' });
+        }
         const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
         const srcName = row.src_location_name || inv.locations[Number(row.src_location) - 1];
         const dstName = row.dst_location_name || inv.locations[Number(row.dst_location) - 1];

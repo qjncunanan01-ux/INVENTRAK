@@ -34,6 +34,12 @@ const COLLECTIONS = {
   'inventory.json': 'inventory',
   'stock_movements.json': 'movements',
   'order_inquiries.json': 'inquiries',
+  // Approval-workflow datasets: adjustments + transfers are persisted just
+  // like movements, so an APPROVED stock change survives a redeploy (without
+  // this mapping the Firestore driver's write() early-returns and the data
+  // would live only in the in-memory cache — silently lost on restart).
+  'stock_adjustments.json': 'stockAdjustments',
+  'stock_transfers.json': 'stockTransfers',
   '@users': 'users',
   '@sales': 'sales',
   '@alerts': 'alerts',

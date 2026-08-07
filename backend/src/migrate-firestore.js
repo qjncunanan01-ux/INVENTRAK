@@ -27,6 +27,8 @@ function dumpSnapshot(dbPath) {
       locations: all('SELECT * FROM locations ORDER BY id'),
       stock: all('SELECT * FROM stock ORDER BY id'),
       stock_movements: all('SELECT * FROM stock_movements ORDER BY id'),
+      stock_adjustments: all('SELECT * FROM stock_adjustments ORDER BY id'),
+      stock_transfers: all('SELECT * FROM stock_transfers ORDER BY id'),
       order_inquiries: all('SELECT * FROM order_inquiries ORDER BY id'),
       sales_transactions: all('SELECT * FROM sales_transactions ORDER BY id'),
       inventory_alerts: all('SELECT * FROM inventory_alerts ORDER BY id'),
@@ -105,6 +107,12 @@ function transformSnapshot(s) {
     'products.json': products,
     'inventory.json': { locations: (s.locations || []).map((l) => l.name), items },
     'stock_movements.json': s.stock_movements || [],
+    // Approval-workflow datasets ride the same pipeline so a migration carries
+    // pending/approved adjustments + transfers too (the catalog check only
+    // compares products/inventory/movements/inquiries, so these additions are
+    // safe for the drift guard).
+    'stock_adjustments.json': s.stock_adjustments || [],
+    'stock_transfers.json': s.stock_transfers || [],
     'order_inquiries.json': s.order_inquiries || [],
     '@users': s.users || [],
     '@sales': s.sales_transactions || [],

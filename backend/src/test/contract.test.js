@@ -859,6 +859,49 @@ test('contract: stock adjustments + transfers approval workflow is identical', a
   await both('GET /api/approvals (empty pending)', '/api/approvals', { auth: 'admin' });
 });
 
+test('contract: approving a stale request (inactive product / gone location) 400s identically', async () => {
+  // Deactivate product 1 on both backends (contract parity of the soft delete),
+  // then a pending adjustment created earlier would fail to approve.
+  await call(sqlite.url, '/api/products/1', { method: 'DELETE', token: sqlite.token.admin });
+  await call(npmfree.url, '/api/products/1', { method: 'DELETE', token: npmfree.token.admin });
+
+  const stale = await both('POST /api/stock-adjustments (stale product)', '/api/stock-adjustments', {
+    method: 'POST', auth: 'admin', body: { product_id: 1, location_id: 1, new_qty: 999, reason: 'stale test' },
+  });
+  assert.strictEqual(stale.a.status, 404, 'inactive product 404s on create (sqlite)');
+  assert.strictEqual(stale.b.status, 404, 'inactive product 404s on create (npmfree)');
+
+  // Create against an active product, THEN deactivate it, then try to approve.
+  const created = await both('POST /api/stock-adjustments (will go stale)', '/api/stock-adjustments', {
+    method: 'POST', auth: 'admin', body: { product_id: 3, location_id: 1, new_qty: 250, reason: 'stale approve test' },
+  });
+  assert.strictEqual(created.a.status, 201);
+  assert.strictEqual(created.b.status, 201);
+  await call(sqlite.url, '/api/products/3', { method: 'DELETE', token: sqlite.token.admin });
+  await call(npmfree.url, '/api/products/3', { method: 'DELETE', token: npmfree.token.admin });
+
+  const listA = await call(sqlite.url, '/api/stock-adjustments?status=pending', { token: sqlite.token.admin });
+  const listB = await call(npmfree.url, '/api/stock-adjustments?status=pending', { token: npmfree.token.admin });
+  assert.strictEqual(shapeOf(listA.json), shapeOf(listB.json), 'pending adjustment list shape parity');
+  const apprA = await call(sqlite.url, `/api/stock-adjustments/${listA.json[0].id}/approve`, { method: 'POST', token: sqlite.token.admin });
+  const apprB = await call(npmfree.url, `/api/stock-adjustments/${listB.json[0].id}/approve`, { method: 'POST', token: npmfree.token.admin });
+  assert.strictEqual(apprA.status, 400, 'sqlite: stale approve 400');
+  assert.strictEqual(apprB.status, 400, 'npmfree: stale approve 400');
+  assert.strictEqual(shapeOf(apprA.json), shapeOf(apprB.json), 'stale approve error shapes');
+});
+
+test('contract: deleting a location referenced by adjustments/transfers 400s identically', async () => {
+  // Create an adjustment on location 1, then attempt to delete location 1.
+  await both('POST /api/stock-adjustments (loc guard)', '/api/stock-adjustments', {
+    method: 'POST', auth: 'admin', body: { product_id: 4, location_id: 1, new_qty: 100, reason: 'location guard' },
+  });
+  const delA = await call(sqlite.url, '/api/locations/1', { method: 'DELETE', token: sqlite.token.admin });
+  const delB = await call(npmfree.url, '/api/locations/1', { method: 'DELETE', token: npmfree.token.admin });
+  assert.strictEqual(delA.status, 400, 'sqlite blocks location delete');
+  assert.strictEqual(delB.status, 400, 'npmfree blocks location delete');
+  assert.strictEqual(shapeOf(delA.json), shapeOf(delB.json), 'location-delete guard shapes');
+});
+
 test('contract: reports endpoint exposes the printable report shape identically', async () => {
   const res = await both('GET /api/reports', '/api/reports', { auth: 'admin' });
   assert.strictEqual(res.a.status, 200);

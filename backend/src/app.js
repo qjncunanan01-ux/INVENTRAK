@@ -1711,22 +1711,35 @@ function decideAdjustment(req, res, action) {
   const actor = req.user?.username || 'admin';
 
   if (action === 'approve') {
-    // Apply the correction: set the location's stock to the proposed qty and
-    // record an 'adjustment' movement so the ledger stays complete.
-    applyMovementEffect({
-      product_id: row.product_id,
-      qty: row.new_qty,
-      type: 'adjustment',
-      srcId: null,
-      dstId: row.location_id,
-      now,
-    });
-    db.prepare(
-      'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(row.product_id, row.new_qty, 'adjustment', null, row.location_id, `Adjustment #${row.id}: ${row.reason || 'approved correction'}`, now, actor);
-    db.prepare(
-      "UPDATE stock_adjustments SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ?"
-    ).run(now, actor, row.id);
+    // The product may have been soft-deleted since the request was created —
+    // never change stock for an inactive product.
+    const product = db.prepare('SELECT id FROM products WHERE id = ? AND status = ?').get(row.product_id, 'active');
+    if (!product) return res.status(400).json({ error: 'Product is no longer active' });
+    const loc = db.prepare('SELECT id FROM locations WHERE id = ?').get(row.location_id);
+    if (!loc) return res.status(400).json({ error: 'Location no longer exists' });
+  }
+
+  if (action === 'approve') {
+    // Atomic apply: stock change + ledger movement + status flip happen in ONE
+    // transaction. Without it, a failure between the statements could leave
+    // stock moved but the request still pending — and a retry would then
+    // apply the adjustment a second time.
+    db.transaction(() => {
+      applyMovementEffect({
+        product_id: row.product_id,
+        qty: row.new_qty,
+        type: 'adjustment',
+        srcId: null,
+        dstId: row.location_id,
+        now,
+      });
+      db.prepare(
+        'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(row.product_id, row.new_qty, 'adjustment', null, row.location_id, `Adjustment #${row.id}: ${row.reason || 'approved correction'}`, now, actor);
+      db.prepare(
+        "UPDATE stock_adjustments SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ?"
+      ).run(now, actor, row.id);
+    })();
     return res.json({ ok: true, message: 'Adjustment approved and applied to stock' });
   }
 
@@ -1784,25 +1797,35 @@ function decideTransfer(req, res, action) {
   const actor = req.user?.username || 'admin';
 
   if (action === 'approve') {
+    // Same staleness guards as adjustments: the product or the locations may
+    // have changed since the request was created.
+    const product = db.prepare('SELECT id FROM products WHERE id = ? AND status = ?').get(row.product_id, 'active');
+    if (!product) return res.status(400).json({ error: 'Product is no longer active' });
+    const src = db.prepare('SELECT id FROM locations WHERE id = ?').get(row.src_location);
+    const dst = db.prepare('SELECT id FROM locations WHERE id = ?').get(row.dst_location);
+    if (!src || !dst) return res.status(400).json({ error: 'Location no longer exists' });
     // Pre-flight availability exactly like the immediate movement handler.
     const srcStock = db.prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?').get(row.product_id, row.src_location);
     if (!srcStock || srcStock.quantity < row.qty) {
       return res.status(400).json({ error: 'Insufficient stock at source location' });
     }
-    applyMovementEffect({
-      product_id: row.product_id,
-      qty: row.qty,
-      type: 'transfer',
-      srcId: row.src_location,
-      dstId: row.dst_location,
-      now,
-    });
-    db.prepare(
-      'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(row.product_id, row.qty, 'transfer', row.src_location, row.dst_location, `Transfer #${row.id}: ${row.reason || 'approved transfer'}`, now, actor);
-    db.prepare(
-      "UPDATE stock_transfers SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ?"
-    ).run(now, actor, row.id);
+    // Atomic apply (see decideAdjustment — same double-apply hazard).
+    db.transaction(() => {
+      applyMovementEffect({
+        product_id: row.product_id,
+        qty: row.qty,
+        type: 'transfer',
+        srcId: row.src_location,
+        dstId: row.dst_location,
+        now,
+      });
+      db.prepare(
+        'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(row.product_id, row.qty, 'transfer', row.src_location, row.dst_location, `Transfer #${row.id}: ${row.reason || 'approved transfer'}`, now, actor);
+      db.prepare(
+        "UPDATE stock_transfers SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ?"
+      ).run(now, actor, row.id);
+    })();
     return res.json({ ok: true, message: 'Transfer approved and applied to stock' });
   }
 
@@ -1964,6 +1987,22 @@ app.delete(
       return res.status(400).json({
         error:
           'Cannot delete location with existing stock. Transfer stock first.',
+      });
+    }
+
+    // Referential integrity for the approval-workflow modules: a location
+    // referenced by any pending adjustment or transfer cannot be deleted (the
+    // FK would orphan the request and make its approve/reject confusing).
+    const adjRefs = db
+      .prepare('SELECT COUNT(*) as count FROM stock_adjustments WHERE location_id = ?')
+      .get(id).count;
+    const trfRefs = db
+      .prepare('SELECT COUNT(*) as count FROM stock_transfers WHERE src_location = ? OR dst_location = ?')
+      .get(id, id).count;
+    if (adjRefs > 0 || trfRefs > 0) {
+      return res.status(400).json({
+        error:
+          'Cannot delete location referenced by stock adjustments or transfers. Resolve them first.',
       });
     }
 

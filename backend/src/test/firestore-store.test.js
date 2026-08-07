@@ -35,6 +35,52 @@ test('firestore driver roundtrips rows and preserves array order', async () => {
   assert.deepStrictEqual(store.read('stock_movements.json'), [{ id: 1, name: 'only' }]);
 });
 
+test('firestore driver persists the approval-workflow datasets (adjustments + transfers)', async () => {
+  // Regression lock for the redeploy data-loss bug: stock_adjustments.json /
+  // stock_transfers.json must be mapped to real collections so approved
+  // adjustments survive a restart. Before the fix, write() early-returned
+  // (no collection mapping) and the data lived only in the in-memory cache.
+  const fake = makeFakeDb();
+  fsStore._setDb(fake);
+  await fsStore.init();
+
+  const adjustment = {
+    id: 1, product_id: 1, location_id: 1, new_qty: 150,
+    reason: 'physical count', status: 'approved',
+    created_at: '2026-08-07T00:00:00.000Z', decided_at: '2026-08-07T00:01:00.000Z', decided_by: 'admin',
+  };
+  const transfer = {
+    id: 1, product_id: 1, src_location: 2, dst_location: 3, qty: 10,
+    reason: 'restock', status: 'pending',
+    created_at: '2026-08-07T00:00:00.000Z', decided_at: null, decided_by: null,
+  };
+  fsStore.write('stock_adjustments.json', [adjustment]);
+  fsStore.write('stock_transfers.json', [transfer]);
+  await fsStore.flush();
+
+  // The persisted documents exist under the mapped collection names and are
+  // sanitized (null -> '' for the unset decided_at/decided_by on the transfer).
+  const adjDoc = fake._cols.get('stockAdjustments').get('1');
+  assert.ok(adjDoc, 'adjustment persisted to stockAdjustments collection');
+  assert.strictEqual(adjDoc.new_qty, 150);
+  const trfDoc = fake._cols.get('stockTransfers').get('1');
+  assert.ok(trfDoc, 'transfer persisted to stockTransfers collection');
+  assert.strictEqual(trfDoc.decided_at, '');
+  assert.strictEqual(trfDoc.decided_by, '');
+
+  // A fresh driver reading the SAME fake Firestore (same fake instance — a
+  // redeploy reads the same cloud project, not a new empty one) sees the rows
+  // back: the data survived in the cloud, not just the in-memory cache.
+  fsStore._setDb(fake);
+  await fsStore.init();
+  const readAdj = fsStore.read('stock_adjustments.json');
+  const readTrf = fsStore.read('stock_transfers.json');
+  assert.ok(Array.isArray(readAdj) && readAdj.length === 1, 'adjustments survive driver re-init');
+  assert.strictEqual(readAdj[0].new_qty, 150);
+  assert.ok(Array.isArray(readTrf) && readTrf.length === 1, 'transfers survive driver re-init');
+  assert.strictEqual(readTrf[0].status, 'pending');
+});
+
 test('firestore driver sanitizes nulls to empty strings (Firestore rejects null)', async () => {
   const fake = makeFakeDb();
   fsStore._setDb(fake);
