@@ -1014,7 +1014,8 @@
                 "pending",
                 "approved",
                 "rejected",
-                "fulfilled"
+                "fulfilled",
+                "delivered"
               ]
             }
           }
@@ -1063,11 +1064,11 @@
         },
         "responses": {
           "201": {
-            "description": "Inquiry submitted",
+            "description": "Inquiry submitted (with the GCash payment step when payment_method is gcash/card)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Message"
+                  "$ref": "#/components/schemas/InquiryCreated"
                 }
               }
             }
@@ -1116,7 +1117,8 @@
                       "pending",
                       "approved",
                       "rejected",
-                      "fulfilled"
+                      "fulfilled",
+                      "delivered"
                     ]
                   }
                 }
@@ -1146,6 +1148,110 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/order-inquiries/{id}/payment": {
+      "put": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "updateInquiryPayment",
+        "summary": "Mark an inquiry as paid/unpaid/failed after the GCash step",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment status updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/ocr": {
+      "post": {
+        "tags": [
+          "OCR"
+        ],
+        "operationId": "scanProductPhoto",
+        "summary": "Scan a product photo: OCR the image and fuzzy-match the catalog",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "image"
+                ],
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "description": "Base64-encoded image (max ~8 MB)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OCR text + fuzzy-matched products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "503": {
+            "description": "OCR engine unavailable (tesseract not configured)"
           }
         }
       }
@@ -1951,6 +2057,11 @@
               "inactive"
             ]
           },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Product photo: '/images/<file>' served by the backend, or a full URL"
+          },
           "created_at": {
             "type": "string"
           },
@@ -1997,6 +2108,11 @@
               "active",
               "inactive"
             ]
+          },
+          "image": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Product photo: '/images/<file>' served by the backend, or a full URL"
           }
         }
       },
@@ -2475,17 +2591,166 @@
             ],
             "default": "cod"
           },
+          "payment_status": {
+            "type": "string",
+            "enum": [
+              "unpaid",
+              "paid",
+              "failed"
+            ],
+            "default": "unpaid",
+            "description": "GCash/card payment state (COD inquiries stay unpaid)"
+          },
+          "payment_reference": {
+            "type": "string",
+            "nullable": true,
+            "description": "GCash-style payment reference code"
+          },
+          "payment_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "PayMongo checkout URL (real gateway) when configured"
+          },
+          "payment_qr": {
+            "type": "string",
+            "nullable": true,
+            "description": "QR image URL the customer scans to pay"
+          },
+          "payment_provider": {
+            "type": "string",
+            "nullable": true,
+            "description": "paymongo | demo"
+          },
+          "user_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Account that placed the inquiry (null for legacy/guest orders)"
+          },
+          "status_history": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON array of { status, at } progress events (Placed -> Approved -> Delivered)"
+          },
           "status": {
             "type": "string",
             "enum": [
               "pending",
               "approved",
               "rejected",
-              "fulfilled"
+              "fulfilled",
+              "delivered"
             ]
           },
           "created_at": {
             "type": "string"
+          }
+        }
+      },
+      "InquiryCreated": {
+        "type": "object",
+        "required": [
+          "ok",
+          "message",
+          "id"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer",
+            "description": "Id of the created inquiry"
+          },
+          "payment": {
+            "type": "object",
+            "description": "Payment step for GCash/card checkout (present when payment_method is gcash or card)",
+            "required": [
+              "payment_method",
+              "payment_status",
+              "payment_reference",
+              "payment_qr"
+            ],
+            "properties": {
+              "payment_method": {
+                "type": "string"
+              },
+              "payment_status": {
+                "type": "string"
+              },
+              "payment_reference": {
+                "type": "string"
+              },
+              "payment_url": {
+                "type": "string",
+                "nullable": true
+              },
+              "payment_qr": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PaymentUpdate": {
+        "type": "object",
+        "required": [
+          "payment_status"
+        ],
+        "properties": {
+          "payment_status": {
+            "type": "string",
+            "enum": [
+              "paid",
+              "unpaid",
+              "failed"
+            ]
+          }
+        }
+      },
+      "OcrResult": {
+        "type": "object",
+        "required": [
+          "text",
+          "matches"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Raw OCR-extracted text from the uploaded image"
+          },
+          "matches": {
+            "type": "array",
+            "description": "Catalog products fuzzy-matched from the OCR text, best first",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "score"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "image": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "score": {
+                  "type": "number",
+                  "description": "0..1 token-overlap match score"
+                }
+              }
+            }
           }
         }
       },
@@ -2658,6 +2923,145 @@
                 "count": {
                   "type": "integer"
                 }
+              }
+            }
+          },
+          "lowStockList": {
+            "type": "array",
+            "description": "Low-stock items (total < 80), ascending",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "total"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "stockByLocation": {
+            "type": "array",
+            "description": "Available stock totals per location",
+            "items": {
+              "type": "object",
+              "required": [
+                "location",
+                "total"
+              ],
+              "properties": {
+                "location": {
+                  "type": "string"
+                },
+                "total": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "fastMovingProducts": {
+            "type": "array",
+            "description": "Top 5 products by quantity sold",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "qty_sold"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "qty_sold": {
+                  "type": "number"
+                },
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "slowMovingProducts": {
+            "type": "array",
+            "description": "Bottom 5 products by quantity sold",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "qty_sold"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "qty_sold": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "dailySalesValue": {
+            "type": "array",
+            "description": "Sales value per day, last 7 days",
+            "items": {
+              "type": "object",
+              "required": [
+                "date",
+                "value"
+              ],
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "transactionCount": {
+            "type": "integer",
+            "description": "Number of sales transactions"
+          },
+          "customersServed": {
+            "type": "integer",
+            "description": "Distinct customers across sales"
+          },
+          "orderStatusSummary": {
+            "type": "object",
+            "description": "Inquiry counts per status",
+            "properties": {
+              "pending": {
+                "type": "integer"
+              },
+              "approved": {
+                "type": "integer"
+              },
+              "rejected": {
+                "type": "integer"
+              },
+              "fulfilled": {
+                "type": "integer"
+              },
+              "delivered": {
+                "type": "integer"
               }
             }
           }

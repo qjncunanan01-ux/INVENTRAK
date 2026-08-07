@@ -13,6 +13,7 @@ export default function StockMovementPage({ onLogout }) {
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [totalMovements, setTotalMovements] = useState(0);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({ type: 'stock-in', product_id: '', qty: '', src_location: '', dst_location: '', notes: '' });
 
   const loadData = async () => {
@@ -68,13 +69,19 @@ export default function StockMovementPage({ onLogout }) {
     }
   };
 
-  const movList = Array.isArray(movements) ? movements : [];
   const prodList = Array.isArray(products) ? products : [];
   const locList = Array.isArray(locations) ? locations : [];
   const lotList = Array.isArray(lots) ? lots : [];
 
   const productMap = prodList.reduce((acc, item) => ({ ...acc, [item.id]: item.name }), {});
   const locationMap = locList.reduce((acc, item) => ({ ...acc, [item.id]: item.name }), {});
+
+  const movList = Array.isArray(movements) ? movements.filter(m => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const pname = (productMap[m.product_id] || '').toLowerCase();
+    return pname.includes(q) || (m.type || '').toLowerCase().includes(q) || String(m.product_id).includes(q);
+  }) : [];
   const showSrc = form.type === 'stock-out' || form.type === 'transfer' || form.type === 'adjustment';
   const showDst = form.type === 'stock-in' || form.type === 'transfer' || form.type === 'adjustment';
 
@@ -132,7 +139,16 @@ export default function StockMovementPage({ onLogout }) {
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Typography variant="h6">Recent stock movements</Typography>
-          <Typography variant="body2" color="text.secondary">Total: {totalMovements}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <TextField
+              size="small"
+              label="Search product / type..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              sx={{ minWidth: 220, backgroundColor: colors.surface }}
+            />
+            <Typography variant="body2" color="text.secondary">Total: {totalMovements}</Typography>
+          </Box>
         </Box>
         <Table>
           <TableHead>

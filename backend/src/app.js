@@ -11,6 +11,8 @@ const { hashPassword, verifyPassword, consumeComparisonTime } = require('./passw
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
+const { buildPaymentStep } = require('./payments');
+const { handleOcr } = require('./ocr');
 
 // Brute-force throttling shared with the npm-free fallback (same module, same
 // semantics): failed logins per (username, IP) lock the account with an
@@ -197,7 +199,7 @@ function seedDatabase() {
   }
 
   const insertProduct = db.prepare(
-    'INSERT INTO products (name, category, brand, description, size, unit, price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO products (name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
 
   const getLocation = db.prepare(
@@ -244,7 +246,8 @@ function seedDatabase() {
         p['Size'] || p.size || '',
         p['Unit'] || p.unit || 'pcs',
         p['Price'] || p.price || 0,
-        'active'
+        'active',
+        p['Image'] || p.image || null
       );
 
       const pid = result.lastInsertRowid;
@@ -292,6 +295,12 @@ const app = express();
 
 app.use(cors());
 app.use(bodyParser.json());
+
+// Product photos: /images/<file> serves the supplier image library committed
+// under backend/images (the product `image` field holds '/images/...'). This
+// is middleware (not a route) so the route<->spec audit doesn't require an
+// OpenAPI entry for a static file server.
+app.use('/images', express.static(path.join(__dirname, '..', 'images')));
 
 // ================= AUTH ROUTES =================
 
@@ -910,6 +919,9 @@ app.post(
       type: 'number',
       min: 0,
     },
+    image: {
+      maxLength: 300,
+    },
   }),
   (req, res) => {
     const {
@@ -921,10 +933,11 @@ app.post(
       unit,
       price,
       status,
+      image,
     } = req.body;
 
     const info = db.prepare(
-      'INSERT INTO products (name, category, brand, description, size, unit, price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO products (name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       name,
       category,
@@ -933,7 +946,8 @@ app.post(
       size || '',
       unit || 'pcs',
       price,
-      status || 'active'
+      status || 'active',
+      image || null
     );
 
     res.status(201).json({
@@ -966,10 +980,11 @@ app.put(
       unit,
       price,
       status,
+      image,
     } = req.body;
 
     db.prepare(
-      "UPDATE products SET name=?, category=?, brand=?, description=?, size=?, unit=?, price=?, status=?, updated_at=datetime('now') WHERE id=?"
+      "UPDATE products SET name=?, category=?, brand=?, description=?, size=?, unit=?, price=?, status=?, image=?, updated_at=datetime('now') WHERE id=?"
     ).run(
       name,
       category,
@@ -979,6 +994,7 @@ app.put(
       unit,
       price,
       status,
+      image || null,
       req.params.id
     );
 
@@ -1864,6 +1880,17 @@ app.get(
       params.push(status);
     }
 
+    // Per-account scoping: admins see every inquiry; customers only their own
+    // (user_id match, with a legacy fallback to the account's email so orders
+    // placed before ownership was stamped still appear in history).
+    if (req.user.role !== 'admin') {
+      const owner = db
+        .prepare('SELECT email FROM users WHERE id = ?')
+        .get(req.user.id);
+      where += ' AND (user_id = ? OR customer_email = ? COLLATE NOCASE)';
+      params.push(req.user.id, (owner && owner.email) || '');
+    }
+
     const countRow = db
       .prepare(
         `SELECT COUNT(*) as total FROM order_inquiries ${where}`
@@ -1913,6 +1940,7 @@ app.put(
       'approved',
       'rejected',
       'fulfilled',
+      'delivered',
     ];
 
     if (
@@ -1940,10 +1968,26 @@ app.put(
     const updatedStatus =
       status || existing.status;
 
+    // Progress timeline (Shopee-style): append the new status with a
+    // timestamp; seed the 'placed' event from created_at when the row
+    // predates status tracking so the mobile card never shows a gap.
+    let history = [];
+    try {
+      const parsed = JSON.parse(existing.status_history || '[]');
+      if (Array.isArray(parsed)) history = parsed;
+    } catch {}
+    if (history.length === 0) {
+      history.push({ status: existing.status, at: existing.created_at });
+    }
+    if (updatedStatus !== (history[history.length - 1] || {}).status) {
+      history.push({ status: updatedStatus, at: new Date().toISOString() });
+    }
+
     db.prepare(
-      'UPDATE order_inquiries SET status = ? WHERE id = ?'
+      'UPDATE order_inquiries SET status = ?, status_history = ? WHERE id = ?'
     ).run(
       updatedStatus,
+      JSON.stringify(history),
       req.params.id
     );
 
@@ -1972,7 +2016,7 @@ app.post(
       maxLength: 100,
     },
   }),
-  (req, res) => {
+  async (req, res) => {
     const {
       customer_name,
       customer_email,
@@ -2003,8 +2047,21 @@ app.post(
 
     const now = new Date().toISOString();
 
-    db.prepare(
-      'INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    // Optional auth: the app sends the customer's token at checkout, so the
+    // inquiry can be stamped with its owner for per-account history. A missing
+    // or invalid token still submits (legacy guest orders) with user_id null.
+    let userId = null;
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded && decoded.id) userId = decoded.id;
+      } catch {}
+    }
+
+    const inquiryId = db.prepare(
+      'INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, user_id, status_history, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       customer_name,
       customer_email,
@@ -2014,16 +2071,88 @@ app.post(
       notes || '',
       delivery_address || null,
       payment_method || 'cod',
+      userId,
+      JSON.stringify([{ status: 'pending', at: now }]),
       'pending',
       now
-    );
+    ).lastInsertRowid;
+
+    // GCash/Card checkout: build the payment step (PayMongo session when a
+    // key is configured, else the QR demo fallback) and persist it on the
+    // inquiry so the customer can pay right after placing the order. The
+    // payment builder is internally guarded, but a belt-and-braces catch
+    // keeps checkout alive even if a future provider integration throws.
+    let payment = null;
+    try {
+      payment = await buildPaymentStep({
+        id: inquiryId,
+        amount: estimated_cost || 0,
+        description: `INVENTRAK order ${inquiryId} — ${customer_name}`,
+        email: customer_email,
+        paymentMethod: payment_method || 'cod',
+      });
+    } catch (err) {
+      console.error('[payments] buildPaymentStep failed:', err && err.message);
+    }
+    if (payment) {
+      db.prepare(
+        "UPDATE order_inquiries SET payment_method = ?, payment_status = ?, payment_reference = ?, payment_url = ?, payment_qr = ?, payment_provider = ? WHERE id = ?"
+      ).run(
+        payment.payment_method,
+        payment.payment_status,
+        payment.payment_reference,
+        payment.payment_url,
+        payment.payment_qr,
+        payment.payment_provider,
+        inquiryId
+      );
+    }
 
     res.status(201).json({
       ok: true,
       message: 'Inquiry submitted',
+      id: inquiryId,
+      ...(payment ? {
+        payment: {
+          payment_method: payment.payment_method,
+          payment_status: payment.payment_status,
+          payment_reference: payment.payment_reference,
+          payment_url: payment.payment_url,
+          payment_qr: payment.payment_qr,
+        },
+      } : {}),
     });
   }
 );
+
+// ================= OCR ROUTE =================
+//
+// Scan a product photo (mobile OCR module): upload a base64 image, get the
+// extracted text + fuzzy-matched catalog products. Public like /api/products
+// so guests can scan before creating an account.
+app.post('/api/ocr', bodyParser.json({ limit: '12mb' }), async (req, res) => {
+  const products = db.prepare('SELECT * FROM products WHERE status = ?').all('active');
+  await handleOcr(req, res, (r, code, body) => r.status(code).json(body), products);
+});
+
+// Mark an inquiry as paid (customer confirms after the GCash step).
+app.put('/api/order-inquiries/:id/payment', authenticateToken, (req, res) => {
+  const { payment_status } = req.body;
+  if (!['paid', 'unpaid', 'failed'].includes(payment_status)) {
+    return res.status(400).json({ error: 'payment_status must be one of paid, unpaid, failed' });
+  }
+  const existing = db.prepare('SELECT * FROM order_inquiries WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Order inquiry not found' });
+  // Customers may only mark their own inquiry paid; admins any.
+  if (req.user.role !== 'admin') {
+    const owner = db.prepare('SELECT email FROM users WHERE id = ?').get(req.user.id);
+    const mine = Number(existing.user_id) === Number(req.user.id) ||
+      (owner && String(existing.customer_email || '').toLowerCase() === String(owner.email || '').toLowerCase());
+    if (!mine) return res.status(403).json({ error: 'Not your inquiry' });
+  }
+  db.prepare('UPDATE order_inquiries SET payment_status = ? WHERE id = ?').run(payment_status, req.params.id);
+  res.json({ ok: true, payment_status });
+});
 
 // ================= ANALYTICS/REPORT ROUTES =================
 
@@ -2041,11 +2170,13 @@ app.get(
         'SELECT SUM(quantity) as total FROM stock'
       ).get().total || 0;
 
+    // Per-PRODUCT total below the 80-unit threshold — the same definition as
+    // the lowStockList table below, so the KPI card and the table agree.
     const lowStockItems = db
       .prepare(
-        'SELECT COUNT(*) as count FROM stock WHERE quantity < 80'
+        'SELECT COUNT(*) as count FROM (SELECT p.id FROM stock s JOIN products p ON s.product_id = p.id WHERE p.status = ? GROUP BY p.id HAVING SUM(s.quantity) < 80)'
       )
-      .get().count;
+      .get('active').count;
 
     const totalLocations = db
       .prepare(
@@ -2088,6 +2219,75 @@ app.get(
       )
       .all();
 
+    // ---- Reviewer-required dashboard data (low stock list, stock per
+    // location, fast/slow movers, daily sales, transactions, customers
+    // served, order status summary) ----
+
+    // 1. Low-stock items: name + total, sorted ascending.
+    const lowStockList = db
+      .prepare(
+        `SELECT p.id, p.name, SUM(s.quantity) as total
+         FROM stock s JOIN products p ON s.product_id = p.id
+         WHERE p.status = ?
+         GROUP BY p.id HAVING SUM(s.quantity) < 80
+         ORDER BY total ASC LIMIT 20`
+      )
+      .all('active');
+
+    // 2. Available stocks per location.
+    const stockByLocation = db
+      .prepare(
+        `SELECT l.name as location, COALESCE(SUM(s.quantity), 0) as total
+         FROM locations l LEFT JOIN stock s ON s.location_id = l.id
+         GROUP BY l.id ORDER BY total DESC`
+      )
+      .all();
+
+    // 3. Fast-moving products: top by quantity sold.
+    const fastMovingProducts = db
+      .prepare(
+        `SELECT p.id, p.name, SUM(t.qty) as qty_sold, SUM(t.total_amount) as value
+         FROM sales_transactions t JOIN products p ON t.product_id = p.id
+         WHERE p.status = ?
+         GROUP BY t.product_id ORDER BY qty_sold DESC LIMIT 5`
+      )
+      .all('active');
+
+    // 4. Slow-moving products: bottom by quantity sold (products with sales).
+    const slowMovingProducts = db
+      .prepare(
+        `SELECT p.id, p.name, COALESCE(SUM(t.qty), 0) as qty_sold
+         FROM products p LEFT JOIN sales_transactions t ON t.product_id = p.id
+         WHERE p.status = ?
+         GROUP BY p.id ORDER BY qty_sold ASC, p.name ASC LIMIT 5`
+      )
+      .all('active');
+
+    // 5. Daily sales value, last 7 days.
+    const dailySalesValue = db
+      .prepare(
+        `SELECT substr(transaction_date, 1, 10) as date, SUM(total_amount) as value
+         FROM sales_transactions
+         WHERE transaction_date >= datetime('now', '-7 days')
+         GROUP BY date ORDER BY date ASC`
+      )
+      .all();
+
+    // 6. Number of transactions (sales) and customers served (distinct names).
+    const transactionCount = db
+      .prepare('SELECT COUNT(*) as count FROM sales_transactions')
+      .get().count;
+    const customersServed = db
+      .prepare('SELECT COUNT(DISTINCT customer_name) as count FROM sales_transactions')
+      .get().count;
+
+    // 7. Order status summary (incl. the new 'delivered' state).
+    const statusRows = db
+      .prepare('SELECT status, COUNT(*) as count FROM order_inquiries GROUP BY status')
+      .all();
+    const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+    statusRows.forEach((r) => { if (orderStatusSummary[r.status] !== undefined) orderStatusSummary[r.status] = r.count; });
+
     res.json({
       totalProducts,
       totalStock,
@@ -2099,6 +2299,14 @@ app.get(
       activeAlerts,
       topProducts,
       monthlyMovements,
+      lowStockList,
+      stockByLocation,
+      fastMovingProducts,
+      slowMovingProducts,
+      dailySalesValue,
+      transactionCount,
+      customersServed,
+      orderStatusSummary,
     });
   }
 );

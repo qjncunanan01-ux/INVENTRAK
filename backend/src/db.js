@@ -59,6 +59,39 @@ if (!inquiryColumns.some((c) => c.name === 'delivery_address')) {
 if (!inquiryColumns.some((c) => c.name === 'payment_method')) {
   db.exec("ALTER TABLE order_inquiries ADD COLUMN payment_method TEXT DEFAULT 'cod'");
 }
+// Checkout ownership + progress timeline: user_id links an inquiry to the
+// account that placed it (per-account history scoping); status_history is the
+// JSON timeline of status changes (Placed -> Approved -> Delivered) shown on
+// the mobile cards. Additive.
+if (!inquiryColumns.some((c) => c.name === 'user_id')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN user_id INTEGER');
+}
+if (!inquiryColumns.some((c) => c.name === 'status_history')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN status_history TEXT');
+}
+// Payment step (GCash/card): payment_status/reference/url/qr/provider are
+// added by the checkout handler after the inquiry is inserted. Additive.
+if (!inquiryColumns.some((c) => c.name === 'payment_status')) {
+  db.exec("ALTER TABLE order_inquiries ADD COLUMN payment_status TEXT DEFAULT 'unpaid'");
+}
+if (!inquiryColumns.some((c) => c.name === 'payment_reference')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_reference TEXT');
+}
+if (!inquiryColumns.some((c) => c.name === 'payment_url')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_url TEXT');
+}
+if (!inquiryColumns.some((c) => c.name === 'payment_qr')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_qr TEXT');
+}
+if (!inquiryColumns.some((c) => c.name === 'payment_provider')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_provider TEXT');
+}
+
+// Product images (supplier photo library -> /images/* served by both backends).
+const productColumns = db.prepare('PRAGMA table_info(products)').all();
+if (!productColumns.some((c) => c.name === 'image')) {
+  db.exec('ALTER TABLE products ADD COLUMN image TEXT');
+}
 
 // Migration: users gained email verification + an optional phone number for
 // SMS codes (signup verification). Existing rows default to VERIFIED (1) so

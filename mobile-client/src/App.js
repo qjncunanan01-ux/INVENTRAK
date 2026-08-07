@@ -17,6 +17,10 @@ import VerifyEmailScreen from './screens/VerifyEmailScreen';
 import AccountScreen from './screens/AccountScreen';
 import CategoriesScreen from './screens/CategoriesScreen';
 import SearchScreen from './screens/SearchScreen';
+import OcrScreen from './screens/OcrScreen';
+import StockAvailabilityScreen from './screens/StockAvailabilityScreen';
+import PaymentScreen from './screens/PaymentScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
 import { colors } from './theme';
 
 const AuthStack = createNativeStackNavigator();
@@ -36,6 +40,8 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="Recommendations" component={RecommendationScreen} options={{ title: 'Recommendations' }} />
       <CatalogStack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Categories' }} />
       <CatalogStack.Screen name="Search" component={SearchScreen} options={{ title: 'Search', headerShown: false }} />
+      <CatalogStack.Screen name="OCR" component={OcrScreen} options={{ title: 'Scan a Product' }} />
+      <CatalogStack.Screen name="StockAvailability" component={StockAvailabilityScreen} options={{ title: 'Stock Availability' }} />
     </CatalogStack.Navigator>
   );
 }
@@ -45,6 +51,8 @@ function OrdersNavigator() {
     <OrdersStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.brandPrimary }, headerTintColor: '#fff' }}>
       <OrdersStack.Screen name="InquiryHistory" component={InquiryHistoryScreen} options={{ title: 'Order History' }} />
       <OrdersStack.Screen name="OrderInquiry" component={OrderInquiryScreen} options={{ title: 'Order Inquiry' }} />
+      <OrdersStack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Payment' }} />
+      <OrdersStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
     </OrdersStack.Navigator>
   );
 }

@@ -41,6 +41,7 @@ function normalizeProductRow(p) {
     'Size': p['Size'] ?? p.size ?? '',
     'Unit': p['Unit'] ?? p.unit ?? '',
     'Price': p['Price'] ?? p.price ?? 0,
+    'Image': p['Image'] ?? p.image ?? '',
   };
   if (p.status && p.status !== 'active') out['status'] = p.status;
   return out;

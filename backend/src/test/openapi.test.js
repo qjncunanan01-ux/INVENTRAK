@@ -318,7 +318,9 @@ test('openapi: order inquiries lifecycle', async () => {
     estimated_cost: 120,
     notes: 'openapi test',
   };
-  await bothConform('create inquiry', 'POST', '/api/order-inquiries', { body: payload });
+  // Placed with the customer token so the order is stamped to its owner
+  // (per-account history scoping keeps the owner's list populated).
+  await bothConform('create inquiry', 'POST', '/api/order-inquiries', { auth: 'customer', body: payload });
   await bothConform('inquiry missing email', 'POST', '/api/order-inquiries', {
     body: { customer_name: 'No Email' }, checkRequest: false,
   });

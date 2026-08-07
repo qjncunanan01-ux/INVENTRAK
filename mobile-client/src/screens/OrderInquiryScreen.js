@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Button, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { createOrderInquiry, getMe, listProducts, useSessionUsername } from '../api';
+import { ActivityIndicator, Alert, Button, FlatList, Image, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { createOrderInquiry, getMe, imageUrl, listProducts, useSessionUsername } from '../api';
 import { colors } from '../theme';
 
 const PAYMENT_METHODS = [
@@ -11,6 +11,7 @@ const PAYMENT_METHODS = [
 
 export default function OrderInquiryScreen({ route, navigation }) {
   const preselectId = route.params?.preselectId;
+  const bundleIds = route.params?.bundleIds;
   // Guests can fill the whole form, but must log in / create an account to
   // actually submit — the account is only required at the point of buying.
   const sessionUser = useSessionUsername(null);
@@ -59,16 +60,24 @@ export default function OrderInquiryScreen({ route, navigation }) {
     }
   }, [isLoggedIn, sessionUser, prefilledFor]);
 
-  // Deep link from a product detail page: pre-fill that product's qty to 1,
-  // but only ONCE per preselectId — refreshes must not re-fill after the
-  // customer edits (or clears) the quantity themselves.
+  // Deep link from a product detail page: pre-fill that product's qty to 1.
+  // Deep link from the recommendation bundle: pre-fill EVERY bundle item to 1.
+  // Both fire once per link — refreshes must not re-fill after the customer
+  // edits (or clears) the quantities themselves.
   const prefilledRef = useRef(null);
   useEffect(() => {
-    if (preselectId && products.length > 0 && prefilledRef.current !== preselectId) {
-      prefilledRef.current = preselectId;
+    if (products.length === 0) return;
+    const key = bundleIds ? 'bundle:' + bundleIds.join(',') : preselectId ? 'single:' + preselectId : null;
+    if (!key || prefilledRef.current === key) return;
+    prefilledRef.current = key;
+    if (bundleIds) {
+      const next = { ...quantities };
+      bundleIds.forEach((id) => { next[id] = '1'; });
+      setQuantities(next);
+    } else if (preselectId) {
       setQuantities((prev) => ({ ...prev, [preselectId]: '1' }));
     }
-  }, [preselectId, products]);
+  }, [preselectId, bundleIds, products]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -118,7 +127,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
     }
     setSubmitting(true);
     try {
-      await createOrderInquiry({
+      const created = await createOrderInquiry({
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone.trim() || null,
@@ -129,8 +138,27 @@ export default function OrderInquiryScreen({ route, navigation }) {
         payment_method: paymentMethod,
       });
       setMessage('Order placed successfully!');
-      // Checkout done (Shopee/Lazada style): the order is in as "pending" —
-      // lead straight to order history to watch it get approved/fulfilled.
+      setQuantities({});
+      setNotes('');
+      setDeliveryAddress('');
+
+      // GCash/Card checkout now has a real payment step: the backend returns a
+      // payment reference + QR (and a PayMongo checkout URL when configured).
+      // Lead the customer there to actually pay, Shopee-style.
+      const payment = created && created.payment;
+      if (payment && payment.payment_qr) {
+        navigation.navigate('Payment', {
+          inquiryId: created.id,
+          payment: {
+            payment_method: payment.payment_method || paymentMethod,
+            payment_reference: payment.payment_reference,
+            payment_url: payment.payment_url,
+            payment_qr: payment.payment_qr,
+          },
+        });
+        return;
+      }
+
       Alert.alert(
         'Order Placed 🎉',
         `Your order (${selectedItems.length} item${selectedItems.length > 1 ? 's' : ''}, ${paymentMethod.toUpperCase()}) has been submitted. The store will review it shortly.`,
@@ -139,9 +167,6 @@ export default function OrderInquiryScreen({ route, navigation }) {
           { text: 'Done', style: 'cancel' },
         ]
       );
-      setQuantities({});
-      setNotes('');
-      setDeliveryAddress('');
     } catch (err) {
       setMessage('Failed to submit inquiry.');
       Alert.alert('Error', err.message);
@@ -212,6 +237,9 @@ export default function OrderInquiryScreen({ route, navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         renderItem={({ item }) => (
           <View style={styles.productRow}>
+            {item.image ? (
+              <Image source={{ uri: imageUrl(item.image) }} style={styles.productThumb} resizeMode="cover" />
+            ) : null}
             <View style={styles.productInfo}>
               <Text style={styles.productName}>{item.name}</Text>
               <Text style={styles.productPrice}>P{item.price} each</Text>
@@ -263,6 +291,7 @@ const styles = StyleSheet.create({
   paymentChipHint: { fontSize: 10, color: colors.textSecondary, marginTop: 2 },
   paymentChipHintActive: { color: colors.brandPrimary },
   productRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between', backgroundColor: colors.surface, padding: 10, borderRadius: 10 },
+  productThumb: { width: 46, height: 46, borderRadius: 8, marginRight: 10, backgroundColor: colors.background },
   productInfo: { flex: 1, marginRight: 12 },
   productName: { fontWeight: '600', color: colors.textPrimary, fontSize: 15 },
   productPrice: { color: colors.textSecondary, fontSize: 13 },

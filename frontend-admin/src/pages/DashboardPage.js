@@ -1,6 +1,6 @@
-import { Box, Chip, Grid, Paper, Snackbar, Typography } from '@mui/material';
+import { Box, Chip, Grid, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { apiGet } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
@@ -11,7 +11,11 @@ export default function DashboardPage({ user, onLogout }) {
   const [summary, setSummary] = useState({
     totalProducts: 0, totalStock: 0, lowStockItems: 0, totalLocations: 0,
     pendingInquiries: 0, totalSales: 0, totalMovements: 0, activeAlerts: 0,
-    topProducts: [], monthlyMovements: []
+    topProducts: [], monthlyMovements: [],
+    // Reviewer-required dashboard data
+    lowStockList: [], stockByLocation: [], fastMovingProducts: [],
+    slowMovingProducts: [], dailySalesValue: [], transactionCount: 0,
+    customersServed: 0, orderStatusSummary: {},
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -50,6 +54,28 @@ export default function DashboardPage({ user, onLogout }) {
     adjustment: types.adjustment || 0,
   }));
 
+  // Reviewer: available stocks per location.
+  const locationChartData = (summary.stockByLocation || []).map(l => ({
+    name: l.location,
+    stock: l.total,
+  }));
+
+  // Reviewer: daily sales value (last 7 days).
+  const dailySalesData = (summary.dailySalesValue || []).map(d => ({
+    date: (d.date || '').slice(5),
+    value: Math.round(d.value),
+  }));
+
+  // Reviewer: order status summary.
+  const os = summary.orderStatusSummary || {};
+  const statusChartData = [
+    { name: 'Pending', value: os.pending || 0 },
+    { name: 'Approved', value: os.approved || 0 },
+    { name: 'Fulfilled', value: os.fulfilled || 0 },
+    { name: 'Delivered', value: os.delivered || 0 },
+    { name: 'Rejected', value: os.rejected || 0 },
+  ].filter(d => d.value > 0);
+
   const panels = [
     { label: 'Total products', value: summary.totalProducts, color: colors.brandPrimary },
     { label: 'Total inventory', value: summary.totalStock.toLocaleString(), color: colors.info },
@@ -59,6 +85,8 @@ export default function DashboardPage({ user, onLogout }) {
     { label: 'Total sales (P)', value: `P${summary.totalSales.toLocaleString()}`, color: colors.success },
     { label: 'Stock movements', value: summary.totalMovements, color: colors.info },
     { label: 'Active alerts', value: summary.activeAlerts, color: summary.activeAlerts > 0 ? colors.error : colors.success },
+    { label: 'Transactions', value: summary.transactionCount, color: colors.brandPrimary },
+    { label: 'Customers served', value: summary.customersServed, color: '#7b1fa2' },
   ];
 
   if (error && loading === false) {
@@ -77,7 +105,7 @@ export default function DashboardPage({ user, onLogout }) {
     <AdminLayout title="Admin Dashboard" onLogout={onLogout}>
       <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
         <Typography variant="subtitle1" color="text.secondary">
-          Welcome back, <strong>{user?.username}</strong>. Review the latest inventory health and analytics.
+          Welcome back, <strong>{user?.username}</strong>. Review the latest inventory health, sales analytics, and order statuses.
         </Typography>
         {summary.activeAlerts > 0 && (
           <Chip label={`${summary.activeAlerts} active alert(s)`} color="error" size="small" />
@@ -87,7 +115,7 @@ export default function DashboardPage({ user, onLogout }) {
       {/* Summary Cards */}
       <Grid container spacing={3}>
         {panels.map((panel) => (
-          <Grid item xs={12} sm={6} md={3} key={panel.label}>
+          <Grid item xs={12} sm={6} md={2} lg={2} key={panel.label}>
             <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3, borderLeft: `4px solid ${panel.color}` }}>
               <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 1, fontSize: '0.75rem' }}>
                 {panel.label}
@@ -100,23 +128,70 @@ export default function DashboardPage({ user, onLogout }) {
         ))}
       </Grid>
 
-      {/* Charts Row */}
+      {/* Charts Row 1: sales value + order status */}
       <Grid container spacing={3} sx={{ mt: 1 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Top Products by Stock Value</Typography>
-            {productValueData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={productValueData}>
+            <Typography variant="h6" mb={2}>Daily Sales Value (last 7 days)</Typography>
+            {dailySalesData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={dailySalesData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(val) => `P${val.toLocaleString()}`} />
+                  <Line type="monotone" dataKey="value" stroke={colors.success} strokeWidth={2.5} dot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <Typography color="text.secondary">No sales in the last 7 days</Typography>
+            )}
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Typography variant="h6" mb={2}>Order Status Summary</Typography>
+            {statusChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie
+                    data={statusChartData}
+                    cx="50%" cy="50%" outerRadius={95}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {['#f9a825', colors.info, colors.success, colors.brandPrimary, colors.error].map((color, i) => (
+                      <Cell key={i} fill={color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <Typography color="text.secondary">No inquiries yet</Typography>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Charts Row 2: stock per location + movement distribution */}
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Typography variant="h6" mb={2}>Available Stocks per Location</Typography>
+            {locationChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={locationChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(val) => `P${val.toLocaleString()}`} />
-                  <Bar dataKey="value" fill={colors.brandPrimary} radius={[6, 6, 0, 0]} />
+                  <Tooltip />
+                  <Bar dataKey="stock" name="Units" fill={colors.brandPrimary} radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <Typography color="text.secondary">No product data available</Typography>
+              <Typography color="text.secondary">No location data available</Typography>
             )}
           </Paper>
         </Grid>
@@ -124,7 +199,7 @@ export default function DashboardPage({ user, onLogout }) {
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2}>Stock Movement Distribution</Typography>
             {movementChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
                     data={[
@@ -145,6 +220,101 @@ export default function DashboardPage({ user, onLogout }) {
               </ResponsiveContainer>
             ) : (
               <Typography color="text.secondary">No movement data yet</Typography>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Fast vs slow movers */}
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Typography variant="h6" mb={2}>Fast-Moving Products</Typography>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Product</TableCell>
+                  <TableCell align="right">Units sold</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(summary.fastMovingProducts || []).length === 0 ? (
+                  <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No sales data</Typography></TableCell></TableRow>
+                ) : summary.fastMovingProducts.map(p => (
+                  <TableRow key={p.id}>
+                    <TableCell>{p.name}</TableCell>
+                    <TableCell align="right"><strong>{p.qty_sold}</strong></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Typography variant="h6" mb={2}>Slow-Moving Products</Typography>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Product</TableCell>
+                  <TableCell align="right">Units sold</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(summary.slowMovingProducts || []).length === 0 ? (
+                  <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No product data</Typography></TableCell></TableRow>
+                ) : summary.slowMovingProducts.map(p => (
+                  <TableRow key={p.id}>
+                    <TableCell>{p.name}</TableCell>
+                    <TableCell align="right">{p.qty_sold}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Low stock list + top products value */}
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Typography variant="h6" mb={2}>Low-Stock Items (below 80 units)</Typography>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Product</TableCell>
+                  <TableCell align="right">Total stock</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(summary.lowStockList || []).length === 0 ? (
+                  <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No low-stock items 🎉</Typography></TableCell></TableRow>
+                ) : summary.lowStockList.map(p => (
+                  <TableRow key={p.id}>
+                    <TableCell>{p.name}</TableCell>
+                    <TableCell align="right"><Chip label={p.total} size="small" color="warning" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Typography variant="h6" mb={2}>Top Products by Stock Value</Typography>
+            {productValueData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={productValueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(val) => `P${val.toLocaleString()}`} />
+                  <Bar dataKey="value" fill={colors.brandPrimary} radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <Typography color="text.secondary">No product data available</Typography>
             )}
           </Paper>
         </Grid>

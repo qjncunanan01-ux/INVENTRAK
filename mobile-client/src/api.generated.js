@@ -94,6 +94,10 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createOrderInquiry: (body) => request('POST', '/api/order-inquiries', { body }),
   // PUT /api/order-inquiries/{id} — Update inquiry status (pending -> approved -> fulfilled / rejected)
   updateOrderInquiry: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}', { params: { id }, body }),
+  // PUT /api/order-inquiries/{id}/payment — Mark an inquiry as paid/unpaid/failed after the GCash step
+  updateInquiryPayment: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}/payment', { params: { id }, body }),
+  // POST /api/ocr — Scan a product photo: OCR the image and fuzzy-match the catalog
+  scanProductPhoto: (body) => request('POST', '/api/ocr', { body }),
   // GET /api/optimization — Bulk optimization metrics for all products
   getOptimizationBulk: (_) => request('GET', '/api/optimization', {  }),
   // GET /api/optimization/abc — ABC classification of products

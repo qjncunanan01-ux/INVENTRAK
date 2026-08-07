@@ -107,6 +107,7 @@ function canonicalFromSqlite(snap) {
     unit: p.unit,
     price: p.price,
     status: canonStatus(p.status),
+    image: p.image || null,
     updated_at: p.updated_at,
   }));
 
@@ -136,6 +137,9 @@ function canonicalFromSqlite(snap) {
       customer_phone: o.customer_phone, products: o.products,
       estimated_cost: o.estimated_cost, notes: o.notes,
       delivery_address: o.delivery_address, payment_method: o.payment_method,
+      payment_status: o.payment_status, payment_reference: o.payment_reference,
+      payment_url: o.payment_url, payment_qr: o.payment_qr, payment_provider: o.payment_provider,
+      user_id: o.user_id, status_history: o.status_history,
       status: o.status, created_at: o.created_at,
     })),
     '@users': (s.users || []).map((u) => unset({
@@ -174,6 +178,7 @@ function canonicalFromFirestore(read) {
     unit: r['Unit'],
     price: r['Price'],
     status: canonStatus(r.status),
+    image: r['Image'] || r.image || null,
     updated_at: r.updated_at,
   }));
 
@@ -200,6 +205,13 @@ function canonicalFromFirestore(read) {
       customer_phone: o.customer_phone, products: o.products,
       estimated_cost: o.estimated_cost, notes: o.notes,
       delivery_address: o.delivery_address, payment_method: o.payment_method,
+      payment_status: o.payment_status === undefined || o.payment_status === '' ? 'unpaid' : o.payment_status,
+      payment_reference: o.payment_reference || null,
+      payment_url: o.payment_url || null,
+      payment_qr: o.payment_qr || null,
+      payment_provider: o.payment_provider || null,
+      user_id: o.user_id === undefined || o.user_id === null || o.user_id === '' ? null : Number(o.user_id),
+      status_history: o.status_history || null,
       status: o.status, created_at: o.created_at,
     })),
     '@users': mk(read['@users'], (u) => ({
@@ -416,15 +428,16 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
 
   // Products: upsert by id (ids stay stable across the sync).
   const upsertProduct = db.prepare(
-    `INSERT INTO products (id, name, category, brand, description, size, unit, price, status, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO products (id, name, category, brand, description, size, unit, price, status, image, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name=excluded.name, category=excluded.category, brand=excluded.brand,
        description=excluded.description, size=excluded.size, unit=excluded.unit,
-       price=excluded.price, status=excluded.status, updated_at=excluded.updated_at`
+       price=excluded.price, status=excluded.status, image=excluded.image,
+       updated_at=excluded.updated_at`
   );
   for (const p of byId(canonical['products.json'])) {
-    upsertProduct.run(p.id, p.name, p.category, p.brand, p.description, p.size, p.unit, p.price, p.status, p.updated_at);
+    upsertProduct.run(p.id, p.name, p.category, p.brand, p.description, p.size, p.unit, p.price, p.status, p.image || null, p.updated_at);
   }
 
   // Locations: ensure every name exists (never deletes).
@@ -460,17 +473,21 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
   }
 
   const upsertInquiry = db.prepare(
-    `INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, payment_status, payment_reference, payment_url, payment_qr, payment_provider, user_id, status_history, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        customer_name=excluded.customer_name, customer_email=excluded.customer_email,
        customer_phone=excluded.customer_phone, products=excluded.products,
        estimated_cost=excluded.estimated_cost, notes=excluded.notes,
        delivery_address=excluded.delivery_address, payment_method=excluded.payment_method,
+       payment_status=excluded.payment_status, payment_reference=excluded.payment_reference,
+       payment_url=excluded.payment_url, payment_qr=excluded.payment_qr,
+       payment_provider=excluded.payment_provider,
+       user_id=excluded.user_id, status_history=excluded.status_history,
        status=excluded.status, created_at=excluded.created_at`
   );
   for (const o of byId(canonical['order_inquiries.json'])) {
-    upsertInquiry.run(o.id, o.customer_name, o.customer_email, o.customer_phone, o.products, o.estimated_cost, o.notes, o.delivery_address, o.payment_method, o.status, o.created_at);
+    upsertInquiry.run(o.id, o.customer_name, o.customer_email, o.customer_phone, o.products, o.estimated_cost, o.notes, o.delivery_address, o.payment_method, o.payment_status || 'unpaid', o.payment_reference || null, o.payment_url || null, o.payment_qr || null, o.payment_provider || null, o.user_id || null, o.status_history || null, o.status, o.created_at);
   }
 
   const upsertUser = db.prepare(

@@ -77,6 +77,14 @@ export function getApiBaseUrl() {
   return currentBaseUrl;
 }
 
+// Product photos: the backend stores '/images/<file>' paths (or full URLs).
+// Resolve to an absolute URL the <Image> component can load against the
+// current API base (baked deployed URL or local dev host).
+export function imageUrl(image) {
+  if (!image) return null;
+  return /^https?:\/\//i.test(image) ? image : currentBaseUrl + image;
+}
+
 // Applies + persists a manual API URL override. Returns false on invalid input.
 export function setApiBaseUrl(url) {
   const clean = String(url || '').trim().replace(/\/+$/, '');
@@ -255,6 +263,8 @@ export const listStockLots = client.listStockLots;
 export const listOrderInquiries = client.listOrderInquiries;
 export const createOrderInquiry = client.createOrderInquiry;
 export const updateOrderInquiry = client.updateOrderInquiry;
+export const updateInquiryPayment = client.updateInquiryPayment;
+export const scanProductPhoto = client.scanProductPhoto;
 export const getOptimizationBulk = client.getOptimizationBulk;
 export const getOptimizationAbc = client.getOptimizationAbc;
 export const getOptimization = client.getOptimization;

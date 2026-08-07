@@ -49,6 +49,7 @@ function formatProduct(row) {
     unit: row.unit ?? '',
     price: row.price ?? 0,
     status: row.status ?? 'active',
+    image: row.image ?? '',
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -67,6 +68,7 @@ function transformSnapshot(s) {
       'Size': p.size ?? '',
       'Unit': p.unit ?? '',
       'Price': p.price ?? 0,
+      'Image': p.image ?? '',
     };
     // Mirror the seed-file convention: active products carry no status key.
     // A NULL status (a partial PUT nulls the column) must NOT become 'active'

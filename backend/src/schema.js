@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS products (
   unit TEXT,
   price REAL,
   status TEXT DEFAULT 'active',
+  image TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -76,6 +77,13 @@ CREATE TABLE IF NOT EXISTS order_inquiries (
   notes TEXT,
   delivery_address TEXT,
   payment_method TEXT DEFAULT 'cod',
+  payment_status TEXT DEFAULT 'unpaid',
+  payment_reference TEXT,
+  payment_url TEXT,
+  payment_qr TEXT,
+  payment_provider TEXT,
+  user_id INTEGER,
+  status_history TEXT,
   status TEXT DEFAULT 'pending',
   created_at TEXT DEFAULT (datetime('now'))
 );

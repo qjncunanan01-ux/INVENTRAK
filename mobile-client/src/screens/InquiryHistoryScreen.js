@@ -16,6 +16,7 @@ const STATUS_TABS = [
   { key: 'pending', label: 'Pending' },
   { key: 'approved', label: 'Approved' },
   { key: 'fulfilled', label: 'Fulfilled' },
+  { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
 ];
 
@@ -56,13 +57,14 @@ export default function InquiryHistoryScreen({ navigation }) {
     switch (status) {
       case 'approved': return colors.info;
       case 'fulfilled': return colors.success;
+      case 'delivered': return colors.success;
       case 'rejected': return colors.error;
       default: return colors.warning;
     }
   };
 
   const counts = useMemo(() => {
-    const c = { all: inquiries.length, pending: 0, approved: 0, fulfilled: 0, rejected: 0 };
+    const c = { all: inquiries.length, pending: 0, approved: 0, fulfilled: 0, delivered: 0, rejected: 0 };
     inquiries.forEach((i) => { if (c[i.status] !== undefined) c[i.status] += 1; });
     return c;
   }, [inquiries]);
@@ -76,6 +78,34 @@ export default function InquiryHistoryScreen({ navigation }) {
     } catch {
       return raw;
     }
+  };
+
+  // Status timeline (Shopee-style): Placed -> Approved -> Fulfilled -> Delivered.
+  const renderTimeline = (item) => {
+    let events = [];
+    try {
+      const parsed = JSON.parse(item.status_history || '[]');
+      if (Array.isArray(parsed)) events = parsed;
+    } catch {}
+    if (events.length === 0) {
+      events = [{ status: item.status, at: item.created_at }];
+    }
+    const labels = { pending: 'Placed', approved: 'Approved', fulfilled: 'Fulfilled', delivered: 'Delivered', rejected: 'Rejected' };
+    return (
+      <View style={styles.timeline}>
+        {events.map((e, idx) => (
+          <View key={idx} style={styles.timelineStep}>
+            <View style={[styles.timelineDot, e.status === item.status && styles.timelineDotActive]} />
+            <View style={styles.timelineBody}>
+              <Text style={styles.timelineLabel}>{labels[e.status] || e.status}</Text>
+              <Text style={styles.timelineDate}>
+                {e.at ? new Date(e.at).toLocaleString() : ''}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
   };
 
   // Guest state: browsing is free, but order history needs an account. This
@@ -155,6 +185,8 @@ export default function InquiryHistoryScreen({ navigation }) {
             <Text style={styles.detail}>
               Cost: P{Number(item.estimated_cost).toFixed(2)} ·{' '}
               Payment: {(item.payment_method || 'cod').toUpperCase()}
+              {item.payment_status === 'paid' ? ' · ✅ PAID' : ''}
+              {item.payment_status === 'unpaid' && item.payment_method === 'gcash' ? ' · ⏳ Unpaid' : ''}
             </Text>
             {item.delivery_address ? (
               <Text style={styles.detail} numberOfLines={2}>
@@ -164,6 +196,7 @@ export default function InquiryHistoryScreen({ navigation }) {
             <Text style={styles.detail} numberOfLines={2}>
               Products: {renderProducts(item.products)}
             </Text>
+            {renderTimeline(item)}
             <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
           </View>
         )}
@@ -206,6 +239,13 @@ const styles = StyleSheet.create({
   statusText: { color: '#fff', fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
   detail: { color: colors.textSecondary, marginBottom: 3, fontSize: 13 },
   date: { marginTop: 6, color: colors.textSecondary, fontSize: 12 },
+  timeline: { marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
+  timelineStep: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
+  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.12)', marginTop: 4, marginRight: 8 },
+  timelineDotActive: { backgroundColor: colors.brandPrimary },
+  timelineBody: { flex: 1 },
+  timelineLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, textTransform: 'capitalize' },
+  timelineDate: { fontSize: 11, color: colors.textSecondary },
   empty: { marginTop: 24, textAlign: 'center', color: colors.textSecondary },
   newInquiry: { marginHorizontal: 16, marginBottom: 20, backgroundColor: colors.brandPrimary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   newInquiryText: { color: '#fff', fontSize: 15, fontWeight: '700' },

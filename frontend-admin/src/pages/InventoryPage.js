@@ -1,4 +1,4 @@
-import { Box, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api';
 import { colors } from '../theme';
@@ -9,6 +9,7 @@ export default function InventoryPage({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -27,7 +28,12 @@ export default function InventoryPage({ onLogout }) {
   }, [lowStockOnly, selectedLocation]);
 
   const locs = (inventory.locations || []).map(loc => (typeof loc === 'object' ? loc : { id: loc, name: loc }));
-  const items = inventory.items || [];
+  const items = (inventory.items || []).filter(item => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (item.product?.name || '').toLowerCase().includes(q) ||
+      (item.product?.category || '').toLowerCase().includes(q);
+  });
 
   return (
     <AdminLayout title="Inventory Management" onLogout={onLogout}>
@@ -38,6 +44,13 @@ export default function InventoryPage({ onLogout }) {
             <Typography variant="body2" color="text.secondary">Track stock distribution across locations.</Typography>
           </div>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <TextField
+              size="small"
+              label="Search products..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              sx={{ minWidth: 220, backgroundColor: colors.surface }}
+            />
             <FormControl size="small" sx={{ minWidth: 160 }}>
               <InputLabel>Location</InputLabel>
               <Select value={selectedLocation} label="Location" onChange={e => setSelectedLocation(e.target.value)}>

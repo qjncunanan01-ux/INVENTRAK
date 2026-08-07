@@ -348,7 +348,7 @@ async function sendSms({ to, message }) {
   return { sent: false };
 }
 
-const STATUS_LABELS = { approved: 'APPROVED', rejected: 'REJECTED', fulfilled: 'FULFILLED' };
+const STATUS_LABELS = { approved: 'APPROVED', rejected: 'REJECTED', fulfilled: 'FULFILLED', delivered: 'DELIVERED' };
 
 // The stored products value is a JSON string (e.g. '["Widget x1"]'); render it
 // as a readable list for the email body.

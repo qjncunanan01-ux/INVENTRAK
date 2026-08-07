@@ -29,7 +29,7 @@ function seedDatabase({ db, productsFile = DEFAULT_PRODUCTS_FILE } = {}) {
   const existingProducts = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
   if (existingProducts > 0) return { seeded: false };
 
-  const insertProduct = db.prepare('INSERT INTO products (name, category, brand, description, size, unit, price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  const insertProduct = db.prepare('INSERT INTO products (name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
   const getLocation = db.prepare('SELECT id FROM locations WHERE name = ?');
   const insertLocation = db.prepare('INSERT INTO locations (name) VALUES (?)');
   const insertStock = db.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, ?)');
@@ -59,7 +59,8 @@ function seedDatabase({ db, productsFile = DEFAULT_PRODUCTS_FILE } = {}) {
         // Respect an explicitly-inactive catalog row; the catalog drift guard
         // (migrate:check) would otherwise fail on it because the transform
         // would flip it back to active.
-        p.status && p.status !== 'active' ? p.status : 'active'
+        p.status && p.status !== 'active' ? p.status : 'active',
+        p['Image'] || p.image || null
       );
 
       const pid = res.lastInsertRowid;

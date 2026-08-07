@@ -7,6 +7,8 @@ const { hashPassword, verifyPassword, consumeComparisonTime } = require('./passw
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
+const { buildPaymentStep } = require('./payments');
+const { handleOcr } = require('./ocr');
 
 // Brute-force throttling shared with the SQLite backend (same module, same
 // semantics): failed logins per (username, IP) lock the account with an
@@ -282,6 +284,8 @@ function formatProduct(p, idx) {
     // Preserve an explicit null (partial PUT nulls the column) to match SQLite.
     price: pick(p['Price'], p.price, 0),
     status: pick(p['status'], p.status, 'active'),
+    // Firestore maps null -> ''; normalize back to null for SQLite parity.
+    image: pick(p['Image'], p.image, '') || null,
     created_at: p.created_at || now,
     updated_at: p.updated_at || now
   };
@@ -360,6 +364,17 @@ function bodyError(res, err) {
 }
 
 function parseBody(req, callback) {
+  return parseBodyWithLimit(req, MAX_BODY_BYTES, callback);
+}
+
+// Large-body variant for the OCR endpoint (uploaded photos are base64 and can
+// reach several MB). Deliberately separate from parseBody so the 100 KB cap
+// on every other JSON endpoint stays intact.
+function parseBodyLarge(req, callback) {
+  return parseBodyWithLimit(req, 12 * 1024 * 1024, callback);
+}
+
+function parseBodyWithLimit(req, limitBytes, callback) {
   let body = '';
   let tooLarge = false;
   req.on('data', chunk => {
@@ -367,7 +382,7 @@ function parseBody(req, callback) {
     body += chunk;
     // Count raw bytes (not chars) so multibyte UTF-8 bodies are capped at the
     // same limit Express/body-parser applies.
-    if (Buffer.byteLength(body) > MAX_BODY_BYTES) {
+    if (Buffer.byteLength(body) > limitBytes) {
       tooLarge = true;
       body = '';
     }
@@ -870,7 +885,8 @@ const server = http.createServer((req, res) => {
           'Size': obj.size || '',
           'Unit': obj.unit || 'pcs',
           'Price': priceNum,
-          'status': 'active'
+          'status': 'active',
+          'Image': obj.image || ''
         };
         products.push(newProduct);
         writeJSON(productsFile, products);
@@ -896,6 +912,7 @@ const server = http.createServer((req, res) => {
         p['Unit'] = obj.unit ?? null;
         p['Price'] = obj.price !== undefined ? Number(obj.price) : null;
         p['status'] = obj.status ?? null;
+        p['Image'] = obj.image ?? null;
         writeJSON(productsFile, products);
         return sendJson(res, 200, { ok: true });
       });
@@ -1157,7 +1174,27 @@ const server = http.createServer((req, res) => {
       // 'cod' for rows created before checkout existed (SQLite parity).
       delivery_address: o.delivery_address === undefined || o.delivery_address === '' ? null : o.delivery_address,
       payment_method: o.payment_method === undefined || o.payment_method === '' ? 'cod' : o.payment_method,
+      // Payment step (SQLite parity): status defaults to 'unpaid' for rows
+      // created before checkout payment existed; reference/url/qr are null.
+      payment_status: o.payment_status === undefined || o.payment_status === '' ? 'unpaid' : o.payment_status,
+      payment_reference: o.payment_reference === undefined || o.payment_reference === '' ? null : o.payment_reference,
+      payment_url: o.payment_url === undefined || o.payment_url === '' ? null : o.payment_url,
+      payment_qr: o.payment_qr === undefined || o.payment_qr === '' ? null : o.payment_qr,
+      payment_provider: o.payment_provider === undefined || o.payment_provider === '' ? null : o.payment_provider,
+      // Ownership + progress timeline (SQLite parity): user_id is an integer
+      // (null when the order predates account stamping), status_history is the
+      // JSON status-timeline string (null when the row predates tracking).
+      user_id: o.user_id === undefined || o.user_id === null || o.user_id === '' ? null : Number(o.user_id),
+      status_history: o.status_history === undefined || o.status_history === '' ? null : o.status_history,
     }));
+    // Per-account scoping: admins see every inquiry; customers only their own
+    // (user_id match, with a legacy fallback to the account's email so orders
+    // placed before ownership was stamped still appear in history).
+    if (req.user.role !== 'admin') {
+      const owner = users.find(u => u.id === req.user.id);
+      const myEmail = (owner && owner.email || '').toLowerCase();
+      orders = orders.filter(o => Number(o.user_id) === req.user.id || (o.customer_email || '').toLowerCase() === myEmail);
+    }
     if (status) orders = orders.filter(o => o.status === status);
     if (page !== null || limit !== null) {
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -1185,10 +1222,26 @@ const server = http.createServer((req, res) => {
         const orders = readJSON(orderFile) || [];
         const order = orders.find(o => o.id === id);
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
-        if (!['pending', 'approved', 'rejected', 'fulfilled'].includes(obj.status)) {
-          return sendJson(res, 400, { error: 'Invalid status. Must be one of: pending, approved, rejected, fulfilled' });
+        if (!['pending', 'approved', 'rejected', 'fulfilled', 'delivered'].includes(obj.status)) {
+          return sendJson(res, 400, { error: 'Invalid status. Must be one of: pending, approved, rejected, fulfilled, delivered' });
         }
-        order.status = obj.status || order.status;
+        const updatedStatus = obj.status || order.status;
+        // Progress timeline (Shopee-style): append the new status with a
+        // timestamp; seed the 'placed' event from created_at when the row
+        // predates status tracking so the mobile card never shows a gap.
+        let history = [];
+        try {
+          const parsed = JSON.parse(order.status_history || '[]');
+          if (Array.isArray(parsed)) history = parsed;
+        } catch {}
+        if (history.length === 0) {
+          history.push({ status: order.status, at: order.created_at });
+        }
+        if (updatedStatus !== (history[history.length - 1] || {}).status) {
+          history.push({ status: updatedStatus, at: new Date().toISOString() });
+        }
+        order.status = updatedStatus;
+        order.status_history = JSON.stringify(history);
         writeJSON(orderFile, orders);
         if (order.status !== 'pending') notifyInquiryStatus(order, order.status);
         return sendJson(res, 200, { ok: true, message: `Inquiry ${order.status}` });
@@ -1197,7 +1250,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/order-inquiries') {
-    return parseBody(req, (err, obj) => {
+    return parseBody(req, async (err, obj) => {
       if (err) return bodyError(res, err);
       if (!obj.customer_name || !obj.customer_email) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['customer_name and customer_email are required'] });
@@ -1212,8 +1265,16 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 400, { error: 'Validation failed', details: ['payment_method must be one of cod, gcash, card, other'] });
       }
       const orders = readJSON(orderFile) || [];
+      // Optional auth: the app sends the customer's token at checkout, so the
+      // inquiry can be stamped with its owner for per-account history. A
+      // missing or invalid token still submits (legacy guest orders) with
+      // user_id null (matches the SQLite backend).
+      const auth = authUser(req);
+      const userId = (auth && auth.user && auth.user.id) || null;
+      const now = new Date().toISOString();
+      const id = orders.length + 1;
       const newOrder = {
-        id: orders.length + 1,
+        id,
         customer_name: obj.customer_name,
         customer_email: obj.customer_email,
         customer_phone: obj.customer_phone || null,
@@ -1222,12 +1283,99 @@ const server = http.createServer((req, res) => {
         notes: obj.notes || '',
         delivery_address: obj.delivery_address || null,
         payment_method: obj.payment_method || 'cod',
+        payment_status: 'unpaid',
+        payment_reference: null,
+        payment_url: null,
+        payment_qr: null,
+        payment_provider: null,
+        user_id: userId,
+        status_history: JSON.stringify([{ status: 'pending', at: now }]),
         status: 'pending',
-        created_at: new Date().toISOString()
+        created_at: now
       };
+      // GCash/Card checkout: build the payment step (PayMongo when configured,
+      // else the QR demo fallback) — identical to the SQLite backend. Guarded
+      // so a provider failure can never leave the client hanging.
+      let payment = null;
+      try {
+        payment = await buildPaymentStep({
+          id,
+          amount: obj.estimated_cost || 0,
+          description: `INVENTRAK order ${id} — ${obj.customer_name}`,
+          email: obj.customer_email,
+          paymentMethod: obj.payment_method || 'cod',
+        });
+      } catch (err) {
+        console.error('[payments] buildPaymentStep failed:', err && err.message);
+      }
+      if (payment) {
+        Object.assign(newOrder, {
+          payment_method: payment.payment_method,
+          payment_status: payment.payment_status,
+          payment_reference: payment.payment_reference,
+          payment_url: payment.payment_url,
+          payment_qr: payment.payment_qr,
+          payment_provider: payment.payment_provider,
+        });
+      }
       orders.unshift(newOrder);
       writeJSON(orderFile, orders);
-      return sendJson(res, 201, { ok: true, message: 'Inquiry submitted' });
+      return sendJson(res, 201, {
+        ok: true,
+        message: 'Inquiry submitted',
+        id,
+        ...(payment ? { payment: {
+          payment_method: payment.payment_method,
+          payment_status: payment.payment_status,
+          payment_reference: payment.payment_reference,
+          payment_url: payment.payment_url,
+          payment_qr: payment.payment_qr,
+        } } : {}),
+      });
+    });
+  }
+
+  // Mark an inquiry as paid (customer confirms after the GCash step).
+  // Matches the SQLite backend: customers may only mark their own inquiry.
+  if (req.method === 'PUT' && /^\/api\/order-inquiries\/\d+\/payment$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, false, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        if (!['paid', 'unpaid', 'failed'].includes(obj.payment_status)) {
+          return sendJson(res, 400, { error: 'payment_status must be one of paid, unpaid, failed' });
+        }
+        const orders = readJSON(orderFile) || [];
+        const order = orders.find(o => o.id === id);
+        if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+        if (req.user.role !== 'admin') {
+          const owner = users.find(u => u.id === req.user.id);
+          const myEmail = (owner && owner.email || '').toLowerCase();
+          const mine = Number(order.user_id) === Number(req.user.id) ||
+            (order.customer_email || '').toLowerCase() === myEmail;
+          if (!mine) return sendJson(res, 403, { error: 'Not your inquiry' });
+        }
+        order.payment_status = obj.payment_status;
+        writeJSON(orderFile, orders);
+        return sendJson(res, 200, { ok: true, payment_status: obj.payment_status });
+      });
+    });
+  }
+
+  // OCR: scan a product photo. Public (guests may scan before creating an
+  // account), large body limit, lazy tesseract engine with graceful 503.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/ocr') {
+    return parseBodyLarge(req, async (err, obj) => {
+      if (err) {
+        return err.status === 413
+          ? sendJson(res, 413, { error: 'Payload too large' })
+          : bodyError(res, err);
+      }
+      const products = readJSON(productsFile) || [];
+      // parseBody does not mutate req.body (raw dispatcher); expose the parsed
+      // object so the shared OCR handler can read it.
+      req.body = obj;
+      await handleOcr(req, res, sendJson, products);
     });
   }
 
@@ -1327,12 +1475,9 @@ const server = http.createServer((req, res) => {
       const movements = readJSON(movementsFile) || [];
       const orders = readJSON(orderFile) || [];        const totalProducts = products.filter(isProductActive).length;
         const totalStock = inv.items.reduce((sum, i) => sum + i.total, 0);
-      // Per (product, location) rows below the threshold — mirrors the SQLite
-      // `SELECT COUNT(*) FROM stock WHERE quantity < 80` semantics.
-      const lowStockItems = inv.items.reduce(
-        (sum, i) => sum + Object.values(i.locations).filter(q => q < 80).length,
-        0
-      );
+      // Per-PRODUCT total below the 80-unit threshold — the same definition as
+      // the lowStockList table below, so the KPI card and the table agree.
+      const lowStockItems = inv.items.filter((i) => i.total < 80).length;
       const totalLocations = inv.locations.length;
       const pendingInquiries = orders.filter(o => o.status === 'pending').length;
       const totalSales = salesTransactions.reduce((sum, s) => sum + s.total_amount, 0);
@@ -1357,10 +1502,72 @@ const server = http.createServer((req, res) => {
         .sort((a, b) => (b.month + b.type).localeCompare(a.month + a.type))
         .slice(0, 12);
 
+      // ---- Reviewer-required dashboard data (mirrors the SQLite backend
+      // exactly so contract parity holds) ----
+
+      // 1. Low-stock items: name + total, sorted ascending.
+      const lowStockList = inv.items
+        .map(i => ({ id: i.product.id, name: i.product.name, total: i.total }))
+        .filter(i => i.total < 80)
+        .sort((a, b) => a.total - b.total)
+        .slice(0, 20);
+
+      // 2. Available stocks per location.
+      const stockByLocation = inv.locations
+        .map(loc => ({
+          location: loc,
+          total: inv.items.reduce((sum, i) => sum + (i.locations[loc] || 0), 0),
+        }))
+        .sort((a, b) => b.total - a.total);
+
+      // 3. Fast-moving products: top by quantity sold.
+      const qtySold = {};
+      const valueSold = {};
+      salesTransactions.forEach(t => {
+        qtySold[t.product_id] = (qtySold[t.product_id] || 0) + t.qty;
+        valueSold[t.product_id] = (valueSold[t.product_id] || 0) + t.total_amount;
+      });
+      const activeProducts = (readJSON(productsFile) || []).filter(isProductActive);
+      // Positional ids (idx + 1) — the JSON file has no id column, and the
+      // SQLite backend numbers products the same way, so parity holds.
+      const fastMovingProducts = activeProducts
+        .map((p, idx) => ({ id: idx + 1, name: p['Product Name'] || p.name, qty_sold: qtySold[idx + 1] || 0, value: valueSold[idx + 1] || 0 }))
+        .sort((a, b) => b.qty_sold - a.qty_sold)
+        .slice(0, 5);
+
+      // 4. Slow-moving products: bottom by quantity sold.
+      const slowMovingProducts = activeProducts
+        .map((p, idx) => ({ id: idx + 1, name: p['Product Name'] || p.name, qty_sold: qtySold[idx + 1] || 0 }))
+        .sort((a, b) => a.qty_sold - b.qty_sold || (a.name || '').localeCompare(b.name || ''))
+        .slice(0, 5);
+
+      // 5. Daily sales value, last 7 days (dedup per date, matches SQLite GROUP BY).
+      const dayMap = {};
+      const sevenDaysAgo = Date.now() - 7 * 86400000;
+      salesTransactions
+        .filter(t => new Date(t.transaction_date).getTime() >= sevenDaysAgo)
+        .forEach(t => {
+          const date = (t.transaction_date || '').substring(0, 10);
+          if (!date) return;
+          if (!dayMap[date]) dayMap[date] = { date, value: 0 };
+          dayMap[date].value += t.total_amount;
+        });
+      const dailySalesValue = Object.values(dayMap).sort((a, b) => a.date.localeCompare(b.date));
+
+      // 6. Number of transactions + customers served.
+      const transactionCount = salesTransactions.length;
+      const customersServed = new Set(salesTransactions.map(t => t.customer_name).filter(Boolean)).size;
+
+      // 7. Order status summary (incl. the new 'delivered' state).
+      const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+      orders.forEach(o => { if (orderStatusSummary[o.status] !== undefined) orderStatusSummary[o.status] += 1; });
+
       return sendJson(res, 200, {
         totalProducts, totalStock, lowStockItems, totalLocations,
         pendingInquiries, totalSales, totalMovements, activeAlerts,
-        topProducts, monthlyMovements
+        topProducts, monthlyMovements,
+        lowStockList, stockByLocation, fastMovingProducts, slowMovingProducts,
+        dailySalesValue, transactionCount, customersServed, orderStatusSummary
       });
     }
 
@@ -1511,6 +1718,24 @@ const server = http.createServer((req, res) => {
   }
 
   res.writeHead(404, { 'Content-Type': 'application/json' });
+  // Product photos: /images/<file> serves the image library committed under
+  // backend/images (the product `image` field holds '/images/...'). Not an
+  // /api path, so the route<->spec audit ignores it; traversal is blocked by
+  // resolving within the images directory.
+  if (req.method === 'GET' && url.split('?')[0].startsWith('/images/')) {
+    const imagesDir = path.join(__dirname, '..', 'images');
+    const file = url.split('?')[0].slice('/images/'.length);
+    const safe = path.normalize(path.join(imagesDir, file));
+    if (!safe.startsWith(imagesDir + path.sep) && safe !== imagesDir) {
+      return sendJson(res, 403, { error: 'Forbidden' });
+    }
+    if (!fs.existsSync(safe) || !fs.statSync(safe).isFile()) {
+      return sendJson(res, 404, { error: 'Not found' });
+    }
+    res.writeHead(200, { 'Content-Type': 'image/' + (path.extname(safe).slice(1) === 'jpg' ? 'jpeg' : path.extname(safe).slice(1)) });
+    return fs.createReadStream(safe).pipe(res);
+  }
+
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 

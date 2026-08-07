@@ -1,10 +1,58 @@
 [
-  {"Category":"Da Vinci Gourmet Sauces","Product Name":"Butterscotch Sauce","Size":"2 L","Price":1070},
-  {"Category":"Da Vinci Gourmet Sauces","Product Name":"Caramel Sauce","Size":"2 L","Price":1070},
-  {"Category":"Da Vinci Gourmet Sauces","Product Name":"Chocolate Sauce","Size":"2 L","Price":1060},
-  {"Category":"Matcha","Product Name":"Da Vinci Matcha Powder","Size":"1 KG","Price":1175},
-  {"Category":"Full Cream Milk","Product Name":"Arla Full Cream Milk","Size":"12 L","Price":1120},
-  {"Category":"Cups","Product Name":"Dabba Elegant Cups 12oz","Size":"50 pcs","Price":198},
-  {"Category":"Beans","Product Name":"Sylver Arabica Coffee Beans","Size":"1 KG","Price":1400},
-  {"Category":"Powders","Product Name":"Frappase Powder","Size":"1.5 KG","Price":1070}
+  {
+    "Category": "Da Vinci Gourmet Sauces",
+    "Product Name": "Butterscotch Sauce",
+    "Size": "2 L",
+    "Price": 1070,
+    "Image": "/images/da-vinci-sauces--butterscotch.jpg"
+  },
+  {
+    "Category": "Da Vinci Gourmet Sauces",
+    "Product Name": "Caramel Sauce",
+    "Size": "2 L",
+    "Price": 1070,
+    "Image": "/images/da-vinci-sauces--caramel-2l.jpg"
+  },
+  {
+    "Category": "Da Vinci Gourmet Sauces",
+    "Product Name": "Chocolate Sauce",
+    "Size": "2 L",
+    "Price": 1060,
+    "Image": "/images/da-vinci-sauces--chocolate-2l.jpg"
+  },
+  {
+    "Category": "Matcha",
+    "Product Name": "Da Vinci Matcha Powder",
+    "Size": "1 KG",
+    "Price": 1175,
+    "Image": "/images/matcha-powder--da-vinci.jpg"
+  },
+  {
+    "Category": "Full Cream Milk",
+    "Product Name": "Arla Full Cream Milk",
+    "Size": "12 L",
+    "Price": 1120,
+    "Image": "/images/full-cream-milk--arla-full-cream-milk-12l.jpg"
+  },
+  {
+    "Category": "Cups",
+    "Product Name": "Dabba Elegant Cups 12oz",
+    "Size": "50 pcs",
+    "Price": 198,
+    "Image": "/images/cups-and-lid--dabba-elegant-cups-12oz-50pcs.jpg"
+  },
+  {
+    "Category": "Beans",
+    "Product Name": "Sylver Arabica Coffee Beans",
+    "Size": "1 KG",
+    "Price": 1400,
+    "Image": "/images/coffee-beans--arabica-coffee-beans-1kg.jpg"
+  },
+  {
+    "Category": "Powders",
+    "Product Name": "Frappase Powder",
+    "Size": "1.5 KG",
+    "Price": 1070,
+    "Image": "/images/da-vinci-powders--frappease-powder-1-5kg.jpg"
+  }
 ]

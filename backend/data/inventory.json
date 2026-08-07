@@ -16,8 +16,9 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "created_at": "2026-08-05T06:23:02.406Z",
-        "updated_at": "2026-08-05T06:23:02.406Z"
+        "image": "/images/da-vinci-sauces--butterscotch.jpg",
+        "created_at": "2026-08-07 02:45:06",
+        "updated_at": "2026-08-07 02:45:06"
       },
       "locations": {
         "Showroom": 113,
@@ -37,8 +38,9 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "created_at": "2026-08-05T06:23:02.406Z",
-        "updated_at": "2026-08-05T06:23:02.406Z"
+        "image": "/images/da-vinci-sauces--caramel-2l.jpg",
+        "created_at": "2026-08-07 02:45:06",
+        "updated_at": "2026-08-07 02:45:06"
       },
       "locations": {
         "Showroom": 50,
@@ -58,8 +60,9 @@
         "unit": "",
         "price": 1060,
         "status": "active",
-        "created_at": "2026-08-05T06:23:02.406Z",
-        "updated_at": "2026-08-05T06:23:02.406Z"
+        "image": "/images/da-vinci-sauces--chocolate-2l.jpg",
+        "created_at": "2026-08-07 02:45:06",
+        "updated_at": "2026-08-07 02:45:06"
       },
       "locations": {
         "Showroom": 147,
@@ -79,8 +82,9 @@
         "unit": "",
         "price": 1175,
         "status": "active",
-        "created_at": "2026-08-05T06:23:02.406Z",
-        "updated_at": "2026-08-05T06:23:02.406Z"
+        "image": "/images/matcha-powder--da-vinci.jpg",
+        "created_at": "2026-08-07 02:45:06",
+        "updated_at": "2026-08-07 02:45:06"
       },
       "locations": {
         "Showroom": 46,
@@ -100,8 +104,9 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "created_at": "2026-08-05T06:23:02.406Z",
-        "updated_at": "2026-08-05T06:23:02.406Z"
+        "image": "/images/full-cream-milk--arla-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-07 02:45:06",
+        "updated_at": "2026-08-07 02:45:06"
       },
       "locations": {
         "Showroom": 46,
@@ -121,8 +126,9 @@
         "unit": "",
         "price": 198,
         "status": "active",
-        "created_at": "2026-08-05T06:23:02.406Z",
-        "updated_at": "2026-08-05T06:23:02.406Z"
+        "image": "/images/cups-and-lid--dabba-elegant-cups-12oz-50pcs.jpg",
+        "created_at": "2026-08-07 02:45:06",
+        "updated_at": "2026-08-07 02:45:06"
       },
       "locations": {
         "Showroom": 128,
@@ -142,8 +148,9 @@
         "unit": "",
         "price": 1400,
         "status": "active",
-        "created_at": "2026-08-05T06:23:02.406Z",
-        "updated_at": "2026-08-05T06:23:02.406Z"
+        "image": "/images/coffee-beans--arabica-coffee-beans-1kg.jpg",
+        "created_at": "2026-08-07 02:45:06",
+        "updated_at": "2026-08-07 02:45:06"
       },
       "locations": {
         "Showroom": 146,
@@ -163,8 +170,9 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "created_at": "2026-08-05T06:23:02.406Z",
-        "updated_at": "2026-08-05T06:23:02.406Z"
+        "image": "/images/da-vinci-powders--frappease-powder-1-5kg.jpg",
+        "created_at": "2026-08-07 02:45:06",
+        "updated_at": "2026-08-07 02:45:06"
       },
       "locations": {
         "Showroom": 120,

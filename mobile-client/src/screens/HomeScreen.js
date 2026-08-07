@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { listProducts, useSessionUsername } from '../api';
+import { imageUrl, listProducts, useSessionUsername } from '../api';
 import { colors } from '../theme';
 
 export default function HomeScreen({ route, navigation }) {
@@ -113,7 +114,38 @@ export default function HomeScreen({ route, navigation }) {
             <Text style={styles.quickGlyph}>✓</Text>
             <Text style={styles.quickLabel}>Order History</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickItem}
+            onPress={() => navigation.navigate('OrdersTab', { screen: 'Notifications' })}
+          >
+            <Text style={styles.quickGlyph}>🔔</Text>
+            <Text style={styles.quickLabel}>Notifications</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickItem}
+            onPress={() => navigation.navigate('CatalogTab', { screen: 'OCR' })}
+          >
+            <Text style={styles.quickGlyph}>📷</Text>
+            <Text style={styles.quickLabel}>Scan Product</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickItem}
+            onPress={() => navigation.navigate('CatalogTab', { screen: 'StockAvailability' })}
+          >
+            <Text style={styles.quickGlyph}>🏬</Text>
+            <Text style={styles.quickLabel}>Stock Availability</Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Multi-location availability teaser */}
+        <Text style={styles.sectionTitle}>Multi-Location Stock</Text>
+        <TouchableOpacity
+          style={styles.locationTeaser}
+          onPress={() => navigation.navigate('CatalogTab', { screen: 'StockAvailability' })}
+        >
+          <Text style={styles.locationTeaserTitle}>🏬 Check supply stock per location</Text>
+          <Text style={styles.locationTeaserSub}>See what's available at each branch before you order.</Text>
+        </TouchableOpacity>
 
         {/* Featured products */}
         <Text style={styles.sectionTitle}>Featured Supplies</Text>
@@ -130,6 +162,9 @@ export default function HomeScreen({ route, navigation }) {
               }
             >
               <View style={styles.cardTop}>
+                {item.image ? (
+                  <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="cover" />
+                ) : null}
                 <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
               </View>
               <Text style={styles.cardMeta}>{item.category}</Text>
@@ -192,15 +227,28 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.06)',
   },
   chipText: { color: colors.textPrimary, fontWeight: '600', fontSize: 13 },
-  quickRow: { flexDirection: 'row', marginHorizontal: 16, marginTop: 12 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 16, marginTop: 12 },
   quickItem: {
-    flex: 1,
+    width: '31%',
+    marginRight: '2%',
+    marginBottom: 10,
     backgroundColor: colors.surface,
     borderRadius: 12,
     paddingVertical: 14,
+    paddingHorizontal: 6,
     alignItems: 'center',
-    marginRight: 10,
   },
+  locationTeaser: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.info,
+  },
+  locationTeaserTitle: { fontWeight: '700', color: colors.textPrimary, fontSize: 14 },
+  locationTeaserSub: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
   quickGlyph: { fontSize: 20, color: colors.brandPrimary, fontWeight: '700' },
   quickLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 6, textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16 },
@@ -213,6 +261,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   cardTop: { minHeight: 40 },
+  cardImage: { width: '100%', height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: colors.background },
   cardName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
   cardMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
   cardPrice: { fontSize: 15, fontWeight: '800', color: colors.brandPrimary, marginTop: 8 },

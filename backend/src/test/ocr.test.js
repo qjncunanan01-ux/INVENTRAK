@@ -1,0 +1,61 @@
+// OCR unit tests: the fuzzy matcher and the shared handler's validation paths
+// run without the tesseract engine (which downloads traineddata at first use
+// and is only exercised live / via the deployed server).
+const { test } = require('node:test');
+const assert = require('node:assert');
+const { matchProducts, normalize, matchScore, handleOcr } = require('../ocr');
+
+const PRODUCTS = [
+  { id: 1, name: 'Butterscotch Sauce', price: 1070, image: '/images/a.jpg' },
+  { id: 2, name: 'Classic Caramel Sauce', price: 950, image: '/images/b.jpg' },
+  { id: 3, name: 'Full Cream Milk 1L', price: 220, image: '/images/c.jpg' },
+  { id: 4, name: 'Matcha Green Tea Powder', price: 1400, image: '/images/d.jpg' },
+];
+
+test('normalize strips punctuation and lowercases', () => {
+  assert.deepStrictEqual(normalize('Butterscotch 2-L Sauce!!!'), ['butterscotch', '2', 'l', 'sauce']);
+});
+
+test('matchScore returns token overlap ratio', () => {
+  assert.strictEqual(matchScore(['butterscotch', 'sauce'], 'Butterscotch Sauce'), 1);
+  assert.strictEqual(matchScore(['caramel'], 'Classic Caramel Sauce'), 1 / 3);
+  assert.strictEqual(matchScore(['unrelated'], 'Butterscotch Sauce'), 0);
+});
+
+test('matchProducts ranks best matches first and filters below threshold', () => {
+  const matches = matchProducts('CARAMEL SAUCE', PRODUCTS);
+  assert.ok(matches.length >= 1);
+  assert.strictEqual(matches[0].id, 2);
+  assert.strictEqual(matches[0].score, 2 / 3);
+});
+
+test('matchProducts handles empty text', () => {
+  assert.deepStrictEqual(matchProducts('', PRODUCTS), []);
+  assert.deepStrictEqual(matchProducts('!!!', PRODUCTS), []);
+});
+
+test('matchProducts respects limit and minScore', () => {
+  const all = matchProducts('sauce', PRODUCTS, { limit: 10, minScore: 0 });
+  assert.ok(all.length >= 2);
+  const capped = matchProducts('sauce', PRODUCTS, { limit: 1, minScore: 0 });
+  assert.strictEqual(capped.length, 1);
+});
+
+test('handleOcr validates the payload before touching the engine', async () => {
+  const fakeRes = { status: 0, body: null };
+  const sendJson = (res, status, body) => { res.status = status; res.body = body; };
+
+  // Missing image -> 400.
+  await handleOcr({ body: {} }, fakeRes, sendJson, PRODUCTS);
+  assert.strictEqual(fakeRes.status, 400);
+  assert.match(fakeRes.body.details[0], /image/);
+
+  // Non-base64 -> 400.
+  await handleOcr({ body: { image: 'not base64 !!!' } }, fakeRes, sendJson, PRODUCTS);
+  assert.strictEqual(fakeRes.status, 400);
+
+  // Oversized -> 400.
+  const huge = 'A'.repeat(13 * 1024 * 1024);
+  await handleOcr({ body: { image: huge } }, fakeRes, sendJson, PRODUCTS);
+  assert.strictEqual(fakeRes.status, 400);
+});
