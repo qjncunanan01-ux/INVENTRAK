@@ -12,7 +12,8 @@ import {
   View,
 } from 'react-native';
 import { forgotPassword, resetPassword } from '../api';
-import { colors } from '../theme';
+import BackButton from '../BackButton';
+import { useThemeColors } from '../theme-context';
 
 // Mirrors the backend policy exactly (backend/src/password-policy.js): the
 // server is the source of truth, this is just a friendlier pre-check.
@@ -28,6 +29,8 @@ function passwordErrors(pw) {
 }
 
 export default function ForgotPasswordScreen({ navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -89,6 +92,8 @@ export default function ForgotPasswordScreen({ navigation }) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Pinned outside the ScrollView so it never scrolls away. */}
+      <BackButton navigation={navigation} label="Back" />
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Reset Password</Text>
         <Text style={styles.subtitle}>
@@ -177,15 +182,12 @@ export default function ForgotPasswordScreen({ navigation }) {
           </>
         )}
 
-        <TouchableOpacity style={styles.linkRow} onPress={() => navigation.goBack()} disabled={loading}>
-          <Text style={styles.linkBack}>&larr; Back to login</Text>
-        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   container: { flexGrow: 1, justifyContent: 'center', padding: 28 },
   title: { fontSize: 28, fontWeight: '800', textAlign: 'center', color: colors.textPrimary, marginBottom: 4 },
@@ -211,6 +213,4 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.brandPrimary },
   primaryText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   spinner: { marginTop: 18 },
-  linkRow: { marginTop: 18, alignItems: 'center' },
-  linkBack: { fontSize: 14, color: colors.info, marginTop: 4 },
 });

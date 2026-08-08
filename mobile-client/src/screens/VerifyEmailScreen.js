@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,12 +12,15 @@ import {
   View,
 } from 'react-native';
 import { resendVerification, setSessionDetails, verifyEmail } from '../api';
-import { colors } from '../theme';
+import BackButton from '../BackButton';
+import { useThemeColors } from '../theme-context';
 
 // Shown right after signup (and from the Account tab / login for unverified
 // accounts): the 6-digit code sent to the customer's email (and phone, when
 // one was provided) is redeemed here. The code is single-use and expires.
 export default function VerifyEmailScreen({ route, navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const email = route.params?.email || '';
   const phone = route.params?.phone || null;
   const notify = route.params?.notify || null;
@@ -76,6 +79,8 @@ export default function VerifyEmailScreen({ route, navigation }) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Pinned outside the ScrollView so it never scrolls away. */}
+      <BackButton navigation={navigation} label="Back" />
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.emoji}>📧</Text>
         <Text style={styles.title}>Verify Your Account</Text>
@@ -134,7 +139,7 @@ export default function VerifyEmailScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   container: { flexGrow: 1, justifyContent: 'center', padding: 28 },
   emoji: { fontSize: 44, textAlign: 'center', marginBottom: 8 },

@@ -3536,8 +3536,60 @@
           "products": {
             "type": "array",
             "items": {
-              "type": "string"
-            }
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "qty"
+                  ],
+                  "additionalProperties": true,
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 200,
+                      "description": "Product name as the customer ordered it"
+                    },
+                    "qty": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "Quantity ordered"
+                    },
+                    "price": {
+                      "type": "number",
+                      "minimum": 0,
+                      "description": "Request field: unit price actually charged (deal price when a flash pick)"
+                    },
+                    "original_price": {
+                      "type": "number",
+                      "minimum": 0,
+                      "nullable": true,
+                      "description": "Pre-discount catalog price for deal items (null when no discount)"
+                    },
+                    "unit_price": {
+                      "type": "number",
+                      "minimum": 0,
+                      "nullable": true,
+                      "description": "Stored/normalized unit price the customer pays (null for legacy string lines)"
+                    },
+                    "subtotal": {
+                      "type": "number",
+                      "minimum": 0,
+                      "nullable": true,
+                      "description": "Stored line total (unit_price x qty, null when unpriced)"
+                    }
+                  }
+                }
+              ]
+            },
+            "description": "Ordered lines: legacy strings (\"Widget x2\") or structured objects with prices"
           },
           "estimated_cost": {
             "type": "number"
@@ -3645,6 +3697,64 @@
           },
           "created_at": {
             "type": "string"
+          },
+          "products_detail": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "qty"
+                  ],
+                  "additionalProperties": true,
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 200,
+                      "description": "Product name as the customer ordered it"
+                    },
+                    "qty": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "Quantity ordered"
+                    },
+                    "price": {
+                      "type": "number",
+                      "minimum": 0,
+                      "description": "Request field: unit price actually charged (deal price when a flash pick)"
+                    },
+                    "original_price": {
+                      "type": "number",
+                      "minimum": 0,
+                      "nullable": true,
+                      "description": "Pre-discount catalog price for deal items (null when no discount)"
+                    },
+                    "unit_price": {
+                      "type": "number",
+                      "minimum": 0,
+                      "nullable": true,
+                      "description": "Stored/normalized unit price the customer pays (null for legacy string lines)"
+                    },
+                    "subtotal": {
+                      "type": "number",
+                      "minimum": 0,
+                      "nullable": true,
+                      "description": "Stored line total (unit_price x qty, null when unpriced)"
+                    }
+                  }
+                }
+              ]
+            },
+            "description": "Parsed line items with per-line prices (unit_price, original_price, subtotal)"
           }
         }
       },

@@ -1,9 +1,10 @@
-import { Box, Chip, Grid, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Chip, Grid, Paper, Skeleton, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { apiGet } from '../api';
+import { apiGet, getInventory, getOptimizationAbc, imageUrl, listProducts } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
+import { buildFlashPicks, dealPricing, formatCountdown, msUntilDailyRefresh, stockMapFromInventory } from '../flash-sale';
 
 const CHART_COLORS = ['#1f640e', '#a8d22b', '#e9ffd5', '#4caf50', '#81c784', '#c8e6c9'];
 
@@ -20,6 +21,10 @@ export default function DashboardPage({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  // Today's flash-sale picks (same algorithm + API payloads as the mobile
+  // app's carousels, so the dashboard shows exactly what customers see).
+  const [flashDeals, setFlashDeals] = useState([]);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     const load = async () => {
@@ -35,6 +40,43 @@ export default function DashboardPage({ user, onLogout }) {
     };
     load();
   }, []);
+
+  // Parallel fetch of the exact three payloads the mobile Home/Recommendations
+  // screens use, then compute today's picks with the SHARED algorithm (see
+  // flash-sale.js — an exact port of mobile-client/src/flash-sale.js). The ABC
+  // failure is tolerated the same way the mobile app tolerates it: the picks
+  // still fill from the general photo pool.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Every fetch is guarded (listProducts included): if ANY of the three
+        // fails, the card degrades gracefully instead of blanking — an empty
+        // product list falls through to buildFlashPicks' photo-pool top-up,
+        // exactly like the mobile app tolerates a failed ABC call.
+        const [abcData, products, inv] = await Promise.all([
+          getOptimizationAbc().catch(() => []),
+          listProducts().catch(() => []),
+          getInventory().catch(() => null),
+        ]);
+        if (cancelled) return;
+        const abc = abcData && abcData.data ? abcData.data : (Array.isArray(abcData) ? abcData : []);
+        setFlashDeals(buildFlashPicks(abc, products, stockMapFromInventory(inv)));
+      } catch {
+        // The card simply stays empty — the summary still renders.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Ticking countdown to the daily pick rotation (midnight), Shopee-style.
+  // Only runs while there is something to count down to — no pointless timer
+  // in the empty/failed state.
+  useEffect(() => {
+    if (flashDeals.length === 0) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [flashDeals.length]);
 
   const productValueData = summary.topProducts.map(p => ({
     name: p.name?.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
@@ -112,6 +154,128 @@ export default function DashboardPage({ user, onLogout }) {
         )}
       </Box>
 
+      {/* Today's Flash Deals — what the customer app is offering right now.
+          Computed with the exact algorithm + API payloads the mobile
+          carousels use, so this mirrors the customer-facing deals precisely.
+          Deal prices are the same deterministic day-seeded discounts; the
+          countdown ticks to midnight when the picks rotate. */}
+      <Paper
+        sx={{
+          mt: 3,
+          p: 3,
+          borderRadius: 3,
+          backgroundColor: colors.surfaceAlt,
+          border: '1px solid rgba(226,55,68,0.15)',
+        }}
+      >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mb: 2 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <span>⚡ Today's Flash Deals</span>
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Daily top-value picks your customers see on the app — new deals every midnight
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              ml: 'auto',
+              backgroundColor: '#e23744',
+              color: '#fff',
+              borderRadius: 2,
+              px: 2,
+              py: 1,
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {loading ? 'ENDS IN --:--:--' : `ENDS IN ${formatCountdown(msUntilDailyRefresh(now))}`}
+          </Box>
+        </Box>
+
+        {loading ? (
+          <Skeleton variant="rounded" height={200} />
+        ) : flashDeals.length === 0 ? (
+          <Typography color="text.secondary" py={4} textAlign="center">
+            No flash deals available right now — the picks need photo + in-stock products.
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
+            {flashDeals.map((pick) => {
+              const deal = dealPricing(pick);
+              return (
+                <Box
+                  key={pick.id}
+                  sx={{
+                    minWidth: 180,
+                    maxWidth: 180,
+                    backgroundColor: colors.surface,
+                    borderRadius: 2,
+                    p: 1.5,
+                    border: '1px solid rgba(0,0,0,0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={imageUrl(pick.image)}
+                    alt={pick.name}
+                    sx={{
+                      width: '100%',
+                      height: 96,
+                      objectFit: 'cover',
+                      borderRadius: 1.5,
+                      backgroundColor: colors.surfaceAlt,
+                    }}
+                  />
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mt: 1, textTransform: 'uppercase', letterSpacing: 0.4, fontSize: '0.65rem' }}
+                  >
+                    {pick.category}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.25, minHeight: 36 }}>
+                    {pick.name}
+                  </Typography>
+                  {deal ? (
+                    <Box sx={{ mt: 'auto', pt: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography sx={{ color: '#e23744', fontWeight: 800, fontSize: '1.05rem' }}>
+                          P{deal.deal}
+                        </Typography>
+                        <Typography
+                          sx={{ color: '#9aa0a6', textDecoration: 'line-through', fontSize: '0.72rem' }}
+                        >
+                          P{deal.original}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={`-${deal.pct}%`}
+                        size="small"
+                        sx={{
+                          mt: 0.75,
+                          backgroundColor: '#ffe3dd',
+                          color: '#e23744',
+                          fontWeight: 800,
+                          fontSize: '0.7rem',
+                          height: 20,
+                        }}
+                      />
+                    </Box>
+                  ) : (
+                    <Typography sx={{ mt: 'auto', pt: 1, color: colors.brandPrimary, fontWeight: 800 }}>
+                      P{pick.price}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+      </Paper>
+
       {/* Summary Cards */}
       <Grid container spacing={3}>
         {panels.map((panel) => (
@@ -121,7 +285,7 @@ export default function DashboardPage({ user, onLogout }) {
                 {panel.label}
               </Typography>
               <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700 }}>
-                {loading ? '...' : panel.value}
+                {loading ? <Skeleton variant="text" width="62%" /> : panel.value}
               </Typography>
             </Paper>
           </Grid>
@@ -133,7 +297,7 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2}>Daily Sales Value (last 7 days)</Typography>
-            {dailySalesData.length > 0 ? (
+            {loading ? <Skeleton variant="rounded" height={260} /> : dailySalesData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={dailySalesData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
@@ -151,7 +315,7 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2}>Order Status Summary</Typography>
-            {statusChartData.length > 0 ? (
+            {loading ? <Skeleton variant="rounded" height={260} /> : statusChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
@@ -180,7 +344,7 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2}>Available Stocks per Location</Typography>
-            {locationChartData.length > 0 ? (
+            {loading ? <Skeleton variant="rounded" height={260} /> : locationChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={locationChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
@@ -198,7 +362,7 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2}>Stock Movement Distribution</Typography>
-            {movementChartData.length > 0 ? (
+            {loading ? <Skeleton variant="rounded" height={260} /> : movementChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
@@ -238,7 +402,9 @@ export default function DashboardPage({ user, onLogout }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(summary.fastMovingProducts || []).length === 0 ? (
+                {loading ? (
+                  <TableRow><TableCell colSpan={2}><Skeleton height={24} /></TableCell></TableRow>
+                ) : (summary.fastMovingProducts || []).length === 0 ? (
                   <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No sales data</Typography></TableCell></TableRow>
                 ) : summary.fastMovingProducts.map(p => (
                   <TableRow key={p.id}>
@@ -261,7 +427,9 @@ export default function DashboardPage({ user, onLogout }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(summary.slowMovingProducts || []).length === 0 ? (
+                {loading ? (
+                  <TableRow><TableCell colSpan={2}><Skeleton height={24} /></TableCell></TableRow>
+                ) : (summary.slowMovingProducts || []).length === 0 ? (
                   <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No product data</Typography></TableCell></TableRow>
                 ) : summary.slowMovingProducts.map(p => (
                   <TableRow key={p.id}>
@@ -288,7 +456,9 @@ export default function DashboardPage({ user, onLogout }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(summary.lowStockList || []).length === 0 ? (
+                {loading ? (
+                  <TableRow><TableCell colSpan={2}><Skeleton height={24} /></TableCell></TableRow>
+                ) : (summary.lowStockList || []).length === 0 ? (
                   <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No low-stock items 🎉</Typography></TableCell></TableRow>
                 ) : summary.lowStockList.map(p => (
                   <TableRow key={p.id}>
@@ -303,7 +473,7 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2}>Top Products by Stock Value</Typography>
-            {productValueData.length > 0 ? (
+            {loading ? <Skeleton variant="rounded" height={260} /> : productValueData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={productValueData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />

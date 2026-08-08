@@ -689,6 +689,81 @@ test('contract: admin-only write routes reject a CUSTOMER token with 403 on both
   }
 });
 
+test('contract: deal-priced line items are recorded with prices on both backends', async () => {
+  // The mobile checkout sends structured lines: the unit price actually
+  // charged (the DEAL price for a flash pick) + the pre-discount original.
+  // Both backends must normalize them identically, recompute the total from
+  // the line subtotals (so estimated_cost matches what the customer paid),
+  // and expose products_detail on read-back.
+  const body = {
+    customer_name: 'Deal Customer',
+    customer_email: 'deal@example.com',
+    customer_phone: '09171234567',
+    products: [
+      { name: 'Butterscotch', qty: 2, price: 368, original_price: 460 },  // deal: 2 x 368 = 736
+      { name: 'Acc Caramel Syrup', qty: 1, price: 420 },                  // regular: 420
+    ],
+    // A deliberately WRONG submitted total — the backend must recompute it
+    // from the priced lines (736 + 420 = 1156), never trust the client.
+    estimated_cost: 99999,
+    delivery_address: '1 Deal St',
+    payment_method: 'cod',
+  };
+  const posted = await both('POST /api/order-inquiries (deal lines)', '/api/order-inquiries', {
+    method: 'POST', auth: 'customer', body,
+  });
+  assert.strictEqual(posted.a.status, 201);
+  assert.strictEqual(posted.b.status, 201);
+
+  for (const side of [sqlite, npmfree]) {
+    const list = await call(side.url, '/api/order-inquiries?limit=50', { token: side.token.customer });
+    const mine = (list.json.data || list.json).find((o) => o.customer_email === 'deal@example.com');
+    assert.ok(mine, `${side === sqlite ? 'sqlite' : 'npmfree'} deal order found`);
+
+    // The stored products array is the NORMALIZED line shape (not the raw
+    // strings of the past), with per-line deal + original prices.
+    const lines = JSON.parse(mine.products);
+    assert.ok(Array.isArray(lines) && lines.length === 2, `${side}: two normalized lines`);
+    const deal = lines.find((l) => l.name === 'Butterscotch');
+    assert.strictEqual(deal.unit_price, 368, `${side}: deal unit price recorded`);
+    assert.strictEqual(deal.original_price, 460, `${side}: original price recorded`);
+    assert.strictEqual(deal.subtotal, 736, `${side}: deal line subtotal`);
+    const regular = lines.find((l) => l.name === 'Acc Caramel Syrup');
+    assert.strictEqual(regular.unit_price, 420, `${side}: regular unit price`);
+    assert.strictEqual(regular.original_price, null, `${side}: no original for non-deal`);
+
+    // The stored total is recomputed from the lines — the client's 99999 is
+    // never stored.
+    assert.strictEqual(mine.estimated_cost, 1156, `${side}: total recomputed from lines`);
+
+    // The response also carries products_detail for direct rendering.
+    assert.ok(Array.isArray(mine.products_detail), `${side}: products_detail present`);
+    assert.strictEqual(mine.products_detail.length, 2, `${side}: products_detail lines`);
+    const d2 = mine.products_detail.find((l) => l.name === 'Butterscotch');
+    assert.strictEqual(d2.unit_price, 368, `${side}: detail deal price`);
+    assert.strictEqual(d2.original_price, 460, `${side}: detail original price`);
+  }
+
+  // Legacy payloads (plain strings, no prices) must keep working: the lines
+  // are normalized to objects WITHOUT prices and the submitted total is kept.
+  const legacy = await both('POST /api/order-inquiries (legacy strings)', '/api/order-inquiries', {
+    method: 'POST', auth: 'customer',
+    body: { customer_name: 'Legacy Cust', customer_email: 'legacy@example.com', products: ['Widget x3'], estimated_cost: 150 },
+  });
+  assert.strictEqual(legacy.a.status, 201);
+  assert.strictEqual(legacy.b.status, 201);
+  for (const side of [sqlite, npmfree]) {
+    const list = await call(side.url, '/api/order-inquiries?limit=50', { token: side.token.customer });
+    const mine = (list.json.data || list.json).find((o) => o.customer_email === 'legacy@example.com');
+    const lines = JSON.parse(mine.products);
+    assert.strictEqual(lines.length, 1, `${side}: legacy line normalized`);
+    assert.strictEqual(lines[0].name, 'Widget', `${side}: legacy name parsed`);
+    assert.strictEqual(lines[0].qty, 3, `${side}: legacy qty parsed`);
+    assert.strictEqual(lines[0].unit_price, null, `${side}: no price for legacy`);
+    assert.strictEqual(mine.estimated_cost, 150, `${side}: legacy submitted total kept`);
+  }
+});
+
 test('contract: checkout fields (delivery_address + payment_method) are stored and returned identically', async () => {
   const uname = `addr_${Date.now().toString(36)}`;
   await both('register for checkout test', '/api/auth/register', {

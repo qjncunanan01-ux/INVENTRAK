@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { listAllProducts, listCategories } from '../api';
-import { colors } from '../theme';
+import { useThemeColors } from '../theme-context';
 
 // Simple per-category glyphs so the grid reads like a real category page.
 // Covers the supplier library's 23 categories; unknown ones get a generic tile.
@@ -48,6 +48,8 @@ const CATEGORY_GLYPHS = {
 };
 
 export default function CategoriesScreen({ navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [categories, setCategories] = useState([]);
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -127,7 +129,7 @@ export default function CategoriesScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   title: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },

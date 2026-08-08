@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { getApiBaseUrl, loadSavedApiUrl, login, setApiBaseUrl, setSessionDetails, setSessionUsername, setToken } from '../api';
-import { colors } from '../theme';
+import BackButton from '../BackButton';
+import { useThemeColors } from '../theme-context';
 
 export default function LoginScreen({ navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [username, setUsername] = useState('customer');
   const [password, setPassword] = useState('');
   const [apiUrl, setApiUrl] = useState(getApiBaseUrl());
@@ -80,6 +83,9 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Top-left back pill — escaping the login screen is one obvious tap
+          (the old bottom link was easy to miss). */}
+      <BackButton navigation={navigation} label="Back to store" />
       <Text style={styles.title}>INVENTRAK</Text>
       <Text style={styles.subtitle}>Customer Portal</Text>
       <Text style={styles.apiLabel}>API SERVER URL</Text>
@@ -146,18 +152,11 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.linkForgot}>Forgot password?</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.linkRow}
-        onPress={() => navigation.goBack()}
-        disabled={loading}
-      >
-        <Text style={styles.linkBack}>&larr; Back to store</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.background },
   title: { fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center', color: colors.brandPrimary },
   subtitle: { fontSize: 16, marginBottom: 8, textAlign: 'center', color: colors.textSecondary },
@@ -169,5 +168,4 @@ const styles = StyleSheet.create({
   linkText: { fontSize: 14, color: colors.textSecondary },
   linkStrong: { color: colors.brandPrimary, fontWeight: '700' },
   linkForgot: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
-  linkBack: { fontSize: 14, color: colors.info, marginTop: 4 },
 });

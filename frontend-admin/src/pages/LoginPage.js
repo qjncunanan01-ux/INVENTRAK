@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Container, Paper, Snackbar, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, setToken } from '../api';
-import { colors } from '../theme';
+import { brandSidebar, colors } from '../theme';
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('admin');
@@ -80,7 +80,7 @@ export default function LoginPage({ onLogin }) {
       }}
     >
       <Paper sx={{ width: '100%', p: { xs: 3, md: 5 }, borderRadius: 4, boxShadow: '0 30px 90px rgba(15, 60, 18, 0.12)' }}>
-        <Box sx={{ mb: 3, p: 3, borderRadius: 3, backgroundColor: colors.brandPrimary, color: '#fff' }}>
+        <Box sx={{ mb: 3, p: 3, borderRadius: 3, backgroundColor: brandSidebar, color: '#fff' }}>
           <Typography variant="h5" component="div" gutterBottom>
             INVENTRAK Admin
           </Typography>

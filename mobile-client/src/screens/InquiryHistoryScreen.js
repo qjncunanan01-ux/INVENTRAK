@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -9,8 +9,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { listOrderInquiries, useSessionUsername } from '../api';
-import { colors } from '../theme';
+import EmptyState from '../EmptyState';
+import { useThemeColors } from '../theme-context';
 
 const STATUS_TABS = [
   { key: 'all', label: 'All' },
@@ -22,6 +24,8 @@ const STATUS_TABS = [
 ];
 
 export default function InquiryHistoryScreen({ navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Order history is tied to a customer account: guests get a sign-in prompt
   // instead of an empty list.
   const isLoggedIn = !!useSessionUsername(null);
@@ -43,12 +47,15 @@ export default function InquiryHistoryScreen({ navigation }) {
     }
   }, []);
 
-  // Only fetch while logged in — and REFETCH when the user logs in from the
-  // guest gate (the screen stays mounted across login, so a mount-only fetch
-  // would leave the list empty until pull-to-refresh).
-  useEffect(() => {
-    if (isLoggedIn) fetchData();
-  }, [isLoggedIn, fetchData]);
+  // Fetch while logged in — and REFETCH every time the tab gains focus, so a
+  // freshly placed order (e.g. "View my orders" right after checkout) shows up
+  // immediately instead of a stale list until pull-to-refresh. Also covers the
+  // guest gate login path (the screen stays mounted across login).
+  useFocusEffect(
+    useCallback(() => {
+      if (isLoggedIn) fetchData();
+    }, [isLoggedIn, fetchData])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -71,14 +78,36 @@ export default function InquiryHistoryScreen({ navigation }) {
     return c;
   }, [inquiries]);
 
-  // Rendered product names for a card (also used by the search filter).
+  // Rendered product lines for a card (also used by the search filter).
+  // Handles the structured line items the app now sends ({ name, qty, price,
+  // original_price }) AND legacy string entries ('Widget x2'), so older orders
+  // still render correctly.
   const renderProducts = (raw) => {
+    let parsed = null;
     try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.join(', ') : JSON.stringify(parsed);
+      parsed = JSON.parse(raw);
     } catch {
       return raw;
     }
+    if (!Array.isArray(parsed)) return parsed ? JSON.stringify(parsed) : '';
+    return parsed
+      .map((line) => {
+        if (typeof line === 'string') return line;
+        if (!line || typeof line !== 'object') return '';
+        const qty = line.qty > 1 ? ` x${line.qty}` : '';
+        const base = `${line.name || 'Item'}${qty}`;
+        // Show the price the customer was charged, with a discount marker when
+        // the line carried a deal (original price present + higher).
+        const price = Number(line.unit_price ?? line.price);
+        const original = Number(line.original_price);
+        if (price > 0 && original > price) {
+          return `${base} (P${price} deal, was P${original})`;
+        }
+        if (price > 0) return `${base} (P${price})`;
+        return base;
+      })
+      .filter(Boolean)
+      .join(', ');
   };
 
   // Live search (reviewer-style): filter by customer name, email, product,
@@ -200,11 +229,12 @@ export default function InquiryHistoryScreen({ navigation }) {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={styles.itemTitle}>{item.customer_name}</Text>
+              <Text style={styles.itemTitle}>Order #{item.id}</Text>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
                 <Text style={styles.statusText}>{item.status}</Text>
               </View>
             </View>
+            {item.customer_name ? <Text style={styles.detail}>Customer: {item.customer_name}</Text> : null}
 
             <Text style={styles.detail}>Email: {item.customer_email}</Text>
             <Text style={styles.detail}>
@@ -226,11 +256,15 @@ export default function InquiryHistoryScreen({ navigation }) {
           </View>
         )}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            {tab === 'all'
-              ? 'No inquiries yet. Submit one from the Order Inquiry tab.'
-              : `No ${tab} inquiries.`}
-          </Text>
+          <EmptyState
+            glyph="📋"
+            title={tab === 'all' ? 'No inquiries yet' : `No ${tab} inquiries`}
+            sub={
+              tab === 'all'
+                ? 'Your submitted order inquiries will appear here. Start one from the Order Inquiry tab.'
+                : `You have no ${tab} orders right now — try another status or submit a new inquiry.`
+            }
+          />
         }
       />
 
@@ -244,10 +278,10 @@ export default function InquiryHistoryScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  searchWrap: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#fff' },
+  searchWrap: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: colors.surface },
   searchInput: {
     backgroundColor: colors.background,
     paddingHorizontal: 14,
@@ -256,7 +290,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 15,
   },
-  tabs: { paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
+  tabs: { paddingVertical: 10, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
   tab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, marginHorizontal: 4, borderRadius: 18, backgroundColor: colors.background },
   tabActive: { backgroundColor: colors.brandPrimary },
   tabText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
@@ -280,7 +314,6 @@ const styles = StyleSheet.create({
   timelineBody: { flex: 1 },
   timelineLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, textTransform: 'capitalize' },
   timelineDate: { fontSize: 11, color: colors.textSecondary },
-  empty: { marginTop: 24, textAlign: 'center', color: colors.textSecondary },
   newInquiry: { marginHorizontal: 16, marginBottom: 20, backgroundColor: colors.brandPrimary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   newInquiryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   guestGlyph: { fontSize: 40, color: colors.brandPrimary, fontWeight: '700', marginBottom: 12 },

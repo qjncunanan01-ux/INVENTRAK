@@ -9,6 +9,7 @@ const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = re
 const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr } = require('./ocr');
+const { normalizeLines } = require('./product-lines');
 
 // Brute-force throttling shared with the SQLite backend (same module, same
 // semantics): failed logins per (username, IP) lock the account with an
@@ -1627,6 +1628,18 @@ const server = http.createServer((req, res) => {
       orders = orders.filter(o => Number(o.user_id) === req.user.id || (o.customer_email || '').toLowerCase() === myEmail);
     }
     if (status) orders = orders.filter(o => o.status === status);
+    // Parse + normalize the stored line items into a `products_detail` array
+    // (SQLite parity): every row exposes per-line prices the client can render
+    // without re-parsing the products JSON itself.
+    orders = orders.map(o => ({
+      ...o,
+      products_detail: (() => {
+        try {
+          const parsed = JSON.parse(o.products || '[]');
+          return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+      })(),
+    }));
     if (page !== null || limit !== null) {
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
       const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
@@ -1704,13 +1717,21 @@ const server = http.createServer((req, res) => {
       const userId = (auth && auth.user && auth.user.id) || null;
       const now = new Date().toISOString();
       const id = orders.length + 1;
+      // Line items are normalized to a canonical shape (see product-lines.js):
+      // structured entries from the mobile checkout (with the DEAL unit price
+      // the customer actually pays + the pre-discount original price) and
+      // legacy string entries alike. When any line carries a price, the stored
+      // estimated_cost is recomputed from the line subtotals so the record
+      // always matches what the customer was charged (SQLite parity).
+      const { lines, total } = normalizeLines(obj.products);
+      const storedCost = total !== null ? total : (obj.estimated_cost || 0);
       const newOrder = {
         id,
         customer_name: obj.customer_name,
         customer_email: obj.customer_email,
         customer_phone: obj.customer_phone || null,
-        products: JSON.stringify(obj.products || []),
-        estimated_cost: obj.estimated_cost || 0,
+        products: JSON.stringify(lines),
+        estimated_cost: storedCost,
         notes: obj.notes || '',
         delivery_address: obj.delivery_address || null,
         payment_method: obj.payment_method || 'cod',
@@ -1731,7 +1752,7 @@ const server = http.createServer((req, res) => {
       try {
         payment = await buildPaymentStep({
           id,
-          amount: obj.estimated_cost || 0,
+          amount: storedCost,
           description: `INVENTRAK order ${id} — ${obj.customer_name}`,
           email: obj.customer_email,
           paymentMethod: obj.payment_method || 'cod',

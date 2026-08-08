@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,18 +10,55 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { imageUrl, scanProductPhoto } from '../api';
-import { colors } from '../theme';
+import { imageUrl, scanProductPhoto, useSessionUsername } from '../api';
+import { useThemeColors } from '../theme-context';
 
 // OCR module (reviewer requirement): snap or pick a product photo, the
 // backend runs tesseract OCR and fuzzy-matches the catalog, and the customer
 // taps the best match to prefill a checkout inquiry.
+//
+// Member-only: scanning is a signed-in feature (matches the Home tile, which
+// is hidden for guests). Guests landing here see a lock screen instead.
 export default function OcrScreen({ navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const isLoggedIn = !!useSessionUsername(null);
+
+  // NOTE: all hooks must stay above the login gate (Rules of Hooks) — the
+  // gate below is a render decision, not a hook-count decision.
   const [busy, setBusy] = useState(false);
   const [image, setImage] = useState(null);
   const [text, setText] = useState('');
   const [matches, setMatches] = useState([]);
   const [error, setError] = useState('');
+
+  // Locked state for guests: the feature exists but needs an account.
+  if (!isLoggedIn) {
+    return (
+      <View style={styles.lockWrap}>
+        <Text style={styles.lockGlyph}>📷</Text>
+        <Text style={styles.lockTitle}>Log in to scan products</Text>
+        <Text style={styles.lockBody}>
+          Product scanning lets you snap a label and instantly match it to the
+          catalog for one-tap ordering — a member feature.
+        </Text>
+        <TouchableOpacity
+          style={[styles.lockBtn, styles.lockBtnPrimary]}
+          onPress={() => navigation.navigate('Login')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.lockBtnPrimaryText}>Log In</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.lockBtn, styles.lockBtnGhost]}
+          onPress={() => navigation.navigate('Signup')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.lockBtnGhostText}>Create Account</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const requestPermission = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -147,7 +184,7 @@ export default function OcrScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: colors.background },
   title: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
   subtitle: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginBottom: 16 },
@@ -178,4 +215,20 @@ const styles = StyleSheet.create({
   matchName: { fontWeight: '700', color: colors.textPrimary, fontSize: 15 },
   matchMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
   matchCta: { color: colors.brandPrimary, fontWeight: '800', fontSize: 15 },
+  lockWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
+  lockGlyph: { fontSize: 44, marginBottom: 12 },
+  lockTitle: { fontSize: 19, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
+  lockBody: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  lockBtn: { width: '100%', maxWidth: 320, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  lockBtnPrimary: { backgroundColor: colors.brandPrimary },
+  lockBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  lockBtnGhost: { borderWidth: 1.5, borderColor: colors.brandPrimary },
+  lockBtnGhostText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
 });

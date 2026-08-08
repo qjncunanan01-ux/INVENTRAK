@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { listOrderInquiries, useSessionUsername } from '../api';
-import { colors } from '../theme';
+import EmptyState from '../EmptyState';
+import { useThemeColors } from '../theme-context';
 
 const LABELS = { pending: 'Placed', approved: 'Approved', fulfilled: 'Fulfilled', delivered: 'Delivered', rejected: 'Rejected' };
 const GLYPHS = { pending: '🕐', approved: '✓', fulfilled: '📦', delivered: '🏠', rejected: '✕' };
@@ -21,6 +22,8 @@ const GLYPHS = { pending: '🕐', approved: '✓', fulfilled: '📦', delivered:
 // timeline, newest first — so customers can see the store's latest action at
 // a glance without opening each order.
 export default function NotificationsScreen({ navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isLoggedIn = !!useSessionUsername(null);
   const [inquiries, setInquiries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -144,13 +147,19 @@ export default function NotificationsScreen({ navigation }) {
             <Text style={styles.time}>{item.at ? new Date(item.at).toLocaleDateString() : ''}</Text>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={<Text style={styles.empty}>No notifications yet. Your order updates will show up here.</Text>}
+        ListEmptyComponent={
+          <EmptyState
+            glyph="🔔"
+            title="No notifications yet"
+            sub="Your order status updates will show up here — place an order inquiry and we'll keep you posted."
+          />
+        }
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: 16 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 24 },
   title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
@@ -178,7 +187,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontWeight: '700', color: colors.textPrimary, fontSize: 15 },
   cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
   time: { color: colors.textSecondary, fontSize: 11, marginLeft: 8 },
-  empty: { marginTop: 24, textAlign: 'center', color: colors.textSecondary },
   guestGlyph: { fontSize: 40, color: colors.brandPrimary, fontWeight: '700', marginBottom: 12 },
   guestTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
   guestSub: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: 24, paddingHorizontal: 32, lineHeight: 19 },

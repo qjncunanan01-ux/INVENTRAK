@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   StyleSheet,
@@ -10,16 +9,23 @@ import {
   View,
 } from 'react-native';
 import { updateInquiryPayment } from '../api';
-import { colors } from '../theme';
+import { useThemeColors } from '../theme-context';
+import Dialog from '../Dialog';
 
 // GCash payment step (reviewer requirement): after placing a GCash/card order,
 // the customer lands here to actually pay — a QR to scan in the GCash app (or
 // an open payment link when a PayMongo checkout session exists), then confirm
 // with "I've paid" which marks the inquiry paid for the admin dashboard.
 export default function PaymentScreen({ route, navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { inquiryId, payment } = route.params || {};
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [showError, setShowError] = useState(false);
+
+  const goToOrders = () => navigation.navigate('InquiryHistory');
 
   if (!payment) {
     return (
@@ -33,7 +39,8 @@ export default function PaymentScreen({ route, navigation }) {
   const openLink = () => {
     if (payment.payment_url) {
       Linking.openURL(payment.payment_url).catch(() => {
-        Alert.alert('Cannot open', 'Could not open the payment link.');
+        setErrorMsg('Could not open the payment link. Check your connection and try again.');
+        setShowError(true);
       });
     }
   };
@@ -43,12 +50,9 @@ export default function PaymentScreen({ route, navigation }) {
     try {
       await updateInquiryPayment({ id: inquiryId }, { payment_status: 'paid' });
       setPaid(true);
-      Alert.alert('Payment confirmed 🎉', 'Your order is now marked as paid. The store will review it shortly.', [
-        { text: 'View my orders', onPress: () => navigation.navigate('InquiryHistory') },
-        { text: 'OK', style: 'cancel' },
-      ]);
     } catch (err) {
-      Alert.alert('Error', err.message || 'Could not confirm payment.');
+      setErrorMsg(err.message || 'Could not confirm payment. Please try again.');
+      setShowError(true);
     } finally {
       setBusy(false);
     }
@@ -59,7 +63,18 @@ export default function PaymentScreen({ route, navigation }) {
       <View style={styles.center}>
         <Text style={styles.bigGlyph}>✓</Text>
         <Text style={styles.title}>Payment confirmed</Text>
-        <Text style={styles.subtitle}>Your order is marked as paid.</Text>
+        <Text style={styles.subtitle}>
+          Your order is now marked as paid. The store will review it shortly.
+        </Text>
+        {/* Clear next step instead of a dead-end confirmation: the paid state
+            must lead somewhere (Alert.alert would be invisible on web). */}
+        <TouchableOpacity
+          style={[styles.btn, styles.btnPrimary, { minWidth: 220, marginTop: 20 }]}
+          onPress={goToOrders}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.btnPrimaryText}>View my orders</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -81,7 +96,7 @@ export default function PaymentScreen({ route, navigation }) {
 
       <View style={styles.refCard}>
         <Text style={styles.refLabel}>Payment reference</Text>
-        <Text style={styles.refCode}>{payment.payment_reference}</Text>
+        <Text style={styles.refCode}>{payment.payment_reference || '—'}</Text>
         <Text style={styles.refHint}>Mention this reference when paying.</Text>
       </View>
 
@@ -95,11 +110,22 @@ export default function PaymentScreen({ route, navigation }) {
         <Text style={styles.btnPrimaryText}>{busy ? 'Confirming...' : "I've paid — confirm"}</Text>
       </TouchableOpacity>
       <Text style={styles.hint}>In demo mode no real charge is made — tap confirm to continue.</Text>
+
+      {/* Payment error dialog (cross-platform) */}
+      <Dialog
+        visible={showError}
+        glyph="⚠️"
+        title="Payment issue"
+        body={errorMsg}
+        confirmLabel="Got it"
+        onConfirm={() => setShowError(false)}
+        onCancel={() => setShowError(false)}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: colors.background },
   title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginBottom: 6, textAlign: 'center' },

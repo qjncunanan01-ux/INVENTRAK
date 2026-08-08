@@ -12,7 +12,8 @@ import {
   View,
 } from 'react-native';
 import { API_BASE_URL, register, setSessionDetails, setSessionUsername, setToken } from '../api';
-import { colors } from '../theme';
+import BackButton from '../BackButton';
+import { useThemeColors } from '../theme-context';
 
 // Mirrors the backend policy exactly (backend/src/password-policy.js): the
 // server is the source of truth, this is just a friendlier pre-check.
@@ -28,6 +29,8 @@ function passwordErrors(pw) {
 }
 
 export default function SignupScreen({ navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -110,6 +113,11 @@ export default function SignupScreen({ navigation }) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Escape hatch: a guest who tapped Create Account at checkout can
+          change their mind in one obvious tap instead of being stuck.
+          Lives OUTSIDE the ScrollView so it stays pinned while scrolling/
+          when the keyboard opens. */}
+      <BackButton navigation={navigation} label="Back" />
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>Join INVENTRAK to start ordering supplies.</Text>
@@ -226,7 +234,7 @@ export default function SignupScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   container: { flexGrow: 1, justifyContent: 'center', padding: 28 },
   title: { fontSize: 28, fontWeight: '800', textAlign: 'center', color: colors.textPrimary, marginBottom: 4 },

@@ -21,6 +21,77 @@ const STATUS_FILTERS = [
   { key: 'rejected', label: 'Rejected' },
 ];
 
+// Parse an order's stored products JSON into an array of line items.
+// Handles the structured lines ({ name, qty, price, original_price, ... })
+// the app now records AND legacy plain-string entries ('Widget x2').
+function parseLines(order) {
+  if (Array.isArray(order.products_detail)) return order.products_detail;
+  try {
+    const parsed = JSON.parse(order.products || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+// One line's price (unit price actually charged — deal price when discounted).
+// Prefers the normalized unit_price, falls back to the raw request price.
+function linePrice(line) {
+  const p = Number(line.unit_price ?? line.price);
+  return Number.isFinite(p) && p > 0 ? p : null;
+}
+
+function lineOriginal(line) {
+  const p = Number(line.original_price);
+  return Number.isFinite(p) && p > 0 ? p : null;
+}
+
+// Render the line items of one order: name x qty, with the price actually
+// charged and — when the item was a flash-sale deal — the struck-through
+// original price + savings so the admin sees the discount applied at a glance.
+function renderLineItems(lines) {
+  if (!lines || lines.length === 0) return '—';
+  return lines.map((line) => {
+    if (typeof line === 'string') return line;
+    const name = line.name || 'Item';
+    const qty = Number(line.qty) > 1 ? ` x${line.qty}` : '';
+    const price = linePrice(line);
+    const original = lineOriginal(line);
+    const isDeal = price !== null && original !== null && original > price;
+    const savings = isDeal ? ((original - price) / original) * 100 : 0;
+    return (
+      <Box key={`${name}-${qty}-${price}`} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Typography variant="body2" component="span">
+          {name}{qty}
+        </Typography>
+        {isDeal ? (
+          <>
+            <Typography variant="body2" component="span" sx={{ color: '#e23744', fontWeight: 700 }}>
+              P{price}
+            </Typography>
+            <Typography variant="caption" component="span" sx={{ color: '#9aa0a6', textDecoration: 'line-through' }}>
+              P{original}
+            </Typography>
+            <Chip label={`-${Math.round(savings)}%`} size="small" sx={{ height: 18, backgroundColor: '#ffe3dd', color: '#e23744', fontWeight: 800, fontSize: '0.65rem' }} />
+          </>
+        ) : price !== null ? (
+          <Typography variant="body2" component="span" sx={{ color: colors.brandPrimary, fontWeight: 600 }}>
+            P{price}
+          </Typography>
+        ) : null}
+      </Box>
+    );
+  });
+}
+
+// Plain-text lines for the search filter (works for both line shapes).
+function linesToText(lines) {
+  return lines.map((line) => {
+    if (typeof line === 'string') return line;
+    return `${line.name || ''} x${line.qty || 1}`;
+  }).join(' ');
+}
+
 export default function OrderInquiriesPage({ onLogout }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +127,10 @@ export default function OrderInquiriesPage({ onLogout }) {
     }
   };
 
+  // Pending count drives an urgency chip in the header: work waiting in the
+  // queue, at a glance.
+  const pendingCount = (Array.isArray(orders) ? orders : []).filter(o => o.status === 'pending').length;
+
   // Status dropdown filter (combined with the search bar): 'All statuses'
   // shows everything; a specific status narrows first, then the text search
   // runs on the remaining rows.
@@ -63,8 +138,7 @@ export default function OrderInquiriesPage({ onLogout }) {
     if (statusFilter && order.status !== statusFilter) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    let productsText = '';
-    try { productsText = JSON.parse(order.products || '[]').join(' '); } catch (err) { productsText = order.products || ''; }
+    const productsText = linesToText(parseLines(order)).toLowerCase();
     return (order.customer_name || '').toLowerCase().includes(q) ||
       (order.customer_email || '').toLowerCase().includes(q) ||
       (order.status || '').toLowerCase().includes(q) ||
@@ -127,6 +201,14 @@ export default function OrderInquiriesPage({ onLogout }) {
               onChange={e => setSearch(e.target.value)}
               sx={{ minWidth: 260, backgroundColor: colors.surface }}
             />
+            {pendingCount > 0 && (
+              <Chip
+                label={`${pendingCount} pending`}
+                color="warning"
+                size="small"
+                sx={{ fontWeight: 700 }}
+              />
+            )}
             <Typography variant="subtitle2" color="text.secondary">{orderList.length} inquiries</Typography>
           </Box>
         </Box>
@@ -149,14 +231,25 @@ export default function OrderInquiriesPage({ onLogout }) {
             ) : orderList.length === 0 ? (
               <TableRow><TableCell colSpan={8}>No order inquiries</TableCell></TableRow>
             ) : orderList.map(order => {
-              let products = [];
-              try { products = JSON.parse(order.products); } catch (err) { products = [order.products]; }
+              const lines = parseLines(order);
               return (
                 <TableRow key={order.id} sx={{ '&:hover': { backgroundColor: 'rgba(0,0,0,0.02)' } }}>
                   <TableCell>{order.customer_name}</TableCell>
                   <TableCell>{order.customer_email}</TableCell>
-                  <TableCell>{Array.isArray(products) ? products.join(', ') : products}</TableCell>
-                  <TableCell>P{order.estimated_cost}</TableCell>
+                  <TableCell sx={{ maxWidth: 320 }}>
+                    {renderLineItems(lines)}
+                  </TableCell>
+                  <TableCell>
+                    <Typography sx={{ fontWeight: 700 }}>P{order.estimated_cost}</Typography>
+                    {lines.some((l) => {
+                      if (typeof l === 'string') return false;
+                      const orig = lineOriginal(l);
+                      const price = linePrice(l);
+                      return orig !== null && price !== null && orig > price;
+                    }) && (
+                      <Chip label="includes flash deals" size="small" sx={{ mt: 0.5, height: 18, backgroundColor: '#ffe3dd', color: '#e23744', fontWeight: 700, fontSize: '0.65rem' }} />
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                       <Chip size="small" label={(order.payment_method || 'cod').toUpperCase()} color={order.payment_method === 'gcash' ? 'info' : 'default'} />
@@ -201,7 +294,9 @@ export default function OrderInquiriesPage({ onLogout }) {
               <Typography variant="subtitle2">Customer</Typography>
               <Typography variant="body2" mb={1}>{details.customer_name} · {details.customer_email} · {details.customer_phone || 'no phone'}</Typography>
               <Typography variant="subtitle2">Products</Typography>
-              <Typography variant="body2" mb={1}>{details.products}</Typography>
+              <Box mb={1}>
+                {renderLineItems(parseLines(details))}
+              </Box>
               <Typography variant="subtitle2">Cost</Typography>
               <Typography variant="body2" mb={1}>P{details.estimated_cost} ({details.payment_method?.toUpperCase()} · {details.payment_status || 'unpaid'})</Typography>
               <Typography variant="subtitle2">Delivery address</Typography>

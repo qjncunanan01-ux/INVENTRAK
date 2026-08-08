@@ -1,43 +1,77 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { imageUrl, listAllProducts, listCategories, useSessionUsername } from '../api';
-import { colors } from '../theme';
+import { useFocusEffect } from '@react-navigation/native';
+import { getInventory, getOptimizationAbc, listAllProducts, listCategories, useSessionUsername } from '../api';
+import { useCart } from '../cart-context';
+import { useLoginGate } from '../login-gate';
+import { buildFlashPicks, dealPricing, stockMapFromInventory } from '../flash-sale';
+import FlashCarousel from '../FlashCarousel';
+import { showToast } from '../toast';
+import FlashSaleHeader from '../FlashSaleHeader';
+import { useThemeColors } from '../theme-context';
 
 export default function HomeScreen({ route, navigation }) {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Guest-first: the catalog opens with no account; the welcome line reflects
   // the session once a customer logs in.
-  const username = useSessionUsername(route.params?.username || null) || 'Customer';
+  const sessionUser = useSessionUsername(route.params?.username || null);
+  const isLoggedIn = !!sessionUser;
+  const { addItem } = useCart();
+  // Featured-card quick-add is member-only (guests get the login gate).
+  const { requireLogin, gateModal } = useLoginGate(navigation);
   const [featured, setFeatured] = useState([]);
   const [categories, setCategories] = useState(['All']);
+  // productId -> total quantity across locations (from the public inventory
+  // API), so each featured card can show an honest In stock / Low / Out tag.
+  const [stockMap, setStockMap] = useState({});
+  // Monotonic fetch sequence: drops stale responses when the screen is
+  // blurred/refocused quickly (a slow earlier fetch must not overwrite a
+  // fresher one).
+  const fetchSeq = useRef(0);
 
   const fetchProducts = useCallback(async () => {
+    const seq = ++fetchSeq.current;
     try {
-      // listAllProducts pages past the 100-row clamp so the featured row and
-      // the derived categories cover the WHOLE 192-product catalog.
-      const items = await listAllProducts();
-      // Featured = first few non-empty stock products (placeholder for a real
-      // recommendation feed, which is available via the Recommendations tab).
-      setFeatured(items.slice(0, 4));
-      // Category chips come from the live catalog endpoint (not hardcoded, and
-      // not truncated to one page), so all 23 supplier categories show up.
-      const cats = await listCategories();
+      // Parallel: full catalog (pages past the 100-row clamp), categories,
+      // ABC top picks, and stock levels — so the featured row shows REAL
+      // recommendations (top-value A-classified supplies), not the first few
+      // rows of the catalog.
+      const [items, cats, abcData, inv] = await Promise.all([
+        listAllProducts(),
+        listCategories(),
+        getOptimizationAbc().catch(() => []),
+        getInventory().catch(() => null),
+      ]);
+      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+
       setCategories(['All', ...(Array.isArray(cats) ? cats : [])]);
+
+      // Today's flash picks, shared with the Recommendations screen (same
+      // helper + same inputs -> identical carousels). buildFlashPicks
+      // enriches the ABC list, keeps photo + in-stock items, and rotates a
+      // deterministic 6-window per local day.
+      const stock = stockMapFromInventory(inv);
+      const abc = abcData && abcData.data ? abcData.data : (Array.isArray(abcData) ? abcData : []);
+      setFeatured(buildFlashPicks(abc, items, stock));
+      setStockMap(stock);
     } catch (err) {
       // Home still renders without data
     }
   }, []);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+  // Refetch whenever Home regains focus so admin edits (new products, price
+  // changes) appear without killing and reopening the app. Wrapped in a
+  // non-async callback so useFocusEffect never receives a Promise as its
+  // cleanup return value.
+  useFocusEffect(useCallback(() => { fetchProducts(); }, [fetchProducts]));
 
   // Shopee-style: tapping the search bar opens the dedicated Search screen.
   const openSearch = () => {
@@ -93,51 +127,28 @@ export default function HomeScreen({ route, navigation }) {
           )}
         />
 
-        {/* Quick actions */}
+        {/* Quick actions. Personal features (Order History, Notifications,
+            Scan Product) are MEMBER-ONLY — hidden from guests. Guests see the
+            public trio plus a Log In tile so the grid stays balanced and the
+            account value is obvious (Shopee/Lazada pattern). */}
         <View style={styles.quickRow}>
-          <TouchableOpacity
-            style={styles.quickItem}
-            onPress={() => navigation.navigate('CatalogTab', { screen: 'Recommendations' })}
-          >
-            <Text style={styles.quickGlyph}>★</Text>
-            <Text style={styles.quickLabel}>Recommendations</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickItem}
-            onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
-          >
-            <Text style={styles.quickGlyph}>✎</Text>
-            <Text style={styles.quickLabel}>Order Inquiry</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickItem}
-            onPress={() => navigation.navigate('OrdersTab', { screen: 'InquiryHistory' })}
-          >
-            <Text style={styles.quickGlyph}>✓</Text>
-            <Text style={styles.quickLabel}>Order History</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickItem}
-            onPress={() => navigation.navigate('OrdersTab', { screen: 'Notifications' })}
-          >
-            <Text style={styles.quickGlyph}>🔔</Text>
-            <Text style={styles.quickLabel}>Notifications</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickItem}
-            onPress={() => navigation.navigate('CatalogTab', { screen: 'OCR' })}
-          >
-            <Text style={styles.quickGlyph}>📷</Text>
-            <Text style={styles.quickLabel}>Scan Product</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickItem}
-            onPress={() => navigation.navigate('CatalogTab', { screen: 'StockAvailability' })}
-          >
-            <Text style={styles.quickGlyph}>🏬</Text>
-            <Text style={styles.quickLabel}>Stock Availability</Text>
-          </TouchableOpacity>
+          {quickActions(isLoggedIn, navigation).map((a) => (
+            <TouchableOpacity
+              key={a.key}
+              style={[styles.quickItem, a.primary && styles.quickItemPrimary]}
+              onPress={a.onPress}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.quickGlyph, a.primary && styles.quickGlyphPrimary]}>{a.glyph}</Text>
+              <Text style={[styles.quickLabel, a.primary && styles.quickLabelPrimary]}>{a.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
+        {!isLoggedIn ? (
+          <Text style={styles.guestNudge}>
+            🔒 Order history, notifications & product scanning unlock when you log in.
+          </Text>
+        ) : null}
 
         {/* Multi-location availability teaser */}
         <Text style={styles.sectionTitle}>Multi-Location Stock</Text>
@@ -149,40 +160,87 @@ export default function HomeScreen({ route, navigation }) {
           <Text style={styles.locationTeaserSub}>See what's available at each branch before you order.</Text>
         </TouchableOpacity>
 
-        {/* Featured products */}
-        <Text style={styles.sectionTitle}>Featured Supplies</Text>
-        <View style={styles.grid}>
-          {featured.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.card}
-              onPress={() =>
-                navigation.navigate('CatalogTab', {
-                  screen: 'Products',
-                  params: { focusId: item.id },
-                })
-              }
-            >
-              <View style={styles.cardTop}>
-                {item.image ? (
-                  <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="cover" />
-                ) : null}
-                <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
-              </View>
-              <Text style={styles.cardMeta}>{item.category}</Text>
-              <Text style={styles.cardPrice}>P{item.price}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* Flash Sale — Shopee-style urgency: a live countdown to the daily
+            midnight refresh, after which the featured picks rotate to a
+            fresh window of the value-ranked ABC list (see flash-sale.js).
+            'View all top picks' opens the full ranked Recommendations list
+            (same data source, so the carousel and the ranked list always
+            feel connected). Refetches on focus AND when the countdown hits
+            zero, so admin edits and the day rotation show up live. */}
+        <FlashSaleHeader
+          onRefresh={fetchProducts}
+          onViewAll={() => navigation.navigate('CatalogTab', { screen: 'Recommendations' })}
+        />
+        <FlashCarousel
+          items={featured}
+          stockMap={stockMap}
+          onPressItem={(item) =>
+            navigation.navigate('CatalogTab', {
+              screen: 'Products',
+              params: { focusId: item.id },
+            })
+          }
+          onAdd={(item) =>
+            requireLogin(() => {
+              // Snapshot the day's deal price so the cart matches the card.
+              const d = dealPricing(item);
+              addItem(item, 1, d ? d.deal : undefined, d ? d.original : undefined);
+              showToast('Added to cart', {
+                actionLabel: 'View',
+                onAction: () => navigation.navigate('CartTab'),
+              });
+            })
+          }
+        />
 
         <View style={styles.spacer} />
-        <Text style={styles.welcome}>Welcome, {username}</Text>
+        {/* Honest welcome line: the seeded demo account is NOT logged in on
+            boot — the app always opens as a guest. Show the real username
+            only when a customer actually signs in, never a fake "Customer". */}
+        {isLoggedIn ? (
+          <Text style={styles.welcome}>Welcome, {sessionUser}! 🎉</Text>
+        ) : (
+          <Text style={styles.welcome}>
+            Browsing as a guest — create a free account when you're ready to order.
+          </Text>
+        )}
       </ScrollView>
+      {gateModal}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+// Builds the Home quick-action tiles. Public actions stay for everyone;
+// member actions (order history, notifications, scanning) only render for
+// logged-in customers, who also get a Log In tile in their place.
+function quickActions(isLoggedIn, navigation) {
+  const go = (screen, params) => navigation.navigate(screen, params);
+  const publicActions = [
+    { key: 'recs', glyph: '★', label: 'Recommendations', onPress: () => go('CatalogTab', { screen: 'Recommendations' }) },
+    { key: 'inquiry', glyph: '✎', label: 'Order Inquiry', onPress: () => go('OrdersTab', { screen: 'OrderInquiry' }) },
+    { key: 'stock', glyph: '🏬', label: 'Stock Availability', onPress: () => go('CatalogTab', { screen: 'StockAvailability' }) },
+  ];
+  if (!isLoggedIn) {
+    return [
+      ...publicActions,
+      {
+        key: 'login',
+        glyph: '👤',
+        label: 'Log In',
+        primary: true,
+        onPress: () => go('AccountTab'),
+      },
+    ];
+  }
+  return [
+    ...publicActions,
+    { key: 'history', glyph: '✓', label: 'Order History', onPress: () => go('OrdersTab', { screen: 'InquiryHistory' }) },
+    { key: 'notif', glyph: '🔔', label: 'Notifications', onPress: () => go('OrdersTab', { screen: 'Notifications' }) },
+    { key: 'ocr', glyph: '📷', label: 'Scan Product', onPress: () => go('CatalogTab', { screen: 'OCR' }) },
+  ];
+}
+
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
@@ -253,20 +311,17 @@ const styles = StyleSheet.create({
   locationTeaserSub: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
   quickGlyph: { fontSize: 20, color: colors.brandPrimary, fontWeight: '700' },
   quickLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 6, textAlign: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16 },
-  card: {
-    width: '48%',
-    marginRight: '4%',
-    marginBottom: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 12,
+  quickItemPrimary: { backgroundColor: colors.brandPrimary },
+  quickGlyphPrimary: { color: '#fff' },
+  quickLabelPrimary: { color: '#fff', fontWeight: '700' },
+  guestNudge: {
+    marginHorizontal: 16,
+    marginTop: -2,
+    marginBottom: 4,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 17,
   },
-  cardTop: { minHeight: 40 },
-  cardImage: { width: '100%', height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: colors.background },
-  cardName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
-  cardMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
-  cardPrice: { fontSize: 15, fontWeight: '800', color: colors.brandPrimary, marginTop: 8 },
   spacer: { height: 16 },
   welcome: { textAlign: 'center', color: colors.textSecondary, fontSize: 13, marginBottom: 24 },
 });

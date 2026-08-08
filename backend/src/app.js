@@ -13,6 +13,21 @@ const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = re
 const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr } = require('./ocr');
+const { normalizeLines, summarizeLines } = require('./product-lines');
+
+// Attach a parsed, normalized `products_detail` array to every inquiry row so
+// clients (admin + mobile) can render per-line prices without re-parsing the
+// products JSON themselves. Resilient to legacy/malformed payloads.
+function enrichInquiryRows(rows) {
+  return rows.map((row) => {
+    let parsed = [];
+    try {
+      const raw = JSON.parse(row.products || '[]');
+      if (Array.isArray(raw)) parsed = raw;
+    } catch {}
+    return { ...row, products_detail: parsed };
+  });
+}
 
 // Brute-force throttling shared with the npm-free fallback (same module, same
 // semantics): failed logins per (username, IP) lock the account with an
@@ -2402,11 +2417,11 @@ app.get(
       !req.query.page &&
       !req.query.limit
     ) {
-      return res.json(rows);
+      return res.json(enrichInquiryRows(rows));
     }
 
     res.json({
-      data: rows,
+      data: enrichInquiryRows(rows),
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -2551,14 +2566,23 @@ app.post(
       } catch {}
     }
 
+    // Line items are normalized to a canonical shape (see product-lines.js):
+    // structured entries from the mobile checkout (with the DEAL unit price
+    // the customer actually pays + the pre-discount original price) and
+    // legacy string entries alike. When any line carries a price, the stored
+    // estimated_cost is recomputed from the line subtotals so the record
+    // always matches what the customer was charged.
+    const { lines, total } = normalizeLines(products);
+    const storedCost = total !== null ? total : (estimated_cost || 0);
+
     const inquiryId = db.prepare(
       'INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, user_id, status_history, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
       customer_name,
       customer_email,
       customer_phone || null,
-      JSON.stringify(products || []),
-      estimated_cost || 0,
+      JSON.stringify(lines),
+      storedCost,
       notes || '',
       delivery_address || null,
       payment_method || 'cod',
@@ -2577,7 +2601,7 @@ app.post(
     try {
       payment = await buildPaymentStep({
         id: inquiryId,
-        amount: estimated_cost || 0,
+        amount: storedCost,
         description: `INVENTRAK order ${inquiryId} — ${customer_name}`,
         email: customer_email,
         paymentMethod: payment_method || 'cod',

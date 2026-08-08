@@ -29,6 +29,14 @@ export function clearToken() {
   localStorage.removeItem('inventrak_token');
 }
 
+// Product photos live on the API server (/images/...). Absolute URLs pass
+// through untouched; relative paths are prefixed with the API base URL
+// (same helper as the mobile client).
+export function imageUrl(image) {
+  if (!image) return null;
+  return /^https?:\/\//i.test(image) ? image : API_BASE_URL + image;
+}
+
 // Shared client instance wired to this app's base URL + token store.
 const client = createApiClient({ baseUrl: API_BASE_URL, getToken });
 

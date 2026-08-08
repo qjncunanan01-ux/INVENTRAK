@@ -21,7 +21,11 @@ import OcrScreen from './screens/OcrScreen';
 import StockAvailabilityScreen from './screens/StockAvailabilityScreen';
 import PaymentScreen from './screens/PaymentScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
-import { colors } from './theme';
+import CartScreen from './screens/CartScreen';
+import { CartProvider, useCart } from './cart-context';
+import { useSessionUsername } from './api';
+import { Toaster } from './toast';
+import { ThemeProvider, useThemeColors } from './theme-context';
 
 const AuthStack = createNativeStackNavigator();
 const MainTabs = createBottomTabNavigator();
@@ -34,6 +38,7 @@ function tabIcon(glyph, { color, size }) {
 }
 
 function CatalogNavigator() {
+  const { colors } = useThemeColors();
   return (
     <CatalogStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.brandPrimary }, headerTintColor: '#fff' }}>
       <CatalogStack.Screen name="Products" component={ProductScreen} options={{ title: 'Products' }} />
@@ -47,6 +52,7 @@ function CatalogNavigator() {
 }
 
 function OrdersNavigator() {
+  const { colors } = useThemeColors();
   return (
     <OrdersStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.brandPrimary }, headerTintColor: '#fff' }}>
       <OrdersStack.Screen name="InquiryHistory" component={InquiryHistoryScreen} options={{ title: 'Order History' }} />
@@ -59,13 +65,21 @@ function OrdersNavigator() {
 
 function MainTabsNavigator({ route }) {
   const { username } = route.params || {};
+  const { count } = useCart();
+  const { colors } = useThemeColors();
+  // The Cart tab is visible to everyone (Shopee/Lazada-style) but is
+  // member-only: guests who tap it see the "create an account / log in"
+  // lock screen in CartScreen, and the badge never shows for them (count is
+  // 0 because every add-to-cart path is login-gated). useSessionUsername is
+  // still called here to keep the session reactive across renders.
+  useSessionUsername(username || null);
   return (
     <MainTabs.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.brandPrimary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: { backgroundColor: '#fff', borderTopColor: 'rgba(0,0,0,0.06)' },
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: 'rgba(0,0,0,0.06)' },
       }}
     >
       <MainTabs.Screen
@@ -78,6 +92,19 @@ function MainTabsNavigator({ route }) {
         name="CatalogTab"
         component={CatalogNavigator}
         options={{ tabBarLabel: 'Products', tabBarIcon: (p) => tabIcon('☰', p) }}
+      />
+      <MainTabs.Screen
+        name="CartTab"
+        component={CartScreen}
+        options={{
+          tabBarLabel: 'Cart',
+          tabBarIcon: (p) => tabIcon('🛒', p),
+          // Shopee-style badge: total units in the basket; hidden when empty
+          // (guests always see it empty), capped at "99+" so a huge order
+          // never overflows the tab bar.
+          tabBarBadge: count > 0 ? (count > 99 ? '99+' : count) : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.error, color: '#fff', fontSize: 11, minWidth: 18 },
+        }}
       />
       <MainTabs.Screen
         name="OrdersTab"
@@ -94,32 +121,49 @@ function MainTabsNavigator({ route }) {
   );
 }
 
-export default function App() {
+function AppShell() {
   // Restore a saved API URL override (set on the Login screen) before any
   // screen makes an API call, so Login, Signup, and the whole app hit the
   // host the user configured.
+  const { colors, dark } = useThemeColors();
   useEffect(() => {
     loadSavedApiUrl();
   }, []);
 
   return (
-    <NavigationContainer>
-      <StatusBar style="dark" backgroundColor={colors.background} />
-      {/* Guest-first: the app boots straight into the catalog tabs. Login /
-          Signup live in this stack and are only pushed when the customer
-          needs an account (placing an order or viewing order history), or
-          taps Log In / Create Account in the Account tab. */}
-      <AuthStack.Navigator initialRouteName="Main">
-        <AuthStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-        <AuthStack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
-        <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
-        <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} options={{ headerShown: false }} />
-        <AuthStack.Screen
-          name="Main"
-          component={MainTabsNavigator}
-          options={{ headerShown: false }}
-        />
-      </AuthStack.Navigator>
-    </NavigationContainer>
+    // CartProvider wraps the whole tree so the Cart tab badge and every
+    // screen (product cards, PDP, checkout) share one persistent basket.
+    <CartProvider>
+      <NavigationContainer>
+        <StatusBar style={dark ? 'light' : 'dark'} backgroundColor={colors.background} />
+        {/* Guest-first: the app boots straight into the catalog tabs. Login /
+            Signup live in this stack and are only pushed when the customer
+            needs an account (placing an order or viewing order history), or
+            taps Log In / Create Account in the Account tab. */}
+        <AuthStack.Navigator initialRouteName="Main">
+          <AuthStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <AuthStack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
+          <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+          <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} options={{ headerShown: false }} />
+          <AuthStack.Screen
+            name="Main"
+            component={MainTabsNavigator}
+            options={{ headerShown: false }}
+          />
+        </AuthStack.Navigator>
+      </NavigationContainer>
+      {/* Global toast (added-to-cart feedback etc.) — floats above the tab bar. */}
+      <Toaster />
+    </CartProvider>
+  );
+}
+
+export default function App() {
+  // ThemeProvider owns the persisted light/dark choice and hands the active
+  // palette to every screen through useThemeColors().
+  return (
+    <ThemeProvider>
+      <AppShell />
+    </ThemeProvider>
   );
 }

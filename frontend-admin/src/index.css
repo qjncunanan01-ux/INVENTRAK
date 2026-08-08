@@ -1,8 +1,10 @@
 body {
   margin: 0;
   font-family: Inter, sans-serif;
-  background: #eef7e1;
-  color: #112a07;
+  /* Background/color are owned by MUI CssBaseline so the whole app flips in
+     dark mode; leaving them out avoids a hardcoded light flash behind the
+     dark theme. */
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {

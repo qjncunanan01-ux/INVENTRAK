@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,12 +10,15 @@ import {
   View,
 } from 'react-native';
 import { getInventory, imageUrl } from '../api';
-import { colors } from '../theme';
+import EmptyState from '../EmptyState';
+import { useThemeColors } from '../theme-context';
 
 // Multi-Location Inventory Management Module (reviewer requirement): customers
 // can see available supply stock broken down per location (store, warehouse,
 // etc.) before ordering — same data the admin dashboard tracks.
 export default function StockAvailabilityScreen() {
+  const { colors } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [data, setData] = useState({ locations: [], items: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -103,13 +106,19 @@ export default function StockAvailabilityScreen() {
             ))}
           </View>
         )}
-        ListEmptyComponent={<Text style={styles.empty}>No stock availability data yet.</Text>}
+        ListEmptyComponent={
+          <EmptyState
+            glyph="🏬"
+            title="No stock data yet"
+            sub="Nothing matches your search or the stock feed is still warming up — pull down to refresh."
+          />
+        }
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
@@ -134,5 +143,4 @@ const styles = StyleSheet.create({
   productName: { color: colors.textPrimary, fontWeight: '600', flex: 1 },
   thumb: { width: 32, height: 32, borderRadius: 6, marginRight: 8, backgroundColor: colors.background },
   qty: { color: colors.textPrimary, textAlign: 'center', fontWeight: '700' },
-  empty: { marginTop: 24, textAlign: 'center', color: colors.textSecondary },
 });

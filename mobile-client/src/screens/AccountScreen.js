@@ -1,8 +1,12 @@
-import { StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { useMemo } from 'react';
+import { StyleSheet, Switch, Text, TouchableOpacity, View, ScrollView } from 'react-native';
 import { clearSession, clearToken, useSessionEmail, useSessionUsername, useSessionVerified } from '../api';
-import { colors } from '../theme';
+import { useCart } from '../cart-context';
+import { useThemeColors } from '../theme-context';
 
 export default function AccountScreen({ route, navigation }) {
+  const { colors, dark, toggleDark } = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   // Accounts are optional (guest-first): the header and menu adapt. The
   // session is the source of truth; route params are only a first-mount hint.
   const session = useSessionUsername(null);
@@ -10,8 +14,12 @@ export default function AccountScreen({ route, navigation }) {
   const verified = useSessionVerified();
   const sessionEmail = useSessionEmail();
   const username = session || route.params?.username || 'Guest';
+  // Logging out clears the basket too: on a shared device the next customer
+  // must not inherit the previous user's cart (badge + items).
+  const { clear } = useCart();
 
   const handleLogout = () => {
+    clear();
     clearToken();
     clearSession();
     // Reset the tabs back to a fresh guest session.
@@ -123,6 +131,24 @@ export default function AccountScreen({ route, navigation }) {
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
 
+        {/* Preferences: dark-mode switcher (persisted on the device). */}
+        <Text style={styles.sectionTitle}>Preferences</Text>
+        <View style={styles.menuItem}>
+          <Text style={styles.menuGlyph}>{dark ? '🌙' : '☀️'}</Text>
+          <View style={styles.menuBody}>
+            <Text style={styles.menuTitle}>Dark Mode</Text>
+            <Text style={styles.menuDesc}>
+              {dark ? 'Night theme is on' : 'Switch to the night theme'}
+            </Text>
+          </View>
+          <Switch
+            value={dark}
+            onValueChange={toggleDark}
+            trackColor={{ false: 'rgba(0,0,0,0.15)', true: colors.brandPrimary }}
+            thumbColor="#fff"
+          />
+        </View>
+
         {isLoggedIn ? (
           <>
             <View style={styles.spacer} />
@@ -136,7 +162,7 @@ export default function AccountScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
@@ -162,9 +188,9 @@ const styles = StyleSheet.create({
   verifyBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff8e1',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#f0d48a',
+    borderColor: 'rgba(240, 212, 138, 0.6)',
     marginHorizontal: 16,
     marginTop: 16,
     padding: 14,
@@ -172,8 +198,8 @@ const styles = StyleSheet.create({
   },
   verifyIcon: { fontSize: 20, marginRight: 10 },
   verifyBody: { flex: 1 },
-  verifyTitle: { fontSize: 14, fontWeight: '700', color: '#7a5c00' },
-  verifyDesc: { fontSize: 12, color: '#7a5c00', opacity: 0.85, marginTop: 2, lineHeight: 16 },
+  verifyTitle: { fontSize: 14, fontWeight: '700', color: colors.warning },
+  verifyDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 2, lineHeight: 16 },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
