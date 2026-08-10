@@ -15,6 +15,12 @@
       "adaptiveIcon": {
         "backgroundColor": "#eef7e1"
       }
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ff3c277f-c953-418e-b23f-66975a0703d4"
+      }
+    },
+    "owner": "patrickcuevas"
   }
 }

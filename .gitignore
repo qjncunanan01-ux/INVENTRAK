@@ -45,3 +45,4 @@ backend/data/*.tmp
 
 # Freebuff scratch workspace
 .freebuff/
+*.apk
