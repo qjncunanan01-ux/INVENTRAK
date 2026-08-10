@@ -1,36 +1,240 @@
-import { Box, Chip, Grid, Paper, Skeleton, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import {
+  Box, Button, Chip, CircularProgress, Dialog, DialogActions,
+  DialogContent, DialogTitle, Grid, IconButton, InputAdornment,
+  Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow,
+  TextField, Tooltip, Typography
+} from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import HistoryIcon from '@mui/icons-material/History';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import PeopleIcon from '@mui/icons-material/People';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import { useEffect, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { apiGet, getInventory, getOptimizationAbc, imageUrl, listProducts } from '../api';
+import { useNavigate } from 'react-router-dom';
+import {
+  Bar, BarChart, CartesianGrid, Cell, Legend,
+  Line, LineChart,
+  Pie, PieChart,
+  ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis
+} from 'recharts';
+import { apiGet } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
-import { buildFlashPicks, dealPricing, formatCountdown, msUntilDailyRefresh, stockMapFromInventory } from '../flash-sale';
 
-const CHART_COLORS = ['#1f640e', '#a8d22b', '#e9ffd5', '#4caf50', '#81c784', '#c8e6c9'];
+const CHART_COLORS = ['#1f640e', '#a8d22b', '#f9a825', '#1565c0', '#d32f2f', '#c8e6c9'];
+const FAST_COLOR = '#1f640e';
+const SLOW_COLOR = '#f9a825';
 
 export default function DashboardPage({ user, onLogout }) {
+  const navigate = useNavigate();
   const [summary, setSummary] = useState({
     totalProducts: 0, totalStock: 0, lowStockItems: 0, totalLocations: 0,
     pendingInquiries: 0, totalSales: 0, totalMovements: 0, activeAlerts: 0,
+    // New metrics
+    monthlySalesValue: 0, monthlyTransactions: 0, customersServed: 0,
+    orderStatusCounts: { pending: 0, approved: 0, rejected: 0 },
+    // Chart data
     topProducts: [], monthlyMovements: [],
-    // Reviewer-required dashboard data
-    lowStockList: [], stockByLocation: [], fastMovingProducts: [],
-    slowMovingProducts: [], dailySalesValue: [], transactionCount: 0,
-    customersServed: 0, orderStatusSummary: {},
+    fastMoving: [], slowMoving: [],
+    locationStock: [], monthlySalesChart: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
-  // Today's flash-sale picks (same algorithm + API payloads as the mobile
-  // app's carousels, so the dashboard shows exactly what customers see).
-  const [flashDeals, setFlashDeals] = useState([]);
-  const [now, setNow] = useState(Date.now());
+
+  const [activeModal, setActiveModal] = useState(null);
+  const [modalData, setModalData] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Store raw fetched data for modal reuse
+  const [rawData, setRawData] = useState({
+    inventory: [], sales: [], inquiries: [], movements: [], products: [],
+  });
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await apiGet('/api/analytics/summary');
-        setSummary(data);
+        setLoading(true);
+        const [summaryRes, inventoryRes, productsRes, locationsRes, inquiriesRes, salesRes, movementsRes, alertsRes] = await Promise.allSettled([
+          apiGet('/api/analytics/summary'),
+          apiGet('/api/inventory'),
+          apiGet('/api/products'),
+          apiGet('/api/locations'),
+          apiGet('/api/inquiries'),
+          apiGet('/api/sales'),
+          apiGet('/api/stock-movements'),
+          apiGet('/api/alerts')
+        ]);
+
+        const summaryData = summaryRes.status === 'fulfilled' ? (summaryRes.value.data || summaryRes.value) : {};
+        const inventoryData = inventoryRes.status === 'fulfilled' ? (inventoryRes.value.data || inventoryRes.value) : { items: [], locations: [] };
+        const productsData = productsRes.status === 'fulfilled' ? (productsRes.value.data || productsRes.value) : [];
+        const locationsData = locationsRes.status === 'fulfilled' ? (locationsRes.value.data || locationsRes.value) : [];
+        const inquiriesData = inquiriesRes.status === 'fulfilled' ? (inquiriesRes.value.data || inquiriesRes.value) : [];
+        const salesData = salesRes.status === 'fulfilled' ? (salesRes.value.data || salesRes.value) : [];
+        const movementsData = movementsRes.status === 'fulfilled' ? (movementsRes.value.data || movementsRes.value) : [];
+        const alertsData = alertsRes.status === 'fulfilled' ? (alertsRes.value.data || alertsRes.value) : [];
+
+        const items = inventoryData.items || [];
+
+        // Store raw data for modal use
+        setRawData({
+          inventory: items,
+          sales: Array.isArray(salesData) ? salesData : [],
+          inquiries: Array.isArray(inquiriesData) ? inquiriesData : [],
+          movements: Array.isArray(movementsData) ? movementsData : [],
+          products: Array.isArray(productsData) ? productsData : [],
+        });
+
+        // 1. Total products count
+        const totalProducts = Array.isArray(productsData) && productsData.length > 0
+          ? productsData.length
+          : (summaryData.totalProducts || items.length);
+
+        // 2. Total inventory stock
+        const totalStock = items.length > 0
+          ? items.reduce((sum, item) => sum + (Number(item.total) || 0), 0)
+          : (summaryData.totalStock || 0);
+
+        // 3. Low stock location entries (< 80)
+        let lowStockCount = 0;
+        items.forEach(item => {
+          if (item.locations) {
+            Object.values(item.locations).forEach(qty => {
+              if (Number(qty) < 80) lowStockCount++;
+            });
+          }
+        });
+        if (lowStockCount === 0 && summaryData.lowStockItems) {
+          lowStockCount = summaryData.lowStockItems;
+        }
+
+        // 4. Locations count
+        const totalLocations = Array.isArray(locationsData) && locationsData.length > 0
+          ? locationsData.length
+          : (inventoryData.locations?.length || summaryData.totalLocations || 0);
+
+        // 5. Pending inquiries count
+        const pendingInquiries = Array.isArray(inquiriesData)
+          ? inquiriesData.filter(i => i.status === 'pending').length
+          : (summaryData.pendingInquiries || 0);
+
+        // 6. Total sales amount
+        const sales = Array.isArray(salesData) ? salesData : [];
+        const totalSales = sales.length > 0
+          ? sales.reduce((s, x) => s + (Number(x.total_amount || x.total_price) || 0), 0)
+          : (summaryData.totalSales || 0);
+
+        // 7. Stock movements count
+        const totalMovements = Array.isArray(movementsData)
+          ? movementsData.length
+          : (summaryData.totalMovements || 0);
+
+        // 8. Active alerts count
+        const activeAlerts = Array.isArray(alertsData)
+          ? alertsData.filter(a => a.status === 'active' || !a.status).length
+          : (summaryData.activeAlerts || 0);
+
+        // 9. This-month sales metrics
+        const now = new Date();
+        const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthlySales = sales.filter(s => {
+          const d = s.transaction_date || s.created_at || '';
+          return d.startsWith(thisMonth);
+        });
+        const monthlySalesValue = monthlySales.reduce((s, x) => s + (Number(x.total_amount || x.total_price) || 0), 0);
+        const monthlyTransactions = monthlySales.length;
+
+        // 10. Unique customers served (all-time)
+        const customersServed = new Set(sales.map(s => s.customer_name).filter(Boolean)).size;
+
+        // 11. Order status counts
+        const inquiries = Array.isArray(inquiriesData) ? inquiriesData : [];
+        const orderStatusCounts = {
+          pending: inquiries.filter(i => i.status === 'pending').length,
+          approved: inquiries.filter(i => i.status === 'approved' || i.status === 'fulfilled').length,
+          rejected: inquiries.filter(i => i.status === 'rejected' || i.status === 'cancelled').length,
+        };
+
+        // 12. Top products by stock value
+        const topProductsLive = items.length > 0
+          ? items
+              .map(item => ({
+                id: item.product?.id || item.id,
+                name: item.product?.name || item.name || '',
+                stock_value: (item.total || 0) * (item.product?.price || item.price || 0)
+              }))
+              .filter(p => p.stock_value > 0)
+              .sort((a, b) => b.stock_value - a.stock_value)
+              .slice(0, 5)
+          : (summaryData.topProducts || []);
+
+        // 13. Monthly movements for chart
+        const monthTypeMapLive = {};
+        const movsList = Array.isArray(movementsData) ? movementsData : [];
+        movsList.forEach(m => {
+          const month = (m.created_at || '').substring(0, 7);
+          if (!month) return;
+          const key = `${month}|${m.type}`;
+          if (!monthTypeMapLive[key]) monthTypeMapLive[key] = { month, type: m.type, count: 0 };
+          monthTypeMapLive[key].count += 1;
+        });
+        const monthlyMovementsLive = Object.values(monthTypeMapLive).length > 0
+          ? Object.values(monthTypeMapLive)
+              .sort((a, b) => a.month.localeCompare(b.month))
+              .slice(-12)
+          : (summaryData.monthlyMovements || []);
+
+        // 14. Fast-moving & slow-moving products (by qty sold)
+        const productSalesMap = {};
+        sales.forEach(s => {
+          const key = s.product_name || `Product #${s.product_id}`;
+          productSalesMap[key] = (productSalesMap[key] || 0) + (Number(s.qty || s.quantity) || 0);
+        });
+        const sortedBySales = Object.entries(productSalesMap).sort((a, b) => b[1] - a[1]);
+        const fastMoving = sortedBySales.slice(0, 5).map(([name, qty]) => ({ name: name.length > 20 ? name.substring(0, 20) + '…' : name, qty }));
+        const slowMoving = sortedBySales.slice(-5).reverse().map(([name, qty]) => ({ name: name.length > 20 ? name.substring(0, 20) + '…' : name, qty }));
+
+        // 15. Available stock per location
+        const locationStockMap = {};
+        items.forEach(item => {
+          Object.entries(item.locations || {}).forEach(([loc, qty]) => {
+            locationStockMap[loc] = (locationStockMap[loc] || 0) + Number(qty);
+          });
+        });
+        const locationStock = Object.entries(locationStockMap)
+          .map(([location, stock]) => ({ location, stock }))
+          .sort((a, b) => b.stock - a.stock);
+
+        // 16. Monthly sales value chart
+        const monthlySalesMapChart = {};
+        sales.forEach(s => {
+          const month = (s.transaction_date || s.created_at || '').substring(0, 7);
+          if (month) monthlySalesMapChart[month] = (monthlySalesMapChart[month] || 0) + (Number(s.total_amount || s.total_price) || 0);
+        });
+        const monthlySalesChart = Object.entries(monthlySalesMapChart)
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .slice(-12)
+          .map(([month, value]) => ({ month, value: Math.round(value) }));
+
+        setSummary({
+          totalProducts, totalStock, lowStockItems: lowStockCount, totalLocations,
+          pendingInquiries, totalSales, totalMovements, activeAlerts,
+          monthlySalesValue, monthlyTransactions, customersServed, orderStatusCounts,
+          topProducts: topProductsLive,
+          monthlyMovements: monthlyMovementsLive,
+          fastMoving, slowMoving, locationStock, monthlySalesChart,
+        });
       } catch (err) {
         setError('Failed to load dashboard data. Make sure the backend is running.');
         setSnackbar({ open: true, message: err.message });
@@ -41,45 +245,105 @@ export default function DashboardPage({ user, onLogout }) {
     load();
   }, []);
 
-  // Parallel fetch of the exact three payloads the mobile Home/Recommendations
-  // screens use, then compute today's picks with the SHARED algorithm (see
-  // flash-sale.js — an exact port of mobile-client/src/flash-sale.js). The ABC
-  // failure is tolerated the same way the mobile app tolerates it: the picks
-  // still fill from the general photo pool.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        // Every fetch is guarded (listProducts included): if ANY of the three
-        // fails, the card degrades gracefully instead of blanking — an empty
-        // product list falls through to buildFlashPicks' photo-pool top-up,
-        // exactly like the mobile app tolerates a failed ABC call.
-        const [abcData, products, inv] = await Promise.all([
-          getOptimizationAbc().catch(() => []),
-          listProducts().catch(() => []),
-          getInventory().catch(() => null),
-        ]);
-        if (cancelled) return;
-        const abc = abcData && abcData.data ? abcData.data : (Array.isArray(abcData) ? abcData : []);
-        setFlashDeals(buildFlashPicks(abc, products, stockMapFromInventory(inv)));
-      } catch {
-        // The card simply stays empty — the summary still renders.
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const handleCardClick = (panel) => {
+    setActiveModal(panel);
+    setModalLoading(false);
+    setSearchQuery('');
 
-  // Ticking countdown to the daily pick rotation (midnight), Shopee-style.
-  // Only runs while there is something to count down to — no pointless timer
-  // in the empty/failed state.
-  useEffect(() => {
-    if (flashDeals.length === 0) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [flashDeals.length]);
+    // All data is already in rawData — no second fetch needed
+    const { inventory, sales, inquiries, movements, products } = rawData;
 
+    if (panel.key === 'lowStock') {
+      const lowEntries = [];
+      inventory.forEach(item => {
+        if (item.locations) {
+          Object.entries(item.locations).forEach(([locName, qty]) => {
+            if (Number(qty) < 80) {
+              lowEntries.push({
+                id: `${item.product?.id || item.name}-${locName}`,
+                product_name: item.product?.name || item.name,
+                category: item.product?.category || 'General',
+                location: locName,
+                quantity: qty,
+              });
+            }
+          });
+        }
+      });
+      setModalData(lowEntries);
+    } else if (panel.key === 'products') {
+      setModalData(products);
+    } else if (panel.key === 'inventory') {
+      setModalData(inventory);
+    } else if (panel.key === 'locationStock') {
+      // Flatten per-location stock
+      const rows = [];
+      inventory.forEach(item => {
+        Object.entries(item.locations || {}).forEach(([loc, qty]) => {
+          rows.push({
+            id: `${item.product?.id || item.name}-${loc}`,
+            product_name: item.product?.name || item.name,
+            location: loc,
+            quantity: Number(qty),
+          });
+        });
+      });
+      rows.sort((a, b) => b.quantity - a.quantity);
+      setModalData(rows);
+    } else if (panel.key === 'inquiries') {
+      setModalData(inquiries.filter(i => i.status === 'pending'));
+    } else if (panel.key === 'orderStatus') {
+      setModalData(inquiries);
+    } else if (panel.key === 'sales') {
+      setModalData(sales);
+    } else if (panel.key === 'monthlySales') {
+      const now = new Date();
+      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      setModalData(sales.filter(s => (s.transaction_date || s.created_at || '').startsWith(thisMonth)));
+    } else if (panel.key === 'customers') {
+      const seen = new Set();
+      const unique = [];
+      sales.forEach(s => {
+        if (s.customer_name && !seen.has(s.customer_name)) {
+          seen.add(s.customer_name);
+          unique.push({ customer_name: s.customer_name, total_spent: 0, transactions: 0 });
+        }
+      });
+      // Compute per-customer totals
+      sales.forEach(s => {
+        const c = unique.find(u => u.customer_name === s.customer_name);
+        if (c) { c.total_spent += Number(s.total_amount || s.total_price) || 0; c.transactions += 1; }
+      });
+      unique.sort((a, b) => b.total_spent - a.total_spent);
+      setModalData(unique);
+    } else if (panel.key === 'movements') {
+      setModalData(movements);
+    } else if (panel.key === 'fastMoving') {
+      const productSalesMap = {};
+      sales.forEach(s => {
+        const key = s.product_name || `Product #${s.product_id}`;
+        if (!productSalesMap[key]) productSalesMap[key] = { product_name: key, qty: 0, revenue: 0 };
+        productSalesMap[key].qty += Number(s.qty || s.quantity) || 0;
+        productSalesMap[key].revenue += Number(s.total_amount || s.total_price) || 0;
+      });
+      setModalData(Object.values(productSalesMap).sort((a, b) => b.qty - a.qty).slice(0, 10));
+    } else if (panel.key === 'slowMoving') {
+      const productSalesMap = {};
+      sales.forEach(s => {
+        const key = s.product_name || `Product #${s.product_id}`;
+        if (!productSalesMap[key]) productSalesMap[key] = { product_name: key, qty: 0, revenue: 0 };
+        productSalesMap[key].qty += Number(s.qty || s.quantity) || 0;
+        productSalesMap[key].revenue += Number(s.total_amount || s.total_price) || 0;
+      });
+      setModalData(Object.values(productSalesMap).sort((a, b) => a.qty - b.qty).slice(0, 10));
+    } else if (panel.key === 'alerts') {
+      setModalData(rawData.movements); // reuse — alerts come from inventory
+    }
+  };
+
+  // Chart data derived from summary state
   const productValueData = summary.topProducts.map(p => ({
-    name: p.name?.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
+    name: p.name?.length > 15 ? p.name.substring(0, 15) + '…' : p.name,
     value: Math.round(p.stock_value)
   }));
 
@@ -96,40 +360,45 @@ export default function DashboardPage({ user, onLogout }) {
     adjustment: types.adjustment || 0,
   }));
 
-  // Reviewer: available stocks per location.
-  const locationChartData = (summary.stockByLocation || []).map(l => ({
-    name: l.location,
-    stock: l.total,
-  }));
-
-  // Reviewer: daily sales value (last 7 days).
-  const dailySalesData = (summary.dailySalesValue || []).map(d => ({
-    date: (d.date || '').slice(5),
-    value: Math.round(d.value),
-  }));
-
-  // Reviewer: order status summary.
-  const os = summary.orderStatusSummary || {};
-  const statusChartData = [
-    { name: 'Pending', value: os.pending || 0 },
-    { name: 'Approved', value: os.approved || 0 },
-    { name: 'Fulfilled', value: os.fulfilled || 0 },
-    { name: 'Delivered', value: os.delivered || 0 },
-    { name: 'Rejected', value: os.rejected || 0 },
+  const orderStatusPieData = [
+    { name: 'Pending', value: summary.orderStatusCounts.pending },
+    { name: 'Approved', value: summary.orderStatusCounts.approved },
+    { name: 'Rejected', value: summary.orderStatusCounts.rejected },
   ].filter(d => d.value > 0);
+  const ORDER_STATUS_COLORS = ['#f9a825', '#1f640e', '#d32f2f'];
 
   const panels = [
-    { label: 'Total products', value: summary.totalProducts, color: colors.brandPrimary },
-    { label: 'Total inventory', value: summary.totalStock.toLocaleString(), color: colors.info },
-    { label: 'Low stock items', value: summary.lowStockItems, color: summary.lowStockItems > 0 ? colors.warning : colors.success },
-    { label: 'Locations', value: summary.totalLocations, color: colors.brandSecondary },
-    { label: 'Pending inquiries', value: summary.pendingInquiries, color: summary.pendingInquiries > 0 ? '#f9a825' : colors.success },
-    { label: 'Total sales (P)', value: `P${summary.totalSales.toLocaleString()}`, color: colors.success },
-    { label: 'Stock movements', value: summary.totalMovements, color: colors.info },
-    { label: 'Active alerts', value: summary.activeAlerts, color: summary.activeAlerts > 0 ? colors.error : colors.success },
-    { label: 'Transactions', value: summary.transactionCount, color: colors.brandPrimary },
-    { label: 'Customers served', value: summary.customersServed, color: '#7b1fa2' },
+    // Row 1 — Inventory
+    { key: 'products', label: 'Total Products', value: summary.totalProducts, color: colors.brandPrimary, icon: <Inventory2Icon color="primary" />, navigateTo: '/products' },
+    { key: 'inventory', label: 'Total Inventory', value: summary.totalStock.toLocaleString(), color: colors.info, icon: <Inventory2Icon color="info" />, navigateTo: '/inventory' },
+    { key: 'lowStock', label: 'Low Stock Items', value: summary.lowStockItems, color: summary.lowStockItems > 0 ? colors.warning : colors.success, icon: <WarningAmberIcon color="warning" />, navigateTo: '/inventory' },
+    { key: 'locationStock', label: 'Locations', value: summary.totalLocations, color: colors.brandSecondary, icon: <LocationOnIcon color="secondary" />, navigateTo: '/locations' },
+    // Row 2 — Sales & Operations
+    { key: 'monthlySales', label: 'Sales This Month', value: `P${summary.monthlySalesValue.toLocaleString()}`, color: colors.success, icon: <AttachMoneyIcon color="success" />, navigateTo: '/stock-movement' },
+    { key: 'sales', label: 'Total Sales (All-time)', value: `P${summary.totalSales.toLocaleString()}`, color: colors.brandPrimary, icon: <AttachMoneyIcon color="primary" />, navigateTo: '/stock-movement' },
+    { key: 'customers', label: 'Customers Served', value: summary.customersServed, color: colors.info, icon: <PeopleIcon color="info" />, navigateTo: '/order-inquiries' },
+    { key: 'orderStatus', label: 'Order Status', value: `${summary.orderStatusCounts.pending} Pending`, color: summary.orderStatusCounts.pending > 0 ? colors.warning : colors.success, icon: <ReceiptIcon color="warning" />, navigateTo: '/order-inquiries' },
+    // Row 3 — Activity
+    { key: 'monthlySales', label: 'Transactions This Month', value: summary.monthlyTransactions, color: colors.brandSecondary, icon: <ReceiptIcon />, navigateTo: '/stock-movement' },
+    { key: 'inquiries', label: 'Pending Inquiries', value: summary.pendingInquiries, color: summary.pendingInquiries > 0 ? '#f9a825' : colors.success, icon: <ShoppingCartIcon color="warning" />, navigateTo: '/order-inquiries' },
+    { key: 'movements', label: 'Stock Movements', value: summary.totalMovements, color: colors.info, icon: <HistoryIcon color="info" />, navigateTo: '/stock-movement' },
+    { key: 'alerts', label: 'Active Alerts', value: summary.activeAlerts, color: summary.activeAlerts > 0 ? colors.error : colors.success, icon: <NotificationsActiveIcon color="error" />, navigateTo: '/optimization' },
   ];
+
+  const filteredModalData = modalData.filter(item => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (item.product_name && item.product_name.toLowerCase().includes(q)) ||
+      (item.location && item.location.toLowerCase().includes(q)) ||
+      (item.product?.name && item.product.name.toLowerCase().includes(q)) ||
+      (item.name && item.name.toLowerCase().includes(q)) ||
+      (item.customer_name && item.customer_name.toLowerCase().includes(q)) ||
+      (item.type && item.type.toLowerCase().includes(q)) ||
+      (item.message && item.message.toLowerCase().includes(q)) ||
+      (item.status && item.status.toLowerCase().includes(q))
+    );
+  });
 
   if (error && loading === false) {
     return (
@@ -143,226 +412,198 @@ export default function DashboardPage({ user, onLogout }) {
     );
   }
 
+  const SectionLabel = ({ children }) => (
+    <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1, mt: 3, fontWeight: 700, letterSpacing: 1.2 }}>
+      {children}
+    </Typography>
+  );
+
+  const NoData = ({ msg }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
+      <Typography color="text.secondary" variant="body2">{msg || 'No data available yet'}</Typography>
+    </Box>
+  );
+
   return (
     <AdminLayout title="Admin Dashboard" onLogout={onLogout}>
       <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
         <Typography variant="subtitle1" color="text.secondary">
-          Welcome back, <strong>{user?.username}</strong>. Review the latest inventory health, sales analytics, and order statuses.
+          Welcome back, <strong>{user?.username}</strong>. Review the latest inventory health and analytics.
         </Typography>
         {summary.activeAlerts > 0 && (
           <Chip label={`${summary.activeAlerts} active alert(s)`} color="error" size="small" />
         )}
+        {summary.lowStockItems > 0 && (
+          <Chip label={`${summary.lowStockItems} low-stock location(s)`} color="warning" size="small" />
+        )}
       </Box>
 
-      {/* Today's Flash Deals — what the customer app is offering right now.
-          Computed with the exact algorithm + API payloads the mobile
-          carousels use, so this mirrors the customer-facing deals precisely.
-          Deal prices are the same deterministic day-seeded discounts; the
-          countdown ticks to midnight when the picks rotate. */}
-      <Paper
-        sx={{
-          mt: 3,
-          p: 3,
-          borderRadius: 3,
-          backgroundColor: colors.surfaceAlt,
-          border: '1px solid rgba(226,55,68,0.15)',
-        }}
-      >
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mb: 2 }}>
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <span>⚡ Today's Flash Deals</span>
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Daily top-value picks your customers see on the app — new deals every midnight
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              ml: 'auto',
-              backgroundColor: '#e23744',
-              color: '#fff',
-              borderRadius: 2,
-              px: 2,
-              py: 1,
-              fontWeight: 700,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {loading ? 'ENDS IN --:--:--' : `ENDS IN ${formatCountdown(msUntilDailyRefresh(now))}`}
-          </Box>
-        </Box>
-
-        {loading ? (
-          <Skeleton variant="rounded" height={200} />
-        ) : flashDeals.length === 0 ? (
-          <Typography color="text.secondary" py={4} textAlign="center">
-            No flash deals available right now — the picks need photo + in-stock products.
-          </Typography>
-        ) : (
-          <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
-            {flashDeals.map((pick) => {
-              const deal = dealPricing(pick);
-              return (
-                <Box
-                  key={pick.id}
-                  sx={{
-                    minWidth: 180,
-                    maxWidth: 180,
-                    backgroundColor: colors.surface,
-                    borderRadius: 2,
-                    p: 1.5,
-                    border: '1px solid rgba(0,0,0,0.06)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <Box
-                    component="img"
-                    src={imageUrl(pick.image)}
-                    alt={pick.name}
-                    sx={{
-                      width: '100%',
-                      height: 96,
-                      objectFit: 'cover',
-                      borderRadius: 1.5,
-                      backgroundColor: colors.surfaceAlt,
-                    }}
-                  />
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: 1, textTransform: 'uppercase', letterSpacing: 0.4, fontSize: '0.65rem' }}
-                  >
-                    {pick.category}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.25, minHeight: 36 }}>
-                    {pick.name}
-                  </Typography>
-                  {deal ? (
-                    <Box sx={{ mt: 'auto', pt: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-                        <Typography sx={{ color: '#e23744', fontWeight: 800, fontSize: '1.05rem' }}>
-                          P{deal.deal}
-                        </Typography>
-                        <Typography
-                          sx={{ color: '#9aa0a6', textDecoration: 'line-through', fontSize: '0.72rem' }}
-                        >
-                          P{deal.original}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={`-${deal.pct}%`}
-                        size="small"
-                        sx={{
-                          mt: 0.75,
-                          backgroundColor: '#ffe3dd',
-                          color: '#e23744',
-                          fontWeight: 800,
-                          fontSize: '0.7rem',
-                          height: 20,
-                        }}
-                      />
-                    </Box>
-                  ) : (
-                    <Typography sx={{ mt: 'auto', pt: 1, color: colors.brandPrimary, fontWeight: 800 }}>
-                      P{pick.price}
-                    </Typography>
-                  )}
-                </Box>
-              );
-            })}
-          </Box>
-        )}
-      </Paper>
-
-      {/* Summary Cards */}
-      <Grid container spacing={3}>
-        {panels.map((panel) => (
-          <Grid item xs={12} sm={6} md={2} lg={2} key={panel.label}>
-            <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3, borderLeft: `4px solid ${panel.color}` }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 1, fontSize: '0.75rem' }}>
-                {panel.label}
-              </Typography>
-              <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700 }}>
-                {loading ? <Skeleton variant="text" width="62%" /> : panel.value}
-              </Typography>
-            </Paper>
+      {/* ─── Summary Cards ─── */}
+      <SectionLabel>Inventory Overview</SectionLabel>
+      <Grid container spacing={2}>
+        {panels.slice(0, 4).map((panel) => (
+          <Grid item xs={12} sm={6} md={3} key={panel.label}>
+            <StatCard panel={panel} loading={loading} onClick={handleCardClick} />
           </Grid>
         ))}
       </Grid>
 
-      {/* Charts Row 1: sales value + order status */}
-      <Grid container spacing={3} sx={{ mt: 1 }}>
+      <SectionLabel>Sales & Orders</SectionLabel>
+      <Grid container spacing={2}>
+        {panels.slice(4, 8).map((panel) => (
+          <Grid item xs={12} sm={6} md={3} key={panel.label}>
+            <StatCard panel={panel} loading={loading} onClick={handleCardClick} />
+          </Grid>
+        ))}
+      </Grid>
+
+      <SectionLabel>Activity</SectionLabel>
+      <Grid container spacing={2}>
+        {panels.slice(8, 12).map((panel) => (
+          <Grid item xs={12} sm={6} md={3} key={panel.label}>
+            <StatCard panel={panel} loading={loading} onClick={handleCardClick} />
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* ─── Charts Row 1: Stock value + Stock per location ─── */}
+      <SectionLabel>Inventory Analytics</SectionLabel>
+      <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Daily Sales Value (last 7 days)</Typography>
-            {loading ? <Skeleton variant="rounded" height={260} /> : dailySalesData.length > 0 ? (
+            <Typography variant="h6" mb={2} fontWeight={700}>Top Products by Stock Value</Typography>
+            {productValueData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={dailySalesData}>
+                <BarChart data={productValueData} margin={{ bottom: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(val) => `P${val.toLocaleString()}`} />
-                  <Line type="monotone" dataKey="value" stroke={colors.success} strokeWidth={2.5} dot={{ r: 4 }} />
-                </LineChart>
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" interval={0} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `P${(v / 1000).toFixed(0)}k`} />
+                  <RechartsTooltip formatter={(val) => [`P${val.toLocaleString()}`, 'Stock Value']} />
+                  <Bar dataKey="value" name="Stock Value" fill={colors.brandPrimary} radius={[6, 6, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
-            ) : (
-              <Typography color="text.secondary">No sales in the last 7 days</Typography>
-            )}
+            ) : <NoData msg="No inventory data available" />}
           </Paper>
         </Grid>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Order Status Summary</Typography>
-            {loading ? <Skeleton variant="rounded" height={260} /> : statusChartData.length > 0 ? (
+            <Typography variant="h6" mb={2} fontWeight={700}>Available Stock per Location</Typography>
+            {summary.locationStock.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={summary.locationStock} margin={{ bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
+                  <XAxis dataKey="location" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <RechartsTooltip formatter={(val) => [val.toLocaleString(), 'Units']} />
+                  <Bar dataKey="stock" name="Total Stock" fill={colors.brandSecondary} radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <NoData msg="No location stock data" />}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* ─── Charts Row 2: Fast-moving + Slow-moving ─── */}
+      <SectionLabel>Product Sales Velocity</SectionLabel>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <TrendingUpIcon sx={{ color: FAST_COLOR }} />
+              <Typography variant="h6" fontWeight={700}>Fast-Moving Products</Typography>
+              <Chip label="Top 5" size="small" sx={{ backgroundColor: colors.brandAccent, fontWeight: 600 }} />
+            </Box>
+            {summary.fastMoving.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={summary.fastMoving} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
+                  <RechartsTooltip formatter={(val) => [val, 'Units Sold']} />
+                  <Bar dataKey="qty" name="Units Sold" fill={FAST_COLOR} radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <NoData msg="No sales data yet" />}
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <TrendingDownIcon sx={{ color: SLOW_COLOR }} />
+              <Typography variant="h6" fontWeight={700}>Slow-Moving Products</Typography>
+              <Chip label="Bottom 5" size="small" sx={{ backgroundColor: '#fff8e1', fontWeight: 600 }} />
+            </Box>
+            {summary.slowMoving.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={summary.slowMoving} layout="vertical" margin={{ left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
+                  <RechartsTooltip formatter={(val) => [val, 'Units Sold']} />
+                  <Bar dataKey="qty" name="Units Sold" fill={SLOW_COLOR} radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <NoData msg="No sales data yet" />}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* ─── Charts Row 3: Monthly Sales + Order Status ─── */}
+      <SectionLabel>Sales & Orders Analytics</SectionLabel>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={7}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Typography variant="h6" mb={2} fontWeight={700}>Monthly Sales Value</Typography>
+            {summary.monthlySalesChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={summary.monthlySalesChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `P${(v / 1000).toFixed(0)}k`} />
+                  <RechartsTooltip formatter={(val) => [`P${val.toLocaleString()}`, 'Sales']} />
+                  <Line type="monotone" dataKey="value" name="Sales Value" stroke={colors.brandPrimary} strokeWidth={3} dot={{ r: 5 }} activeDot={{ r: 7 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : <NoData msg="No sales data available" />}
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={5}>
+          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
+            <Typography variant="h6" mb={2} fontWeight={700}>Order Status Summary</Typography>
+            {orderStatusPieData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
-                    data={statusChartData}
-                    cx="50%" cy="50%" outerRadius={95}
+                    data={orderStatusPieData}
+                    cx="50%" cy="50%" outerRadius={90} innerRadius={45}
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
                   >
-                    {['#f9a825', colors.info, colors.success, colors.brandPrimary, colors.error].map((color, i) => (
-                      <Cell key={i} fill={color} />
+                    {orderStatusPieData.map((entry, i) => (
+                      <Cell key={i} fill={ORDER_STATUS_COLORS[i % ORDER_STATUS_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <RechartsTooltip formatter={(val, name) => [val, name]} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <Typography color="text.secondary">No inquiries yet</Typography>
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="text.secondary" variant="body2">No order inquiries yet</Typography>
+              </Box>
             )}
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Charts Row 2: stock per location + movement distribution */}
-      <Grid container spacing={3} sx={{ mt: 1 }}>
-        <Grid item xs={12} md={6}>
+      {/* ─── Charts Row 4: Movement distribution + Monthly trends ─── */}
+      <SectionLabel>Stock Movement Analytics</SectionLabel>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={5}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Available Stocks per Location</Typography>
-            {loading ? <Skeleton variant="rounded" height={260} /> : locationChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={locationChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="stock" name="Units" fill={colors.brandPrimary} radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <Typography color="text.secondary">No location data available</Typography>
-            )}
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Stock Movement Distribution</Typography>
-            {loading ? <Skeleton variant="rounded" height={260} /> : movementChartData.length > 0 ? (
+            <Typography variant="h6" mb={2} fontWeight={700}>Stock Movement Distribution</Typography>
+            {movementChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
@@ -372,146 +613,298 @@ export default function DashboardPage({ user, onLogout }) {
                       { name: 'Transfer', value: movementChartData.reduce((s, m) => s + m.transfer, 0) },
                       { name: 'Adjustment', value: movementChartData.reduce((s, m) => s + m.adjustment, 0) },
                     ].filter(d => d.value > 0)}
-                    cx="50%" cy="50%" outerRadius={100}
+                    cx="50%" cy="50%" outerRadius={90} innerRadius={40}
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
                   >
                     {CHART_COLORS.map((color, i) => <Cell key={i} fill={color} />)}
                   </Pie>
-                  <Tooltip />
+                  <RechartsTooltip />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
-            ) : (
-              <Typography color="text.secondary">No movement data yet</Typography>
-            )}
+            ) : <NoData msg="No movement data yet — record stock-in/out to see distribution" />}
           </Paper>
         </Grid>
-      </Grid>
-
-      {/* Fast vs slow movers */}
-      <Grid container spacing={3} sx={{ mt: 1 }}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={7}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Fast-Moving Products</Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell align="right">Units sold</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={2}><Skeleton height={24} /></TableCell></TableRow>
-                ) : (summary.fastMovingProducts || []).length === 0 ? (
-                  <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No sales data</Typography></TableCell></TableRow>
-                ) : summary.fastMovingProducts.map(p => (
-                  <TableRow key={p.id}>
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell align="right"><strong>{p.qty_sold}</strong></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Slow-Moving Products</Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell align="right">Units sold</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={2}><Skeleton height={24} /></TableCell></TableRow>
-                ) : (summary.slowMovingProducts || []).length === 0 ? (
-                  <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No product data</Typography></TableCell></TableRow>
-                ) : summary.slowMovingProducts.map(p => (
-                  <TableRow key={p.id}>
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell align="right">{p.qty_sold}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Low stock list + top products value */}
-      <Grid container spacing={3} sx={{ mt: 1 }}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Low-Stock Items (below 80 units)</Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell align="right">Total stock</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={2}><Skeleton height={24} /></TableCell></TableRow>
-                ) : (summary.lowStockList || []).length === 0 ? (
-                  <TableRow><TableCell colSpan={2}><Typography color="text.secondary">No low-stock items 🎉</Typography></TableCell></TableRow>
-                ) : summary.lowStockList.map(p => (
-                  <TableRow key={p.id}>
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell align="right"><Chip label={p.total} size="small" color="warning" /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-            <Typography variant="h6" mb={2}>Top Products by Stock Value</Typography>
-            {loading ? <Skeleton variant="rounded" height={260} /> : productValueData.length > 0 ? (
+            <Typography variant="h6" mb={2} fontWeight={700}>Monthly Movement Trends</Typography>
+            {movementChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={productValueData}>
+                <BarChart data={movementChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(val) => `P${val.toLocaleString()}`} />
-                  <Bar dataKey="value" fill={colors.brandPrimary} radius={[6, 6, 0, 0]} />
+                  <RechartsTooltip />
+                  <Legend />
+                  <Bar dataKey="stock-in" name="Stock In" fill={colors.brandPrimary} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="stock-out" name="Stock Out" fill={colors.error} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="transfer" name="Transfer" fill={colors.info} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            ) : (
-              <Typography color="text.secondary">No product data available</Typography>
-            )}
+            ) : <NoData msg="No movement data yet — record stock movements to see trends" />}
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Monthly Trends */}
-      <Box sx={{ mt: 3 }}>
-        <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
-          <Typography variant="h6" mb={2}>Monthly Movement Trends</Typography>
-          {movementChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={movementChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="stock-in" name="Stock In" fill={colors.brandPrimary} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="stock-out" name="Stock Out" fill={colors.error} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="transfer" name="Transfer" fill={colors.info} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <Typography color="text.secondary">No monthly data available</Typography>
-          )}
-        </Paper>
-      </Box>
+      {/* ─── Detailed Items Modal ─── */}
+      <Dialog
+        open={Boolean(activeModal)}
+        onClose={() => setActiveModal(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+      >
+        {activeModal && (
+          <>
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                {activeModal.icon}
+                <Typography variant="h6" fontWeight={700}>{activeModal.label}</Typography>
+                <Chip
+                  label={`${filteredModalData.length} items`}
+                  size="small"
+                  color={activeModal.key === 'lowStock' ? 'warning' : 'default'}
+                  sx={{ fontWeight: 600 }}
+                />
+              </Box>
+              <IconButton onClick={() => setActiveModal(null)} size="small"><CloseIcon /></IconButton>
+            </DialogTitle>
+
+            <DialogContent dividers>
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  placeholder="Search items..."
+                  size="small" fullWidth
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+
+              {modalLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
+              ) : filteredModalData.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 5 }}>
+                  <Typography color="text.secondary">No items found matching your request.</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ maxHeight: 420, overflowY: 'auto' }}>
+                  <Table size="small">
+                    <TableHead sx={{ backgroundColor: colors.surfaceAlt }}>
+                      <TableRow>
+                        {activeModal.key === 'lowStock' && (
+                          <>
+                            <TableCell><strong>Product</strong></TableCell>
+                            <TableCell><strong>Category</strong></TableCell>
+                            <TableCell><strong>Location</strong></TableCell>
+                            <TableCell align="right"><strong>Qty in Location</strong></TableCell>
+                            <TableCell align="center"><strong>Status</strong></TableCell>
+                          </>
+                        )}
+                        {activeModal.key === 'products' && (
+                          <>
+                            <TableCell><strong>Product Name</strong></TableCell>
+                            <TableCell><strong>Category</strong></TableCell>
+                            <TableCell><strong>Size</strong></TableCell>
+                            <TableCell align="right"><strong>Price</strong></TableCell>
+                          </>
+                        )}
+                        {activeModal.key === 'inventory' && (
+                          <>
+                            <TableCell><strong>Product Name</strong></TableCell>
+                            <TableCell><strong>Locations</strong></TableCell>
+                            <TableCell align="right"><strong>Total Stock</strong></TableCell>
+                          </>
+                        )}
+                        {activeModal.key === 'locationStock' && (
+                          <>
+                            <TableCell><strong>Product</strong></TableCell>
+                            <TableCell><strong>Location</strong></TableCell>
+                            <TableCell align="right"><strong>Quantity</strong></TableCell>
+                          </>
+                        )}
+                        {(activeModal.key === 'inquiries' || activeModal.key === 'orderStatus') && (
+                          <>
+                            <TableCell><strong>Inquiry ID</strong></TableCell>
+                            <TableCell><strong>Customer</strong></TableCell>
+                            <TableCell align="right"><strong>Estimated Total</strong></TableCell>
+                            <TableCell align="center"><strong>Status</strong></TableCell>
+                          </>
+                        )}
+                        {(activeModal.key === 'sales' || activeModal.key === 'monthlySales') && (
+                          <>
+                            <TableCell><strong>Sale ID</strong></TableCell>
+                            <TableCell><strong>Product</strong></TableCell>
+                            <TableCell><strong>Customer</strong></TableCell>
+                            <TableCell align="right"><strong>Qty</strong></TableCell>
+                            <TableCell align="right"><strong>Total Amount</strong></TableCell>
+                            <TableCell><strong>Date</strong></TableCell>
+                          </>
+                        )}
+                        {activeModal.key === 'customers' && (
+                          <>
+                            <TableCell><strong>Customer Name</strong></TableCell>
+                            <TableCell align="right"><strong>Transactions</strong></TableCell>
+                            <TableCell align="right"><strong>Total Spent</strong></TableCell>
+                          </>
+                        )}
+                        {activeModal.key === 'movements' && (
+                          <>
+                            <TableCell><strong>ID</strong></TableCell>
+                            <TableCell><strong>Type</strong></TableCell>
+                            <TableCell><strong>Product</strong></TableCell>
+                            <TableCell align="right"><strong>Quantity</strong></TableCell>
+                            <TableCell><strong>Date</strong></TableCell>
+                          </>
+                        )}
+                        {(activeModal.key === 'fastMoving' || activeModal.key === 'slowMoving') && (
+                          <>
+                            <TableCell><strong>Product</strong></TableCell>
+                            <TableCell align="right"><strong>Units Sold</strong></TableCell>
+                            <TableCell align="right"><strong>Revenue</strong></TableCell>
+                          </>
+                        )}
+                        {activeModal.key === 'alerts' && (
+                          <>
+                            <TableCell><strong>Alert ID</strong></TableCell>
+                            <TableCell><strong>Type</strong></TableCell>
+                            <TableCell><strong>Description</strong></TableCell>
+                            <TableCell><strong>Date</strong></TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filteredModalData.map((item, idx) => (
+                        <TableRow key={item.id || idx} hover>
+                          {activeModal.key === 'lowStock' && (
+                            <>
+                              <TableCell><strong>{item.product_name}</strong></TableCell>
+                              <TableCell>{item.category}</TableCell>
+                              <TableCell>{item.location}</TableCell>
+                              <TableCell align="right">
+                                <Typography color="warning.main" fontWeight={700}>{item.quantity}</Typography>
+                              </TableCell>
+                              <TableCell align="center"><Chip label="LOW STOCK" size="small" color="warning" /></TableCell>
+                            </>
+                          )}
+                          {activeModal.key === 'products' && (
+                            <>
+                              <TableCell><strong>{item.name}</strong></TableCell>
+                              <TableCell>{item.category || 'General'}</TableCell>
+                              <TableCell>{item.size || '—'}</TableCell>
+                              <TableCell align="right">P{item.price ? Number(item.price).toLocaleString() : 0}</TableCell>
+                            </>
+                          )}
+                          {activeModal.key === 'inventory' && (
+                            <>
+                              <TableCell><strong>{item.product?.name || item.name}</strong></TableCell>
+                              <TableCell>
+                                {item.locations
+                                  ? Object.entries(item.locations).map(([l, q]) => `${l}: ${q}`).join(' · ')
+                                  : 'N/A'}
+                              </TableCell>
+                              <TableCell align="right"><strong>{item.total ?? 0}</strong></TableCell>
+                            </>
+                          )}
+                          {activeModal.key === 'locationStock' && (
+                            <>
+                              <TableCell><strong>{item.product_name}</strong></TableCell>
+                              <TableCell>{item.location}</TableCell>
+                              <TableCell align="right"><strong>{item.quantity}</strong></TableCell>
+                            </>
+                          )}
+                          {(activeModal.key === 'inquiries' || activeModal.key === 'orderStatus') && (
+                            <>
+                              <TableCell>#{item.id}</TableCell>
+                              <TableCell><strong>{item.customer_name || 'Customer'}</strong></TableCell>
+                              <TableCell align="right">P{item.total_estimated_cost ? Number(item.total_estimated_cost).toLocaleString() : 0}</TableCell>
+                              <TableCell align="center">
+                                <Chip
+                                  label={item.status || 'pending'}
+                                  size="small"
+                                  color={item.status === 'approved' || item.status === 'fulfilled' ? 'success' : item.status === 'rejected' || item.status === 'cancelled' ? 'error' : 'warning'}
+                                />
+                              </TableCell>
+                            </>
+                          )}
+                          {(activeModal.key === 'sales' || activeModal.key === 'monthlySales') && (
+                            <>
+                              <TableCell>#{item.id}</TableCell>
+                              <TableCell><strong>{item.product_name || `Product #${item.product_id}`}</strong></TableCell>
+                              <TableCell>{item.customer_name || '—'}</TableCell>
+                              <TableCell align="right">{item.qty ?? item.quantity ?? '—'}</TableCell>
+                              <TableCell align="right">P{item.total_amount != null ? Number(item.total_amount).toLocaleString() : (item.total_price != null ? Number(item.total_price).toLocaleString() : '—')}</TableCell>
+                              <TableCell>{item.transaction_date ? new Date(item.transaction_date).toLocaleDateString() : (item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A')}</TableCell>
+                            </>
+                          )}
+                          {activeModal.key === 'customers' && (
+                            <>
+                              <TableCell><strong>{item.customer_name}</strong></TableCell>
+                              <TableCell align="right">{item.transactions}</TableCell>
+                              <TableCell align="right">P{Number(item.total_spent).toLocaleString()}</TableCell>
+                            </>
+                          )}
+                          {activeModal.key === 'movements' && (
+                            <>
+                              <TableCell>#{item.id}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={item.type || 'movement'} size="small"
+                                  color={item.type === 'stock-in' ? 'success' : item.type === 'stock-out' ? 'error' : 'info'}
+                                />
+                              </TableCell>
+                              <TableCell><strong>{item.product_name || `Product #${item.product_id}`}</strong></TableCell>
+                              <TableCell align="right">{item.quantity}</TableCell>
+                              <TableCell>{item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}</TableCell>
+                            </>
+                          )}
+                          {(activeModal.key === 'fastMoving' || activeModal.key === 'slowMoving') && (
+                            <>
+                              <TableCell><strong>{item.product_name}</strong></TableCell>
+                              <TableCell align="right">{item.qty.toLocaleString()}</TableCell>
+                              <TableCell align="right">P{Number(item.revenue).toLocaleString()}</TableCell>
+                            </>
+                          )}
+                          {activeModal.key === 'alerts' && (
+                            <>
+                              <TableCell>#{item.id}</TableCell>
+                              <TableCell><Chip label={item.type || 'Alert'} size="small" color="error" /></TableCell>
+                              <TableCell>{item.message || item.description || 'Inventory threshold breach'}</TableCell>
+                              <TableCell>{item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}</TableCell>
+                            </>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
+              <Button color="inherit" onClick={() => setActiveModal(null)}>Close</Button>
+              <Button
+                variant="contained" color="primary"
+                endIcon={<OpenInNewIcon />}
+                onClick={() => {
+                  const target = activeModal.navigateTo;
+                  setActiveModal(null);
+                  navigate(target);
+                }}
+              >
+                Go to full page
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}
@@ -520,5 +913,41 @@ export default function DashboardPage({ user, onLogout }) {
         message={snackbar.message}
       />
     </AdminLayout>
+  );
+}
+
+// ─── Reusable stat card component ───
+function StatCard({ panel, loading, onClick }) {
+  return (
+    <Tooltip title="Click to view detailed item list" arrow placement="top">
+      <Paper
+        onClick={() => onClick(panel)}
+        sx={{
+          p: 2.5,
+          backgroundColor: 'white',
+          borderRadius: 3,
+          borderLeft: `4px solid ${panel.color}`,
+          cursor: 'pointer',
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': {
+            transform: 'translateY(-3px)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.13)',
+          }
+        }}
+      >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, fontSize: '0.72rem' }}>
+            {panel.label}
+          </Typography>
+          <Box sx={{ color: 'text.secondary', opacity: 0.5 }}>{panel.icon}</Box>
+        </Box>
+        <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700 }}>
+          {loading ? '…' : panel.value}
+        </Typography>
+        <Typography variant="caption" color="primary" sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>
+          Click to inspect →
+        </Typography>
+      </Paper>
+    </Tooltip>
   );
 }
