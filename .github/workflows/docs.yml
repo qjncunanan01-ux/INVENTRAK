@@ -41,6 +41,31 @@ jobs:
         run: npm run docs:build
         working-directory: ./backend
 
+      # --- Mobile app as a static web build (served at /app/) ---
+      # Expo web export with the DEPLOYED API URL baked in, then a small
+      # post-processor rewrites asset paths to relative so the app works
+      # under the /INVENTRAK/app/ subpath. The result lands in docs/app/
+      # so one Pages deploy serves BOTH the API docs (/) and the app (/app/).
+      - name: Install mobile-client dependencies
+        run: npm install
+        working-directory: ./mobile-client
+
+      - name: Export mobile app as a static web build
+        run: EXPO_PUBLIC_API_URL=https://inventrak-api.onrender.com npx expo export --platform web
+        working-directory: ./mobile-client
+        env:
+          CI: "1"
+
+      - name: Make asset paths relative (subpath hosting)
+        run: node scripts/relativize-web-export.js
+        working-directory: ./mobile-client
+
+      - name: Stage mobile app under docs/app/
+        run: |
+          mkdir -p ../docs/app
+          cp -r dist/. ../docs/app/
+        working-directory: ./mobile-client
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
