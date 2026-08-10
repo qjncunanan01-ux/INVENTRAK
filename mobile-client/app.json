@@ -6,6 +6,15 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "backgroundColor": "#eef7e1",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#111a0d"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.inventrak.mobile"
@@ -13,7 +22,8 @@
     "android": {
       "package": "com.inventrak.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#eef7e1"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#81c738"
       }
     },
     "extra": {
