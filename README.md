@@ -191,6 +191,10 @@ npx expo start          # or: npx expo start --tunnel
 # Login: customer / customer123
 ```
 
+For a **standalone installable APK** (no Expo Go, works on any network,
+points at the live Render backend): see [`APK-INSTALL.md`](APK-INSTALL.md)
+for the full build → transfer → install → demo checklist.
+
 ### Docker (Full Stack)
 ```bash
 docker compose up --build
