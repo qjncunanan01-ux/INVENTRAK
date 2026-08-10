@@ -10,42 +10,8 @@ import {
 } from 'react-native';
 import { listAllProducts, listCategories } from '../api';
 import { useThemeColors } from '../theme-context';
-
-// Simple per-category glyphs so the grid reads like a real category page.
-// Covers the supplier library's 23 categories; unknown ones get a generic tile.
-const CATEGORY_GLYPHS = {
-  Achievers: '🍬',
-  'Baking Chocolate': '🍫',
-  'Chicken Pastil': '🍗',
-  'Coffee Beans': '☕',
-  'Condense Milk': '🥛',
-  'Cups and Lid': '🥤',
-  'Da Vinci BeverageMix': '🧋',
-  'Da Vinci Mixologies': '🍹',
-  'Da Vinci Powders': '🧂',
-  'Da Vinci Sauces': '🍯',
-  'Da Vinci Syrup': '🍯',
-  'Dripp Flavours': '🍯',
-  'Full Cream Milk': '🥛',
-  'MATCHA POWDER': '🍵',
-  Monin: '🍯',
-  'Non Dairy Creamer': '🥛',
-  Others: '📦',
-  Others1: '📦',
-  'Plant Based Milk': '🥛',
-  Spread_Jams_Biscuits: '🍪',
-  'Top Creamery': '🧁',
-  Torani: '🍯',
-  'Whip Cream': '🍦',
-  // Legacy category names from the original 8-product catalog.
-  Beans: '☕',
-  Cups: '🥤',
-  Matcha: '🍵',
-  Powders: '🧂',
-  Milk: '🥛',
-  Sauces: '🍯',
-  Syrups: '🍯',
-};
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { categoryIcon } from '../category-icons';
 
 export default function CategoriesScreen({ navigation }) {
   const { colors } = useThemeColors();
@@ -118,7 +84,10 @@ export default function CategoriesScreen({ navigation }) {
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.tile} onPress={() => openCategory(item)}>
-            <Text style={styles.tileGlyph}>{CATEGORY_GLYPHS[item] || '▤'}</Text>
+            {/* Real vector glyph (Shopee/Lazada-style) inside a tinted disc */}
+            <View style={[styles.tileIconWrap, { backgroundColor: colors.background }]}>
+              <MaterialCommunityIcons name={categoryIcon(item)} size={28} color={colors.brandPrimary} />
+            </View>
             <Text style={styles.tileName} numberOfLines={1}>{item}</Text>
             <Text style={styles.tileCount}>{counts[item] || 0} items</Text>
           </TouchableOpacity>
@@ -149,7 +118,14 @@ const createStyles = (colors) => StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  tileGlyph: { fontSize: 30, color: colors.brandPrimary, marginBottom: 8 },
+  tileIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
   tileName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
   tileCount: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
   empty: { marginTop: 24, textAlign: 'center', color: colors.textSecondary },

@@ -1,8 +1,27 @@
 import { useMemo } from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { clearSession, clearToken, useSessionEmail, useSessionUsername, useSessionVerified } from '../api';
 import { useCart } from '../cart-context';
 import { useThemeColors } from '../theme-context';
+
+// Shopee-style tinted icon disc for menu rows (matches the Home quick-action
+// grid): a pastel circular badge with a deeper accent icon per action.
+function MenuIcon({ name, tint, styles }) {
+  return (
+    <View style={[styles.menuIconDisc, { backgroundColor: tint.bg }]}>
+      <MaterialCommunityIcons name={name} size={20} color={tint.fg} />
+    </View>
+  );
+}
+
+const MENU_TINTS = {
+  history: { bg: '#e8eaf6', fg: '#3f51b5' },
+  inquiry: { bg: '#e8f0fe', fg: '#1565c0' },
+  recs: { bg: '#fff3e0', fg: '#f9a825' },
+  products: { bg: '#e0f2f1', fg: '#00796b' },
+  theme: { bg: '#fde8ec', fg: '#e23744' },
+};
 
 export default function AccountScreen({ route, navigation }) {
   const { colors, dark, toggleDark } = useThemeColors();
@@ -70,7 +89,7 @@ export default function AccountScreen({ route, navigation }) {
               style={styles.menuItem}
               onPress={() => navigation.navigate('OrdersTab', { screen: 'InquiryHistory' })}
             >
-              <Text style={styles.menuGlyph}>✓</Text>
+              <MenuIcon name="clipboard-text-clock-outline" tint={MENU_TINTS.history} styles={styles} />
               <View style={styles.menuBody}>
                 <Text style={styles.menuTitle}>Order History</Text>
                 <Text style={styles.menuDesc}>Track the status of your inquiries</Text>
@@ -82,7 +101,7 @@ export default function AccountScreen({ route, navigation }) {
               style={styles.menuItem}
               onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
             >
-              <Text style={styles.menuGlyph}>✎</Text>
+              <MenuIcon name="file-document-edit-outline" tint={MENU_TINTS.inquiry} styles={styles} />
               <View style={styles.menuBody}>
                 <Text style={styles.menuTitle}>New Order Inquiry</Text>
                 <Text style={styles.menuDesc}>Request pricing for supplies</Text>
@@ -111,7 +130,7 @@ export default function AccountScreen({ route, navigation }) {
           style={styles.menuItem}
           onPress={() => navigation.navigate('CatalogTab', { screen: 'Recommendations' })}
         >
-          <Text style={styles.menuGlyph}>★</Text>
+          <MenuIcon name="star-circle-outline" tint={MENU_TINTS.recs} styles={styles} />
           <View style={styles.menuBody}>
             <Text style={styles.menuTitle}>Recommendations</Text>
             <Text style={styles.menuDesc}>ABC-classified top supplies</Text>
@@ -123,7 +142,7 @@ export default function AccountScreen({ route, navigation }) {
           style={styles.menuItem}
           onPress={() => navigation.navigate('CatalogTab', { screen: 'Products' })}
         >
-          <Text style={styles.menuGlyph}>☰</Text>
+          <MenuIcon name="view-grid-outline" tint={MENU_TINTS.products} styles={styles} />
           <View style={styles.menuBody}>
             <Text style={styles.menuTitle}>Browse Products</Text>
             <Text style={styles.menuDesc}>View the full product catalog</Text>
@@ -134,7 +153,8 @@ export default function AccountScreen({ route, navigation }) {
         {/* Preferences: dark-mode switcher (persisted on the device). */}
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.menuItem}>
-          <Text style={styles.menuGlyph}>{dark ? '🌙' : '☀️'}</Text>
+          {/* Theme icon follows the effective mode (moon in dark, sun in light) */}
+          <MenuIcon name={dark ? 'weather-night' : 'white-balance-sunny'} tint={MENU_TINTS.theme} styles={styles} />
           <View style={styles.menuBody}>
             <Text style={styles.menuTitle}>Dark Mode</Text>
             <Text style={styles.menuDesc}>
@@ -209,7 +229,14 @@ const createStyles = (colors) => StyleSheet.create({
     padding: 14,
     borderRadius: 12,
   },
-  menuGlyph: { fontSize: 20, color: colors.brandPrimary, fontWeight: '700', width: 32 },
+  menuIconDisc: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
   menuBody: { flex: 1 },
   menuTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
   menuDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },

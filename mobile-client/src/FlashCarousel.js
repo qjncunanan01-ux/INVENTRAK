@@ -3,6 +3,7 @@ import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react
 import { imageUrl } from './api';
 import { dealPricing } from './flash-sale';
 import { useThemeColors } from './theme-context';
+import PressableScale from './PressableScale';
 
 // Flash-sale carousel card width (snap interval = card + margin).
 const FEAT_CARD_W = 150;
@@ -44,48 +45,53 @@ export default function FlashCarousel({ items, stockMap = {}, onPressItem, onAdd
         // Products without a price get the plain price, no badge.
         const deal = dealPricing(item);
         return (
-          <View style={styles.card}>
-            {/* The WHOLE card (photo, name, category, price, stock tag) is the
-                tap target — only the + button sits outside it. */}
-            <TouchableOpacity onPress={() => onPressItem && onPressItem(item)} activeOpacity={0.8}>
-              <View style={styles.imgWrap}>
-                {item.image ? (
-                  <Image source={{ uri: imageUrl(item.image) }} style={styles.img} resizeMode="cover" />
-                ) : (
-                  <View style={[styles.img, styles.imgPlaceholder]} />
-                )}
-                {item.classification === 'A' ? (
-                  <View style={styles.ribbon}>
-                    <Text style={styles.ribbonText}>★ TOP PICK</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
-              <View style={styles.catRow}>
-                <Text style={styles.cat} numberOfLines={1}>{item.category}</Text>
-                {stockTag(item.id)}
-              </View>
-              <View style={styles.bottom}>
-                {deal ? (
-                  <View
-                    style={styles.priceRow}
-                    accessible
-                    accessibilityLabel={`Deal price P${deal.deal}, originally P${deal.original}, ${deal.pct} percent off`}
-                  >
-                    <Text style={styles.dealPrice}>P{deal.deal}</Text>
-                    <Text style={styles.originalPrice}>P{deal.original}</Text>
-                    <Text style={styles.offPct}>-{deal.pct}%</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.price}>P{item.price}</Text>
-                )}
-              </View>
-              {deal ? (
-                <View style={styles.dealChip}>
-                  <Text style={styles.dealChipText}>🔥 Deal of the day</Text>
+          /* The WHOLE card (photo, name, category, price, stock tag) is the
+             tap target and scales on press — same PressableScale as the Home
+             quick actions and chips. The + button lives INSIDE the pressable:
+             the responder system gives the innermost touchable the touch, so
+             quick-add still fires without triggering the card's navigation. */
+          <PressableScale
+            style={styles.card}
+            pressableStyle={styles.cardPressable}
+            onPress={() => onPressItem && onPressItem(item)}
+          >
+            <View style={styles.imgWrap}>
+              {item.image ? (
+                <Image source={{ uri: imageUrl(item.image) }} style={styles.img} resizeMode="cover" />
+              ) : (
+                <View style={[styles.img, styles.imgPlaceholder]} />
+              )}
+              {item.classification === 'A' ? (
+                <View style={styles.ribbon}>
+                  <Text style={styles.ribbonText}>★ TOP PICK</Text>
                 </View>
               ) : null}
-            </TouchableOpacity>
+            </View>
+            <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
+            <View style={styles.catRow}>
+              <Text style={styles.cat} numberOfLines={1}>{item.category}</Text>
+              {stockTag(item.id)}
+            </View>
+            <View style={styles.bottom}>
+              {deal ? (
+                <View
+                  style={styles.priceRow}
+                  accessible
+                  accessibilityLabel={`Deal price P${deal.deal}, originally P${deal.original}, ${deal.pct} percent off`}
+                >
+                  <Text style={styles.dealPrice}>P{deal.deal}</Text>
+                  <Text style={styles.originalPrice}>P{deal.original}</Text>
+                  <Text style={styles.offPct}>-{deal.pct}%</Text>
+                </View>
+              ) : (
+                <Text style={styles.price}>P{item.price}</Text>
+              )}
+            </View>
+            {deal ? (
+              <View style={styles.dealChip}>
+                <Text style={styles.dealChipText}>🔥 Deal of the day</Text>
+              </View>
+            ) : null}
             {onAdd ? (
               <TouchableOpacity
                 style={styles.add}
@@ -95,7 +101,7 @@ export default function FlashCarousel({ items, stockMap = {}, onPressItem, onAdd
                 <Text style={styles.addText}>+</Text>
               </TouchableOpacity>
             ) : null}
-          </View>
+          </PressableScale>
         );
       }}
       ListEmptyComponent={
@@ -112,13 +118,16 @@ const createStyles = (colors) => StyleSheet.create({
     marginRight: 12,
     backgroundColor: colors.surface,
     borderRadius: 14,
-    padding: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
   },
+  // Card content is inset via the inner pressable (keeps the absolutely
+  // positioned + button at the card's true edge, like before). Stretch keeps
+  // name/price text left-aligned instead of PressableScale's default center.
+  cardPressable: { padding: 10, alignItems: 'stretch' },
   imgWrap: { position: 'relative' },
   img: { width: '100%', height: 110, borderRadius: 10, backgroundColor: colors.background },
   imgPlaceholder: { backgroundColor: '#e3eeda' },

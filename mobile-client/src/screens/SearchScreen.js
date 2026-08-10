@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { imageUrl, listAllProducts } from '../api';
 import BackButton from '../BackButton';
 import { useCart } from '../cart-context';
@@ -65,7 +66,7 @@ export default function SearchScreen({ navigation }) {
             clearly says where it goes, unlike a bare chevron. */}
         <BackButton navigation={navigation} label="Products" dark />
         <View style={styles.searchBar}>
-          <Text style={styles.searchGlyph}>⌕</Text>
+          <MaterialCommunityIcons name="magnify" size={18} color={colors.textSecondary} style={styles.searchGlyph} />
           <TextInput
             ref={inputRef}
             style={styles.searchInput}
@@ -123,7 +124,7 @@ export default function SearchScreen({ navigation }) {
           }
         />          ) : (
         <View style={styles.hintWrap}>
-          <Text style={styles.hintGlyph}>⌕</Text>
+          <MaterialCommunityIcons name="magnify" size={44} color={colors.brandSecondary} style={styles.hintGlyph} />
           <Text style={styles.hint}>Search by product name, category, or brand.</Text>
           <Text style={styles.hintSub}>Try "milk", "sauce", or "beans".</Text>
         </View>
@@ -153,7 +154,7 @@ const createStyles = (colors) => StyleSheet.create({
     // Room for the labeled back pill on the left.
     marginLeft: 118,
   },
-  searchGlyph: { fontSize: 16, color: colors.textSecondary, marginRight: 8, fontWeight: '700' },
+  searchGlyph: { marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 9, fontSize: 15, color: colors.textPrimary },
   clearText: { fontSize: 16, color: colors.textSecondary, fontWeight: '700', paddingLeft: 8 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -190,7 +191,7 @@ const createStyles = (colors) => StyleSheet.create({
   quickAddText: { color: '#fff', fontSize: 20, fontWeight: '800', lineHeight: 24 },
   empty: { marginTop: 32, textAlign: 'center', color: colors.textSecondary },
   hintWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  hintGlyph: { fontSize: 44, color: colors.brandSecondary, fontWeight: '700', marginBottom: 12 },
+  hintGlyph: { marginBottom: 12 },
   hint: { fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
   hintSub: { fontSize: 13, color: colors.textSecondary, marginTop: 6, opacity: 0.8 },
 });

@@ -16,6 +16,9 @@ import FlashCarousel from '../FlashCarousel';
 import { showToast } from '../toast';
 import FlashSaleHeader from '../FlashSaleHeader';
 import { useThemeColors } from '../theme-context';
+import { categoryIcon } from '../category-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import PressableScale from '../PressableScale';
 
 export default function HomeScreen({ route, navigation }) {
   const { colors } = useThemeColors();
@@ -89,15 +92,16 @@ export default function HomeScreen({ route, navigation }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Promo banner */}
-        <TouchableOpacity
+        {/* Promo banner (scales on press like every card on Home) */}
+        <PressableScale
           style={styles.banner}
+          pressableStyle={styles.cardContent}
           onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
         >
           <Text style={styles.bannerTag}>WHOLESALE SUPPLIES</Text>
           <Text style={styles.bannerTitle}>Send an order inquiry today</Text>
           <Text style={styles.bannerSub}>Get pricing for your café or store</Text>
-        </TouchableOpacity>
+        </PressableScale>
 
         {/* Category chips */}
         <View style={styles.sectionRow}>
@@ -113,8 +117,9 @@ export default function HomeScreen({ route, navigation }) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipRow}
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <PressableScale
               style={styles.chip}
+              pressableStyle={styles.chipPressable}
               onPress={() =>
                 navigation.navigate('CatalogTab', {
                   screen: 'Products',
@@ -122,8 +127,15 @@ export default function HomeScreen({ route, navigation }) {
                 })
               }
             >
+              {/* Icon + label (Shopee-style chip): real category glyph, not
+                  bare text. 'All' uses a grid glyph. */}
+              {item === 'All' ? (
+                <MaterialCommunityIcons name="view-grid-outline" size={15} color={colors.brandPrimary} />
+              ) : (
+                <MaterialCommunityIcons name={categoryIcon(item)} size={15} color={colors.brandPrimary} />
+              )}
               <Text style={styles.chipText}>{item}</Text>
-            </TouchableOpacity>
+            </PressableScale>
           )}
         />
 
@@ -133,15 +145,30 @@ export default function HomeScreen({ route, navigation }) {
             account value is obvious (Shopee/Lazada pattern). */}
         <View style={styles.quickRow}>
           {quickActions(isLoggedIn, navigation).map((a) => (
-            <TouchableOpacity
+            <PressableScale
               key={a.key}
               style={[styles.quickItem, a.primary && styles.quickItemPrimary]}
               onPress={a.onPress}
-              activeOpacity={0.75}
             >
-              <Text style={[styles.quickGlyph, a.primary && styles.quickGlyphPrimary]}>{a.glyph}</Text>
+              {/* Shopee-style colored icon disc: each action gets a tinted
+                  circular badge behind its vector icon; the primary CTA
+                  (Log In) gets a solid filled disc instead. */}
+              <View
+                style={[
+                  styles.quickDisc,
+                  a.primary
+                    ? styles.quickDiscPrimary
+                    : { backgroundColor: a.tint.bg },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={a.icon}
+                  size={22}
+                  color={a.primary ? '#fff' : a.tint.fg}
+                />
+              </View>
               <Text style={[styles.quickLabel, a.primary && styles.quickLabelPrimary]}>{a.label}</Text>
-            </TouchableOpacity>
+            </PressableScale>
           ))}
         </View>
         {!isLoggedIn ? (
@@ -150,15 +177,16 @@ export default function HomeScreen({ route, navigation }) {
           </Text>
         ) : null}
 
-        {/* Multi-location availability teaser */}
+        {/* Multi-location availability teaser (scales on press) */}
         <Text style={styles.sectionTitle}>Multi-Location Stock</Text>
-        <TouchableOpacity
+        <PressableScale
           style={styles.locationTeaser}
+          pressableStyle={styles.cardContent}
           onPress={() => navigation.navigate('CatalogTab', { screen: 'StockAvailability' })}
         >
           <Text style={styles.locationTeaserTitle}>🏬 Check supply stock per location</Text>
           <Text style={styles.locationTeaserSub}>See what's available at each branch before you order.</Text>
-        </TouchableOpacity>
+        </PressableScale>
 
         {/* Flash Sale — Shopee-style urgency: a live countdown to the daily
             midnight refresh, after which the featured picks rotate to a
@@ -212,20 +240,25 @@ export default function HomeScreen({ route, navigation }) {
 
 // Builds the Home quick-action tiles. Public actions stay for everyone;
 // member actions (order history, notifications, scanning) only render for
-// logged-in customers, who also get a Log In tile in their place.
+// logged-in customers, who also get a Log In tile in their place. `icon` is a
+// MaterialCommunityIcons name (real vector glyph, Shopee/Lazada-style) — the
+// renderer below maps it through the icon component.
 function quickActions(isLoggedIn, navigation) {
   const go = (screen, params) => navigation.navigate(screen, params);
+  // `tint` drives the Shopee-style colored icon disc: a pastel background
+  // with a deeper accent icon color, picked to stay on-brand with the green
+  // palette while giving each tile its own identity.
   const publicActions = [
-    { key: 'recs', glyph: '★', label: 'Recommendations', onPress: () => go('CatalogTab', { screen: 'Recommendations' }) },
-    { key: 'inquiry', glyph: '✎', label: 'Order Inquiry', onPress: () => go('OrdersTab', { screen: 'OrderInquiry' }) },
-    { key: 'stock', glyph: '🏬', label: 'Stock Availability', onPress: () => go('CatalogTab', { screen: 'StockAvailability' }) },
+    { key: 'recs', icon: 'star-circle-outline', label: 'Recommendations', tint: { bg: '#fff3e0', fg: '#f9a825' }, onPress: () => go('CatalogTab', { screen: 'Recommendations' }) },
+    { key: 'inquiry', icon: 'message-text-outline', label: 'Order Inquiry', tint: { bg: '#e8f0fe', fg: '#1565c0' }, onPress: () => go('OrdersTab', { screen: 'OrderInquiry' }) },
+    { key: 'stock', icon: 'store-outline', label: 'Stock Availability', tint: { bg: '#e0f2f1', fg: '#00796b' }, onPress: () => go('CatalogTab', { screen: 'StockAvailability' }) },
   ];
   if (!isLoggedIn) {
     return [
       ...publicActions,
       {
         key: 'login',
-        glyph: '👤',
+        icon: 'account-outline',
         label: 'Log In',
         primary: true,
         onPress: () => go('AccountTab'),
@@ -234,9 +267,9 @@ function quickActions(isLoggedIn, navigation) {
   }
   return [
     ...publicActions,
-    { key: 'history', glyph: '✓', label: 'Order History', onPress: () => go('OrdersTab', { screen: 'InquiryHistory' }) },
-    { key: 'notif', glyph: '🔔', label: 'Notifications', onPress: () => go('OrdersTab', { screen: 'Notifications' }) },
-    { key: 'ocr', glyph: '📷', label: 'Scan Product', onPress: () => go('CatalogTab', { screen: 'OCR' }) },
+    { key: 'history', icon: 'clipboard-text-clock-outline', label: 'Order History', tint: { bg: '#e8eaf6', fg: '#3f51b5' }, onPress: () => go('OrdersTab', { screen: 'InquiryHistory' }) },
+    { key: 'notif', icon: 'bell-outline', label: 'Notifications', tint: { bg: '#fde8ec', fg: '#e23744' }, onPress: () => go('OrdersTab', { screen: 'Notifications' }) },
+    { key: 'ocr', icon: 'camera-outline', label: 'Scan Product', tint: { bg: '#f3e5f5', fg: '#8e24aa' }, onPress: () => go('CatalogTab', { screen: 'OCR' }) },
   ];
 }
 
@@ -286,6 +319,12 @@ const createStyles = (colors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
   },
+  // The chip's row layout lives on the PressableScale inner pressable so the
+  // icon + label sit side by side (the animated shell only carries the box).
+  chipPressable: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // Card-like surfaces with left-aligned text need the inner pressable to
+  // stretch children full-width (PressableScale centers by default).
+  cardContent: { alignItems: 'stretch' },
   chipText: { color: colors.textPrimary, fontWeight: '600', fontSize: 13 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 16, marginTop: 12 },
   quickItem: {
@@ -298,6 +337,14 @@ const createStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 6,
     alignItems: 'center',
   },
+  quickDisc: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickDiscPrimary: { backgroundColor: colors.brandPrimary },
   locationTeaser: {
     marginHorizontal: 16,
     marginBottom: 12,
@@ -309,10 +356,8 @@ const createStyles = (colors) => StyleSheet.create({
   },
   locationTeaserTitle: { fontWeight: '700', color: colors.textPrimary, fontSize: 14 },
   locationTeaserSub: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
-  quickGlyph: { fontSize: 20, color: colors.brandPrimary, fontWeight: '700' },
   quickLabel: { fontSize: 11, color: colors.textSecondary, marginTop: 6, textAlign: 'center' },
   quickItemPrimary: { backgroundColor: colors.brandPrimary },
-  quickGlyphPrimary: { color: '#fff' },
   quickLabelPrimary: { color: '#fff', fontWeight: '700' },
   guestNudge: {
     marginHorizontal: 16,

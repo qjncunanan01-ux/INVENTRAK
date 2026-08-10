@@ -9,12 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { listOrderInquiries, useSessionUsername } from '../api';
 import EmptyState from '../EmptyState';
 import { useThemeColors } from '../theme-context';
 
 const LABELS = { pending: 'Placed', approved: 'Approved', fulfilled: 'Fulfilled', delivered: 'Delivered', rejected: 'Rejected' };
-const GLYPHS = { pending: '🕐', approved: '✓', fulfilled: '📦', delivered: '🏠', rejected: '✕' };
+// Status -> vector icon (MaterialCommunityIcons), same family as the rest of
+// the app's iconography.
+const GLYPHS = { pending: 'clock-outline', approved: 'check-circle-outline', fulfilled: 'package-variant-closed', delivered: 'home-outline', rejected: 'close-circle-outline' };
 
 // Notification Module (reviewer requirement): an in-app feed of order status
 // updates, mirroring the email/SMS status notifications the backend already
@@ -135,7 +138,7 @@ export default function NotificationsScreen({ navigation }) {
             style={styles.card}
             onPress={() => navigation.navigate('InquiryHistory')}
           >
-            <Text style={styles.glyph}>{GLYPHS[item.status] || '•'}</Text>
+            <MaterialCommunityIcons name={GLYPHS[item.status] || 'bell-outline'} size={22} color={colors.brandPrimary} style={styles.glyph} />
             <View style={styles.body}>
               <Text style={styles.cardTitle}>
                 Order #{item.orderId} is {LABELS[item.status] || item.status}
@@ -182,7 +185,7 @@ const createStyles = (colors) => StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
-  glyph: { fontSize: 22, marginRight: 12 },
+  glyph: { marginRight: 12 },
   body: { flex: 1 },
   cardTitle: { fontWeight: '700', color: colors.textPrimary, fontSize: 15 },
   cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },

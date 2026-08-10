@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { getToken } from './api';
 
 // Persistent shopping cart (Shopee/Lazada pattern). Cart entries snapshot the
 // product at add-time ({ product, qty }) so the checkout never needs to refetch
@@ -47,6 +48,18 @@ export function CartProvider({ children }) {
     if (!hydrated) return;
     AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items)).catch(() => {});
   }, [items, hydrated]);
+
+  // Guests must never see a cart: the basket is member-only (every add is
+  // login-gated), so when there is no authenticated session the persisted cart
+  // is stale — either left over from a PREVIOUS user's session (survived a
+  // fresh app launch, since the session/token never persists across restarts)
+  // or from a logout that didn't fully clear. Wipe it whenever the token is
+  // absent, so the tab badge can never show leftover items to a guest.
+  const token = getToken();
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!token) setItems([]);
+  }, [hydrated, token]);
 
   // Adds a product or increments its quantity (qty is clamped to >= 1).
   // `price` optionally overrides the unit price snapshot (e.g. the day's flash

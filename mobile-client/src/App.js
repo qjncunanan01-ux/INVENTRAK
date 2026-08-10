@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
-import { Text } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { loadSavedApiUrl } from './api';
 import HomeScreen from './screens/HomeScreen';
 import InquiryHistoryScreen from './screens/InquiryHistoryScreen';
@@ -32,9 +32,10 @@ const MainTabs = createBottomTabNavigator();
 const CatalogStack = createNativeStackNavigator();
 const OrdersStack = createNativeStackNavigator();
 
-// Icon: simple text glyphs to keep zero extra dependencies.
-function tabIcon(glyph, { color, size }) {
-  return <Text style={{ color, fontSize: size - 2, fontWeight: '700' }}>{glyph}</Text>;
+// Tab-bar icons (Shopee/Lazada-style): real vector glyphs from
+// @expo/vector-icons (bundled with Expo Go) instead of text characters.
+function tabIcon(name, { color, size }) {
+  return <MaterialCommunityIcons name={name} size={size - 2} color={color} />;
 }
 
 function CatalogNavigator() {
@@ -85,20 +86,20 @@ function MainTabsNavigator({ route }) {
       <MainTabs.Screen
         name="HomeTab"
         component={HomeScreen}
-        options={{ tabBarLabel: 'Home', tabBarIcon: (p) => tabIcon('⌂', p) }}
+        options={{ tabBarLabel: 'Home', tabBarIcon: (p) => tabIcon('home-variant-outline', p) }}
         initialParams={{ username }}
       />
       <MainTabs.Screen
         name="CatalogTab"
         component={CatalogNavigator}
-        options={{ tabBarLabel: 'Products', tabBarIcon: (p) => tabIcon('☰', p) }}
+        options={{ tabBarLabel: 'Products', tabBarIcon: (p) => tabIcon('shopping-outline', p) }}
       />
       <MainTabs.Screen
         name="CartTab"
         component={CartScreen}
         options={{
           tabBarLabel: 'Cart',
-          tabBarIcon: (p) => tabIcon('🛒', p),
+          tabBarIcon: (p) => tabIcon('cart-outline', p),
           // Shopee-style badge: total units in the basket; hidden when empty
           // (guests always see it empty), capped at "99+" so a huge order
           // never overflows the tab bar.
@@ -109,12 +110,12 @@ function MainTabsNavigator({ route }) {
       <MainTabs.Screen
         name="OrdersTab"
         component={OrdersNavigator}
-        options={{ tabBarLabel: 'Orders', tabBarIcon: (p) => tabIcon('✓', p) }}
+        options={{ tabBarLabel: 'Orders', tabBarIcon: (p) => tabIcon('clipboard-text-outline', p) }}
       />
       <MainTabs.Screen
         name="AccountTab"
         component={AccountScreen}
-        options={{ tabBarLabel: 'Account', tabBarIcon: (p) => tabIcon('●', p) }}
+        options={{ tabBarLabel: 'Account', tabBarIcon: (p) => tabIcon('account-circle-outline', p) }}
         initialParams={{ username }}
       />
     </MainTabs.Navigator>
