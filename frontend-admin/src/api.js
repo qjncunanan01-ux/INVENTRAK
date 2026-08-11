@@ -89,5 +89,6 @@ export const approveStockTransfer = client.approveStockTransfer;
 export const rejectStockTransfer = client.rejectStockTransfer;
 export const getApprovals = client.getApprovals;
 export const getReports = client.getReports;
+export const ocrStockCheck = client.ocrStockCheck;
 
 export default client;

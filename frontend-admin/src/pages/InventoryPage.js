@@ -1,4 +1,6 @@
-import { Box, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
+import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api';
 import { colors } from '../theme';
@@ -44,6 +46,16 @@ export default function InventoryPage({ onLogout }) {
             <Typography variant="body2" color="text.secondary">Track stock distribution across locations.</Typography>
           </div>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Button
+              component={RouterLink}
+              to="/scan-stock"
+              size="small"
+              variant="contained"
+              startIcon={<CameraAltOutlined />}
+              sx={{ backgroundColor: colors.brandPrimary }}
+            >
+              Scan & Stock
+            </Button>
             <TextField
               size="small"
               label="Search products..."

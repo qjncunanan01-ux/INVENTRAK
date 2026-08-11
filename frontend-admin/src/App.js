@@ -11,6 +11,7 @@ import OptimizationPage from './pages/OptimizationPage';
 import OrderInquiriesPage from './pages/OrderInquiriesPage';
 import ProductsPage from './pages/ProductsPage';
 import ReportsPage from './pages/ReportsPage';
+import ScanStockPage from './pages/ScanStockPage';
 import StockAdjustmentsPage from './pages/StockAdjustmentsPage';
 import StockMovementPage from './pages/StockMovementPage';
 import StockTransfersPage from './pages/StockTransfersPage';
@@ -28,6 +29,7 @@ function AppRoutes() {
         <Route path="/" element={<DashboardPage user={user} onLogout={handleLogout} />} />
         <Route path="/products" element={<ProductsPage onLogout={handleLogout} />} />
         <Route path="/inventory" element={<InventoryPage onLogout={handleLogout} />} />
+        <Route path="/scan-stock" element={<ScanStockPage onLogout={handleLogout} />} />
         <Route path="/stock-movement" element={<StockMovementPage onLogout={handleLogout} />} />
         <Route path="/stock-adjustments" element={<StockAdjustmentsPage onLogout={handleLogout} />} />
         <Route path="/stock-transfers" element={<StockTransfersPage onLogout={handleLogout} />} />

@@ -3,6 +3,7 @@ import { Box, Button, Divider, Drawer, IconButton, Stack, Tooltip, Typography, u
 import MenuOutlined from '@mui/icons-material/MenuOutlined';
 import MenuOpenOutlined from '@mui/icons-material/MenuOpenOutlined';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
+import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import CompareArrowsOutlined from '@mui/icons-material/CompareArrowsOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
@@ -29,6 +30,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Products', path: '/products', Icon: Inventory2Outlined },
       { label: 'Inventory', path: '/inventory', Icon: WarehouseOutlined },
+      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined },
       { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined },
       { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined },
       { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined },
