@@ -14,11 +14,21 @@ import { imageUrl, scanProductPhoto, useSessionUsername } from '../api';
 import { useThemeColors } from '../theme-context';
 
 // OCR module (reviewer requirement): snap or pick a product photo, the
-// backend runs tesseract OCR and fuzzy-matches the catalog, and the customer
-// taps the best match to prefill a checkout inquiry.
+// backend runs tesseract OCR and fuzzy-matches the catalog.
 //
-// Member-only: scanning is a signed-in feature (matches the Home tile, which
-// is hidden for guests). Guests landing here see a lock screen instead.
+// Member-only (matches the Home tile, which is hidden for guests): scanning
+// is a signed-in feature. Guests landing here see a lock screen instead.
+//
+// Results open the PRODUCT detail page (not the order form): a strong match
+// (score >= 0.75 with a clear gap to the runner-up) auto-opens that product,
+// and ambiguous results show a match list whose cards open the product for
+// review — the buyer decides to order from there.
+
+// Strong-match rule: high absolute score AND a healthy gap so the #1 pick
+// isn't just slightly better than a near-tie.
+const STRONG_SCORE = 0.75;
+const STRONG_GAP = 0.2;
+
 export default function OcrScreen({ navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -40,7 +50,7 @@ export default function OcrScreen({ navigation }) {
         <Text style={styles.lockTitle}>Log in to scan products</Text>
         <Text style={styles.lockBody}>
           Product scanning lets you snap a label and instantly match it to the
-          catalog for one-tap ordering — a member feature.
+          catalog — a member feature.
         </Text>
         <TouchableOpacity
           style={[styles.lockBtn, styles.lockBtnPrimary]}
@@ -59,6 +69,13 @@ export default function OcrScreen({ navigation }) {
       </View>
     );
   }
+
+  // Open a matched product's detail page (the catalog's Products screen is
+  // the stack root beneath this one, so navigate() pops back to it with the
+  // focusId deep-link and ProductScreen shows the PDP).
+  const openProduct = (match) => {
+    navigation.navigate('Products', { focusId: match.id });
+  };
 
   const requestPermission = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -109,10 +126,19 @@ export default function OcrScreen({ navigation }) {
     setError('');
     try {
       const data = await scanProductPhoto({ image: base64 });
+      const list = Array.isArray(data.matches) ? data.matches : [];
       setText(data.text || '');
-      setMatches(Array.isArray(data.matches) ? data.matches : []);
-      if ((!data.text || !data.text.trim()) && (!data.matches || data.matches.length === 0)) {
+      setMatches(list);
+      if ((!data.text || !data.text.trim()) && list.length === 0) {
         setError('No text recognized. Try a clearer, well-lit photo of the label.');
+      }
+      // Confident single pick -> jump straight to the product detail.
+      const top = list[0];
+      if (top) {
+        const second = list[1];
+        if (top.score >= STRONG_SCORE && (!second || top.score - second.score >= STRONG_GAP)) {
+          openProduct(top);
+        }
       }
     } catch (err) {
       setError(err.message || 'OCR failed. Is the backend running?');
@@ -121,19 +147,12 @@ export default function OcrScreen({ navigation }) {
     }
   };
 
-  const addToOrder = (match) => {
-    navigation.navigate('OrdersTab', {
-      screen: 'OrderInquiry',
-      params: { preselectId: match.id },
-    });
-  };
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
       <Text style={styles.title}>Scan a product</Text>
       <Text style={styles.subtitle}>
         Take a photo of a product label or upload one — we'll recognize it and match it to
-        the catalog so you can order it in one tap.
+        the catalog, then open the product so you can review and order it.
       </Text>
 
       <View style={styles.btnRow}>
@@ -167,7 +186,7 @@ export default function OcrScreen({ navigation }) {
         <View>
           <Text style={styles.sectionTitle}>Matched products</Text>
           {matches.map((m) => (
-            <TouchableOpacity key={m.id} style={styles.matchCard} onPress={() => addToOrder(m)} activeOpacity={0.7}>
+            <TouchableOpacity key={m.id} style={styles.matchCard} onPress={() => openProduct(m)} activeOpacity={0.7}>
               {m.image ? (
                 <Image source={{ uri: imageUrl(m.image) }} style={styles.matchThumb} resizeMode="cover" />
               ) : null}
@@ -175,7 +194,7 @@ export default function OcrScreen({ navigation }) {
                 <Text style={styles.matchName}>{m.name}</Text>
                 <Text style={styles.matchMeta}>P{m.price} · {(m.score * 100).toFixed(0)}% match</Text>
               </View>
-              <Text style={styles.matchCta}>+ Order</Text>
+              <Text style={styles.matchCta}>View ›</Text>
             </TouchableOpacity>
           ))}
         </View>

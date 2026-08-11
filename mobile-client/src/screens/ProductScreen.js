@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { getInventory, getOptimizationAbc, imageUrl, listAllProducts } from '../api';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useCart } from '../cart-context';
 import { MODAL_ANIMATION } from '../Dialog';
 import { useLoginGate } from '../login-gate';
@@ -105,13 +106,26 @@ export default function ProductScreen({ route, navigation }) {
     fetchProducts();
   }, [fetchProducts]);
 
-  // If Home deep-linked to a specific product, show it after load.
+  // Deep-link focus: when Home (quick tile) or the OCR scanner navigates here
+  // with focusId, open that product's PDP after the catalog loads. Consumed
+  // once per navigation (lastFocusRef), so closing the PDP clears the param
+  // and the same product can be re-opened by a second scan.
+  const lastFocusRef = useRef(null);
   useEffect(() => {
-    if (focusId && products.length > 0 && !selected) {
-      const found = products.find((p) => Number(p.id) === Number(focusId));
-      if (found) setSelected(found);
+    if (!focusId || lastFocusRef.current === focusId) return;
+    if (products.length === 0) return;
+    const found = products.find((p) => Number(p.id) === Number(focusId));
+    if (found) {
+      lastFocusRef.current = focusId;
+      setSelected(found);
     }
-  }, [focusId, products, selected]);
+  }, [focusId, products]);
+
+  const closePdp = () => {
+    setSelected(null);
+    lastFocusRef.current = null;
+    navigation.setParams({ focusId: undefined });
+  };
 
   // Multi-location inventory (reviewer requirement): when a product is open,
   // fetch the per-location stock breakdown from the public /api/inventory.
@@ -216,7 +230,7 @@ export default function ProductScreen({ route, navigation }) {
     return (
       <View style={styles.container}>
         <ScrollView ref={scrollRef} style={styles.pdp} contentContainerStyle={styles.pdpContent}>
-          <TouchableOpacity onPress={() => setSelected(null)} style={styles.backLink}>
+          <TouchableOpacity onPress={closePdp} style={styles.backLink}>
             <Text style={styles.backText}>{'< Back to products'}</Text>
           </TouchableOpacity>
 
@@ -441,13 +455,25 @@ export default function ProductScreen({ route, navigation }) {
   // ---- PLP: 2-column grid + search + category chips ----
   return (
     <View style={styles.container}>
-      <TextInput
-        style={styles.input}
-        placeholder="Search products by name..."
-        value={filter}
-        onChangeText={setFilter}
-        autoCapitalize="none"
-      />
+      <View style={styles.searchWrap}>
+        <TextInput
+          style={styles.input}
+          placeholder="Search products by name..."
+          value={filter}
+          onChangeText={setFilter}
+          autoCapitalize="none"
+        />
+        {/* Scan shortcut inside the search bar (Lazada/Shopee pattern): tap to
+            open the OCR scanner — a strong match auto-opens the product. */}
+        <TouchableOpacity
+          style={styles.scanBtn}
+          onPress={() => navigation.navigate('OCR')}
+          accessibilityLabel="Scan a product with the camera"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <MaterialCommunityIcons name="camera-outline" size={22} color={colors.brandPrimary} />
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         horizontal
@@ -541,7 +567,9 @@ export default function ProductScreen({ route, navigation }) {
 
 const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: colors.background },
-  input: { backgroundColor: colors.surface, padding: 12, borderRadius: 10, marginBottom: 10, color: colors.textPrimary, fontSize: 15 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  input: { flex: 1, backgroundColor: colors.surface, padding: 12, paddingRight: 44, borderRadius: 10, color: colors.textPrimary, fontSize: 15 },
+  scanBtn: { position: 'absolute', right: 6, padding: 6 },
   chipRow: { paddingBottom: 10 },
   chip: { backgroundColor: colors.surface, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
   chipActive: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },

@@ -39,7 +39,15 @@ function tabIcon(name, { color, size }) {
 function CatalogNavigator() {
   const { colors } = useThemeColors();
   return (
-    <CatalogStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.brandPrimary }, headerTintColor: '#fff' }}>
+    <CatalogStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.brandPrimary },
+        headerTintColor: '#fff',
+        // Arrow-only back button: a long previous-screen label (e.g. "Scan a
+        // Product") would overlap the centered title on narrow phones.
+        headerBackButtonDisplayMode: 'minimal',
+      }}
+    >
       <CatalogStack.Screen name="Products" component={ProductScreen} options={{ title: 'Products' }} />
       <CatalogStack.Screen name="Recommendations" component={RecommendationScreen} options={{ title: 'Recommendations' }} />
       <CatalogStack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Categories' }} />
@@ -53,7 +61,13 @@ function CatalogNavigator() {
 function OrdersNavigator() {
   const { colors } = useThemeColors();
   return (
-    <OrdersStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.brandPrimary }, headerTintColor: '#fff' }}>
+    <OrdersStack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.brandPrimary },
+        headerTintColor: '#fff',
+        headerBackButtonDisplayMode: 'minimal',
+      }}
+    >
       <OrdersStack.Screen name="InquiryHistory" component={InquiryHistoryScreen} options={{ title: 'Order History' }} />
       <OrdersStack.Screen name="OrderInquiry" component={OrderInquiryScreen} options={{ title: 'Order Inquiry' }} />
       <OrdersStack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Payment' }} />
