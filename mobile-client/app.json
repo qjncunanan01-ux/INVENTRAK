@@ -33,7 +33,8 @@
           "cameraPermission": "Allow INVENTRAK to use your camera to scan product labels.",
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true,
