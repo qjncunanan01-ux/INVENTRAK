@@ -157,8 +157,11 @@ function AppShell() {
     for (const pair of q.split('&')) {
       const eq = pair.indexOf('=');
       if (eq <= 0) continue;
-      const k = decodeURIComponent(pair.slice(0, eq));
-      const v = decodeURIComponent(pair.slice(eq + 1));
+      // URLSearchParams encodes spaces as '+' (e.g. "Jerico Cunanan" →
+      // "Jerico+Cunanan"); decodeURIComponent alone leaves '+' as-is, so
+      // normalize it to a space first (standard form-encoding semantics).
+      const k = decodeURIComponent(pair.slice(0, eq).replace(/\+/g, ' '));
+      const v = decodeURIComponent(pair.slice(eq + 1).replace(/\+/g, ' '));
       if (k) params[k] = v;
     }
     if (params.token) {
