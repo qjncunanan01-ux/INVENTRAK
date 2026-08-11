@@ -38,6 +38,51 @@ function fileToBase64(file) {
   });
 }
 
+// Browser-side image preprocessing before OCR upload — the server's Tesseract
+// reads flat, high-contrast text far better than raw camera shots:
+//   1. normalize the long edge to ~1600px (upscale small labels, downscale
+//      huge phone photos so upload stays fast),
+//   2. grayscale + min/max contrast stretch (kills glare/color noise),
+//   3. re-encode as JPEG.
+// Pure browser canvas — no dependencies. On any decode failure the original
+// image is returned unchanged so a scan is never blocked by this step.
+async function preprocessForOcr(b64) {
+  const LONG_EDGE = 1600;
+  const MAX_UPSCALE = 4;
+  try {
+    const img = new Image();
+    img.src = `data:image/jpeg;base64,${b64}`;
+    await img.decode();
+    const scale = Math.min(MAX_UPSCALE, LONG_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    const px = imageData.data;
+    // Grayscale + find min/max luminance for the contrast stretch.
+    let min = 255;
+    let max = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      const g = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+      px[i] = px[i + 1] = px[i + 2] = g;
+      if (g < min) min = g;
+      if (g > max) max = g;
+    }
+    const range = max - min || 1;
+    for (let i = 0; i < px.length; i += 4) {
+      px[i] = px[i + 1] = px[i + 2] = ((px[i] - min) / range) * 255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+  } catch {
+    return b64;
+  }
+}
+
 export default function ScanStockPage({ onLogout }) {
   const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -58,7 +103,10 @@ export default function ScanStockPage({ onLogout }) {
     setResult(null);
     setFileName(file.name);
     try {
-      const image = await fileToBase64(file);
+      const rawImage = await fileToBase64(file);
+      // Preprocess (grayscale/contrast/normalize) so real camera captures read
+      // reliably — the engine is much better on flat, high-contrast text.
+      const image = await preprocessForOcr(rawImage);
       const res = await ocrStockCheck({ image });
       setResult(res && res.data ? res.data : res);
     } catch (err) {
