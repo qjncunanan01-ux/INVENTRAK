@@ -116,7 +116,7 @@ export default function RecommendationScreen({ navigation }) {
 
       <FlatList
         data={recommendations}
-        keyExtractor={(item) => item.id?.toString()}
+        keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
@@ -150,8 +150,8 @@ export default function RecommendationScreen({ navigation }) {
             {bundle.length > 0 ? (
               <View style={styles.bundleCard}>
                 <Text style={styles.bundleTitle}>🛒 Recommended supply bundle</Text>
-                {bundle.map((b) => (
-                  <View key={b.id} style={styles.bundleItem}>
+                {bundle.map((b, idx) => (
+                  <View key={b.id ?? b.name ?? idx} style={styles.bundleItem}>
                     {b.image ? (
                       <Image source={{ uri: imageUrl(b.image) }} style={styles.bundleThumb} resizeMode="cover" />
                     ) : null}

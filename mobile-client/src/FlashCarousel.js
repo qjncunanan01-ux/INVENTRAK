@@ -35,7 +35,7 @@ export default function FlashCarousel({ items, stockMap = {}, onPressItem, onAdd
     <FlatList
       horizontal
       data={items}
-      keyExtractor={(item) => item.id?.toString()}
+      keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
       showsHorizontalScrollIndicator={false}
       snapToInterval={FEAT_CARD_W + 12}
       decelerationRate="fast"

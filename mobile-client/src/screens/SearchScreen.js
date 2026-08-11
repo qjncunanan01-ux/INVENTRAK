@@ -94,7 +94,7 @@ export default function SearchScreen({ navigation }) {
         <FlatList
           data={results}
           numColumns={2}
-          keyExtractor={(item) => item.id?.toString()}
+          keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
           columnWrapperStyle={styles.rowWrap}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"

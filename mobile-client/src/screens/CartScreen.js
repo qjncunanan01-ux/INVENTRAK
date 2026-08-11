@@ -84,7 +84,7 @@ export default function CartScreen({ navigation }) {
 
       <FlatList
         data={items}
-        keyExtractor={(item) => String(item.product.id)}
+        keyExtractor={(item, index) => String(item.product?.id ?? item.product?.name ?? index)}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <View style={styles.row}>

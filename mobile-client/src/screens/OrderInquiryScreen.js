@@ -289,8 +289,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       ) : (
-        selectedItems.map((item) => (
-          <View key={item.id} style={styles.cartRow}>
+        selectedItems.map((item, idx) => (
+          <View key={item.id ?? item.name ?? idx} style={styles.cartRow}>
             {(() => {
               const p = items.find((i) => Number(i.product.id) === Number(item.id));
               return p && p.product.image ? (

@@ -328,7 +328,7 @@ export default function ProductScreen({ route, navigation }) {
                 <FlatList
                   horizontal
                   data={sim}
-                  keyExtractor={(item) => item.id?.toString()}
+                  keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
                   showsHorizontalScrollIndicator={false}
                   renderItem={({ item }) => {
                     const simDeal = pickIds.has(Number(item.id)) ? dealPricing(item) : null;
@@ -475,27 +475,38 @@ export default function ProductScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      <FlatList
+      {/* Category chips: horizontal ScrollView (not FlatList) — FlatList rows
+          collapse to ~0 height inside a plain flex View on react-native-web,
+          pushing the chips into the sort row and count. Explicit height +
+          centered content keeps the row stable on every platform. */}
+      <ScrollView
         horizontal
-        data={categories}
-        keyExtractor={(c) => c || 'all'}
         showsHorizontalScrollIndicator={false}
+        style={styles.chipList}
         contentContainerStyle={styles.chipRow}
-        renderItem={({ item }) => (
+      >
+        {categories.map((c) => (
           <TouchableOpacity
-            style={[styles.chip, category === item && styles.chipActive]}
-            onPress={() => setCategory(item)}
+            key={c || 'all'}
+            style={[styles.chip, category === c && styles.chipActive]}
+            onPress={() => setCategory(c)}
           >
-            <Text style={[styles.chipText, category === item && styles.chipTextActive]}>
-              {item || 'All'}
+            <Text style={[styles.chipText, category === c && styles.chipTextActive]}>
+              {c || 'All'}
             </Text>
           </TouchableOpacity>
-        )}
-      />
+        ))}
+      </ScrollView>
 
       {/* Sort row + live result count (Shopee-style catalog toolbar).
-          Horizontal ScrollView so the 4 chips never clip on narrow phones. */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sortRow}>
+          Horizontal ScrollView so the 4 chips never clip on narrow phones;
+          explicit height so it can't collapse into the count text. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.sortRow}
+        contentContainerStyle={styles.sortRowContent}
+      >
         {SORT_OPTIONS.map((s) => (
           <TouchableOpacity
             key={s.key}
@@ -514,7 +525,8 @@ export default function ProductScreen({ route, navigation }) {
       <FlatList
         data={filtered}
         numColumns={2}
-        keyExtractor={(item) => item.id?.toString()}
+        style={styles.gridList}
+        keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         columnWrapperStyle={styles.rowWrap}
         contentContainerStyle={styles.listContent}
@@ -570,12 +582,16 @@ const createStyles = (colors) => StyleSheet.create({
   searchWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   input: { flex: 1, backgroundColor: colors.surface, padding: 12, paddingRight: 44, borderRadius: 10, color: colors.textPrimary, fontSize: 15 },
   scanBtn: { position: 'absolute', right: 6, padding: 6 },
-  chipRow: { paddingBottom: 10 },
+  // Explicit height (>= 40px tap target) + centered chips — the row can never
+  // collapse into the sort row / count text on any platform or width.
+  chipList: { flexGrow: 0, flexShrink: 0, height: 42, marginBottom: 4 },
+  chipRow: { alignItems: 'center', paddingRight: 8 },
   chip: { backgroundColor: colors.surface, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
   chipActive: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
   chipText: { color: colors.textPrimary, fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: '#fff' },
-  sortRow: { marginBottom: 8, flexGrow: 0 },
+  sortRow: { flexGrow: 0, flexShrink: 0, height: 36, marginBottom: 8 },
+  sortRowContent: { alignItems: 'center' },
   sortChip: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -589,6 +605,7 @@ const createStyles = (colors) => StyleSheet.create({
   sortChipText: { color: colors.textPrimary, fontSize: 12, fontWeight: '600' },
   sortChipTextActive: { color: '#fff' },
   resultCount: { fontSize: 12, color: colors.textSecondary, marginBottom: 10 },
+  gridList: { flex: 1 },
   rowWrap: { justifyContent: 'space-between' },
   listContent: { paddingBottom: 24 },
   card: {

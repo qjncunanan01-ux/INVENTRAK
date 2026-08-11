@@ -130,7 +130,7 @@ export default function NotificationsScreen({ navigation }) {
       />
       <FlatList
         data={shown}
-        keyExtractor={(n) => n.key}
+        keyExtractor={(n, index) => n?.key ?? index}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (

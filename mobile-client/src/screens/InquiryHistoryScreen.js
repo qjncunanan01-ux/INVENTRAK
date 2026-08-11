@@ -223,7 +223,7 @@ export default function InquiryHistoryScreen({ navigation }) {
 
       <FlatList
         data={shown}
-        keyExtractor={(item) => item.id?.toString()}
+        keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
