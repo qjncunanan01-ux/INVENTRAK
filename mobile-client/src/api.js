@@ -82,8 +82,41 @@ export function imageUrl(image) {
 
 let authToken = null;
 
+// ---- Web-only session persistence ----
+//
+// A browser refresh reloads the bundle and wipes in-memory module state, so
+// on web we mirror the session (token + identity) to localStorage and restore
+// it at module load — refreshing the page keeps you logged in. Native stays
+// in-memory on purpose: closing the app always starts guest-first
+// (Shopee/Lazada-style browsing), which the team chose for the phone app.
+const WEB_SESSION_KEY = 'inventrak_web_session_v1';
+function isWeb() {
+  return Platform.OS === 'web' && typeof window !== 'undefined' && !!window.localStorage;
+}
+function persistWebSession() {
+  if (!isWeb()) return;
+  try {
+    window.localStorage.setItem(
+      WEB_SESSION_KEY,
+      JSON.stringify({
+        token: authToken,
+        username: sessionUsername,
+        email: sessionEmail,
+        verified: sessionVerified,
+      })
+    );
+  } catch {}
+}
+function clearWebSession() {
+  if (!isWeb()) return;
+  try {
+    window.localStorage.removeItem(WEB_SESSION_KEY);
+  } catch {}
+}
+
 export function setToken(token) {
   authToken = token;
+  persistWebSession();
 }
 
 export function getToken() {
@@ -92,6 +125,7 @@ export function getToken() {
 
 export function clearToken() {
   authToken = null;
+  clearWebSession();
 }
 
 // ---- Session (guest-first browsing) ----
@@ -111,8 +145,27 @@ let sessionEmail = null;
 let sessionVerified = false;
 const sessionListeners = new Set();
 
+// Restore a persisted web session (after a browser refresh) so the customer
+// stays logged in instead of bouncing back to guest browsing. Only runs on
+// web; native deliberately starts fresh every launch.
+if (isWeb()) {
+  try {
+    const raw = window.localStorage.getItem(WEB_SESSION_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && s.token) {
+        authToken = s.token;
+        sessionUsername = s.username || null;
+        sessionEmail = s.email || null;
+        sessionVerified = !!s.verified;
+      }
+    }
+  } catch {}
+}
+
 export function setSessionUsername(name) {
   sessionUsername = name || null;
+  persistWebSession();
   sessionListeners.forEach((fn) => fn(sessionUsername));
 }
 
@@ -122,6 +175,7 @@ export function setSessionUsername(name) {
 export function setSessionDetails({ email, verified }) {
   sessionEmail = email || null;
   sessionVerified = !!verified;
+  persistWebSession();
   sessionListeners.forEach((fn) => fn(sessionUsername));
 }
 
@@ -141,6 +195,7 @@ export function clearSession() {
   setSessionUsername(null);
   sessionEmail = null;
   sessionVerified = false;
+  clearWebSession();
 }
 
 export function subscribeSession(listener) {
