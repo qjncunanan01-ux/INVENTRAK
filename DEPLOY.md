@@ -390,56 +390,79 @@ verification code by email (and SMS if you added a phone).
 
 ## Google sign-in ("Continue with Google")
 
-The mobile login screen shows a **Continue with Google** button (with an
-"or continue with" divider) once OAuth client IDs are configured. The
-backend verifies Google's `id_token` (pure-Node RS256 check against Google's
-published JWKS — no new dependencies), then **finds-or-creates** the
-customer account by email and returns the same session token as
-username/password login. Signing in with Google on an existing
-password account links it (same identity, no duplicate).
+The mobile login screen shows a **Continue with Google** button. Sign-in runs
+through the **backend OAuth relay** — the app itself carries no OAuth
+credentials:
 
-### 1. Create the OAuth client IDs (Google Cloud Console, ~10 min, once)
+```
+app → GET /api/auth/google/start?returnUrl=<app deep link>
+     → 302 to accounts.google.com (backend's own https callback as redirect_uri)
+     → Google consent → GET /api/auth/google/callback?code=…&state=…
+     → backend exchanges the code with the web client's SECRET (server-side
+       only), verifies the id_token, creates/links the account
+     → 302 back to the app deep link (?token=…&username=…&email=…)
+```
 
-1. Go to https://console.cloud.google.com → pick your project (or create one)
-2. **APIs & Services → OAuth consent screen** → External → fill the app name
-   + your email → save. Add the scope `.../auth/userinfo.email` (default).
+The relay exists because Expo Go deep links (`exp://…`) can never be
+registered as Google OAuth redirect URIs (Google only accepts `https` for
+web clients) and the old auth.expo.io proxy is deprecated — so the web
+client's secret stays on the server, which is exactly what Google's
+"OAuth 2.0 policy for keeping apps secure" requires. The backend still also
+accepts an id_token directly via `POST /api/auth/google` (programmatic
+clients) with the same find-or-create logic.
+
+On first sign-in the account is auto-created with the **verified profile
+name** as the username (e.g. "Jerico Cunanan", not "jericocunanan09123");
+signing in with Google on an existing password account links it (same
+identity, no duplicate). Usernames are sanitized (letters/digits/space
+kept) and deduped, and every new Google account is `email_verified = true`.
+
+### 1. Create the web OAuth client (Google Cloud Console, ~10 min, once)
+
+1. Go to https://console.cloud.google.com → pick the project you want the
+   client to live in (note its project id — the client and the consent
+   screen must be in the SAME project).
+2. **APIs & Services → OAuth consent screen** (the **Branding** tab) →
+   External → app name `INVENTRAK` + your support email → save.
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID**
-   - **Android** (the APK): Application type *Android* → package name
-     `com.inventrak.mobile` → paste the SHA-1 signing fingerprint from
-     `npx eas-cli credentials` (or the Play Console if you ever publish).
-   - **Web** (Expo Go / browser dev): Application type *Web* → authorized
-     redirect URIs: leave empty for dev (expo-auth-session uses its own
-     redirect) or add the EAS/expo.dev redirect as needed.
-   - **(Optional) iOS**: Application type *iOS* → bundle id `com.inventrak.mobile`.
-4. Copy the client IDs (the `...apps.googleusercontent.com` strings).
+   → Application type **Web** → name it (e.g. `INVENTRAK Web`) → **Create** →
+   copy the Client ID (`….apps.googleusercontent.com`).
+   - The web client also has a **Client secret** — copy it too (used server-side).
+4. Open the created client and add the **Authorized redirect URI**
+   (replace the URL with your deployed API):
+   ```
+   https://inventrak-api.onrender.com/api/auth/google/callback
+   ```
+5. **OAuth consent screen → Audience** tab → **Publish app → Confirm**
+   (only basic email/profile scopes are used, so no Google verification is
+   required). While in **Testing** mode only accounts you list under **Test
+   users** (same page) can sign in — publishing lifts that limit.
 
-### 2. Wire them in
+### 2. Wire it into the backend (Render)
 
-**Backend (Render) — service Environment Variables:**
+**Service Environment Variables** (`inventrak-api` → Environment):
 ```
-GOOGLE_CLIENT_IDS=<web-client-id>,<android-client-id>,<ios-client-id>
+GOOGLE_CLIENT_IDS=<web-client-id>        # the web client from step 3
+GOOGLE_CLIENT_SECRET=<web-client-secret> # the secret from step 3
+# optional override (default: derived from the request, https on Render):
+# GOOGLE_OAUTH_CALLBACK_URL=https://inventrak-api.onrender.com/api/auth/google/callback
 ```
-(comma-separated; the server accepts a token whose `aud` is any of these)
-
-**Mobile app (baked in at build time, like the API URL):**
-```bash
-cd mobile-client
-EXPO_PUBLIC_GOOGLE_CLIENT_ID=<web-client-id> \
-EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=<android-client-id> \
-EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID=<expo-go-client-id> \
-npx eas-cli build --platform android --profile production
-```
-Without these env vars the button is simply hidden (username/password still
-works). The Android client ID is what the installed APK uses; the Expo Go
-client ID is only needed while developing in Expo Go.
+`GOOGLE_CLIENT_SECRET` is the secret that makes the relay live: without it
+`/api/auth/google/start` answers `501`. No build-time env vars are needed in
+the mobile app — the button always works and just opens the relay URL.
 
 ### 3. Verify
-- Login screen shows the Google button → tap → Google account chooser →
-  back in the app logged in (account auto-created on first use)
+- `GET /api/auth/google/start?returnUrl=exp://host/--/auth` → `302` to
+  `accounts.google.com` with `redirect_uri` = your callback (else `501` if
+  `GOOGLE_CLIENT_SECRET` is missing, `400` for a non-app return URL).
+- App: tap **Continue with Google** → Google account chooser → back in the
+  app logged in (account auto-created on first use). Works in Expo Go
+  (`exp://` return) and the installed APK (`inventrak://` return).
 - The new account appears in `users` (Firestore console / admin users) with
-  `google_sub` set and `email_verified = true`
+  `google_sub` set, `email_verified = true`, and the profile name as username.
 - `POST /api/auth/google` returns `401` for a forged token and `501` when
-  `GOOGLE_CLIENT_IDS` is unset (contract-tested on both backends)
+  `GOOGLE_CLIENT_IDS` is unset (contract-tested on both backends); the relay
+  endpoints are covered by unit + end-to-end tests (`google-relay.test.js`).
 
 ## Verification checklist
 
@@ -451,7 +474,9 @@ client ID is only needed while developing in Expo Go.
 - [ ] Mobile app logs in via the deployed API URL; an order inquiry placed on
       the phone appears in the admin Order Inquiries page
 - [ ] (If configured) the login screen shows **Continue with Google** and a
-      Google sign-in creates/links the account
+      Google sign-in creates/links the account (relay: `GOOGLE_CLIENT_IDS` +
+      `GOOGLE_CLIENT_SECRET` set, callback URI registered, consent screen
+      published)
 - [ ] Firestore console shows the `products`, `inventory`, `users` collections
 
 ## Safety / rollback
