@@ -102,7 +102,7 @@ test.beforeEach(() => resetJwksCache());
 // ================= Unit: return-URL allowlist =================
 
 test('isAllowedReturnUrl accepts app deep links and localhost, rejects everything else', () => {
-  assert.strictEqual(isAllowedReturnUrl('exp://kizpk_s-patrickcuevas-8081.exp.direct/--/google-auth'), true);
+  assert.strictEqual(isAllowedReturnUrl('exp://demo-tunnel-8081.exp.direct/--/google-auth'), true);
   assert.strictEqual(isAllowedReturnUrl('exp://192.168.1.5:8081/--/x'), true);
   assert.strictEqual(isAllowedReturnUrl('inventrak://google-auth'), true);
   assert.strictEqual(isAllowedReturnUrl('http://localhost:4001/cb'), true);

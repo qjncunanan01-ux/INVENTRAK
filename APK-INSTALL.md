@@ -48,10 +48,10 @@ https://expo.dev/artifacts/eas/K4DiM7l5nnQQmBPIYEeMjuf6bFzY7oDgHV7tuR7rn1o.apk
 - **Backend:** `https://inventrak-api.onrender.com` baked in (Firestore)
 - **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
 
-> **QR / Expo Go alternative:** if you'd rather test the live dev bundle
-> (all the same fixes, no install), scan the QR in the Preview tab — it
-> points at the current tunnel (`exp://kizpk_s-patrickcuevas-8081.exp.direct`)
-> and works on any network.
+> **No-install alternative:** open the customer app in any phone/desktop
+> browser at the permanent hosted URL `https://inventrak-mobile.onrender.com/`
+> — the same app against the same live backend, works on any network (no
+> Expo Go, no dev PC, no tunnel).
 
 ---
 
