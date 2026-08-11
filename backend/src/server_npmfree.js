@@ -2328,7 +2328,7 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/users') {
     return requireAuth(req, res, true, (req, res) => {
-      return sendJson(res, 200, users.map(u => ({ id: u.id, username: u.username, role: u.role, email: u.email, email_verified: u.email_verified !== false, created_at: u.created_at })));
+      return sendJson(res, 200, users.map(u => ({ id: u.id, username: u.username, role: u.role, email: u.email, email_verified: u.email_verified !== false, google_sub: u.google_sub || null, created_at: u.created_at })));
     });
   }
 

@@ -2608,6 +2608,11 @@
             "nullable": true,
             "description": "PH mobile number required at registration (for SMS verification + order updates)"
           },
+          "google_sub": {
+            "type": "string",
+            "nullable": true,
+            "description": "Google account id when the user signed in with Google (null otherwise)"
+          },
           "created_at": {
             "type": "string"
           }

@@ -3301,10 +3301,10 @@ app.get(
   (req, res) => {
     const users = db
       .prepare(
-        'SELECT id, username, role, email, email_verified, created_at FROM users ORDER BY id'
+        'SELECT id, username, role, email, email_verified, google_sub, created_at FROM users ORDER BY id'
       )
       .all()
-      .map((u) => ({ ...u, email_verified: !!u.email_verified }));
+      .map((u) => ({ ...u, email_verified: !!u.email_verified, google_sub: u.google_sub || null }));
 
     res.json(users);
   }
