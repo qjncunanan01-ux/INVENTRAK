@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { imageUrl, scanProductPhoto, useSessionUsername } from '../api';
 import { useThemeColors } from '../theme-context';
 
@@ -108,14 +109,39 @@ export default function OcrScreen({ navigation }) {
 
       if (result.canceled || !result.assets || !result.assets[0]) return;
       const asset = result.assets[0];
-      if (!asset.base64) {
+      if (!asset.uri) {
         Alert.alert('No image', 'Could not read the selected image.');
         return;
       }
       setImage(asset.uri);
       setMatches([]);
       setText('');
-      await runOcr(asset.base64);
+
+      // Preprocess before upload — same recipe as the admin scanner: normalize
+      // to ~1600px (upscales small labels, caps huge photos), grayscale +
+      // contrast boost. Glossy bottle photos defeat raw tesseract; this makes
+      // real camera scans read far more reliably. Falls back to the original
+      // on any error so a scan is never blocked.
+      let payload;
+      try {
+        const processed = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [
+            { resize: { width: 1600 } },
+            { grayscale: {} },
+            { contrast: 1.6 },
+          ],
+          { base64: true, compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        payload = processed.base64 || asset.base64;
+      } catch (preErr) {
+        payload = asset.base64;
+      }
+      if (!payload) {
+        Alert.alert('No image', 'Could not read the selected image.');
+        return;
+      }
+      await runOcr(payload);
     } catch (err) {
       setError('Could not open the camera / photo library.');
     }
