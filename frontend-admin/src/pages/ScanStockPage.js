@@ -1,5 +1,6 @@
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import ReplayOutlined from '@mui/icons-material/ReplayOutlined';
+import VideocamOutlined from '@mui/icons-material/VideocamOutlined';
 import {
   Alert,
   Box,
@@ -14,7 +15,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { imageUrl, ocrStockCheck } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
@@ -49,6 +50,108 @@ function loadImage(src) {
     img.onerror = () => { clearTimeout(timer); reject(new Error('Could not decode image')); };
     img.src = src;
   });
+}
+
+// In-app live camera preview (getUserMedia). The native file-input capture
+// intent shows a black screen on several phones, so this gives the admin a
+// real on-page preview: start the rear camera, aim, tap Capture, and the
+// frame is drawn to a canvas and scanned — no native camera UI involved.
+// Falls back gracefully: if the browser blocks the stream (permission denied,
+// insecure context, no camera), the error is surfaced and the file-based
+// "Take photo / Upload image" buttons remain the fallback.
+function LiveCamera({ onCapture, onClose }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [err, setErr] = useState('');
+
+  const stop = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  // Start the stream once on mount; always release it on unmount/close so
+  // the camera light goes off and other apps can use the camera.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1920 } },
+          audio: false,
+        });
+        if (!alive) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
+        }
+      } catch (e) {
+        if (alive) {
+          setErr(
+            e && e.name === 'NotAllowedError'
+              ? 'Camera permission was denied. Allow camera access in your browser, or use "Take photo" / "Upload image" instead.'
+              : 'Could not start the camera here. Use "Take photo" / "Upload image" instead.'
+          );
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, [stop]);
+
+  const capture = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) {
+      setErr('Camera is not ready yet — wait a moment and tap Capture again.');
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+    stop();
+    onCapture(b64);
+  };
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Box
+        sx={{
+          position: 'relative',
+          borderRadius: 2,
+          overflow: 'hidden',
+          backgroundColor: '#000',
+          width: '100%',
+          maxWidth: 480,
+          aspectRatio: '4/3',
+        }}
+      >
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      </Box>
+      {err ? <Alert severity="warning" sx={{ mt: 1.5 }}>{err}</Alert> : null}
+      <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
+        <Button variant="contained" onClick={capture} sx={{ backgroundColor: colors.brandPrimary }}>
+          Capture & Scan
+        </Button>
+        <Button variant="outlined" onClick={() => { stop(); onClose(); }}>
+          Cancel
+        </Button>
+      </Box>
+    </Box>
+  );
 }
 
 // Browser-side image preprocessing before OCR upload — the server's Tesseract
@@ -102,6 +205,27 @@ export default function ScanStockPage({ onLogout }) {
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [fileName, setFileName] = useState('');
+  const [liveCam, setLiveCam] = useState(false);
+
+  const runBase64 = async (image) => {
+    setBusy(true);
+    setError('');
+    setResult(null);
+    setFileName('live capture');
+    try {
+      const processed = await preprocessForOcr(image);
+      const res = await ocrStockCheck({ image: processed });
+      setResult(res && res.data && typeof res.data === 'object' ? res.data : res);
+    } catch (err) {
+      const detail =
+        (err && err.body && (err.body.details || []).join(' · ')) ||
+        err.message ||
+        'Scan failed. Check that the backend OCR engine is running and try again.';
+      setError(detail);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const pick = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -167,12 +291,20 @@ export default function ScanStockPage({ onLogout }) {
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
-                startIcon={<CameraAltOutlined />}
-                onClick={() => cameraRef.current && cameraRef.current.click()}
+                startIcon={<VideocamOutlined />}
+                onClick={() => { setError(''); setLiveCam(true); }}
                 disabled={busy}
                 sx={{ backgroundColor: colors.brandPrimary }}
               >
-                {busy ? 'Scanning…' : 'Take photo'}
+                {busy ? 'Scanning…' : 'Live camera'}
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<CameraAltOutlined />}
+                onClick={() => cameraRef.current && cameraRef.current.click()}
+                disabled={busy}
+              >
+                Take photo
               </Button>
               <Button
                 variant="outlined"
@@ -188,6 +320,15 @@ export default function ScanStockPage({ onLogout }) {
             </Button>
           )}
         </Box>
+        {liveCam && (
+          <LiveCamera
+            onCapture={(b64) => {
+              setLiveCam(false);
+              runBase64(b64);
+            }}
+            onClose={() => setLiveCam(false)}
+          />
+        )}
         {/* Camera capture: its own input so "Take photo" opens the rear
             camera on phones. Browsers that ignore `capture` (some desktop
             Chrome/Safari) fall back to a file picker — still works. */}
