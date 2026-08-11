@@ -1,7 +1,7 @@
 # Installing the INVENTRAK APK on Android (demo guide)
 
 This guide covers putting the **EAS-built APK** (built with
-`npx eas-cli build --platform android --profile preview`) onto an Android
+`npx eas-cli build --platform android --profile production`) onto an Android
 phone for the presentation. The APK is a real app — **no Expo Go, no
 internet-to-PC needed** — and it talks to the **live backend**
 (`https://inventrak-api.onrender.com`, Firebase Firestore) from any network.
@@ -11,13 +11,34 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
+## Latest build (Aug 11, 2026)
+
+**Direct download link:**
+
+```
+https://expo.dev/artifacts/eas/sEULjtDcvLJqSLS1efP28rdqp5X53Wt_4Cfzp_4ewtE.apk
+```
+
+- **Profile:** `production` (release build, same signing key as previous
+  installs → updates in place, no uninstall needed)
+- **Branding:** SYLVER logo — launcher icon, adaptive icon (scaled into the
+  Android mask safe zone), and a white splash screen with the centered logo
+- **Login screen:** clean customer login — no API server URL field, no
+  "API: https://…" text in error popups; the app always uses the baked-in
+  deployed backend
+- **Backend:** `https://inventrak-api.onrender.com` baked in (Firestore)
+- **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
+
+---
+
 ## Step 1 — Get the APK file
 
 You get the `.apk` from the EAS build page:
 
-1. Open `https://expo.dev/account/qjncunanan01/builds` (log in as
-   `qjncunanan01`).
-2. Find the latest **preview** build for this project.
+1. Open `https://expo.dev/account/patrickcuevas/builds` (log in as
+   `patrickcuevas` — the account username).
+2. Find the latest **production** build for this project (or just use the
+   direct download link in the "Latest build" section above).
 3. Click **Install** (or the download icon) — this downloads
    `INVENTRAK-<buildid>.apk` (~50–80 MB).
 4. The finished build also prints a direct download link in the terminal
@@ -66,7 +87,8 @@ The APK is not from the Play Store, so Android asks for permission once:
 
 ## Step 4 — First launch (login)
 
-1. Open **INVENTRAK** from the app drawer.
+1. Open **INVENTRAK** from the app drawer — you'll see the **SYLVER logo**
+   on the launcher icon and the white splash screen while the app loads.
 2. You land on the **Home** screen as a guest — browse the catalog freely.
 3. To place an order, log in with the demo customer:
    - **Username:** `customer`
@@ -108,10 +130,13 @@ The APK is not from the Play Store, so Android asks for permission once:
 ```bash
 cd mobile-client
 npx eas-cli login              # once per machine: qjncunanan01@tip.edu.ph
-npx eas-cli build --platform android --profile preview --non-interactive
-# ~15–25 min on the free cloud; the terminal prints the download link
+npx eas-cli build --platform android --profile production --non-interactive
+# ~6–15 min on the free cloud; the terminal prints the download link
 ```
 
-The `preview` profile in `eas.json` already bakes
+The `production` profile in `eas.json` already bakes
 `EXPO_PUBLIC_API_URL=https://inventrak-api.onrender.com` into the build, so
-a rebuild automatically points at the same live backend.
+a rebuild automatically points at the same live backend. The splash,
+launcher icon, and adaptive icon are configured in `app.json` under
+`expo-splash-screen` / `android.adaptiveIcon` — rebuild to pick up any
+branding changes.
