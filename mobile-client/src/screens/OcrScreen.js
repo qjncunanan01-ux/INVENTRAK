@@ -155,8 +155,18 @@ export default function OcrScreen({ navigation }) {
       const list = Array.isArray(data.matches) ? data.matches : [];
       setText(data.text || '');
       setMatches(list);
-      if ((!data.text || !data.text.trim()) && list.length === 0) {
-        setError('No text recognized. Try a clearer, well-lit photo of the label.');
+      if (list.length === 0) {
+        if (!data.text || !data.text.trim()) {
+          setError('No text recognized. Try a clearer, well-lit photo of the label.');
+        } else {
+          // Text WAS read, but nothing in it names a SYLVER catalog product.
+          // Only products in the SYLVER supply catalog are scannable, so a
+          // foreign/unknown label must say so instead of staying silent.
+          setError(
+            'No SYLVER product detected — this label doesn\u2019t match anything in the catalog. ' +
+            'Only products in the SYLVER supply catalog can be scanned.'
+          );
+        }
       }
       // Confident single pick -> jump straight to the product detail.
       const top = list[0];

@@ -207,6 +207,24 @@ export default function ScanStockPage({ onLogout }) {
   const [fileName, setFileName] = useState('');
   const [liveCam, setLiveCam] = useState(false);
 
+  // Shared result handling: show the match card when there are matches, and
+  // a clear "no product detected" message when the label read text but nothing
+  // in it names a SYLVER catalog product (foreign/unknown labels must not
+  // silently return nothing).
+  const applyResult = (res) => {
+    const body = res && res.data && typeof res.data === 'object' ? res.data : res;
+    const matches = body && Array.isArray(body.matches) ? body.matches : [];
+    setResult(body);
+    if (matches.length === 0) {
+      const recognized = body && body.text && body.text.trim();
+      setError(
+        recognized
+          ? 'No SYLVER product detected — this label doesn\u2019t match anything in the catalog. Only products in the SYLVER supply catalog can be scanned.'
+          : 'No text recognized. Try a clearer, well-lit photo of the label.'
+      );
+    }
+  };
+
   const runBase64 = async (image) => {
     setBusy(true);
     setError('');
@@ -215,7 +233,7 @@ export default function ScanStockPage({ onLogout }) {
     try {
       const processed = await preprocessForOcr(image);
       const res = await ocrStockCheck({ image: processed });
-      setResult(res && res.data && typeof res.data === 'object' ? res.data : res);
+      applyResult(res);
     } catch (err) {
       const detail =
         (err && err.body && (err.body.details || []).join(' · ')) ||
@@ -246,11 +264,8 @@ export default function ScanStockPage({ onLogout }) {
       // Pass the real MIME type: PNG uploads decode correctly (and re-encode
       // to JPEG here anyway), JPEG/HEIC photos from the camera work too.
       const image = await preprocessForOcr(rawImage, file.type);
-      // The generated client returns the parsed JSON body directly — no
-      // `.data` wrapper. But the mobile api.js wraps responses as { data },
-      // so tolerate both shapes to be safe.
       const res = await ocrStockCheck({ image });
-      setResult(res && res.data && typeof res.data === 'object' ? res.data : res);
+      applyResult(res);
     } catch (err) {
       // Surface the backend's own message when it has one (e.g. "OCR engine
       // unavailable") so a failed scan says WHY instead of a generic error.
