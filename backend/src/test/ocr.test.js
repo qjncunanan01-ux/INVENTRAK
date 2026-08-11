@@ -19,14 +19,52 @@ const LABEL_PRODUCTS = [
   { id: 3, name: 'Butterscotch Sauce' },
 ];
 
-test('normalize strips punctuation and lowercases', () => {
-  assert.deepStrictEqual(normalize('Butterscotch 2-L Sauce!!!'), ['butterscotch', '2', 'l', 'sauce']);
+test('normalize strips punctuation, lowercases and drops size/unit tokens', () => {
+  assert.deepStrictEqual(normalize('Butterscotch 2-L Sauce!!!'), ['butterscotch', 'sauce']);
+  assert.deepStrictEqual(normalize('Vanilla Syrup 750 ML'), ['vanilla', 'syrup']);
+  assert.deepStrictEqual(normalize('1000g'), []); // glued digits+unit drops out
+  assert.deepStrictEqual(normalize('750ml'), []);
+  assert.deepStrictEqual(normalize('1L'), []);
 });
 
 test('matchScore returns token overlap ratio', () => {
   assert.strictEqual(matchScore(['butterscotch', 'sauce'], 'Butterscotch Sauce'), 1);
   assert.strictEqual(matchScore(['caramel'], 'Classic Caramel Sauce'), 1 / 3);
   assert.strictEqual(matchScore(['unrelated'], 'Butterscotch Sauce'), 0);
+});
+
+test('matchScore tolerates a single typo on 5+ letter words but not short ones', () => {
+  assert.strictEqual(matchScore(['carmel', 'sauce'], 'Classic Caramel Sauce'), 2 / 3);
+  // Size tokens are dropped, so reading the exact product name scores 1.0.
+  assert.strictEqual(matchScore(['vanila', 'syrup'], 'Vanilla Syrup 1 L'), 1);
+  assert.strictEqual(matchScore(['caraml'], 'Classic Caramel Sauce'), 1 / 3);
+  assert.strictEqual(matchScore(['sac'], 'Butterscotch Sauce'), 0); // 3-letter: exact only
+  // A size-only scan has no distinctive tokens -> no match.
+  assert.strictEqual(matchScore(['750', 'ml'], 'Vanilla Syrup 1 L'), 0);
+});
+
+test('house-brand tokens are non-discriminating (logo-only scans never match)', () => {
+  const BRANDED = [
+    { id: 1, name: 'Brew with Sylver', price: 300 },
+    { id: 2, name: 'Sylver Arabica Coffee Beans', price: 1400 },
+    { id: 3, name: 'Vanilla Syrup 1 L', price: 460 },
+  ];
+  // A scan that only reads the SYLVER watermark must NOT float up the
+  // brand-named products — it reports no match instead.
+  assert.deepStrictEqual(matchProducts('SYLVER', BRANDED), []);
+  assert.strictEqual(matchScore(['sylver'], 'Brew with Sylver'), 0);
+  // A real read still matches, with the brand token ignored on both sides;
+  // size tokens ("1 L") are dropped so a full name read scores 1.0.
+  const matches = matchProducts('TORANI VANILLA SYRUP SYLVER', BRANDED);
+  assert.strictEqual(matches[0].id, 3);
+  assert.strictEqual(matches[0].score, 1);
+  assert.ok(!matches.some((m) => m.id === 1 || m.id === 2));
+});
+
+test('a typo in a real label still finds the right product', () => {
+  const matches = matchProducts('CARAMEL SAUSE', PRODUCTS); // sause -> sauce
+  assert.strictEqual(matches[0].id, 2);
+  assert.strictEqual(matches[0].score, 2 / 3);
 });
 
 test('matchProducts ranks best matches first and filters below threshold', () => {
@@ -84,10 +122,11 @@ test('filterOcrText keeps only the lines that can match the catalog', () => {
     '1 L',
   ].join('\n');
   const filtered = filterOcrText(label, LABEL_PRODUCTS);
-  // Kept: brand + product lines (incl. size tokens) — the "needed" text.
+  // Kept: brand + product lines — the "needed" text. Size-only lines
+  // ("1 L") are dropped since they carry no matching signal.
   assert.ok(filtered.includes('TORANI'), 'brand line kept');
   assert.ok(filtered.includes('Vanilla Syrup 750 ml'), 'name line kept');
-  assert.ok(filtered.includes('1 L'), 'size token kept');
+  assert.ok(!filtered.includes('1 L'), 'size-only line dropped');
   // Dropped: ingredient paragraph, logistics, barcode, URL.
   assert.ok(!filtered.includes('Ingredient'), 'ingredients dropped');
   assert.ok(!filtered.includes('Net Content'), 'net-content dropped');

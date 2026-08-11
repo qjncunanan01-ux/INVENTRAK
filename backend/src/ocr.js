@@ -12,13 +12,24 @@
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB cap for uploaded images
 
+// Pure size/unit tokens carry no discrimination power ("750 ML", "1 L", "1L",
+// "950 g" are on every size variant of a product) — dropping them keeps them
+// from inflating the match denominator, so a label that reads the exact
+// product name scores 1.0 instead of being diluted by the size tokens.
+const SIZE_TOKEN_PATTERN = /^(ml|l|g|kg|oz|lb|pcs|pack|box|jar|bottle|sachet|liters?|litres?|milliliters?|kilograms?|grams?|ounces?|pounds?)$/;
+// Glued number+unit reads ("750ml", "1000g", "1L") — tesseract drops the
+// space on small labels, so drop the whole token: it's still just a size.
+const GLUED_SIZE_PATTERN = /^[0-9]+(ml|l|g|kg|oz|lb|pcs)$/;
+const PURE_NUMBER = /^[0-9]+$/;
+
 // Normalize text for matching: lowercase, strip punctuation, keep words.
 function normalize(text) {
   return String(text || '')
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((t) => !PURE_NUMBER.test(t) && !SIZE_TOKEN_PATTERN.test(t) && !GLUED_SIZE_PATTERN.test(t));
 }
 
 // Label lines that never help match a catalog product — nutrition facts,
@@ -74,12 +85,60 @@ function filterOcrText(text, products = []) {
     .join('\n');
 }
 
+// Tokens that carry no discrimination power: the house brand appears as a
+// watermark on EVERY product photo (so a scan that only reads "SYLVER" must
+// not float up the three products whose names contain it), plus corporate
+// boilerplate. Excluded from BOTH sides of the score — a logo-only scan then
+// yields zero distinctive tokens and simply reports no match.
+const GENERIC_TOKENS = new Set([
+  'sylver', 'inc', 'corporation', 'company', 'ltd', 'llc', 'enterprises', 'brand',
+]);
+
+function distinctive(tokens) {
+  return tokens.filter((t) => !GENERIC_TOKENS.has(t));
+}
+
+// Classic Levenshtein distance (pure JS, zero deps) for typo-tolerant
+// matching — tesseract reads real labels with noise ("VANILA", "TORAN1").
+function editDistance(a, b) {
+  if (a === b) return 0;
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+// A recognized word counts as a hit when it matches exactly, or is within a
+// single typo for words of 5+ letters ("carmel" vs "caramel", "vanila" vs
+// "vanilla"). Short words stay exact-only to avoid false positives.
+function tokensMatch(ocrToken, productToken) {
+  if (ocrToken === productToken) return true;
+  if (ocrToken.length >= 5 && productToken.length >= 5) {
+    return editDistance(ocrToken, productToken) <= 1;
+  }
+  return false;
+}
+
 // Simple token-overlap score: 1.0 if all OCR words are in the product name,
-// 0 if none. Products with higher overlap rank first.
+// 0 if none. Products with higher overlap rank first. Generic/brand tokens
+// are ignored on both sides, so a lone watermark can never produce a match.
 function matchScore(ocrTokens, productName) {
-  const productTokens = normalize(productName);
+  const productTokens = distinctive(normalize(productName));
+  const ocr = distinctive(ocrTokens);
   if (productTokens.length === 0) return 0;
-  const hit = productTokens.filter((t) => ocrTokens.includes(t)).length;
+  const hit = productTokens.filter((t) => ocr.some((o) => tokensMatch(o, t))).length;
   return hit / productTokens.length;
 }
 
@@ -112,7 +171,7 @@ async function ocrImage(base64) {
 // Match extracted OCR text against the product catalog. Returns up to
 // `limit` matches with a score >= minScore, sorted best-first.
 function matchProducts(text, products, { limit = 5, minScore = 0.25 } = {}) {
-  const tokens = normalize(text);
+  const tokens = distinctive(normalize(text));
   if (tokens.length === 0) return [];
 
   return products
