@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#111a0d"
+      "backgroundColor": "#ffffff"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -19,9 +19,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#111a0d",
-          "image": "./assets/icon.png",
-          "imageWidth": 200,
+          "backgroundColor": "#ffffff",
+          "image": "./assets/splash.png",
+          "imageWidth": 280,
           "resizeMode": "contain"
         }
       ]
@@ -34,7 +34,7 @@
       "package": "com.inventrak.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#81c738"
+        "backgroundColor": "#ffffff"
       }
     },
     "extra": {
