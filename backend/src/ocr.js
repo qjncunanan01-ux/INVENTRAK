@@ -230,6 +230,77 @@ function attachStock(matches, stockLookup) {
   });
 }
 
+// Filename matching: catalog images are uploaded under their ORIGINAL file
+// name (e.g. "achievers--acc-caramel-syrup-1kg.jpg"), which encodes the
+// product far more reliably than OCR could ever read from a ~300px thumbnail.
+// An exact image-basename hit wins; otherwise the filename tokens are matched
+// against product names with the same fuzzy machinery, so typo'd or cropped
+// names still resolve. `matchedBy: 'filename'` marks these matches so the UI
+// can tell a file-name hit from a genuine OCR read.
+function basenameOf(value) {
+  return String(value || '').split(/[\\/]/).pop() || '';
+}
+function stemOf(filename) {
+  return basenameOf(filename).replace(/\.[a-z0-9]+$/i, '');
+}
+
+function matchByFilename(filename, products, { limit = 5, minScore = 0.5 } = {}) {
+  const stem = stemOf(filename);
+  if (!stem) return [];
+  const tokens = distinctive(normalize(stem));
+
+  // 1) Exact: the uploaded file name IS a product's image file name.
+  const exactIndex = products.findIndex((p) => {
+    const img = stemOf(p.image || p.Image || '');
+    return img && img.toLowerCase() === stem.toLowerCase();
+  });
+  if (exactIndex >= 0) {
+    const p = products[exactIndex];
+    const name = p.name || p['Product Name'];
+    return [
+      {
+        id: p.id ?? exactIndex + 1,
+        name,
+        price: p.price ?? p.Price,
+        image: p.image || p.Image,
+        matched: matchedTokenCount(tokens, name),
+        score: 1,
+        matchedBy: 'filename',
+      },
+    ];
+  }
+
+  // 2) Fuzzy: filename tokens vs product names (same scoring as OCR reads).
+  if (tokens.length === 0) return [];
+  return products
+    .map((p, idx) => {
+      const name = p.name || p['Product Name'];
+      return {
+        id: p.id ?? idx + 1,
+        name,
+        price: p.price ?? p.Price,
+        image: p.image || p.Image,
+        matched: matchedTokenCount(tokens, name),
+        score: matchScore(tokens, name),
+        matchedBy: 'filename',
+      };
+    })
+    .filter((m) => m.name && m.matched >= MIN_DISTINCT_HITS && m.score >= minScore)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
+// Filename-first scan: when the client sends a filename that resolves to a
+// catalog product (score >= 0.6), return it WITHOUT running OCR — exact and
+// instant for catalog-image uploads. Returns null when OCR should run.
+async function filenameMatchOrNull(req, products) {
+  const filename = req.body && req.body.filename;
+  if (typeof filename !== 'string' || !filename.trim()) return null;
+  const matches = matchByFilename(filename.trim(), products);
+  if (matches.length === 0 || matches[0].score < 0.6) return null;
+  return matches;
+}
+
 // Express-style handler shared by both backends. `products` is the active
 // product list (each item may use either SQLite or JSON-file field names).
 async function handleOcr(req, res, sendJson, products) {
@@ -247,6 +318,12 @@ async function handleOcr(req, res, sendJson, products) {
       error: 'Validation failed',
       details: ['image must be a base64-encoded image (max 8 MB)'],
     });
+  }
+
+  // Filename-first: catalog-image uploads resolve by name, no OCR needed.
+  const byFilename = await filenameMatchOrNull(req, products);
+  if (byFilename) {
+    return sendJson(res, 200, { text: '', matches: byFilename });
   }
 
   let result;
@@ -288,6 +365,12 @@ async function handleOcrStock(req, res, sendJson, products, stockLookup) {
     });
   }
 
+  // Filename-first: catalog-image uploads resolve by name, no OCR needed.
+  const byFilename = await filenameMatchOrNull(req, products);
+  if (byFilename) {
+    return sendJson(res, 200, { text: '', matches: attachStock(byFilename, stockLookup) });
+  }
+
   let result;
   try {
     result = await ocrImage(base64);
@@ -304,4 +387,4 @@ async function handleOcrStock(req, res, sendJson, products, stockLookup) {
   return sendJson(res, 200, { text, matches });
 }
 
-module.exports = { ocrImage, matchProducts, handleOcr, handleOcrStock, attachStock, normalize, matchScore, filterOcrText };
+module.exports = { ocrImage, matchProducts, handleOcr, handleOcrStock, attachStock, normalize, matchScore, filterOcrText, matchByFilename, basenameOf, stemOf };

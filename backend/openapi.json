@@ -1801,6 +1801,10 @@
                   "image": {
                     "type": "string",
                     "description": "Base64-encoded image (max ~8 MB)"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "description": "Original file name of the uploaded image (optional). When it resolves to a catalog product (e.g. an image exported from the catalog), the match is returned by file name without running OCR."
                   }
                 }
               }
@@ -2344,6 +2348,10 @@
                   "image": {
                     "type": "string",
                     "description": "Base64-encoded image (max ~8 MB)"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "description": "Original file name of the uploaded image (optional). When it resolves to a catalog product (e.g. an image exported from the catalog), the match is returned by file name without running OCR."
                   }
                 }
               }
@@ -4053,6 +4061,10 @@
                 "matched": {
                   "type": "integer",
                   "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
+                },
+                "matchedBy": {
+                  "type": "string",
+                  "description": "How the match was found: 'ocr' (default) or 'filename' (resolved from the uploaded file name without OCR)"
                 }
               }
             }
@@ -4585,6 +4597,10 @@
                 "matched": {
                   "type": "integer",
                   "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
+                },
+                "matchedBy": {
+                  "type": "string",
+                  "description": "How the match was found: 'ocr' (default) or 'filename' (resolved from the uploaded file name without OCR)"
                 },
                 "stock": {
                   "$ref": "#/components/schemas/StockSnapshot"

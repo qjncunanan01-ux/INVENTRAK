@@ -3,7 +3,7 @@
 // and is only exercised live / via the deployed server).
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { matchProducts, normalize, matchScore, handleOcr, handleOcrStock, attachStock, filterOcrText } = require('../ocr');
+const { matchProducts, normalize, matchScore, handleOcr, handleOcrStock, attachStock, filterOcrText, matchByFilename, basenameOf, stemOf } = require('../ocr');
 
 const PRODUCTS = [
   { id: 1, name: 'Butterscotch Sauce', price: 1070, image: '/images/a.jpg' },
@@ -107,6 +107,53 @@ test('two distinctive tokens are enough to identify a specific product', () => {
 test('matchProducts handles empty text', () => {
   assert.deepStrictEqual(matchProducts('', PRODUCTS), []);
   assert.deepStrictEqual(matchProducts('!!!', PRODUCTS), []);
+});
+
+// ============= Filename matching (admin catalog-image uploads) =============
+
+const IMG_PRODUCTS = [
+  { id: 1, name: 'Acc Caramel Syrup', image: '/images/achievers--acc-caramel-syrup-1kg.jpg' },
+  { id: 2, name: 'Torani Vanilla Syrup', image: '/images/torani--vanilla-syrup-750ml.jpg' },
+  { id: 3, name: 'Matcha Green Tea Powder', image: '/images/matcha-powder.jpg' },
+];
+
+test('basenameOf / stemOf strip folders and extensions', () => {
+  assert.strictEqual(basenameOf('/images/a.jpg'), 'a.jpg');
+  assert.strictEqual(basenameOf('C:\\x\\b.png'), 'b.png');
+  assert.strictEqual(stemOf('/images/torani--vanilla-syrup-750ml.jpg'), 'torani--vanilla-syrup-750ml');
+});
+
+test('matchByFilename resolves the exact product image by file name', () => {
+  const m = matchByFilename('achievers--acc-caramel-syrup-1kg.jpg', IMG_PRODUCTS);
+  assert.strictEqual(m.length, 1);
+  assert.strictEqual(m[0].id, 1);
+  assert.strictEqual(m[0].name, 'Acc Caramel Syrup');
+  assert.strictEqual(m[0].score, 1);
+  assert.strictEqual(m[0].matchedBy, 'filename');
+});
+
+test('matchByFilename is case- and folder-insensitive', () => {
+  const m = matchByFilename('C:\\Users\\me\\Downloads\\MATCHA-POWDER.PNG', IMG_PRODUCTS);
+  assert.strictEqual(m.length, 1);
+  assert.strictEqual(m[0].name, 'Matcha Green Tea Powder');
+  assert.strictEqual(m[0].score, 1);
+});
+
+test('matchByFilename falls back to fuzzy token matching for renamed files', () => {
+  // "caramel syrup" (renamed/cropped) still resolves to the Acc Caramel Syrup
+  // product via the same typo-tolerant token scoring as OCR reads.
+  const m = matchByFilename('caramel-syrup.jpg', IMG_PRODUCTS);
+  assert.strictEqual(m.length, 1);
+  assert.strictEqual(m[0].name, 'Acc Caramel Syrup');
+  assert.strictEqual(m[0].matchedBy, 'filename');
+});
+
+test('matchByFilename returns nothing for unknown file names', () => {
+  assert.deepStrictEqual(matchByFilename('random-photo.jpg', IMG_PRODUCTS), []);
+  assert.deepStrictEqual(matchByFilename('', IMG_PRODUCTS), []);
+  assert.deepStrictEqual(matchByFilename(null, IMG_PRODUCTS), []);
+  // A one-token name is not a specific product (same rule as OCR reads).
+  assert.deepStrictEqual(matchByFilename('syrup.jpg', IMG_PRODUCTS), []);
 });
 
 test('matchProducts reads price from both raw (capitalized) and normalized rows', () => {

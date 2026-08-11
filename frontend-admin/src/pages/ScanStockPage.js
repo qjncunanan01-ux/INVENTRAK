@@ -264,7 +264,10 @@ export default function ScanStockPage({ onLogout }) {
       // Pass the real MIME type: PNG uploads decode correctly (and re-encode
       // to JPEG here anyway), JPEG/HEIC photos from the camera work too.
       const image = await preprocessForOcr(rawImage, file.type);
-      const res = await ocrStockCheck({ image });
+      // Send the original file name: catalog-image uploads (e.g. the SYLVER
+      // product photos) resolve to the exact product by name on the server,
+      // no OCR needed — those ~300px thumbnails contain no readable text.
+      const res = await ocrStockCheck({ image, filename: file.name });
       applyResult(res);
     } catch (err) {
       // Surface the backend's own message when it has one (e.g. "OCR engine
