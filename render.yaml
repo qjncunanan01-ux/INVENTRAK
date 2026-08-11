@@ -78,3 +78,18 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  # ---------- Mobile app (customer-facing static web build) ----------
+  # The SAME React Native app exported for the browser (react-native-web), so
+  # anyone can open the storefront from a phone/desktop browser at a PERMANENT
+  # URL — no Expo Go, no dev PC, no tunnel. The deployed API URL is baked into
+  # the bundle at build time via EXPO_PUBLIC_API_URL.
+  - type: web
+    name: inventrak-mobile
+    runtime: static
+    rootDir: mobile-client
+    buildCommand: npm install && EXPO_PUBLIC_API_URL=https://inventrak-api.onrender.com npx expo export --platform web
+    staticPublishPath: dist
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://inventrak-api.onrender.com
