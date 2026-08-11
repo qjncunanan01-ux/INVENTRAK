@@ -74,6 +74,36 @@ test('matchProducts ranks best matches first and filters below threshold', () =>
   assert.strictEqual(matches[0].score, 2 / 3);
 });
 
+test('a one-word scan never matches a product (only specific names do)', () => {
+  // "SYRUP" describes a category, not a product — with no second distinctive
+  // token it must be an honest miss instead of a confident wrong pick.
+  assert.deepStrictEqual(matchProducts('SYRUP', [
+    { id: 1, name: 'Vanilla Syrup 1 L' },
+    { id: 2, name: 'Chocolate Syrup 1 L' },
+  ]), []);
+  assert.deepStrictEqual(matchProducts('VANILLA', [
+    { id: 1, name: 'Vanilla Syrup 1 L' },
+  ]), []);
+  // A logo/brand-only read is also a miss.
+  assert.deepStrictEqual(matchProducts('TORANI', [
+    { id: 1, name: 'Torani Vanilla Syrup' },
+  ]), []);
+});
+
+test('two distinctive tokens are enough to identify a specific product', () => {
+  const matches = matchProducts('TORANI VANILLA SYRUP', [
+    { id: 1, name: 'Torani Vanilla Syrup' },
+    { id: 2, name: 'Torani Caramel Syrup' },
+  ]);
+  // The exact product tops the list at 1.0; the caramel sibling still clears
+  // the bar (2 shared distinctive tokens: torani + syrup) at 2/3.
+  assert.strictEqual(matches[0].id, 1);
+  assert.strictEqual(matches[0].score, 1);
+  assert.ok(matches.length >= 2);
+  assert.strictEqual(matches[1].id, 2);
+  assert.strictEqual(matches[1].score, 2 / 3);
+});
+
 test('matchProducts handles empty text', () => {
   assert.deepStrictEqual(matchProducts('', PRODUCTS), []);
   assert.deepStrictEqual(matchProducts('!!!', PRODUCTS), []);
@@ -168,10 +198,14 @@ test('filterOcrText output still drives matching (composition)', () => {
 });
 
 test('matchProducts respects limit and minScore', () => {
-  const all = matchProducts('sauce', PRODUCTS, { limit: 10, minScore: 0 });
-  assert.ok(all.length >= 2);
-  const capped = matchProducts('sauce', PRODUCTS, { limit: 1, minScore: 0 });
+  // Two distinctive tokens -> several products can legitimately match;
+  // the limit then caps the list (explicit minScore: 0 stays overridable
+  // for callers that want a looser net).
+  const all = matchProducts('sauce caramel', PRODUCTS, { limit: 10, minScore: 0 });
+  assert.ok(all.length >= 1);
+  const capped = matchProducts('sauce caramel', PRODUCTS, { limit: 1, minScore: 0 });
   assert.strictEqual(capped.length, 1);
+  assert.strictEqual(capped[0].id, 2);
 });
 
 test('handleOcr validates the payload before touching the engine', async () => {

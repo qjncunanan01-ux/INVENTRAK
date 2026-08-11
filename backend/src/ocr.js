@@ -142,6 +142,13 @@ function matchScore(ocrTokens, productName) {
   return hit / productTokens.length;
 }
 
+// A scan only counts as a REAL product hit when it names the product with at
+// least two distinctive tokens — one shared word ("SYRUP", "VANILLA", "MILK")
+// describes a whole category, not a specific product, so returning those
+// would be guessing. Reads of partial labels ("TORANI", "1 L", a logo) are
+// honest misses instead of confident wrong picks.
+const MIN_DISTINCT_HITS = 2;
+
 // Lazy tesseract require — the endpoint works even before the package is
 // installed, by returning 503 with instructions.
 let tesseractPromise = null;
@@ -168,9 +175,21 @@ async function ocrImage(base64) {
   return { text: (data && data.text) || '' };
 }
 
+// How many distinctive OCR tokens a product name actually matched (a count,
+// not a ratio) — used with MIN_DISTINCT_HITS so a one-word scan can never
+// surface a product. Returns -1 when the name has no distinctive tokens.
+function matchedTokenCount(ocrTokens, productName) {
+  const productTokens = distinctive(normalize(productName));
+  if (productTokens.length === 0) return -1;
+  return productTokens.filter((t) => ocrTokens.some((o) => tokensMatch(o, t))).length;
+}
+
 // Match extracted OCR text against the product catalog. Returns up to
-// `limit` matches with a score >= minScore, sorted best-first.
-function matchProducts(text, products, { limit = 5, minScore = 0.25 } = {}) {
+// `limit` matches with a score >= minScore AND at least MIN_DISTINCT_HITS
+// distinctive tokens in common, sorted best-first. The two conditions in
+// tandem mean a result is only returned when the scan actually names a
+// specific product in the catalog.
+function matchProducts(text, products, { limit = 5, minScore = 0.5 } = {}) {
   const tokens = distinctive(normalize(text));
   if (tokens.length === 0) return [];
 
@@ -187,9 +206,10 @@ function matchProducts(text, products, { limit = 5, minScore = 0.25 } = {}) {
       // cards show the same data on both backends.
       price: p.price ?? p.Price,
       image: p.image || p.Image,
+      matched: matchedTokenCount(tokens, p.name || p['Product Name']),
       score: matchScore(tokens, p.name || p['Product Name']),
     }))
-    .filter((m) => m.name && m.score >= minScore)
+    .filter((m) => m.name && m.matched >= MIN_DISTINCT_HITS && m.score >= minScore)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }

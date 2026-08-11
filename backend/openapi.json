@@ -4046,14 +4046,19 @@
                 "image": {
                   "type": "string",
                   "nullable": true
-                },
-                "score": {
+                },                "score": {
                   "type": "number",
                   "description": "0..1 token-overlap match score"
+                },
+                "matched": {
+                  "type": "integer",
+                  "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
                 }
               }
             }
           }
+          
+
         }
       },
       "BulkOptimization": {
@@ -4576,6 +4581,10 @@
                 "score": {
                   "type": "number",
                   "description": "0..1 token-overlap match score"
+                },
+                "matched": {
+                  "type": "integer",
+                  "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
                 },
                 "stock": {
                   "$ref": "#/components/schemas/StockSnapshot"
