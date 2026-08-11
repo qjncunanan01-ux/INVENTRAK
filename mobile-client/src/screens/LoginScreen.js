@@ -8,8 +8,10 @@ import { useThemeColors } from '../theme-context';
 
 // Google OAuth client IDs come from build-time env vars (Google Cloud Console
 // → Credentials → OAuth client ID). Google's auth hook THROWS without a
-// platform client ID, so the button is only mounted when at least one is set
-// — username/password login always works regardless.
+// platform client ID, so the hook-driven button only mounts when at least one
+// is set; otherwise the SAME button renders in an honest "needs setup" state
+// (tapping explains the one-time developer step). The button itself is always
+// visible — Google login is a promised feature of this app.
 const GOOGLE_CLIENT_IDS = {
   clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
   androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
@@ -18,9 +20,24 @@ const GOOGLE_CLIENT_IDS = {
 };
 const hasGoogleConfig = Object.values(GOOGLE_CLIENT_IDS).some(Boolean);
 
+// The button is always shown; only its behavior changes with config.
+function GoogleButtonFace({ onPress, disabled, styles }) {
+  return (
+    <TouchableOpacity
+      style={[styles.googleBtn, disabled && styles.googleBtnDisabled]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.85}
+      accessibilityLabel="Continue with Google"
+    >
+      <MaterialCommunityIcons name="google" size={20} color="#DB4437" />
+      <Text style={styles.googleBtnText}>Continue with Google</Text>
+    </TouchableOpacity>
+  );
+}
+
+// Live Google flow (client IDs configured at build time).
 function GoogleSignInButton({ onSuccess, disabled, styles }) {
-  // Runs the Google OAuth flow; on success hands the parent the id_token,
-  // which the backend verifies and exchanges for an INVENTRAK session.
   const [request, response, promptAsync] = Google.useAuthRequest(GOOGLE_CLIENT_IDS);
 
   useEffect(() => {
@@ -32,23 +49,28 @@ function GoogleSignInButton({ onSuccess, disabled, styles }) {
   }, [response]);
 
   return (
-    <View style={styles.googleWrap}>
-      <View style={styles.dividerRow}>
-        <View style={styles.divider} />
-        <Text style={styles.dividerText}>or continue with</Text>
-        <View style={styles.divider} />
-      </View>
-      <TouchableOpacity
-        style={[styles.googleBtn, disabled && styles.googleBtnDisabled]}
-        onPress={() => promptAsync()}
-        disabled={disabled || !request}
-        activeOpacity={0.85}
-        accessibilityLabel="Continue with Google"
-      >
-        <MaterialCommunityIcons name="google" size={20} color="#DB4437" />
-        <Text style={styles.googleBtnText}>Continue with Google</Text>
-      </TouchableOpacity>
-    </View>
+    <GoogleButtonFace
+      onPress={() => promptAsync()}
+      disabled={disabled || !request}
+      styles={styles}
+    />
+  );
+}
+
+// Honest pre-setup state: the button exists, but Google OAuth needs client IDs
+// from Google Cloud Console (one-time, documented in DEPLOY.md).
+function GoogleUnconfiguredButton({ disabled, styles }) {
+  return (
+    <GoogleButtonFace
+      onPress={() =>
+        Alert.alert(
+          'Google sign-in is almost ready',
+          'This build needs the Google OAuth client IDs (Google Cloud Console → Credentials → OAuth client ID) to be set as EXPO_PUBLIC_GOOGLE_CLIENT_ID / EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID at build time. See DEPLOY.md → "Google sign-in". Until then, log in with your username and password.'
+        )
+      }
+      disabled={disabled}
+      styles={styles}
+    />
   );
 }
 
@@ -167,9 +189,18 @@ export default function LoginScreen({ navigation }) {
         />
       )}
 
-      {hasGoogleConfig ? (
-        <GoogleSignInButton onSuccess={handleGoogleIdToken} disabled={loading} styles={styles} />
-      ) : null}
+      <View style={styles.googleWrap}>
+        <View style={styles.dividerRow}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>or continue with</Text>
+          <View style={styles.divider} />
+        </View>
+        {hasGoogleConfig ? (
+          <GoogleSignInButton onSuccess={handleGoogleIdToken} disabled={loading} styles={styles} />
+        ) : (
+          <GoogleUnconfiguredButton disabled={loading} styles={styles} />
+        )}
+      </View>
 
       <TouchableOpacity
         style={styles.linkRow}
