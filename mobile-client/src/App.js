@@ -139,15 +139,20 @@ function MainTabsNavigator({ route }) {
 function AppShell() {
   const { colors, dark } = useThemeColors();
 
-  // Web only: the Google OAuth relay returns to `/#/google-auth?token=…`
-  // (hash-based — the static host has no SPA fallback for a real path). The
-  // whole page reloads during the flow, so apply the session right here at
-  // boot, then scrub the hash so a refresh can't re-login or re-alert.
+  // Web only: the Google OAuth relay returns with the session token in the
+  // URL — `/#/google-auth?token=…` (hash form, always used by this app) or
+  // `/google-auth?token=…` (path form, in case a server-side SPA fallback
+  // ever serves it). The whole page reloads during the flow, so apply the
+  // session right here at boot, then scrub the URL so a refresh can't
+  // re-login or re-alert.
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const hash = window.location.hash;
-    if (!hash.startsWith('#/google-auth')) return;
-    const q = hash.indexOf('?') >= 0 ? hash.slice(hash.indexOf('?') + 1) : '';
+    const isHash = hash.startsWith('#/google-auth');
+    const isPath = window.location.pathname.endsWith('/google-auth');
+    if (!isHash && !isPath) return;
+    const raw = isHash ? hash : `${window.location.pathname}${window.location.search}`;
+    const q = raw.indexOf('?') >= 0 ? raw.slice(raw.indexOf('?') + 1) : '';
     const params = {};
     for (const pair of q.split('&')) {
       const eq = pair.indexOf('=');
