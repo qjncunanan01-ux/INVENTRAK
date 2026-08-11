@@ -12,6 +12,13 @@ const PRODUCTS = [
   { id: 4, name: 'Matcha Green Tea Powder', price: 1400, image: '/images/d.jpg' },
 ];
 
+// Catalog whose names contain the brand + flavors used in the filter tests.
+const LABEL_PRODUCTS = [
+  { id: 1, name: 'Torani Vanilla Syrup (750 ML)' },
+  { id: 2, name: 'Vanilla Syrup 1 L' },
+  { id: 3, name: 'Butterscotch Sauce' },
+];
+
 test('normalize strips punctuation and lowercases', () => {
   assert.deepStrictEqual(normalize('Butterscotch 2-L Sauce!!!'), ['butterscotch', '2', 'l', 'sauce']);
 });
@@ -76,7 +83,7 @@ test('filterOcrText keeps only the lines that can match the catalog', () => {
     'www.torani.com',
     '1 L',
   ].join('\n');
-  const filtered = filterOcrText(label);
+  const filtered = filterOcrText(label, LABEL_PRODUCTS);
   // Kept: brand + product lines (incl. size tokens) — the "needed" text.
   assert.ok(filtered.includes('TORANI'), 'brand line kept');
   assert.ok(filtered.includes('Vanilla Syrup 750 ml'), 'name line kept');
@@ -94,6 +101,19 @@ test('filterOcrText drops pure-digit lines and long paragraphs', () => {
   assert.strictEqual(filterOcrText('A'.repeat(90) + '\nBarcode 123456789012'), '');
 });
 
+test('filterOcrText drops glued nutrition rows and hallucinated barcode runs', () => {
+  // tesseract often glues the value to the label ("Total Fat0 g") and reads
+  // barcode bars as vowel-less alphanumeric noise ("AQNN1929AER720N").
+  const filtered = filterOcrText('TORANI\nTotal Fat0 g\nSodium5mg\nAQNN1929AER720N\nVanilla Syrup 750 ml', LABEL_PRODUCTS);
+  assert.strictEqual(filtered, 'TORANI\nVanilla Syrup 750 ml');
+});
+
+test('filterOcrText hides lines whose words match no catalog product', () => {
+  // "TNR" and the barcode run have no catalog words; "TORANI" does.
+  const filtered = filterOcrText('TORANI\nTNR\nAQNN1929AER720N\nVanilla Syrup 750 ml', LABEL_PRODUCTS);
+  assert.strictEqual(filtered, 'TORANI\nVanilla Syrup 750 ml');
+});
+
 test('filterOcrText output still drives matching (composition)', () => {
   const label = [
     'CLASSIC CARAMEL SAUCE',
@@ -101,7 +121,7 @@ test('filterOcrText output still drives matching (composition)', () => {
     '4801234567890',
     'Ingredients: caramel, sugar, water',
   ].join('\n');
-  const filtered = filterOcrText(label);
+  const filtered = filterOcrText(label, PRODUCTS);
   assert.strictEqual(filtered, 'CLASSIC CARAMEL SAUCE');
   const matches = matchProducts(filtered, PRODUCTS);
   assert.strictEqual(matches[0].id, 2);

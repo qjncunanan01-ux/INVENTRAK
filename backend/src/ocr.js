@@ -35,14 +35,23 @@ const NOISE_PREFIXES = [
 
 // Nutrition-fact rows like "Total Fat 0 g" / "Protein 5 g" — dropped only
 // when a NUMBER follows (so a genuine product line like "Protein Powder" or
-// "Vanilla Sugar" can never be filtered out).
-const NUTRITION_PATTERN = /^(total fat|total carb|total carbohydrate|sodium|protein|calories|cholesterol|dietary fiber|sugars?|vitamin|calcium|iron)\s+[0-9]/i;
+// "Vanilla Sugar" can never be filtered out). Whitespace is optional because
+// tesseract often glues the unit to the value ("Total Fat0 g").
+const NUTRITION_PATTERN = /^(total\s*fat|total\s*carb|total\s*carbohydrate|sodium|protein|calories|cholesterol|dietary\s*fiber|sugars?|vitamin|calcium|iron)\s*[0-9]/i;
 
-// Keep only the lines that look like brand/product identifiers — the text a
-// scan actually needs. Drops barcodes, price tags, nutrition facts,
-// ingredient paragraphs, URLs and boilerplate so the recognized text shown to
-// the user (and fed to the matcher) is just the part that can match.
-function filterOcrText(text) {
+// Keep only the lines that can actually match the catalog — the text a scan
+// needs. Drops barcodes, price tags, nutrition facts, ingredient paragraphs,
+// URLs and boilerplate, then keeps only lines whose words appear in some
+// product name. That final catalog-relevance pass is match-neutral (the
+// matcher only counts catalog-name tokens), so it can never hurt accuracy —
+// it just hides everything the system can't match (including the alphanumeric
+// runs tesseract hallucinates from barcode bars).
+function filterOcrText(text, products = []) {
+  const vocab = new Set();
+  for (const p of products) {
+    for (const t of normalize(p.name || p['Product Name'])) vocab.add(t);
+  }
+
   return String(text || '')
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -56,6 +65,9 @@ function filterOcrText(text) {
       if (/@|https?:|www\./i.test(line)) return false; // emails / URLs
       if (NUTRITION_PATTERN.test(line)) return false; // "Total Fat 0 g" rows
       if (NOISE_PREFIXES.some((p) => line.toLowerCase().startsWith(p))) return false;
+      // Catalog-relevance: hide lines whose words appear in no product name.
+      const tokens = normalize(line);
+      if (vocab.size > 0 && !tokens.some((t) => vocab.has(t))) return false;
       return true;
     })
     .filter((line, i, arr) => arr.indexOf(line) === i) // dedupe repeated reads
@@ -156,7 +168,7 @@ async function handleOcr(req, res, sendJson, products) {
   // Scan only what's needed: strip barcode/nutrition/ingredient/boilerplate
   // lines so the recognized text shown and matched is the brand/product part
   // of the label, not the entire label dump.
-  const text = filterOcrText(result.text);
+  const text = filterOcrText(result.text, products);
   const matches = matchProducts(text, products);
   return sendJson(res, 200, { text, matches });
 }
