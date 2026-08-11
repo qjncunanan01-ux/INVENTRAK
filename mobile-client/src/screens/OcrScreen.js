@@ -93,18 +93,18 @@ export default function OcrScreen({ navigation }) {
       }
     }
     try {
+      // NOTE: `allowsEditing` is deliberately OFF — the built-in crop/rotate
+      // editor renders a black preview on several Android devices (a known
+      // expo-image-picker issue), and the OCR pipeline doesn't need a crop
+      // anyway: the backend reads the whole label.
       const result = useCamera
         ? await ImagePicker.launchCameraAsync({
             base64: true,
-            quality: 0.6,
-            allowsEditing: true,
-            aspect: [4, 3],
+            quality: 0.8,
           })
         : await ImagePicker.launchImageLibraryAsync({
             base64: true,
-            quality: 0.6,
-            allowsEditing: true,
-            aspect: [4, 3],
+            quality: 0.8,
           });
 
       if (result.canceled || !result.assets || !result.assets[0]) return;
