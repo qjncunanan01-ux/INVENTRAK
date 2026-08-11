@@ -21,6 +21,7 @@ const {
   buildGoogleAuthUrl,
   exchangeCodeForTokens,
   relayCallbackUrl,
+  googleUsername,
 } = require('./google-auth');
 
 // Brute-force throttling shared with the SQLite backend (same module, same
@@ -587,11 +588,10 @@ const server = http.createServer((req, res) => {
       // password account so Google sign-in is the SAME identity, not a dup.
       let user = users.find((u) => String(u.email || '').toLowerCase() === lowerEmail);
       if (!user) {
-        // New OAuth account: deduped username from the email prefix, random
-        // password (Google owns the identity), email pre-verified.
-        let base = (email.split('@')[0] || 'user')
-          .replace(/[^a-zA-Z0-9._-]/g, '')
-          .slice(0, 40) || 'user';
+        // New OAuth account: deduped username from Google's verified profile
+        // name (e.g. "Jerico Cunanan" not the email prefix), random password
+        // (Google owns the identity), email pre-verified.
+        let base = googleUsername(result.payload.name, email);
         let username = base;
         let n = 1;
         while (users.some((u) => u.username === username)) username = `${base}${n++}`;
@@ -933,7 +933,7 @@ const server = http.createServer((req, res) => {
       const lowerEmail = email.toLowerCase();
       let user = users.find((u) => String(u.email || '').toLowerCase() === lowerEmail);
       if (!user) {
-        let base = (email.split('@')[0] || 'user').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 40) || 'user';
+        let base = googleUsername(result.payload.name, email);
         let username = base;
         let n = 1;
         while (users.some((u) => u.username === username)) username = `${base}${n++}`;

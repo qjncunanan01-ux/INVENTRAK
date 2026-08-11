@@ -292,11 +292,26 @@ function relayCallbackUrl(req, env = process.env) {
   return `${proto}://${host}/api/auth/google/callback`;
 }
 
+// Derive a friendly username from Google's verified profile name, falling
+// back to the email prefix. Keeps letters/digits/dot/underscore/dash/space,
+// collapses whitespace, trims, and caps at 40 chars — so "Jerico Cunanan"
+// becomes "Jerico Cunanan" (not "jericocunanan09123").
+function googleUsername(name, email) {
+  const raw = String(name || '').trim();
+  const base = (raw || String(email || '').split('@')[0] || 'user')
+    .replace(/[^a-zA-Z0-9._ -]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40);
+  return base || 'user';
+}
+
 module.exports = {
   verifyGoogleIdToken,
   googleClientIds,
   isConfigured,
   resetJwksCache,
+  googleUsername,
   relayConfigured,
   webClientId,
   createRelayState,

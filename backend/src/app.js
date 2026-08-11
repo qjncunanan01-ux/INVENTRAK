@@ -25,6 +25,7 @@ const {
   buildGoogleAuthUrl,
   exchangeCodeForTokens,
   relayCallbackUrl,
+  googleUsername,
 } = require('./google-auth');
 
 // Attach a parsed, normalized `products_detail` array to every inquiry row so
@@ -690,13 +691,11 @@ app.post(
     // identity, no duplicate account).
     let user = db.prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').get(lowerEmail);
     if (!user) {
-      // New account: username derived from the email prefix, deduped against
-      // existing usernames; random password so the account can never be
+      // New account: username from Google's verified profile name (friendly,
+      // e.g. "Jerico Cunanan" not the email prefix), deduped against existing
+      // usernames; random password so the account can never be
       // password-logged-in (Google owns the identity); email pre-verified.
-      let base = (email.split('@')[0] || 'user')
-        .replace(/[^a-zA-Z0-9._-]/g, '')
-        .slice(0, 40);
-      if (!base) base = 'user';
+      let base = googleUsername(result.payload.name, email);
       let username = base;
       let n = 1;
       while (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) {
@@ -802,8 +801,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
   // existing password account, otherwise create a fresh OAuth account.
   let user = db.prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').get(lowerEmail);
   if (!user) {
-    let base = (email.split('@')[0] || 'user').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 40);
-    if (!base) base = 'user';
+    let base = googleUsername(result.payload.name, email);
     let username = base;
     let n = 1;
     while (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) {

@@ -20,6 +20,7 @@ const {
   buildGoogleAuthUrl,
   exchangeCodeForTokens,
   relayCallbackUrl,
+  googleUsername,
   resetJwksCache,
 } = require('../google-auth');
 
@@ -113,6 +114,17 @@ test('isAllowedReturnUrl accepts app deep links and localhost, rejects everythin
   assert.strictEqual(isAllowedReturnUrl('x'.repeat(501)), false);
   assert.strictEqual(isAllowedReturnUrl(null), false);
   assert.strictEqual(isAllowedReturnUrl(42), false);
+});
+
+// ================= Unit: Google profile-name username =================
+
+test('googleUsername prefers the verified profile name and sanitizes safely', () => {
+  assert.strictEqual(googleUsername('Jerico Cunanan', 'jericocunanan09123@gmail.com'), 'Jerico Cunanan');
+  assert.strictEqual(googleUsername('  A  B ', 'x@y.com'), 'A B');
+  assert.strictEqual(googleUsername('', 'jericocunanan09123@gmail.com'), 'jericocunanan09123');
+  assert.strictEqual(googleUsername(undefined, 'u@gmail.com'), 'u');
+  assert.strictEqual(googleUsername('!!!', 'x@y.com'), 'user');
+  assert.strictEqual(googleUsername('J'.repeat(60), 'x@y.com').length, 40);
 });
 
 // ================= Unit: relay CSRF state =================
@@ -301,6 +313,36 @@ test('callback relays a Google denial to the app deep link (both backends)', asy
       assert.strictEqual(loc.searchParams.get('error'), 'access_denied');
     }
   } finally {
+    clearRelayEnv();
+  }
+});
+
+test('relay uses the Google profile name as the username (both backends)', async () => {
+  setRelayEnv();
+  const original = global.fetch;
+  global.fetch = async (input, init) => {
+    const u = String(input);
+    if (u.includes('/oauth2/v3/certs')) return { ok: true, json: async () => JWKS };
+    if (u.includes('oauth2.googleapis.com/token')) {
+      return { ok: true, text: async () => JSON.stringify({ id_token: mintGoogleIdToken({ name: 'Jerico Cunanan', email: 'jerico.cunanan@gmail.com' }) }) };
+    }
+    return original(input, init);
+  };
+  try {
+    for (const side of [sqlite, npmfree]) {
+      const start = await rawGet(side.url, '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth'));
+      const state = new URL(start.location).searchParams.get('state');
+      const cb = await rawGet(side.url, `/api/auth/google/callback?state=${state}&code=name-code`);
+      assert.strictEqual(cb.status, 302);
+      const loc = new URL(cb.location);
+      assert.strictEqual(loc.searchParams.get('username'), 'Jerico Cunanan');
+      // And the session is real for that account.
+      const me = await call(side.url, '/api/auth/me', { token: loc.searchParams.get('token') });
+      assert.strictEqual(me.status, 200);
+      assert.strictEqual(me.json.username, 'Jerico Cunanan');
+    }
+  } finally {
+    global.fetch = original;
     clearRelayEnv();
   }
 });
