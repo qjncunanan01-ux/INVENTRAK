@@ -38,6 +38,19 @@ function fileToBase64(file) {
   });
 }
 
+// Load an image element with an onload/onerror fallback (img.decode() is
+// unavailable on some older mobile browsers) and a safety timeout so a
+// slow/huge photo can never hang the scanner.
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const timer = setTimeout(() => reject(new Error('Image decode timed out')), 15000);
+    img.onload = () => { clearTimeout(timer); resolve(img); };
+    img.onerror = () => { clearTimeout(timer); reject(new Error('Could not decode image')); };
+    img.src = src;
+  });
+}
+
 // Browser-side image preprocessing before OCR upload — the server's Tesseract
 // reads flat, high-contrast text far better than raw camera shots:
 //   1. normalize the long edge to ~1600px (upscale small labels, downscale
@@ -46,13 +59,12 @@ function fileToBase64(file) {
 //   3. re-encode as JPEG.
 // Pure browser canvas — no dependencies. On any decode failure the original
 // image is returned unchanged so a scan is never blocked by this step.
-async function preprocessForOcr(b64) {
+async function preprocessForOcr(b64, mimeType = 'image/jpeg') {
   const LONG_EDGE = 1600;
   const MAX_UPSCALE = 4;
   try {
-    const img = new Image();
-    img.src = `data:image/jpeg;base64,${b64}`;
-    await img.decode();
+    const safeMime = mimeType && /^image\//.test(mimeType) ? mimeType : 'image/jpeg';
+    const img = await loadImage(`data:${safeMime};base64,${b64}`);
     const scale = Math.min(MAX_UPSCALE, LONG_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * scale));
     const h = Math.max(1, Math.round(img.naturalHeight * scale));
@@ -85,6 +97,7 @@ async function preprocessForOcr(b64) {
 
 export default function ScanStockPage({ onLogout }) {
   const fileRef = useRef(null);
+  const cameraRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -106,13 +119,22 @@ export default function ScanStockPage({ onLogout }) {
       const rawImage = await fileToBase64(file);
       // Preprocess (grayscale/contrast/normalize) so real camera captures read
       // reliably — the engine is much better on flat, high-contrast text.
-      const image = await preprocessForOcr(rawImage);
+      // Pass the real MIME type: PNG uploads decode correctly (and re-encode
+      // to JPEG here anyway), JPEG/HEIC photos from the camera work too.
+      const image = await preprocessForOcr(rawImage, file.type);
+      // The generated client returns the parsed JSON body directly — no
+      // `.data` wrapper. But the mobile api.js wraps responses as { data },
+      // so tolerate both shapes to be safe.
       const res = await ocrStockCheck({ image });
-      setResult(res && res.data ? res.data : res);
+      setResult(res && res.data && typeof res.data === 'object' ? res.data : res);
     } catch (err) {
-      setError(
-        err.message || 'Scan failed. Check that the backend OCR engine is running and try again.'
-      );
+      // Surface the backend's own message when it has one (e.g. "OCR engine
+      // unavailable") so a failed scan says WHY instead of a generic error.
+      const detail =
+        (err && err.body && (err.body.details || []).join(' · ')) ||
+        err.message ||
+        'Scan failed. Check that the backend OCR engine is running and try again.';
+      setError(detail);
     } finally {
       setBusy(false);
     }
@@ -142,26 +164,46 @@ export default function ScanStockPage({ onLogout }) {
             </Typography>
           </div>
           {!result ? (
-            <Button
-              variant="contained"
-              startIcon={<CameraAltOutlined />}
-              onClick={() => fileRef.current && fileRef.current.click()}
-              disabled={busy}
-              sx={{ backgroundColor: colors.brandPrimary }}
-            >
-              {busy ? 'Scanning…' : fileName ? `Scan ${fileName}` : 'Scan a label'}
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                startIcon={<CameraAltOutlined />}
+                onClick={() => cameraRef.current && cameraRef.current.click()}
+                disabled={busy}
+                sx={{ backgroundColor: colors.brandPrimary }}
+              >
+                {busy ? 'Scanning…' : 'Take photo'}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => fileRef.current && fileRef.current.click()}
+                disabled={busy}
+              >
+                Upload image
+              </Button>
+            </Box>
           ) : (
             <Button variant="outlined" startIcon={<ReplayOutlined />} onClick={reset}>
               Scan another
             </Button>
           )}
         </Box>
+        {/* Camera capture: its own input so "Take photo" opens the rear
+            camera on phones. Browsers that ignore `capture` (some desktop
+            Chrome/Safari) fall back to a file picker — still works. */}
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: 'none' }}
+          onChange={pick}
+        />
+        {/* Upload: plain image picker (no capture attribute) — gallery/desktop. */}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
-          capture="environment"
           style={{ display: 'none' }}
           onChange={pick}
         />
