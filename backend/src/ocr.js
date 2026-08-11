@@ -135,6 +135,22 @@ function matchProducts(text, products, { limit = 5, minScore = 0.25 } = {}) {
     .slice(0, limit);
 }
 
+// Low-stock threshold for the admin scan: matches the /api/inventory
+// low_stock filter (total < 80) so the scan agrees with the inventory page.
+const LOW_STOCK_THRESHOLD = 80;
+
+// Attach a live stock snapshot to each match: per-location quantities, total
+// and a status string. `stockLookup(productId)` returns { locations, total }.
+function attachStock(matches, stockLookup) {
+  return matches.map((m) => {
+    const stock = stockLookup(m.id) || {};
+    const locations = stock.locations || {};
+    const total = Number(stock.total) || 0;
+    const status = total === 0 ? 'out' : total < LOW_STOCK_THRESHOLD ? 'low' : 'ok';
+    return { ...m, stock: { locations, total, status } };
+  });
+}
+
 // Express-style handler shared by both backends. `products` is the active
 // product list (each item may use either SQLite or JSON-file field names).
 async function handleOcr(req, res, sendJson, products) {
@@ -173,4 +189,40 @@ async function handleOcr(req, res, sendJson, products) {
   return sendJson(res, 200, { text, matches });
 }
 
-module.exports = { ocrImage, matchProducts, handleOcr, normalize, matchScore, filterOcrText };
+// Admin stock-check variant of handleOcr: same OCR + match pipeline, but each
+// match carries a live stock snapshot (per-location quantities + total + low/
+// out status) so scanning a label answers "how much is left?" — the daily
+// manual inventory problem this capstone solves. `stockLookup(productId)` is
+// provided by each backend (SQLite rows vs JSON/Firestore inventory).
+async function handleOcrStock(req, res, sendJson, products, stockLookup) {
+  const base64 = req.body && req.body.image;
+  if (!base64 || typeof base64 !== 'string') {
+    return sendJson(res, 400, {
+      error: 'Validation failed',
+      details: ['image (base64) is required'],
+    });
+  }
+  if (!/^[A-Za-z0-9+/=\s]+$/.test(base64) || base64.length > MAX_IMAGE_BYTES * 1.5) {
+    return sendJson(res, 400, {
+      error: 'Validation failed',
+      details: ['image must be a base64-encoded image (max 8 MB)'],
+    });
+  }
+
+  let result;
+  try {
+    result = await ocrImage(base64);
+  } catch (err) {
+    console.error('[ocr] worker error:', err && err.message);
+    return sendJson(res, 503, {
+      error: 'OCR engine unavailable',
+      details: ['OCR is not configured on this server (tesseract.js missing or failed to boot)'],
+    });
+  }
+
+  const text = filterOcrText(result.text, products);
+  const matches = attachStock(matchProducts(text, products), stockLookup);
+  return sendJson(res, 200, { text, matches });
+}
+
+module.exports = { ocrImage, matchProducts, handleOcr, handleOcrStock, attachStock, normalize, matchScore, filterOcrText };

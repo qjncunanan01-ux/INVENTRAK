@@ -12,7 +12,7 @@ const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificat
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
-const { handleOcr } = require('./ocr');
+const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines, summarizeLines } = require('./product-lines');
 const { verifyGoogleIdToken, isConfigured: googleAuthConfigured } = require('./google-auth');
 
@@ -2727,6 +2727,27 @@ app.post(
 app.post('/api/ocr', bodyParser.json({ limit: '12mb' }), async (req, res) => {
   const products = db.prepare('SELECT * FROM products WHERE status = ?').all('active');
   await handleOcr(req, res, (r, code, body) => r.status(code).json(body), products);
+});
+
+// Admin stock check: scan a product label and get the current stock snapshot
+// per location — the "how much is left?" answer for daily manual inventory.
+// Admin-only (reveals live stock levels); shares the OCR pipeline with the
+// public /api/ocr but attaches stock to every match.
+app.post('/api/ocr/stock', bodyParser.json({ limit: '12mb' }), authenticateToken, adminOnly, async (req, res) => {
+  const products = db.prepare('SELECT * FROM products WHERE status = ?').all('active');
+  const stockLookup = (productId) => {
+    const rows = db
+      .prepare('SELECT l.name, s.quantity FROM stock s JOIN locations l ON s.location_id = l.id WHERE s.product_id = ?')
+      .all(productId);
+    const locations = {};
+    let total = 0;
+    for (const r of rows) {
+      locations[r.name] = Number(r.quantity) || 0;
+      total += Number(r.quantity) || 0;
+    }
+    return { locations, total };
+  };
+  await handleOcrStock(req, res, (r, code, body) => r.status(code).json(body), products, stockLookup);
 });
 
 // Mark an inquiry as paid (customer confirms after the GCash step).

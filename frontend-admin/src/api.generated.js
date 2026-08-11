@@ -146,6 +146,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   promoteUser: (body) => request('POST', '/api/admin/promote', { body }),
   // GET /api/health/integrity — Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
+  // POST /api/ocr/stock — Admin stock check: OCR a product label and return matches with live per-location stock
+  ocrStockCheck: (body) => request('POST', '/api/ocr/stock', { body }),
   };
 }
 

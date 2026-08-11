@@ -3,7 +3,7 @@
 // and is only exercised live / via the deployed server).
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { matchProducts, normalize, matchScore, handleOcr, filterOcrText } = require('../ocr');
+const { matchProducts, normalize, matchScore, handleOcr, handleOcrStock, attachStock, filterOcrText } = require('../ocr');
 
 const PRODUCTS = [
   { id: 1, name: 'Butterscotch Sauce', price: 1070, image: '/images/a.jpg' },
@@ -151,5 +151,38 @@ test('handleOcr validates the payload before touching the engine', async () => {
   // Oversized -> 400.
   const huge = 'A'.repeat(13 * 1024 * 1024);
   await handleOcr({ body: { image: huge } }, fakeRes, sendJson, PRODUCTS);
+  assert.strictEqual(fakeRes.status, 400);
+});
+
+test('attachStock adds per-location stock, total and low/out status', () => {
+  const matches = [
+    { id: 1, name: 'Full Cream Milk 1L', score: 1 },
+    { id: 2, name: 'Classic Caramel Sauce', score: 0.8 },
+    { id: 3, name: 'Matcha Green Tea Powder', score: 0.6 },
+  ];
+  const lookup = (id) => ({
+    1: { locations: { Main: 120, Branch: 40 }, total: 160 },
+    2: { locations: { Main: 30 }, total: 30 },
+  }[id] || { locations: {}, total: 0 });
+  const withStock = attachStock(matches, lookup);
+  assert.deepStrictEqual(withStock[0].stock, { locations: { Main: 120, Branch: 40 }, total: 160, status: 'ok' });
+  assert.deepStrictEqual(withStock[1].stock, { locations: { Main: 30 }, total: 30, status: 'low' });
+  assert.deepStrictEqual(withStock[2].stock, { locations: {}, total: 0, status: 'out' });
+});
+
+test('handleOcrStock validates the payload before touching the engine', async () => {
+  const fakeRes = { status: 0, body: null };
+  const sendJson = (res, status, body) => { res.status = status; res.body = body; };
+  const lookup = () => ({ locations: {}, total: 0 });
+
+  await handleOcrStock({ body: {} }, fakeRes, sendJson, PRODUCTS, lookup);
+  assert.strictEqual(fakeRes.status, 400);
+  assert.match(fakeRes.body.details[0], /image/);
+
+  await handleOcrStock({ body: { image: 'not base64 !!!' } }, fakeRes, sendJson, PRODUCTS, lookup);
+  assert.strictEqual(fakeRes.status, 400);
+
+  const huge = 'A'.repeat(13 * 1024 * 1024);
+  await handleOcrStock({ body: { image: huge } }, fakeRes, sendJson, PRODUCTS, lookup);
   assert.strictEqual(fakeRes.status, 400);
 });

@@ -8,7 +8,7 @@ const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificat
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
-const { handleOcr } = require('./ocr');
+const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
 const { verifyGoogleIdToken, isConfigured: googleAuthConfigured } = require('./google-auth');
 
@@ -1891,6 +1891,33 @@ const server = http.createServer((req, res) => {
       // object so the shared OCR handler can read it.
       req.body = obj;
       await handleOcr(req, res, sendJson, products);
+    });
+  }
+
+  // Admin stock check: scan a label and get per-location stock — the daily
+  // manual-inventory answer. Admin-only; shares the OCR pipeline with the
+  // public /api/ocr but attaches a live stock snapshot to every match.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/ocr/stock') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBodyLarge(req, async (err, obj) => {
+        if (err) {
+          return err.status === 413
+            ? sendJson(res, 413, { error: 'Payload too large' })
+            : bodyError(res, err);
+        }
+        const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
+        // Stock snapshot keyed by the same positional ids formatProduct assigns.
+        const inv = getInventory();
+        const byId = new Map(inv.items.map((i) => [Number(i.product && i.product.id), i]));
+        const stockLookup = (productId) => {
+          const item = byId.get(Number(productId));
+          return item
+            ? { locations: item.locations || {}, total: item.total || 0 }
+            : { locations: {}, total: 0 };
+        };
+        req.body = obj;
+        await handleOcrStock(req, res, sendJson, products, stockLookup);
+      });
     });
   }
 

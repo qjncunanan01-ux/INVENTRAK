@@ -2318,6 +2318,63 @@
           }
         }
       }
+    },
+    "/api/ocr/stock": {
+      "post": {
+        "tags": [
+          "OCR"
+        ],
+        "operationId": "ocrStockCheck",
+        "summary": "Admin stock check: OCR a product label and return matches with live per-location stock",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "image"
+                ],
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "description": "Base64-encoded image (max ~8 MB)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Filtered OCR text + matched products with stock snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrStockResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "503": {
+            "description": "OCR engine unavailable (tesseract not configured)"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4364,6 +4421,84 @@
           "idToken": {
             "type": "string",
             "description": "Google ID token from the OAuth sign-in flow"
+          }
+        }
+      },
+      "StockSnapshot": {
+        "type": "object",
+        "required": [
+          "locations",
+          "total",
+          "status"
+        ],
+        "properties": {
+          "locations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Quantity per location name"
+          },
+          "total": {
+            "type": "number",
+            "description": "Total units across all locations"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "low",
+              "out"
+            ],
+            "description": "ok: >= 80 total, low: < 80, out: 0"
+          }
+        }
+      },
+      "OcrStockResponse": {
+        "type": "object",
+        "required": [
+          "text",
+          "matches"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Filtered OCR text (only lines that can match the catalog)"
+          },
+          "matches": {
+            "type": "array",
+            "description": "Catalog products fuzzy-matched from the OCR text with live stock, best first",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "score",
+                "stock"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "image": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "score": {
+                  "type": "number",
+                  "description": "0..1 token-overlap match score"
+                },
+                "stock": {
+                  "$ref": "#/components/schemas/StockSnapshot"
+                }
+              }
+            }
           }
         }
       }
