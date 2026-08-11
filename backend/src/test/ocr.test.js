@@ -3,7 +3,7 @@
 // and is only exercised live / via the deployed server).
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { matchProducts, normalize, matchScore, handleOcr } = require('../ocr');
+const { matchProducts, normalize, matchScore, handleOcr, filterOcrText } = require('../ocr');
 
 const PRODUCTS = [
   { id: 1, name: 'Butterscotch Sauce', price: 1070, image: '/images/a.jpg' },
@@ -63,6 +63,49 @@ test('matchProducts assigns positional ids to id-less raw rows (list keys + deep
     assert.ok(m.id >= 1);
   }
   assert.strictEqual(matches[0].id, 1, 'top match keeps its positional id');
+});
+
+test('filterOcrText keeps only the lines that can match the catalog', () => {
+  const label = [
+    'TORANI',
+    'Vanilla Syrup 750 ml',
+    'Ingredients: sugar, water, natural and artificial flavor',
+    'Net Content: 750 ml',
+    '4801234567890',
+    'Manufactured in the Philippines for Torani Inc.',
+    'www.torani.com',
+    '1 L',
+  ].join('\n');
+  const filtered = filterOcrText(label);
+  // Kept: brand + product lines (incl. size tokens) — the "needed" text.
+  assert.ok(filtered.includes('TORANI'), 'brand line kept');
+  assert.ok(filtered.includes('Vanilla Syrup 750 ml'), 'name line kept');
+  assert.ok(filtered.includes('1 L'), 'size token kept');
+  // Dropped: ingredient paragraph, logistics, barcode, URL.
+  assert.ok(!filtered.includes('Ingredient'), 'ingredients dropped');
+  assert.ok(!filtered.includes('Net Content'), 'net-content dropped');
+  assert.ok(!filtered.includes('4801'), 'barcode dropped');
+  assert.ok(!filtered.includes('Manufactured'), 'manufacturer dropped');
+  assert.ok(!filtered.includes('www.'), 'URL dropped');
+});
+
+test('filterOcrText drops pure-digit lines and long paragraphs', () => {
+  assert.strictEqual(filterOcrText('\n\n750\n\n'), '');
+  assert.strictEqual(filterOcrText('A'.repeat(90) + '\nBarcode 123456789012'), '');
+});
+
+test('filterOcrText output still drives matching (composition)', () => {
+  const label = [
+    'CLASSIC CARAMEL SAUCE',
+    'Net Content: 950 g',
+    '4801234567890',
+    'Ingredients: caramel, sugar, water',
+  ].join('\n');
+  const filtered = filterOcrText(label);
+  assert.strictEqual(filtered, 'CLASSIC CARAMEL SAUCE');
+  const matches = matchProducts(filtered, PRODUCTS);
+  assert.strictEqual(matches[0].id, 2);
+  assert.strictEqual(matches[0].score, 1);
 });
 
 test('matchProducts respects limit and minScore', () => {

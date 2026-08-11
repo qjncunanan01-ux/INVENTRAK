@@ -177,7 +177,7 @@ export default function OcrScreen({ navigation }) {
 
       {text && text.trim() ? (
         <View style={styles.textCard}>
-          <Text style={styles.textCardTitle}>Recognized text</Text>
+          <Text style={styles.textCardTitle}>Recognized (used for matching)</Text>
           <Text style={styles.recognized}>{text.trim().slice(0, 400)}</Text>
         </View>
       ) : null}

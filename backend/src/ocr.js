@@ -21,6 +21,47 @@ function normalize(text) {
     .filter(Boolean);
 }
 
+// Label lines that never help match a catalog product — nutrition facts,
+// ingredient paragraphs, logistics/legal boilerplate, contact info. If a
+// line starts with any of these it is dropped before matching/display.
+const NOISE_PREFIXES = [
+  'ingredient', 'nutrition', 'serving', 'manufactured', 'distributed',
+  'imported', 'made in', 'product of', 'expiry', 'expiration', 'best before',
+  'best-by', 'use by', 'storage', 'store in', 'keep', 'allergen', 'contains',
+  'batch', 'lot no', 'barcode', 'tel', 'phone', 'email', 'www.', 'http',
+  'facebook', 'instagram', 'tiktok', 'net content', 'net wt', 'net weight',
+  'all rights', 'copyright', 'recipe', 'how to use', 'directions',
+];
+
+// Nutrition-fact rows like "Total Fat 0 g" / "Protein 5 g" — dropped only
+// when a NUMBER follows (so a genuine product line like "Protein Powder" or
+// "Vanilla Sugar" can never be filtered out).
+const NUTRITION_PATTERN = /^(total fat|total carb|total carbohydrate|sodium|protein|calories|cholesterol|dietary fiber|sugars?|vitamin|calcium|iron)\s+[0-9]/i;
+
+// Keep only the lines that look like brand/product identifiers — the text a
+// scan actually needs. Drops barcodes, price tags, nutrition facts,
+// ingredient paragraphs, URLs and boilerplate so the recognized text shown to
+// the user (and fed to the matcher) is just the part that can match.
+function filterOcrText(text) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => {
+      if (!line) return false;
+      if (line.length > 80) return false; // ingredient/legal paragraphs
+      if (!/[a-z]/i.test(line)) return false; // pure digits/symbols (barcodes)
+      const letters = (line.match(/[a-z]/gi) || []).length;
+      const digits = (line.match(/[0-9]/g) || []).length;
+      if (digits / (letters + digits) > 0.7) return false; // price tags / lot numbers
+      if (/@|https?:|www\./i.test(line)) return false; // emails / URLs
+      if (NUTRITION_PATTERN.test(line)) return false; // "Total Fat 0 g" rows
+      if (NOISE_PREFIXES.some((p) => line.toLowerCase().startsWith(p))) return false;
+      return true;
+    })
+    .filter((line, i, arr) => arr.indexOf(line) === i) // dedupe repeated reads
+    .join('\n');
+}
+
 // Simple token-overlap score: 1.0 if all OCR words are in the product name,
 // 0 if none. Products with higher overlap rank first.
 function matchScore(ocrTokens, productName) {
@@ -112,8 +153,12 @@ async function handleOcr(req, res, sendJson, products) {
     });
   }
 
-  const matches = matchProducts(result.text, products);
-  return sendJson(res, 200, { text: result.text, matches });
+  // Scan only what's needed: strip barcode/nutrition/ingredient/boilerplate
+  // lines so the recognized text shown and matched is the brand/product part
+  // of the label, not the entire label dump.
+  const text = filterOcrText(result.text);
+  const matches = matchProducts(text, products);
+  return sendJson(res, 200, { text, matches });
 }
 
-module.exports = { ocrImage, matchProducts, handleOcr, normalize, matchScore };
+module.exports = { ocrImage, matchProducts, handleOcr, normalize, matchScore, filterOcrText };
