@@ -16,7 +16,7 @@ internet-to-PC needed** — and it talks to the **live backend**
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/gHbuwWtJFHs1hfQRX59pv2OKxu4fwpDsFyCzevq5-ZU.apk
+https://expo.dev/artifacts/eas/ppG_WTLFF5dL7vzFPl_s0d4gGUsp6uRJhf-C4jDvOAo.apk
 ```
 
 - **Profile:** `production` (release build, same signing key as previous
@@ -26,16 +26,24 @@ https://expo.dev/artifacts/eas/gHbuwWtJFHs1hfQRX59pv2OKxu4fwpDsFyCzevq5-ZU.apk
 - **Login screen:** clean customer login — no API server URL field, no
   "API: https://…" text in error popups; the app always uses the baked-in
   deployed backend. **"Continue with Google"** button is now always visible
-  (runs the real Google flow once the OAuth client IDs are configured — see
-  DEPLOY.md "Google sign-in"; until then it explains the one-time setup)
-- **Scan flow:** catalog camera icon → OCR reads only the label text that can
-  match (barcode/nutrition/ingredients are stripped), strong matches auto-open
-  the product, and match cards carry real ids + prices
+  and runs the server-side Google OAuth relay (real-name usernames, see
+  DEPLOY.md "Google sign-in")
+- **Scan flow:** catalog camera icon → photos are **preprocessed before
+  upload** (grayscale + contrast + normalize — same as the admin scanner),
+  the crop editor is disabled (fixes the black camera preview on several
+  Android devices), the camera permission is declared in the manifest, and
+  OCR only returns matches that name a **specific catalog product**
+  (watermark/one-word scans are honest misses)
 - **Catalog layout:** category + sort chip rows keep fixed heights on narrow
   phones (no more overlapping the result counter), and every list key is
   hardened so duplicate-key warnings can't appear
 - **Backend:** `https://inventrak-api.onrender.com` baked in (Firestore)
 - **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
+
+> **QR / Expo Go alternative:** if you'd rather test the live dev bundle
+> (all the same fixes, no install), scan the QR in the Preview tab — it
+> points at the current tunnel (`exp://kizpk_s-patrickcuevas-8081.exp.direct`)
+> and works on any network.
 
 ---
 
