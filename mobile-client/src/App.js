@@ -1,10 +1,8 @@
-import { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { loadSavedApiUrl } from './api';
 import HomeScreen from './screens/HomeScreen';
 import InquiryHistoryScreen from './screens/InquiryHistoryScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -123,13 +121,7 @@ function MainTabsNavigator({ route }) {
 }
 
 function AppShell() {
-  // Restore a saved API URL override (set on the Login screen) before any
-  // screen makes an API call, so Login, Signup, and the whole app hit the
-  // host the user configured.
   const { colors, dark } = useThemeColors();
-  useEffect(() => {
-    loadSavedApiUrl();
-  }, []);
 
   return (
     // CartProvider wraps the whole tree so the Cart tab badge and every

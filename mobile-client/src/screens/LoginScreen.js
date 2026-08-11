@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { getApiBaseUrl, loadSavedApiUrl, login, setApiBaseUrl, setSessionDetails, setSessionUsername, setToken } from '../api';
+import { ActivityIndicator, Alert, Button, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { login, setSessionDetails, setSessionUsername, setToken } from '../api';
 import BackButton from '../BackButton';
 import { useThemeColors } from '../theme-context';
 
@@ -9,14 +9,8 @@ export default function LoginScreen({ navigation }) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [username, setUsername] = useState('customer');
   const [password, setPassword] = useState('');
-  const [apiUrl, setApiUrl] = useState(getApiBaseUrl());
   const [loading, setLoading] = useState(false);
   const [lockoutLeft, setLockoutLeft] = useState(0);
-
-  // Restore a persisted API URL override (set on a previous session).
-  useEffect(() => {
-    loadSavedApiUrl().then(setApiUrl);
-  }, []);
 
   // Live countdown while the account is locked out (429 + retryAfterSeconds).
   useEffect(() => {
@@ -29,12 +23,6 @@ export default function LoginScreen({ navigation }) {
     if (lockoutLeft > 0) return;
     if (!username.trim()) {
       Alert.alert('Validation', 'Please enter a username');
-      return;
-    }
-    if (setApiBaseUrl(apiUrl)) {
-      setApiUrl(getApiBaseUrl());
-    } else {
-      Alert.alert('Invalid API URL', 'Enter a full URL like http://192.168.1.50:4001');
       return;
     }
     setLoading(true);
@@ -70,16 +58,13 @@ export default function LoginScreen({ navigation }) {
       } else {
         Alert.alert(
           'Login Failed',
-          `${err.message || 'Please check your credentials.'}\n\nAPI: ${getApiBaseUrl()}`
+          err.message || 'Please check your credentials.'
         );
       }
     } finally {
       setLoading(false);
     }
   };
-
-  const looksLocalOnly =
-    /localhost|127\.0\.0\.1|10\.0\.2\.2/.test(apiUrl) && Platform.OS !== 'web';
 
   return (
     <View style={styles.container}>
@@ -88,25 +73,6 @@ export default function LoginScreen({ navigation }) {
       <BackButton navigation={navigation} label="Back to store" />
       <Text style={styles.title}>INVENTRAK</Text>
       <Text style={styles.subtitle}>Customer Portal</Text>
-      <Text style={styles.apiLabel}>API SERVER URL</Text>
-      <TextInput
-        style={[styles.input, styles.apiInput]}
-        value={apiUrl}
-        onChangeText={setApiUrl}
-        placeholder="http://192.168.1.50:4001"
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="url"
-        editable={!loading}
-      />
-      {looksLocalOnly ? (
-        <Text style={styles.apiHint}>
-          ⚠ This is an emulator/simulator address — a real phone can't reach it.
-          Edit it to your PC's IP (same Wi-Fi) or your deployed API URL.
-        </Text>
-      ) : (
-        <Text style={styles.apiHint}>Saved on this device. Edit if your network changed.</Text>
-      )}
       <TextInput
         style={styles.input}
         value={username}
@@ -160,9 +126,6 @@ const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.background },
   title: { fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center', color: colors.brandPrimary },
   subtitle: { fontSize: 16, marginBottom: 8, textAlign: 'center', color: colors.textSecondary },
-  apiLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: colors.textSecondary, marginBottom: 6, textAlign: 'center' },
-  apiInput: { marginBottom: 6 },
-  apiHint: { fontSize: 11, textAlign: 'center', color: colors.warning, marginBottom: 16, paddingHorizontal: 8, lineHeight: 15 },
   input: { backgroundColor: colors.surface, padding: 14, marginBottom: 16, borderRadius: 10, color: colors.textPrimary, fontSize: 16 },
   linkRow: { alignItems: 'center', marginTop: 14 },
   linkText: { fontSize: 14, color: colors.textSecondary },

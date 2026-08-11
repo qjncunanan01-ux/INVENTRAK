@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { API_BASE_URL, register, setSessionDetails, setSessionUsername, setToken } from '../api';
+import { register, setSessionDetails, setSessionUsername, setToken } from '../api';
 import BackButton from '../BackButton';
 import { useThemeColors } from '../theme-context';
 
@@ -101,7 +101,7 @@ export default function SignupScreen({ navigation }) {
     } catch (err) {
       Alert.alert(
         'Sign Up Failed',
-        `${err.message || 'Please try again.'}\n\nAPI: ${API_BASE_URL}`
+        err.message || 'Please try again.'
       );
     } finally {
       setLoading(false);

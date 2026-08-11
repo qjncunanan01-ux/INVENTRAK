@@ -61,21 +61,16 @@ const baseUrlHolder = {
   toString: () => currentBaseUrl,
 };
 
-// Persisted override (AsyncStorage is bundled with Expo Go). Loaded lazily via
-// require() so the app still boots if the package is ever missing.
-let AsyncStorage = null;
-try {
-  AsyncStorage = require('@react-native-async-storage/async-storage').default;
-} catch {}
-const STORAGE_KEY = 'inventrak_api_url';
-
-// Live binding: re-assigned by setApiBaseUrl so screens importing it (e.g.
-// SignupScreen's error message) always see the current URL, not the boot value.
+// Live binding: screens importing it always see the current URL.
 export let API_BASE_URL = currentBaseUrl;
 
 export function getApiBaseUrl() {
   return currentBaseUrl;
 }
+
+// NOTE: the manual API-URL override (setApiBaseUrl / loadSavedApiUrl) was
+// removed — the app always talks to the baked-in deployed URL so a stale
+// saved address can never break requests.
 
 // Product photos: the backend stores '/images/<file>' paths (or full URLs).
 // Resolve to an absolute URL the <Image> component can load against the
@@ -83,29 +78,6 @@ export function getApiBaseUrl() {
 export function imageUrl(image) {
   if (!image) return null;
   return /^https?:\/\//i.test(image) ? image : currentBaseUrl + image;
-}
-
-// Applies + persists a manual API URL override. Returns false on invalid input.
-export function setApiBaseUrl(url) {
-  const clean = String(url || '').trim().replace(/\/+$/, '');
-  if (!/^https?:\/\//i.test(clean)) return false;
-  currentBaseUrl = clean;
-  API_BASE_URL = clean;
-  if (AsyncStorage) {
-    AsyncStorage.setItem(STORAGE_KEY, clean).catch(() => {});
-  }
-  return true;
-}
-
-// Restore a previously saved override (call once at app start / on Login).
-export async function loadSavedApiUrl() {
-  try {
-    if (AsyncStorage) {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      if (saved && setApiBaseUrl(saved)) return currentBaseUrl;
-    }
-  } catch {}
-  return currentBaseUrl;
 }
 
 let authToken = null;
@@ -204,14 +176,11 @@ export function useSessionEmail() {
 // Shared client instance wired to this app's base URL + token store.
 const rawClient = createApiClient({ baseUrl: baseUrlHolder, getToken });
 
-// Self-healing wrapper: the Login screen restores a URL saved on the device
-// (loadSavedApiUrl), which is great for tunnels but can leave a STALE address
-// (e.g. an old http://192.168.x.x:4001 or https://localhost:4001) that a real
-// phone can never reach — "Network request failed". When a request dies at the
-// network level (no HTTP status) AND the bundle has a baked-in deployed URL
-// (EXPO_PUBLIC_API_URL, e.g. the Render backend) that differs from the current
-// base, we switch to the baked URL and retry once. The user's manual override
-// still wins for everything that succeeds.
+// Self-healing wrapper: when a request dies at the network level (no HTTP
+// status) AND the bundle has a baked-in deployed URL (EXPO_PUBLIC_API_URL,
+// e.g. the Render backend) that differs from the current base, we switch to
+// the baked URL and retry once — so a stale address can never permanently
+// break the app.
 const BAKED_API_URL = (process.env.EXPO_PUBLIC_API_URL || '').trim().replace(/\/+$/, '');
 const client = {};
 for (const key of Object.keys(rawClient)) {
