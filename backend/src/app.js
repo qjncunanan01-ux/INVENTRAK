@@ -22,6 +22,7 @@ const {
   createRelayState,
   consumeRelayState,
   isAllowedReturnUrl,
+  hashifyWebReturnUrl,
   buildGoogleAuthUrl,
   exchangeCodeForTokens,
   relayCallbackUrl,
@@ -768,9 +769,13 @@ app.get('/api/auth/google/callback', async (req, res) => {
     });
   }
   const { returnUrl } = consumed;
+  // Hash-form redirect: a cached browser bundle may have sent a real path
+  // (https://host/google-auth) which a static host 404s; moving the path
+  // into the fragment makes the return always load index.html.
+  const webReturn = hashifyWebReturnUrl(returnUrl);
   if (req.query.error) {
     // Google declined (e.g. user denied consent) — relay the error to the app.
-    return res.redirect(`${returnUrl}?error=${encodeURIComponent(String(req.query.error))}`);
+    return res.redirect(`${webReturn}?error=${encodeURIComponent(String(req.query.error))}`);
   }
   const code = String(req.query.code || '');
   if (!code) {
@@ -830,7 +835,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     email: user.email,
     email_verified: user.email_verified ? '1' : '0',
   });
-  res.redirect(`${returnUrl}?${q.toString()}`);
+  res.redirect(`${webReturn}?${q.toString()}`);
 });
 
 app.get(

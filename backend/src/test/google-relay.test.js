@@ -15,6 +15,7 @@ const crypto = require('node:crypto');
 
 const {
   isAllowedReturnUrl,
+  hashifyWebReturnUrl,
   createRelayState,
   consumeRelayState,
   buildGoogleAuthUrl,
@@ -122,6 +123,27 @@ test('isAllowedReturnUrl accepts app deep links, localhost, and the deployed web
   assert.strictEqual(isAllowedReturnUrl('x'.repeat(501)), false);
   assert.strictEqual(isAllowedReturnUrl(null), false);
   assert.strictEqual(isAllowedReturnUrl(42), false);
+});
+
+test('hashifyWebReturnUrl moves https paths into the hash so static hosts never 404', () => {
+  // Cached-browser bundle sent a real path -> becomes the hash form the app
+  // reads, and index.html is served for the bare origin.
+  assert.strictEqual(
+    hashifyWebReturnUrl('https://inventrak-mobile.onrender.com/google-auth'),
+    'https://inventrak-mobile.onrender.com/#/google-auth'
+  );
+  assert.strictEqual(
+    hashifyWebReturnUrl('https://inventrak-mobile.onrender.com/google-auth?x=1'),
+    'https://inventrak-mobile.onrender.com/#/google-auth?x=1'
+  );
+  // Already hash-form (current app bundle) and app deep links pass through.
+  assert.strictEqual(
+    hashifyWebReturnUrl('https://inventrak-mobile.onrender.com/#/google-auth'),
+    'https://inventrak-mobile.onrender.com/#/google-auth'
+  );
+  assert.strictEqual(hashifyWebReturnUrl('exp://host/--/google-auth'), 'exp://host/--/google-auth');
+  assert.strictEqual(hashifyWebReturnUrl('inventrak://google-auth'), 'inventrak://google-auth');
+  assert.strictEqual(hashifyWebReturnUrl(''), '');
 });
 
 // ================= Unit: Google profile-name username =================

@@ -18,6 +18,7 @@ const {
   createRelayState,
   consumeRelayState,
   isAllowedReturnUrl,
+  hashifyWebReturnUrl,
   buildGoogleAuthUrl,
   exchangeCodeForTokens,
   relayCallbackUrl,
@@ -906,8 +907,12 @@ const server = http.createServer((req, res) => {
         });
       }
       const { returnUrl } = consumed;
+      // Hash-form redirect: a cached browser bundle may have sent a real path
+      // (https://host/google-auth) which a static host 404s; moving the path
+      // into the fragment makes the return always load index.html.
+      const webReturn = hashifyWebReturnUrl(returnUrl);
       if (params.get('error')) {
-        res.writeHead(302, { Location: `${returnUrl}?error=${encodeURIComponent(params.get('error'))}` });
+        res.writeHead(302, { Location: `${webReturn}?error=${encodeURIComponent(params.get('error'))}` });
         return res.end();
       }
       const code = String(params.get('code') || '');
@@ -962,7 +967,7 @@ const server = http.createServer((req, res) => {
         email: user.email,
         email_verified: user.email_verified !== false ? '1' : '0',
       });
-      res.writeHead(302, { Location: `${returnUrl}?${q.toString()}` });
+      res.writeHead(302, { Location: `${webReturn}?${q.toString()}` });
       return res.end();
     })().catch((e) => {
       return sendJson(res, 500, { error: 'Google sign-in failed', details: [String(e.message || e)] });

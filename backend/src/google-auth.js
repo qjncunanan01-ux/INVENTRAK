@@ -323,6 +323,27 @@ function googleUsername(name, email) {
   return base || 'user';
 }
 
+// Normalize an https return URL into the app's HASH form before redirecting
+// back with the session token. Older/cached browser bundles send a real path
+// (`https://host/google-auth`) which a static host serves as 404; moving the
+// path into the fragment (`https://host/#/google-auth`) makes the return
+// always load index.html, where the web app reads the token from the hash.
+// App deep links (exp://, inventrak://) are returned unchanged.
+function hashifyWebReturnUrl(returnUrl) {
+  try {
+    const u = new URL(returnUrl);
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      if (!u.hash) {
+        const pathQuery = `${u.pathname}${u.search}`.replace(/^\//, '');
+        return `${u.origin}/#/${pathQuery}`;
+      }
+    }
+  } catch {
+    /* non-URL / app scheme: return as-is */
+  }
+  return returnUrl;
+}
+
 module.exports = {
   verifyGoogleIdToken,
   googleClientIds,
@@ -334,6 +355,7 @@ module.exports = {
   createRelayState,
   consumeRelayState,
   isAllowedReturnUrl,
+  hashifyWebReturnUrl,
   buildGoogleAuthUrl,
   exchangeCodeForTokens,
   relayCallbackUrl,
