@@ -70,7 +70,7 @@ export default function DashboardPage({ user, onLogout }) {
           apiGet('/api/inventory'),
           apiGet('/api/products'),
           apiGet('/api/locations'),
-          apiGet('/api/inquiries'),
+          apiGet('/api/order-inquiries'),
           apiGet('/api/sales'),
           apiGet('/api/stock-movements'),
           apiGet('/api/alerts')

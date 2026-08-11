@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { clearToken, getMe, getToken } from './api';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import ApprovalsPage from './pages/ApprovalsPage';
@@ -19,7 +20,33 @@ import { createAppTheme } from './theme';
 
 function AppRoutes() {
   const [user, setUser] = useState(null);
-  const handleLogout = () => setUser(null);
+  // A saved token survives a hard refresh (localStorage), so restore the
+  // session at boot via /api/auth/me instead of forcing a re-login. Invalid
+  // or expired tokens are cleared so the login page starts clean.
+  const [restoring, setRestoring] = useState(() => !!getToken());
+
+  useEffect(() => {
+    if (!restoring) return;
+    getMe()
+      .then((me) => setUser(me))
+      .catch(() => clearToken())
+      .finally(() => setRestoring(false));
+  }, [restoring]);
+
+  const handleLogout = () => {
+    setUser(null);
+    clearToken();
+  };
+
+  if (restoring) {
+    return (
+      <BrowserRouter>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'sans-serif', color: '#666' }}>
+          Loading…
+        </div>
+      </BrowserRouter>
+    );
+  }
 
   if (!user) return <BrowserRouter><Routes><Route path="/*" element={<LoginPage onLogin={setUser} />} /></Routes></BrowserRouter>;
 
