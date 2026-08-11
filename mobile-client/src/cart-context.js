@@ -1,38 +1,57 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getToken } from './api';
+import { useSessionUsername } from './api';
 
 // Persistent shopping cart (Shopee/Lazada pattern). Cart entries snapshot the
 // product at add-time ({ product, qty }) so the checkout never needs to refetch
-// the catalog and survives offline usage. Persisted to AsyncStorage so a
-// reload/restart does not lose the basket.
-const CART_STORAGE_KEY = 'inventrak_cart_v1';
+// the catalog and survives offline usage.
+//
+// PER-ACCOUNT ISOLATION: each logged-in account gets its OWN basket, keyed by
+// username (usernames are unique — deduped at account creation, including
+// Google real-name accounts). Switching accounts can never mix carts: A's
+// basket stays A's, B's stays B's, and a guest always sees an empty basket
+// (adds are login-gated anyway).
+const CART_STORAGE_PREFIX = 'inventrak_cart_v1:';
+// Retired pre-per-account global key — one-time cleanup on boot.
+const LEGACY_CART_STORAGE_KEY = 'inventrak_cart_v1';
 
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([]); // [{ product, qty }]
+  const [items, setItems] = useState([]); // [{ product, qty, price?, original_price? }]
   const [hydrated, setHydrated] = useState(false);
+  // Re-renders on every login/logout (session listeners), so the basket below
+  // always belongs to the account that is signed in right now.
+  const owner = useSessionUsername(null);
+  const storageKey = owner ? CART_STORAGE_PREFIX + owner : null;
 
-  // Hydrate once on boot (before any write so the first save doesn't wipe it).
+  // One-time cleanup of the retired global cart key.
+  useEffect(() => {
+    AsyncStorage.removeItem(LEGACY_CART_STORAGE_KEY).catch(() => {});
+  }, []);
+
+  // Load the current owner's basket whenever the owner changes (first boot
+  // included). While loading, the basket is empty and persistence is paused,
+  // so one account's items can never be written into another account's key.
   useEffect(() => {
     let cancelled = false;
+    setHydrated(false);
+    setItems([]);
+    if (!storageKey) {
+      // Guest: never show a basket.
+      setHydrated(true);
+      return undefined;
+    }
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(CART_STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(storageKey);
         if (!cancelled && raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            // Merge instead of replace: an item added before hydration
-            // finished (e.g. Buy Now from the PDP right after boot) must not
-            // be silently overwritten by the older stored snapshot.
-            setItems((prev) => {
-              const clean = parsed.filter(
-                (i) => i && i.product && i.product.id != null && Number(i.qty) > 0
-              );
-              const storedIds = new Set(clean.map((i) => Number(i.product.id)));
-              return [...clean, ...prev.filter((i) => !storedIds.has(Number(i.product.id)))];
-            });
+            const clean = parsed.filter(
+              (i) => i && i.product && i.product.id != null && Number(i.qty) > 0
+            );
+            setItems(clean);
           }
         }
       } catch {
@@ -40,26 +59,16 @@ export function CartProvider({ children }) {
       }
       if (!cancelled) setHydrated(true);
     })();
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [storageKey]);
 
-  // Persist on every change, but only after the initial hydration completes.
+  // Persist on every change, but only after the current owner's basket loaded.
   useEffect(() => {
-    if (!hydrated) return;
-    AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items)).catch(() => {});
-  }, [items, hydrated]);
-
-  // Guests must never see a cart: the basket is member-only (every add is
-  // login-gated), so when there is no authenticated session the persisted cart
-  // is stale — either left over from a PREVIOUS user's session (survived a
-  // fresh app launch, since the session/token never persists across restarts)
-  // or from a logout that didn't fully clear. Wipe it whenever the token is
-  // absent, so the tab badge can never show leftover items to a guest.
-  const token = getToken();
-  useEffect(() => {
-    if (!hydrated) return;
-    if (!token) setItems([]);
-  }, [hydrated, token]);
+    if (!hydrated || !storageKey) return;
+    AsyncStorage.setItem(storageKey, JSON.stringify(items)).catch(() => {});
+  }, [items, hydrated, storageKey]);
 
   // Adds a product or increments its quantity (qty is clamped to >= 1).
   // `price` optionally overrides the unit price snapshot (e.g. the day's flash
