@@ -14,7 +14,18 @@ const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines, summarizeLines } = require('./product-lines');
-const { verifyGoogleIdToken, isConfigured: googleAuthConfigured } = require('./google-auth');
+const {
+  verifyGoogleIdToken,
+  isConfigured: googleAuthConfigured,
+  relayConfigured,
+  webClientId,
+  createRelayState,
+  consumeRelayState,
+  isAllowedReturnUrl,
+  buildGoogleAuthUrl,
+  exchangeCodeForTokens,
+  relayCallbackUrl,
+} = require('./google-auth');
 
 // Attach a parsed, normalized `products_detail` array to every inquiry row so
 // clients (admin + mobile) can render per-line prices without re-parsing the
@@ -726,6 +737,103 @@ app.post(
     });
   }
 );
+
+// ---- Google OAuth relay (server-side code exchange) ----
+// Expo Go deep links can't be OAuth redirect URIs, so the app opens
+// /start in a browser; Google redirects here; we exchange the code with the
+// web client's secret and deep-link back into the app with a session token.
+app.get('/api/auth/google/start', (req, res) => {
+  const returnUrl = String(req.query.returnUrl || '');
+  if (!isAllowedReturnUrl(returnUrl)) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: ['returnUrl must be an app deep link (exp:// or the app scheme)'],
+    });
+  }
+  if (!relayConfigured()) {
+    return res.status(501).json({
+      error: 'Google sign-in is not configured',
+      details: ['Set GOOGLE_CLIENT_IDS and GOOGLE_CLIENT_SECRET on this server'],
+    });
+  }
+  const state = createRelayState(returnUrl);
+  res.redirect(buildGoogleAuthUrl({ clientId: webClientId(), redirectUri: relayCallbackUrl(req), state }));
+});
+
+app.get('/api/auth/google/callback', async (req, res) => {
+  const consumed = consumeRelayState(req.query.state);
+  if (!consumed.ok) {
+    return res.status(400).json({
+      error: 'Invalid Google sign-in state',
+      details: ['state missing, expired, or already used'],
+    });
+  }
+  const { returnUrl } = consumed;
+  if (req.query.error) {
+    // Google declined (e.g. user denied consent) — relay the error to the app.
+    return res.redirect(`${returnUrl}?error=${encodeURIComponent(String(req.query.error))}`);
+  }
+  const code = String(req.query.code || '');
+  if (!code) {
+    return res.status(400).json({ error: 'Validation failed', details: ['code is required'] });
+  }
+  const exchanged = await exchangeCodeForTokens(code, {
+    clientId: webClientId(),
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: relayCallbackUrl(req),
+  });
+  if (!exchanged.ok) {
+    return res.status(502).json({
+      error: 'Google token exchange failed',
+      details: [exchanged.reason, exchanged.detail].filter(Boolean),
+    });
+  }
+  const result = await verifyGoogleIdToken(exchanged.tokens.id_token);
+  if (!result.ok) {
+    return res.status(401).json({ error: 'Invalid Google token' });
+  }
+  const { sub, email } = result.payload;
+  if (!email) {
+    return res.status(401).json({ error: 'Invalid Google token' });
+  }
+  const lowerEmail = email.toLowerCase();
+
+  // Mirror the POST /api/auth/google find-or-create: link google_sub to an
+  // existing password account, otherwise create a fresh OAuth account.
+  let user = db.prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').get(lowerEmail);
+  if (!user) {
+    let base = (email.split('@')[0] || 'user').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 40);
+    if (!base) base = 'user';
+    let username = base;
+    let n = 1;
+    while (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) {
+      username = `${base}${n++}`;
+    }
+    const info = db
+      .prepare(
+        'INSERT INTO users (username, password, role, email, phone, email_verified, google_sub) VALUES (?, ?, ?, ?, ?, 1, ?)'
+      )
+      .run(username, hashPassword(crypto.randomBytes(24).toString('hex')), 'customer', lowerEmail, null, sub);
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+  } else if (!user.google_sub) {
+    db.prepare('UPDATE users SET google_sub = ? WHERE id = ?').run(sub, user.id);
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  }
+
+  const token = jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+  const q = new URLSearchParams({
+    token,
+    username: user.username,
+    role: user.role,
+    email: user.email,
+    email_verified: user.email_verified ? '1' : '0',
+  });
+  res.redirect(`${returnUrl}?${q.toString()}`);
+});
 
 app.get(
   '/api/auth/me',

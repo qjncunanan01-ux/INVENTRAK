@@ -2375,6 +2375,89 @@
           }
         }
       }
+    },
+    "/api/auth/google/start": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "googleAuthStart",
+        "summary": "Start Google OAuth relay: redirects the browser to Google consent with the backend callback as redirect_uri.",
+        "parameters": [
+          {
+            "name": "returnUrl",
+            "in": "query",
+            "required": true,
+            "description": "App deep link to return to after sign-in (exp:// for Expo Go, inventrak:// for the standalone app, http://localhost for dev).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to Google sign-in"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        }
+      }
+    },
+    "/api/auth/google/callback": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "googleAuthCallback",
+        "summary": "Google OAuth callback: exchanges the code server-side and deep-links back to the app with a session token.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "OAuth authorization code (from Google)."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "CSRF state issued by googleAuthStart."
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Google error, if the user was denied."
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Deep link back into the app with token/username/role/email params"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "description": "Google token exchange failed"
+          }
+        }
+      }
     }
   },
   "components": {

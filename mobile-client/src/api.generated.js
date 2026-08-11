@@ -148,6 +148,10 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
   // POST /api/ocr/stock — Admin stock check: OCR a product label and return matches with live per-location stock
   ocrStockCheck: (body) => request('POST', '/api/ocr/stock', { body }),
+  // GET /api/auth/google/start — Start Google OAuth relay: redirects the browser to Google consent with the backend callback as redirect_uri.
+  googleAuthStart: (params) => request('GET', '/api/auth/google/start', { query: params }),
+  // GET /api/auth/google/callback — Google OAuth callback: exchanges the code server-side and deep-links back to the app with a session token.
+  googleAuthCallback: (params) => request('GET', '/api/auth/google/callback', { query: params }),
   };
 }
 

@@ -163,4 +163,146 @@ function resetJwksCache() {
   jwksFetchPromise = null;
 }
 
-module.exports = { verifyGoogleIdToken, googleClientIds, isConfigured, resetJwksCache };
+// ===== Server-side Google OAuth relay (code exchange) =====
+// Expo Go deep links (exp://…) cannot be registered as OAuth redirect URIs
+// (Google only accepts https for web clients) and the old auth.expo.io proxy
+// is deprecated — so the app signs in THROUGH the backend: GET
+// /api/auth/google/start redirects to Google's consent page with the
+// backend's own callback URL as redirect_uri; GET /api/auth/google/callback
+// exchanges the code with the web client's secret (kept server-side, the
+// pattern Google's "OAuth 2.0 policy for keeping apps secure" requires) and
+// deep-links back into the app with a normal INVENTRAK session token.
+
+const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const RELAY_STATE_TTL_MS = 10 * 60 * 1000;
+
+// Short-lived CSRF state (per-instance; the callback arrives seconds later on
+// the same instance). Keyed by a random token, mapped to the app return URL.
+const relayStates = new Map();
+
+// The relay is live only when an allow-listed client AND its secret exist.
+function relayConfigured(env = process.env) {
+  return isConfigured(env) && Boolean(env.GOOGLE_CLIENT_SECRET);
+}
+
+// The web OAuth client that owns the secret used for the code exchange.
+function webClientId(env = process.env) {
+  return googleClientIds(env)[0] || '';
+}
+
+function pruneRelayStates(now = Date.now()) {
+  for (const [k, v] of relayStates) {
+    if (v.expiresAt < now) relayStates.delete(k);
+  }
+}
+
+function createRelayState(returnUrl, now = Date.now()) {
+  pruneRelayStates(now);
+  const state = crypto.randomBytes(18).toString('hex');
+  relayStates.set(state, { returnUrl, expiresAt: now + RELAY_STATE_TTL_MS });
+  return state;
+}
+
+// Single-use: consuming a state removes it even when it was valid.
+function consumeRelayState(state, now = Date.now()) {
+  pruneRelayStates(now);
+  const entry = state ? relayStates.get(state) : undefined;
+  if (!entry) return { ok: false, reason: 'unknown-or-expired' };
+  relayStates.delete(state);
+  return { ok: true, returnUrl: entry.returnUrl };
+}
+
+// Only app deep links may carry the session token back: Expo Go (exp://), the
+// standalone app scheme (inventrak://), and localhost http for local dev.
+// Everything else (e.g. https://evil.example) is rejected so a forged state
+// cannot redirect a signed-in session to an attacker's site.
+function isAllowedReturnUrl(returnUrl) {
+  if (typeof returnUrl !== 'string' || returnUrl.length === 0 || returnUrl.length > 500) {
+    return false;
+  }
+  let u;
+  try {
+    u = new URL(returnUrl);
+  } catch {
+    return false;
+  }
+  if (!u.host) return false;
+  if (u.protocol === 'exp:' || u.protocol === 'inventrak:') return true;
+  if (u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')) {
+    return true;
+  }
+  return false;
+}
+
+function buildGoogleAuthUrl({ clientId, redirectUri, state, scope = 'openid email profile' }) {
+  const q = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope,
+    state,
+    prompt: 'select_account',
+  });
+  return `${GOOGLE_AUTH_URL}?${q.toString()}`;
+}
+
+// Exchanges the one-time authorization code for tokens using the web client's
+// secret. Injectable fetch so tests never touch the network.
+async function exchangeCodeForTokens(code, { clientId, clientSecret, redirectUri, fetchImpl = (u) => fetch(u) }) {
+  if (!code || !clientId || !clientSecret) {
+    return { ok: false, reason: 'missing-params' };
+  }
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    client_id: clientId,
+    client_secret: clientSecret,
+    redirect_uri: redirectUri,
+  });
+  try {
+    const res = await fetchImpl(GOOGLE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    const text = await res.text();
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {}
+    if (!res.ok) {
+      return { ok: false, reason: `http_${res.status}`, detail: data.error_description || data.error || text.slice(0, 200) };
+    }
+    if (!data.id_token) return { ok: false, reason: 'no-id-token' };
+    return { ok: true, tokens: data };
+  } catch (e) {
+    return { ok: false, reason: 'network', detail: String(e.message || e) };
+  }
+}
+
+// The callback URL Google must redirect to: an explicit env override wins
+// (deploy docs), otherwise derived from the request (https behind Render's
+// proxy, http://localhost in local dev — which Google allows unregistered).
+function relayCallbackUrl(req, env = process.env) {
+  if (env.GOOGLE_OAUTH_CALLBACK_URL) return env.GOOGLE_OAUTH_CALLBACK_URL;
+  const host = (req && req.headers && req.headers.host) || '';
+  const fwd = (req && req.headers && req.headers['x-forwarded-proto']) || '';
+  const proto = fwd.split(',')[0] || (host.includes('onrender.com') ? 'https' : 'http');
+  return `${proto}://${host}/api/auth/google/callback`;
+}
+
+module.exports = {
+  verifyGoogleIdToken,
+  googleClientIds,
+  isConfigured,
+  resetJwksCache,
+  relayConfigured,
+  webClientId,
+  createRelayState,
+  consumeRelayState,
+  isAllowedReturnUrl,
+  buildGoogleAuthUrl,
+  exchangeCodeForTokens,
+  relayCallbackUrl,
+};

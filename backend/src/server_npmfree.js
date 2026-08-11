@@ -10,7 +10,18 @@ const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
-const { verifyGoogleIdToken, isConfigured: googleAuthConfigured } = require('./google-auth');
+const {
+  verifyGoogleIdToken,
+  isConfigured: googleAuthConfigured,
+  relayConfigured,
+  webClientId,
+  createRelayState,
+  consumeRelayState,
+  isAllowedReturnUrl,
+  buildGoogleAuthUrl,
+  exchangeCodeForTokens,
+  relayCallbackUrl,
+} = require('./google-auth');
 
 // Brute-force throttling shared with the SQLite backend (same module, same
 // semantics): failed logins per (username, IP) lock the account with an
@@ -857,6 +868,104 @@ const server = http.createServer((req, res) => {
       loginLockout.recordSuccess('reset-password', sourceIp);
       loginLockout.clearAccount(user.username);
       return sendJson(res, 200, { ok: true, message: 'Password updated' });
+    });
+  }
+
+  // ---- Google OAuth relay (server-side code exchange) — parity with the
+  // SQLite backend's /api/auth/google/start + /api/auth/google/callback.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/auth/google/start') {
+    const params = new URL(url, 'http://localhost').searchParams;
+    const returnUrl = String(params.get('returnUrl') || '');
+    if (!isAllowedReturnUrl(returnUrl)) {
+      return sendJson(res, 400, {
+        error: 'Validation failed',
+        details: ['returnUrl must be an app deep link (exp:// or the app scheme)'],
+      });
+    }
+    if (!relayConfigured()) {
+      return sendJson(res, 501, {
+        error: 'Google sign-in is not configured',
+        details: ['Set GOOGLE_CLIENT_IDS and GOOGLE_CLIENT_SECRET on this server'],
+      });
+    }
+    const state = createRelayState(returnUrl);
+    res.writeHead(302, {
+      Location: buildGoogleAuthUrl({ clientId: webClientId(), redirectUri: relayCallbackUrl(req), state }),
+    });
+    return res.end();
+  }
+
+  if (req.method === 'GET' && url.split('?')[0] === '/api/auth/google/callback') {
+    return (async () => {
+      const params = new URL(url, 'http://localhost').searchParams;
+      const consumed = consumeRelayState(params.get('state'));
+      if (!consumed.ok) {
+        return sendJson(res, 400, {
+          error: 'Invalid Google sign-in state',
+          details: ['state missing, expired, or already used'],
+        });
+      }
+      const { returnUrl } = consumed;
+      if (params.get('error')) {
+        res.writeHead(302, { Location: `${returnUrl}?error=${encodeURIComponent(params.get('error'))}` });
+        return res.end();
+      }
+      const code = String(params.get('code') || '');
+      if (!code) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['code is required'] });
+      }
+      const exchanged = await exchangeCodeForTokens(code, {
+        clientId: webClientId(),
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri: relayCallbackUrl(req),
+      });
+      if (!exchanged.ok) {
+        return sendJson(res, 502, {
+          error: 'Google token exchange failed',
+          details: [exchanged.reason, exchanged.detail].filter(Boolean),
+        });
+      }
+      const result = await verifyGoogleIdToken(exchanged.tokens.id_token);
+      if (!result.ok || !result.payload.email) {
+        return sendJson(res, 401, { error: 'Invalid Google token' });
+      }
+      const { sub, email } = result.payload;
+      const lowerEmail = email.toLowerCase();
+      let user = users.find((u) => String(u.email || '').toLowerCase() === lowerEmail);
+      if (!user) {
+        let base = (email.split('@')[0] || 'user').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 40) || 'user';
+        let username = base;
+        let n = 1;
+        while (users.some((u) => u.username === username)) username = `${base}${n++}`;
+        user = {
+          id: nextUserId++,
+          username,
+          password: hashPassword(crypto.randomBytes(24).toString('hex')),
+          role: 'customer',
+          email: lowerEmail,
+          phone: null,
+          email_verified: true,
+          google_sub: sub,
+          created_at: new Date().toISOString(),
+        };
+        users.push(user);
+        if (useFirestore) writeJSON('@users', users);
+      } else if (!user.google_sub) {
+        user.google_sub = sub;
+        if (useFirestore) writeJSON('@users', users);
+      }
+      const token = signToken(user.id);
+      const q = new URLSearchParams({
+        token,
+        username: user.username,
+        role: user.role,
+        email: user.email,
+        email_verified: user.email_verified !== false ? '1' : '0',
+      });
+      res.writeHead(302, { Location: `${returnUrl}?${q.toString()}` });
+      return res.end();
+    })().catch((e) => {
+      return sendJson(res, 500, { error: 'Google sign-in failed', details: [String(e.message || e)] });
     });
   }
 

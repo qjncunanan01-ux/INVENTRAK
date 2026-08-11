@@ -1,27 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Button, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import * as Google from 'expo-auth-session/providers/google';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { googleAuth, login, setSessionDetails, setSessionUsername, setToken } from '../api';
+import { API_BASE_URL, login, setSessionDetails, setSessionUsername, setToken } from '../api';
 import BackButton from '../BackButton';
 import { useThemeColors } from '../theme-context';
 
-// Google OAuth client IDs come from build-time env vars (Google Cloud Console
-// → Credentials → OAuth client ID). Google's auth hook THROWS without a
-// platform client ID, so the hook-driven button only mounts when at least one
-// is set; otherwise the SAME button renders in an honest "needs setup" state
-// (tapping explains the one-time developer step). The button itself is always
-// visible — Google login is a promised feature of this app.
-const GOOGLE_CLIENT_IDS = {
-  clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-};
-const hasGoogleConfig = Object.values(GOOGLE_CLIENT_IDS).some(Boolean);
-
-// The button is always shown; only its behavior changes with config.
-function GoogleButtonFace({ onPress, disabled, styles }) {
+// Google sign-in runs through the backend OAuth relay (/api/auth/google/start
+// → Google → /api/auth/google/callback): Expo Go deep links (exp://…) can't be
+// registered as Google OAuth redirect URIs and the old auth.expo.io proxy is
+// deprecated, so the backend holds the web client's secret and exchanges the
+// code itself, then deep-links back into the app with a normal session token.
+function GoogleSignInButton({ onPress, disabled, styles }) {
   return (
     <TouchableOpacity
       style={[styles.googleBtn, disabled && styles.googleBtnDisabled]}
@@ -36,42 +27,20 @@ function GoogleButtonFace({ onPress, disabled, styles }) {
   );
 }
 
-// Live Google flow (client IDs configured at build time).
-function GoogleSignInButton({ onSuccess, disabled, styles }) {
-  const [request, response, promptAsync] = Google.useAuthRequest(GOOGLE_CLIENT_IDS);
-
-  useEffect(() => {
-    if (response?.type === 'success' && response.authentication?.idToken) {
-      onSuccess(response.authentication.idToken);
-    } else if (response?.type === 'error') {
-      Alert.alert('Google Sign-In Failed', response.error?.description || 'Please try again.');
-    }
-  }, [response]);
-
-  return (
-    <GoogleButtonFace
-      onPress={() => promptAsync()}
-      disabled={disabled || !request}
-      styles={styles}
-    />
-  );
-}
-
-// Honest pre-setup state: the button exists, but Google OAuth needs client IDs
-// from Google Cloud Console (one-time, documented in DEPLOY.md).
-function GoogleUnconfiguredButton({ disabled, styles }) {
-  return (
-    <GoogleButtonFace
-      onPress={() =>
-        Alert.alert(
-          'Google sign-in is almost ready',
-          'This build needs the Google OAuth client IDs (Google Cloud Console → Credentials → OAuth client ID) to be set as EXPO_PUBLIC_GOOGLE_CLIENT_ID / EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID at build time. See DEPLOY.md → "Google sign-in". Until then, log in with your username and password.'
-        )
-      }
-      disabled={disabled}
-      styles={styles}
-    />
-  );
+// Parses ?a=b&c=d from a deep link without relying on Hermes URL support.
+function parseQuery(url) {
+  const i = url.indexOf('?');
+  const query = i >= 0 ? url.slice(i + 1) : '';
+  const out = {};
+  for (const pair of query.split('&')) {
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    if (eq <= 0) continue;
+    const k = decodeURIComponent(pair.slice(0, eq));
+    const v = decodeURIComponent(pair.slice(eq + 1));
+    if (k) out[k] = v;
+  }
+  return out;
 }
 
 export default function LoginScreen({ navigation }) {
@@ -141,15 +110,45 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // Google path: the backend verifies the id_token, then finds-or-creates the
-  // account by email (linking google_sub to an existing password account).
-  const handleGoogleIdToken = async (idToken) => {
+  // Google path: open the backend relay in a browser. The backend redirects
+  // to Google, exchanges the code with the web client's secret, and deep-links
+  // back here with a session token (plus the account identity).
+  const handleGoogleRelay = async () => {
     setLoading(true);
     try {
-      const response = await googleAuth({ idToken });
-      finishLogin(response, 'customer');
+      const returnUrl = Linking.createURL('google-auth');
+      const startUrl = `${API_BASE_URL}/api/auth/google/start?returnUrl=${encodeURIComponent(returnUrl)}`;
+      const result = await WebBrowser.openAuthSessionAsync(startUrl, returnUrl);
+      if (result.type === 'success' && result.url) {
+        const params = parseQuery(result.url);
+        const token = params.token;
+        if (token) {
+          finishLogin(
+            {
+              token,
+              user: {
+                username: params.username || 'customer',
+                role: params.role || 'customer',
+                email: params.email || '',
+                email_verified: params.email_verified !== '0',
+              },
+            },
+            params.username || 'customer'
+          );
+          return;
+        }
+        Alert.alert(
+          'Google Sign-In Failed',
+          params.error ? `Google error: ${params.error}` : 'No token returned. Please try again.'
+        );
+      } else if (result.type === 'cancel') {
+        // User backed out of the Google page — stay on the login screen.
+      } else {
+        const msg = result.error && (result.error.message || result.error.description);
+        Alert.alert('Google Sign-In Failed', msg || 'Please try again.');
+      }
     } catch (err) {
-      Alert.alert('Google Sign-In Failed', err.message || 'Please try again.');
+      Alert.alert('Google Sign-In Failed', (err && err.message) || 'Please try again.');
     } finally {
       setLoading(false);
     }
@@ -195,11 +194,7 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.dividerText}>or continue with</Text>
           <View style={styles.divider} />
         </View>
-        {hasGoogleConfig ? (
-          <GoogleSignInButton onSuccess={handleGoogleIdToken} disabled={loading} styles={styles} />
-        ) : (
-          <GoogleUnconfiguredButton disabled={loading} styles={styles} />
-        )}
+        <GoogleSignInButton onPress={handleGoogleRelay} disabled={loading} styles={styles} />
       </View>
 
       <TouchableOpacity
