@@ -16,8 +16,16 @@ internet-to-PC needed** — and it talks to the **live backend**
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/ppG_WTLFF5dL7vzFPl_s0d4gGUsp6uRJhf-C4jDvOAo.apk
+https://expo.dev/artifacts/eas/K4DiM7l5nnQQmBPIYEeMjuf6bFzY7oDgHV7tuR7rn1o.apk
 ```
+
+> **v1.0.0 (Aug 11, crash-fix build):** the previous build crashed on launch
+> because `@expo/vector-icons` (tab bar / icons) needs `expo-font` as a direct
+> native module — missing it, the standalone APK died at startup while Expo Go
+> worked (Expo Go bundles the module). This build adds `expo-font` at the
+> SDK-54 version, rebuilds the dependency tree from scratch (removed a
+> corrupted duplicate), and passes `expo-doctor` 18/18. If you hit the crash
+> on the previous build: **uninstall the old app, then install this one.**
 
 - **Profile:** `production` (release build, same signing key as previous
   installs → updates in place, no uninstall needed)
