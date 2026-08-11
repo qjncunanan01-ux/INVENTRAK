@@ -34,6 +34,21 @@ test('matchProducts handles empty text', () => {
   assert.deepStrictEqual(matchProducts('!!!', PRODUCTS), []);
 });
 
+test('matchProducts reads price from both raw (capitalized) and normalized rows', () => {
+  // Raw catalog rows (npm-free / Firestore path) use `Price`; SQLite
+  // normalization uses `price`. Match cards must show P<price> on both.
+  const raw = matchProducts('CARAMEL SAUCE', [
+    { id: 9, 'Product Name': 'Classic Caramel Sauce', Price: 950, Image: '/images/x.jpg' },
+  ]);
+  assert.strictEqual(raw[0].price, 950);
+  assert.strictEqual(raw[0].image, '/images/x.jpg');
+  const norm = matchProducts('CARAMEL SAUCE', [
+    { id: 10, name: 'Classic Caramel Sauce', price: 950, image: '/images/y.jpg' },
+  ]);
+  assert.strictEqual(norm[0].price, 950);
+  assert.strictEqual(norm[0].image, '/images/y.jpg');
+});
+
 test('matchProducts respects limit and minScore', () => {
   const all = matchProducts('sauce', PRODUCTS, { limit: 10, minScore: 0 });
   assert.ok(all.length >= 2);

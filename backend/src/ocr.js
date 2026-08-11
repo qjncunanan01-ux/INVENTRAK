@@ -66,7 +66,11 @@ function matchProducts(text, products, { limit = 5, minScore = 0.25 } = {}) {
     .map((p) => ({
       id: p.id,
       name: p.name || p['Product Name'],
-      price: p.price,
+      // Price/image live under BOTH conventions: SQLite passes normalized rows
+      // (lowercase `price`), the npm-free/Firestore path passes raw catalog
+      // rows (capitalized `Price`). Mirror the name fallback so OCR match
+      // cards show the same data on both backends.
+      price: p.price ?? p.Price,
       image: p.image || p.Image,
       score: matchScore(tokens, p.name || p['Product Name']),
     }))
