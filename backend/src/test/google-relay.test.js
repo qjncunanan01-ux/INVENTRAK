@@ -101,13 +101,21 @@ test.beforeEach(() => resetJwksCache());
 
 // ================= Unit: return-URL allowlist =================
 
-test('isAllowedReturnUrl accepts app deep links and localhost, rejects everything else', () => {
+test('isAllowedReturnUrl accepts app deep links, localhost, and the deployed web app; rejects everything else', () => {
   assert.strictEqual(isAllowedReturnUrl('exp://demo-tunnel-8081.exp.direct/--/google-auth'), true);
   assert.strictEqual(isAllowedReturnUrl('exp://192.168.1.5:8081/--/x'), true);
   assert.strictEqual(isAllowedReturnUrl('inventrak://google-auth'), true);
   assert.strictEqual(isAllowedReturnUrl('http://localhost:4001/cb'), true);
   assert.strictEqual(isAllowedReturnUrl('http://127.0.0.1:4001/cb'), true);
+  // Browser build of the customer app (hash-based return, any path/query).
+  assert.strictEqual(isAllowedReturnUrl('https://inventrak-mobile.onrender.com/#/google-auth'), true);
+  assert.strictEqual(isAllowedReturnUrl('https://inventrak-mobile.onrender.com/--/google-auth?token=x'), true);
+  // Env override adds extra origins; without it they are rejected.
+  assert.strictEqual(isAllowedReturnUrl('https://myapp.example.com/cb', { GOOGLE_RETURN_HOSTS: 'myapp.example.com' }), true);
+  assert.strictEqual(isAllowedReturnUrl('https://myapp.example.com/cb'), false);
+  // Hosts we do not own can never carry the token.
   assert.strictEqual(isAllowedReturnUrl('https://evil.example.com/phish'), false);
+  assert.strictEqual(isAllowedReturnUrl('https://inventrak-mobile.evil.com/x'), false);
   assert.strictEqual(isAllowedReturnUrl('https://inventrak-api.onrender.com/x'), false);
   assert.strictEqual(isAllowedReturnUrl('exp:'), false);
   assert.strictEqual(isAllowedReturnUrl(''), false);

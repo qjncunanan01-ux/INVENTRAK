@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Button, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Button, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -116,6 +116,15 @@ export default function LoginScreen({ navigation }) {
   const handleGoogleRelay = async () => {
     setLoading(true);
     try {
+      // Browser build: full-page navigation (no in-app browser session). The
+      // backend returns to `/#/google-auth?token=…` — hash-based, because the
+      // static host has no SPA fallback — and App.js applies the session when
+      // the app boots back up.
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const returnUrl = `${window.location.origin}/#/google-auth`;
+        window.location.href = `${API_BASE_URL}/api/auth/google/start?returnUrl=${encodeURIComponent(returnUrl)}`;
+        return;
+      }
       const returnUrl = Linking.createURL('google-auth');
       const startUrl = `${API_BASE_URL}/api/auth/google/start?returnUrl=${encodeURIComponent(returnUrl)}`;
       const result = await WebBrowser.openAuthSessionAsync(startUrl, returnUrl);

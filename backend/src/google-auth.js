@@ -214,10 +214,24 @@ function consumeRelayState(state, now = Date.now()) {
 }
 
 // Only app deep links may carry the session token back: Expo Go (exp://), the
-// standalone app scheme (inventrak://), and localhost http for local dev.
+// standalone app scheme (inventrak://), localhost http for local dev, and
+// the deployed BROWSER build of the customer app over https.
 // Everything else (e.g. https://evil.example) is rejected so a forged state
 // cannot redirect a signed-in session to an attacker's site.
-function isAllowedReturnUrl(returnUrl) {
+//
+// The browser build (inventrak-mobile.onrender.com) returns the token to its
+// own origin — same trust boundary as the app deep links above, since the
+// token only ever travels to hosts we deploy. Extra origins can be added
+// (comma-separated) via GOOGLE_RETURN_HOSTS for custom deployments.
+function allowedHttpsReturnHosts(env = process.env) {
+  const extras = String(env.GOOGLE_RETURN_HOSTS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  return new Set(['inventrak-mobile.onrender.com', ...extras]);
+}
+
+function isAllowedReturnUrl(returnUrl, env = process.env) {
   if (typeof returnUrl !== 'string' || returnUrl.length === 0 || returnUrl.length > 500) {
     return false;
   }
@@ -230,6 +244,9 @@ function isAllowedReturnUrl(returnUrl) {
   if (!u.host) return false;
   if (u.protocol === 'exp:' || u.protocol === 'inventrak:') return true;
   if (u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')) {
+    return true;
+  }
+  if (u.protocol === 'https:' && allowedHttpsReturnHosts(env).has(u.hostname)) {
     return true;
   }
   return false;
