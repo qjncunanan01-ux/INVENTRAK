@@ -3,7 +3,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import AdminLayout from './AdminLayout';
 import { createAppTheme } from '../theme';
-import { ThemeModeProvider } from '../theme-mode';
 
 // jsdom has no matchMedia; MUI's useMediaQuery needs it. We emulate the
 // desktop viewport (md breakpoint = 900px) by returning matches:true for
@@ -24,13 +23,11 @@ function setViewport(desktop) {
 function renderLayout() {
   return render(
     <MemoryRouter initialEntries={['/']}>
-      <ThemeModeProvider>
-        <ThemeProvider theme={createAppTheme('light')}>
-          <AdminLayout title="Test Dashboard">
-            <div>page content</div>
-          </AdminLayout>
-        </ThemeProvider>
-      </ThemeModeProvider>
+      <ThemeProvider theme={createAppTheme()}>
+        <AdminLayout title="Test Dashboard">
+          <div>page content</div>
+        </AdminLayout>
+      </ThemeProvider>
     </MemoryRouter>
   );
 }
@@ -116,15 +113,11 @@ describe('AdminLayout responsive sidebar', () => {
     expect(container.querySelector('main')).toBeInTheDocument();
   });
 
-  test('mobile: the open drawer exposes the dark-mode toggle', () => {
+  test('mobile: the open drawer exposes the navigation landmark', () => {
     setViewport(false);
     renderLayout();
     fireEvent.click(screen.getByLabelText('Open navigation menu'));
-    // Scope inside the drawer itself so a hidden desktop-aside toggle can't
-    // satisfy the assertion — the drawer's own paper must have one.
     const drawer = document.querySelector('.MuiDrawer-root');
-    expect(within(drawer).getByLabelText('Toggle dark mode')).toBeInTheDocument();
-    // And the drawer exposes the navigation landmark for screen readers.
     expect(within(drawer).getByRole('navigation')).toBeInTheDocument();
   });
 });

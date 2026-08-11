@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Box, Button, Divider, Drawer, IconButton, Stack, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
-import DarkModeOutlined from '@mui/icons-material/DarkModeOutlined';
-import LightModeOutlined from '@mui/icons-material/LightModeOutlined';
 import MenuOutlined from '@mui/icons-material/MenuOutlined';
 import MenuOpenOutlined from '@mui/icons-material/MenuOpenOutlined';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
@@ -17,7 +15,6 @@ import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { brandSidebar, colors } from '../theme';
-import { useThemeMode } from '../theme-mode';
 
 // Grouped so an 11-item menu reads as a hierarchy instead of a wall of links.
 // Icons come from @mui/icons-material (already a dependency) — glyph icons
@@ -57,8 +54,6 @@ const EXPANDED_W = 280;
 // mini-variant icon rail (labels hidden, tooltips on hover).
 function NavContent({ collapsed = false, onNavigate }) {
   const location = useLocation();
-  const { mode, toggleMode } = useThemeMode();
-  const dark = mode === 'dark';
 
   return (
     <>
@@ -161,19 +156,6 @@ function NavContent({ collapsed = false, onNavigate }) {
               </Typography>
             </Box>
           )}
-          <Tooltip title={dark ? 'Switch to light mode' : 'Switch to dark mode'}>
-            <IconButton
-              onClick={toggleMode}
-              aria-label="Toggle dark mode"
-              sx={{
-                color: '#fff',
-                backgroundColor: 'rgba(255,255,255,0.14)',
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.26)' },
-              }}
-            >
-              {dark ? <LightModeOutlined fontSize="small" /> : <DarkModeOutlined fontSize="small" />}
-            </IconButton>
-          </Tooltip>
         </Box>
       </Box>
     </>
@@ -193,7 +175,7 @@ export default function AdminLayout({ title, children, onLogout }) {
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Persist the desktop collapse preference (mirrors the dark-mode pattern).
+  // Persist the desktop collapse preference.
   useEffect(() => {
     try {
       localStorage.setItem('inventrak.sidebar.collapsed', collapsed ? '1' : '0');

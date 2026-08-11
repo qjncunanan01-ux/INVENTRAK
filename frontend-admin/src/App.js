@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
@@ -15,7 +15,6 @@ import StockAdjustmentsPage from './pages/StockAdjustmentsPage';
 import StockMovementPage from './pages/StockMovementPage';
 import StockTransfersPage from './pages/StockTransfersPage';
 import { createAppTheme } from './theme';
-import { useThemeMode } from './theme-mode';
 
 function AppRoutes() {
   const [user, setUser] = useState(null);
@@ -44,11 +43,8 @@ function AppRoutes() {
 }
 
 function App() {
-  const { mode } = useThemeMode();
-  // Rebuild the MUI theme on mode change; applyPalette(mode) also swaps the
-  // mutable `colors` object every page reads in its sx props, so the whole
-  // admin flips light <-> dark without editing any page.
-  const theme = useMemo(() => createAppTheme(mode), [mode]);
+  // The admin is always light mode — dark mode was removed.
+  const theme = createAppTheme();
 
   return (
     <ThemeProvider theme={theme}>
