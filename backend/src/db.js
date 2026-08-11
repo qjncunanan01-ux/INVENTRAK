@@ -87,6 +87,14 @@ if (!inquiryColumns.some((c) => c.name === 'payment_provider')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_provider TEXT');
 }
 
+// Google sign-in: users table gains a nullable google_sub (Google's stable
+// account id) so OAuth-created accounts can be matched/linked by identity.
+// Additive, like the columns above.
+const googleUserColumns = db.prepare('PRAGMA table_info(users)').all();
+if (!googleUserColumns.some((c) => c.name === 'google_sub')) {
+  db.exec('ALTER TABLE users ADD COLUMN google_sub TEXT');
+}
+
 // Product images (supplier photo library -> /images/* served by both backends).
 const productColumns = db.prepare('PRAGMA table_info(products)').all();
 if (!productColumns.some((c) => c.name === 'image')) {

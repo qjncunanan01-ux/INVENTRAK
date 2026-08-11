@@ -211,6 +211,7 @@ export const apiDelete = client.apiDelete;
 // Typed endpoints generated from the OpenAPI contract.
 export const register = client.register;
 export const login = client.login;
+export const googleAuth = client.googleAuth;
 export const getMe = client.getMe;
 export const forgotPassword = client.forgotPassword;
 export const resetPassword = client.resetPassword;

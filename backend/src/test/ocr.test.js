@@ -49,6 +49,22 @@ test('matchProducts reads price from both raw (capitalized) and normalized rows'
   assert.strictEqual(norm[0].image, '/images/y.jpg');
 });
 
+test('matchProducts assigns positional ids to id-less raw rows (list keys + deep-link)', () => {
+  // Raw rows have no id; the match must still carry one (idx+1, matching the
+  // ids /api/products exposes) so React list keys are unique and the
+  // "View product" deep-link finds the right item on the Firestore path.
+  const matches = matchProducts('CARAMEL SAUCE', [
+    { 'Product Name': 'Classic Caramel Sauce', Price: 950 },
+    { 'Product Name': 'Other Sauce', Price: 100 },
+  ]);
+  assert.ok(matches.length >= 1);
+  for (const m of matches) {
+    assert.strictEqual(typeof m.id, 'number');
+    assert.ok(m.id >= 1);
+  }
+  assert.strictEqual(matches[0].id, 1, 'top match keeps its positional id');
+});
+
 test('matchProducts respects limit and minScore', () => {
   const all = matchProducts('sauce', PRODUCTS, { limit: 10, minScore: 0 });
   assert.ok(all.length >= 2);

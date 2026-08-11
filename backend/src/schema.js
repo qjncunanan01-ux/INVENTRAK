@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT,
   phone TEXT,
   email_verified INTEGER DEFAULT 1,
+  google_sub TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 

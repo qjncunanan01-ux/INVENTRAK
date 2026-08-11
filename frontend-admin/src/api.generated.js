@@ -56,6 +56,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   resendVerification: (body) => request('POST', '/api/auth/resend-verification', { body }),
   // POST /api/auth/login — Log in and receive a JWT token
   login: (body) => request('POST', '/api/auth/login', { body }),
+  // POST /api/auth/google — Sign in with a Google ID token (OAuth). Creates or links the customer account by email.
+  googleAuth: (body) => request('POST', '/api/auth/google', { body }),
   // GET /api/auth/me — Get the authenticated user's profile
   getMe: (_) => request('GET', '/api/auth/me', {  }),
   // POST /api/auth/forgot-password — Request a password reset code (emailed to the account, if the email exists)

@@ -258,6 +258,46 @@
         }
       }
     },
+    "/api/auth/google": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "googleAuth",
+        "summary": "Sign in with a Google ID token (OAuth). Creates or links the customer account by email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        }
+      }
+    },
     "/api/auth/me": {
       "get": {
         "tags": [
@@ -2338,6 +2378,16 @@
             }
           }
         }
+      },
+      "NotImplemented": {
+        "description": "Feature not configured on this server (e.g. Google OAuth without GOOGLE_CLIENT_IDS)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
       }
     },
     "schemas": {
@@ -4302,6 +4352,18 @@
           },
           "checkedAt": {
             "type": "string"
+          }
+        }
+      },
+      "GoogleAuthInput": {
+        "type": "object",
+        "required": [
+          "idToken"
+        ],
+        "properties": {
+          "idToken": {
+            "type": "string",
+            "description": "Google ID token from the OAuth sign-in flow"
           }
         }
       }

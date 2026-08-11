@@ -2,6 +2,7 @@
   "expo": {
     "name": "INVENTRAK",
     "slug": "inventrak-mobile",
+    "scheme": "inventrak",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -24,7 +25,8 @@
           "imageWidth": 280,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "ios": {
       "supportsTablet": true,

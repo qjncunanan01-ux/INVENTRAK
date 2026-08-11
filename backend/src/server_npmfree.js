@@ -10,6 +10,7 @@ const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
+const { verifyGoogleIdToken, isConfigured: googleAuthConfigured } = require('./google-auth');
 
 // Brute-force throttling shared with the SQLite backend (same module, same
 // semantics): failed logins per (username, IP) lock the account with an
@@ -546,6 +547,63 @@ const server = http.createServer((req, res) => {
       return sendJson(res, 200, {
         token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false }
+      });
+    });
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/google') {
+    return parseBody(req, async (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!obj.idToken) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['idToken is required'] });
+      }
+      if (!googleAuthConfigured()) {
+        return sendJson(res, 501, {
+          error: 'Google sign-in is not configured',
+          details: ['Set GOOGLE_CLIENT_IDS (comma-separated OAuth client IDs) on this server'],
+        });
+      }
+      const result = await verifyGoogleIdToken(obj.idToken);
+      if (!result.ok) {
+        return sendJson(res, 401, { error: 'Invalid Google token' });
+      }
+      const { sub, email } = result.payload;
+      if (!email) {
+        return sendJson(res, 401, { error: 'Invalid Google token' });
+      }
+      const lowerEmail = email.toLowerCase();
+      // Find by email (case-insensitive); link google_sub to an existing
+      // password account so Google sign-in is the SAME identity, not a dup.
+      let user = users.find((u) => String(u.email || '').toLowerCase() === lowerEmail);
+      if (!user) {
+        // New OAuth account: deduped username from the email prefix, random
+        // password (Google owns the identity), email pre-verified.
+        let base = (email.split('@')[0] || 'user')
+          .replace(/[^a-zA-Z0-9._-]/g, '')
+          .slice(0, 40) || 'user';
+        let username = base;
+        let n = 1;
+        while (users.some((u) => u.username === username)) username = `${base}${n++}`;
+        user = {
+          id: nextUserId++,
+          username,
+          password: hashPassword(crypto.randomBytes(24).toString('hex')),
+          role: 'customer',
+          email: lowerEmail,
+          phone: null,
+          email_verified: true,
+          google_sub: sub,
+          created_at: new Date().toISOString(),
+        };
+        users.push(user);
+        if (useFirestore) writeJSON('@users', users);
+      } else if (!user.google_sub) {
+        user.google_sub = sub;
+        if (useFirestore) writeJSON('@users', users);
+      }
+      return sendJson(res, 200, {
+        token: signToken(user.id),
+        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false },
       });
     });
   }
@@ -1823,7 +1881,12 @@ const server = http.createServer((req, res) => {
           ? sendJson(res, 413, { error: 'Payload too large' })
           : bodyError(res, err);
       }
-      const products = readJSON(productsFile) || [];
+      // Normalize through formatProduct so matches carry REAL ids (positional,
+      // exactly like /api/products) — raw rows have no id, which would make
+      // every OCR match key undefined (React list-key warning) and break the
+      // "View product" deep-link. Mirrors the SQLite backend, whose OCR
+      // handler passes rows that already have ids.
+      const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
       // parseBody does not mutate req.body (raw dispatcher); expose the parsed
       // object so the shared OCR handler can read it.
       req.body = obj;

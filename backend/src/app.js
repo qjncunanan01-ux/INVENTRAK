@@ -14,6 +14,7 @@ const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr } = require('./ocr');
 const { normalizeLines, summarizeLines } = require('./product-lines');
+const { verifyGoogleIdToken, isConfigured: googleAuthConfigured } = require('./google-auth');
 
 // Attach a parsed, normalized `products_detail` array to every inquiry row so
 // clients (admin + mobile) can render per-line prices without re-parsing the
@@ -621,6 +622,84 @@ app.post(
         hashPassword(password),
         user.id
       );
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
+      JWT_SECRET,
+      {
+        expiresIn: '24h',
+      }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        email: user.email,
+        email_verified: !!user.email_verified,
+      },
+    });
+  }
+);
+
+app.post(
+  '/api/auth/google',
+  validate({
+    idToken: {
+      required: true,
+    },
+  }),
+  async (req, res) => {
+    if (!googleAuthConfigured()) {
+      return res.status(501).json({
+        error: 'Google sign-in is not configured',
+        details: ['Set GOOGLE_CLIENT_IDS (comma-separated OAuth client IDs) on this server'],
+      });
+    }
+
+    const result = await verifyGoogleIdToken(req.body.idToken);
+    if (!result.ok) {
+      return res.status(401).json({ error: 'Invalid Google token' });
+    }
+    const { sub, email } = result.payload;
+    if (!email) {
+      return res.status(401).json({ error: 'Invalid Google token' });
+    }
+    const lowerEmail = email.toLowerCase();
+
+    // Find an existing account by email; link google_sub to it (a customer
+    // who registered by password can sign in with Google afterwards — same
+    // identity, no duplicate account).
+    let user = db.prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').get(lowerEmail);
+    if (!user) {
+      // New account: username derived from the email prefix, deduped against
+      // existing usernames; random password so the account can never be
+      // password-logged-in (Google owns the identity); email pre-verified.
+      let base = (email.split('@')[0] || 'user')
+        .replace(/[^a-zA-Z0-9._-]/g, '')
+        .slice(0, 40);
+      if (!base) base = 'user';
+      let username = base;
+      let n = 1;
+      while (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) {
+        username = `${base}${n++}`;
+      }
+      const info = db
+        .prepare(
+          'INSERT INTO users (username, password, role, email, phone, email_verified, google_sub) VALUES (?, ?, ?, ?, ?, 1, ?)'
+        )
+        .run(username, hashPassword(crypto.randomBytes(24).toString('hex')), 'customer', lowerEmail, null, sub);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+    } else if (!user.google_sub) {
+      db.prepare('UPDATE users SET google_sub = ? WHERE id = ?').run(sub, user.id);
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     }
 
     const token = jwt.sign(

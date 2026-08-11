@@ -205,6 +205,18 @@ test('openapi: login happy path + failure', async () => {
   });
 });
 
+test('openapi: google auth conforms on both backends (missing + garbage)', async () => {
+  // Missing idToken violates GoogleAuthInput -> 400; a garbage token when no
+  // GOOGLE_CLIENT_IDS is set -> 501 (NotImplemented). Both documented.
+  // checkRequest: false — the missing field is the point of the test.
+  await bothConform('google auth missing token', 'POST', '/api/auth/google', {
+    body: {}, checkRequest: false,
+  });
+  await bothConform('google auth garbage token', 'POST', '/api/auth/google', {
+    body: { idToken: 'abc.def.ghi' }, checkRequest: false,
+  });
+});
+
 test('openapi: login lockout 429 conforms to LockoutError on both backends', async () => {
   // Brute-force lockout: 6 bad logins to a dedicated username trips the
   // 429 response, whose body must match the documented LockoutError schema.

@@ -63,8 +63,11 @@ function matchProducts(text, products, { limit = 5, minScore = 0.25 } = {}) {
   if (tokens.length === 0) return [];
 
   return products
-    .map((p) => ({
-      id: p.id,
+    .map((p, idx) => ({
+      // Positional fallback: raw catalog rows (no id) get idx+1, matching the
+      // ids the /api/products routes expose — so OCR match ids always point at
+      // a real product, and list keys are never duplicated/undefined.
+      id: p.id ?? idx + 1,
       name: p.name || p['Product Name'],
       // Price/image live under BOTH conventions: SQLite passes normalized rows
       // (lowercase `price`), the npm-free/Firestore path passes raw catalog

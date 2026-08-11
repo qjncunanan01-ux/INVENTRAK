@@ -388,6 +388,59 @@ It sends a real test email + test SMS and prints `PASS`/`FAIL` per channel
 register a new account in the mobile app → you'll receive the 6-digit
 verification code by email (and SMS if you added a phone).
 
+## Google sign-in ("Continue with Google")
+
+The mobile login screen shows a **Continue with Google** button (with an
+"or continue with" divider) once OAuth client IDs are configured. The
+backend verifies Google's `id_token` (pure-Node RS256 check against Google's
+published JWKS — no new dependencies), then **finds-or-creates** the
+customer account by email and returns the same session token as
+username/password login. Signing in with Google on an existing
+password account links it (same identity, no duplicate).
+
+### 1. Create the OAuth client IDs (Google Cloud Console, ~10 min, once)
+
+1. Go to https://console.cloud.google.com → pick your project (or create one)
+2. **APIs & Services → OAuth consent screen** → External → fill the app name
+   + your email → save. Add the scope `.../auth/userinfo.email` (default).
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**
+   - **Android** (the APK): Application type *Android* → package name
+     `com.inventrak.mobile` → paste the SHA-1 signing fingerprint from
+     `npx eas-cli credentials` (or the Play Console if you ever publish).
+   - **Web** (Expo Go / browser dev): Application type *Web* → authorized
+     redirect URIs: leave empty for dev (expo-auth-session uses its own
+     redirect) or add the EAS/expo.dev redirect as needed.
+   - **(Optional) iOS**: Application type *iOS* → bundle id `com.inventrak.mobile`.
+4. Copy the client IDs (the `...apps.googleusercontent.com` strings).
+
+### 2. Wire them in
+
+**Backend (Render) — service Environment Variables:**
+```
+GOOGLE_CLIENT_IDS=<web-client-id>,<android-client-id>,<ios-client-id>
+```
+(comma-separated; the server accepts a token whose `aud` is any of these)
+
+**Mobile app (baked in at build time, like the API URL):**
+```bash
+cd mobile-client
+EXPO_PUBLIC_GOOGLE_CLIENT_ID=<web-client-id> \
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=<android-client-id> \
+EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID=<expo-go-client-id> \
+npx eas-cli build --platform android --profile production
+```
+Without these env vars the button is simply hidden (username/password still
+works). The Android client ID is what the installed APK uses; the Expo Go
+client ID is only needed while developing in Expo Go.
+
+### 3. Verify
+- Login screen shows the Google button → tap → Google account chooser →
+  back in the app logged in (account auto-created on first use)
+- The new account appears in `users` (Firestore console / admin users) with
+  `google_sub` set and `email_verified = true`
+- `POST /api/auth/google` returns `401` for a forged token and `501` when
+  `GOOGLE_CLIENT_IDS` is unset (contract-tested on both backends)
+
 ## Verification checklist
 
 - [ ] `GET /api/openapi.json` returns the spec (200)
@@ -397,6 +450,8 @@ verification code by email (and SMS if you added a phone).
       Firestore (products, inventory, alerts)
 - [ ] Mobile app logs in via the deployed API URL; an order inquiry placed on
       the phone appears in the admin Order Inquiries page
+- [ ] (If configured) the login screen shows **Continue with Google** and a
+      Google sign-in creates/links the account
 - [ ] Firestore console shows the `products`, `inventory`, `users` collections
 
 ## Safety / rollback

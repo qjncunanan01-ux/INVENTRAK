@@ -39,6 +39,23 @@ test('contract: login rejects bad credentials identically', async () => {
   });
 });
 
+test('contract: google auth responds identically (missing token, unconfigured, garbage)', async () => {
+  // Test env has no GOOGLE_CLIENT_IDS, so both backends must answer 501 with
+  // the same body for any token when unconfigured, and 400 for a missing one.
+  await both('POST /api/auth/google (missing token)', '/api/auth/google', {
+    method: 'POST',
+    body: {},
+  });
+  await both('POST /api/auth/google (garbage token, unconfigured)', '/api/auth/google', {
+    method: 'POST',
+    body: { idToken: 'not.a.real.token' },
+  });
+  await both('POST /api/auth/google (empty token, unconfigured)', '/api/auth/google', {
+    method: 'POST',
+    body: { idToken: '' },
+  });
+});
+
 test('contract: register happy path + duplicates + validation', async () => {
   const username = `contract_user_${Date.now()}`;
   await both('POST /api/auth/register', '/api/auth/register', {
