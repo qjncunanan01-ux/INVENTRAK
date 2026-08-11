@@ -16,7 +16,7 @@ internet-to-PC needed** — and it talks to the **live backend**
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/sEULjtDcvLJqSLS1efP28rdqp5X53Wt_4Cfzp_4ewtE.apk
+https://expo.dev/artifacts/eas/gHbuwWtJFHs1hfQRX59pv2OKxu4fwpDsFyCzevq5-ZU.apk
 ```
 
 - **Profile:** `production` (release build, same signing key as previous
@@ -25,7 +25,15 @@ https://expo.dev/artifacts/eas/sEULjtDcvLJqSLS1efP28rdqp5X53Wt_4Cfzp_4ewtE.apk
   Android mask safe zone), and a white splash screen with the centered logo
 - **Login screen:** clean customer login — no API server URL field, no
   "API: https://…" text in error popups; the app always uses the baked-in
-  deployed backend
+  deployed backend. **"Continue with Google"** button is now always visible
+  (runs the real Google flow once the OAuth client IDs are configured — see
+  DEPLOY.md "Google sign-in"; until then it explains the one-time setup)
+- **Scan flow:** catalog camera icon → OCR reads only the label text that can
+  match (barcode/nutrition/ingredients are stripped), strong matches auto-open
+  the product, and match cards carry real ids + prices
+- **Catalog layout:** category + sort chip rows keep fixed heights on narrow
+  phones (no more overlapping the result counter), and every list key is
+  hardened so duplicate-key warnings can't appear
 - **Backend:** `https://inventrak-api.onrender.com` baked in (Firestore)
 - **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
 
