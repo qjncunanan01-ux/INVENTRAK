@@ -249,7 +249,7 @@ function buildGoogleAuthUrl({ clientId, redirectUri, state, scope = 'openid emai
 
 // Exchanges the one-time authorization code for tokens using the web client's
 // secret. Injectable fetch so tests never touch the network.
-async function exchangeCodeForTokens(code, { clientId, clientSecret, redirectUri, fetchImpl = (u) => fetch(u) }) {
+async function exchangeCodeForTokens(code, { clientId, clientSecret, redirectUri, fetchImpl = (u, init) => fetch(u, init) }) {
   if (!code || !clientId || !clientSecret) {
     return { ok: false, reason: 'missing-params' };
   }

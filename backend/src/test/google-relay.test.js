@@ -210,6 +210,31 @@ test('exchangeCodeForTokens succeeds and reports failures precisely', async () =
   assert.deepStrictEqual(missing, { ok: false, reason: 'missing-params' });
 });
 
+test('exchangeCodeForTokens with the DEFAULT fetch forwards POST + body (regression: http_404 live bug)', async () => {
+  // The default fetchImpl must forward init — an earlier version only passed
+  // the URL, so the live server sent a plain GET to Google's token endpoint,
+  // which answers 404 (POST only). Inject via global.fetch, exactly like the
+  // server code paths do, and assert the request that actually leaves.
+  const original = global.fetch;
+  let seenMethod = null;
+  let seenBody = null;
+  global.fetch = async (u, init) => {
+    seenMethod = init && init.method;
+    seenBody = init && init.body;
+    return { ok: true, text: async () => JSON.stringify({ id_token: 'jwt-x' }) };
+  };
+  try {
+    const res = await exchangeCodeForTokens('the-code', {
+      clientId: 'c', clientSecret: 's', redirectUri: 'http://localhost:4001/cb',
+    });
+    assert.deepStrictEqual(res, { ok: true, tokens: { id_token: 'jwt-x' } });
+    assert.strictEqual(seenMethod, 'POST', 'default fetchImpl must send POST');
+    assert.ok(seenBody && seenBody.includes('grant_type=authorization_code'), 'default fetchImpl must send the form body');
+  } finally {
+    global.fetch = original;
+  }
+});
+
 // ================= Server-level: both backends =================
 
 test('start returns 501 when the relay is not configured (both backends)', async () => {
