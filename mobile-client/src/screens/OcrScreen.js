@@ -185,8 +185,13 @@ export default function OcrScreen({ navigation }) {
       {matches.length > 0 ? (
         <View>
           <Text style={styles.sectionTitle}>Matched products</Text>
-          {matches.map((m) => (
-            <TouchableOpacity key={m.id} style={styles.matchCard} onPress={() => openProduct(m)} activeOpacity={0.7}>
+          {matches.map((m, idx) => (
+            <TouchableOpacity
+              key={m.id ?? m.name ?? idx}
+              style={styles.matchCard}
+              onPress={() => openProduct(m)}
+              activeOpacity={0.7}
+            >
               {m.image ? (
                 <Image source={{ uri: imageUrl(m.image) }} style={styles.matchThumb} resizeMode="cover" />
               ) : null}
