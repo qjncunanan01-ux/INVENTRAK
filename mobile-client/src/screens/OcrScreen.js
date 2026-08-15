@@ -141,17 +141,24 @@ export default function OcrScreen({ navigation }) {
         Alert.alert('No image', 'Could not read the selected image.');
         return;
       }
-      await runOcr(payload);
+      // Pass the original file name along: catalog-image uploads (the SYLVER
+      // product photos from the gallery) resolve to the exact product by name
+      // on the server — no OCR needed, and those ~300px thumbnails contain
+      // no readable text anyway. Camera captures have no file name, so OCR
+      // runs on the full-res frame as before.
+      await runOcr(payload, asset.fileName);
     } catch (err) {
       setError('Could not open the camera / photo library.');
     }
   };
 
-  const runOcr = async (base64) => {
+  const runOcr = async (base64, filename) => {
     setBusy(true);
     setError('');
     try {
-      const data = await scanProductPhoto({ image: base64 });
+      const data = await scanProductPhoto(
+        filename ? { image: base64, filename } : { image: base64 }
+      );
       const list = Array.isArray(data.matches) ? data.matches : [];
       setText(data.text || '');
       setMatches(list);

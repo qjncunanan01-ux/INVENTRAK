@@ -182,13 +182,82 @@ function loadTesseract() {
   return tesseractPromise;
 }
 
+// Lazy jimp require — image preprocessing is a best-effort enhancement. If the
+// package is ever missing, the scan still runs on the raw image instead of
+// failing, so this can never break the endpoint.
+let jimpPromise = null;
+function loadJimp() {
+  if (!jimpPromise) {
+    jimpPromise = (async () => {
+      const mod = require('jimp');
+      return mod;
+    })().catch((err) => {
+      jimpPromise = null; // allow retry on next call
+      throw err;
+    });
+  }
+  return jimpPromise;
+}
+
+// Server-side preprocessing before tesseract — the clients already normalize
+// (upscale to ~1600px, grayscale, contrast), but API consumers and the admin
+// phone browser may send raw captures, so the server does it too as a safety
+// net: small labels get upscaled, huge phone photos get capped so OCR stays
+// fast, then grayscale + contrast stretch kills glare/color noise. Any decode
+// failure returns the original buffer unchanged — a scan is never blocked.
+async function preprocessImage(buf) {
+  try {
+    const Jimp = await loadJimp();
+    const img = await Jimp.read(buf);
+    const longEdge = Math.max(img.bitmap.width, img.bitmap.height);
+    let scale = 1;
+    if (longEdge < 1000) scale = Math.min(3, Math.max(1, Math.round(1000 / longEdge)));
+    else if (longEdge > 2400) scale = 2400 / longEdge;
+    if (scale !== 1) {
+      img.resize(
+        Math.max(1, Math.round(img.bitmap.width * scale)),
+        Math.max(1, Math.round(img.bitmap.height * scale)),
+        Jimp.RESIZE_BICUBIC
+      );
+    }
+    img.greyscale().contrast(0.35);
+    return await img.getBufferAsync(Jimp.MIME_JPEG);
+  } catch (err) {
+    return buf;
+  }
+}
+
 // Run OCR on a base64-encoded image. Returns { text }. The base64 string is
 // decoded to a Buffer because tesseract.js v7 treats a bare base64 string as a
-// file path; Buffers are passed straight to the engine.
+// file path; Buffers are passed straight to the engine. The image is
+// preprocessed first (upscale/grayscale/contrast) and read with BOTH page-
+// segmentation modes: AUTO for flat labels, then SPARSE_TEXT when AUTO found
+// little — sparse text reads curved bottle labels and angled photos that the
+// block-layout AUTO mode misses. Results are merged, deduped and joined.
 async function ocrImage(base64) {
-  const { worker } = await loadTesseract();
-  const { data } = await worker.recognize(Buffer.from(base64.replace(/\s+/g, ''), 'base64'));
-  return { text: (data && data.text) || '' };
+  const { worker, mod } = await loadTesseract();
+  const { PSM } = mod;
+  const buf = await preprocessImage(Buffer.from(base64.replace(/\s+/g, ''), 'base64'));
+
+  const read = async (psm) => {
+    await worker.setParameters({ tessedit_pageseg_mode: psm });
+    const { data } = await worker.recognize(buf);
+    return ((data && data.text) || '').split(/\r?\n/);
+  };
+
+  const lines = await read(PSM.AUTO);
+  const joined = lines.filter((l) => l.trim()).join(' ');
+  // AUTO found almost nothing (a blank / logo-only read): retry with sparse
+  // text segmentation, which is much better at scattered label text, and
+  // merge any lines it adds.
+  if ((joined.match(/[a-z]/gi) || []).length < 6) {
+    const sparse = await read(PSM.SPARSE_TEXT);
+    for (const line of sparse) {
+      const t = line.trim();
+      if (t && !lines.includes(t)) lines.push(t);
+    }
+  }
+  return { text: lines.join('\n') };
 }
 
 // How many distinctive OCR tokens a product name actually matched (a count,
@@ -317,6 +386,20 @@ async function filenameMatchOrNull(req, products) {
   return matches;
 }
 
+// Shut down the shared tesseract worker (used by tests so the process can
+// exit; the server itself stays up for its lifetime). Safe to call anytime.
+async function terminateOcr() {
+  if (tesseractPromise) {
+    try {
+      const { worker } = await tesseractPromise;
+      await worker.terminate();
+    } catch (err) {
+      /* already terminated */
+    }
+    tesseractPromise = null;
+  }
+}
+
 // Express-style handler shared by both backends. `products` is the active
 // product list (each item may use either SQLite or JSON-file field names).
 async function handleOcr(req, res, sendJson, products) {
@@ -421,4 +504,4 @@ async function handleOcrStock(req, res, sendJson, products, stockLookup) {
   return sendJson(res, 200, { text, matches });
 }
 
-module.exports = { ocrImage, matchProducts, handleOcr, handleOcrStock, attachStock, normalize, matchScore, filterOcrText, matchByFilename, basenameOf, stemOf, isDecodedImage };
+module.exports = { ocrImage, preprocessImage, terminateOcr, matchProducts, handleOcr, handleOcrStock, attachStock, normalize, matchScore, filterOcrText, matchByFilename, basenameOf, stemOf, isDecodedImage };
