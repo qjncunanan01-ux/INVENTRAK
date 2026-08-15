@@ -68,6 +68,18 @@ function hashCode(code) {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'inventrak-secret-key-2024';
+
+if (!process.env.JWT_SECRET) {
+  // The fallback is PUBLIC (it lives in this repo): on a server running
+  // without the env var, anyone who reads the source can forge admin tokens.
+  // Deployed servers must set JWT_SECRET (see DEPLOY.md).
+  console.warn(
+    '[security] JWT_SECRET is not set — using the PUBLIC fallback secret. ' +
+    'Set JWT_SECRET on the deployed server, or anyone who reads this repo ' +
+    'can forge admin tokens.'
+  );
+}
+
 const dataDir = path.join(__dirname, '..', 'data');
 const productsFile = path.join(dataDir, 'products.json');
 
@@ -325,6 +337,39 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// --- Security headers (defense-in-depth). HSTS is only sent when the request
+// actually arrived over TLS (Render terminates HTTPS and sets
+// X-Forwarded-Proto) — never on a local plaintext dev server. JSON API
+// responses get the strict default-src 'none' CSP; the Swagger UI page loads
+// unpkg scripts, so it only gets frame-ancestors.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Permissions-Policy', 'microphone=(), geolocation=()');
+  if (req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  res.setHeader(
+    'Content-Security-Policy',
+    req.path.startsWith('/api/docs')
+      ? "frame-ancestors 'none'"
+      : "default-src 'none'; frame-ancestors 'none'"
+  );
+  next();
+});
+
+// Force HTTPS behind the Render/Cloud proxy: a plaintext request is
+// redirected before any route logic runs. Local dev has no X-Forwarded-Proto,
+// so nothing changes there.
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] === 'http') {
+    return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+  }
+  next();
+});
+
 // Product photos: /images/<file> serves the supplier image library committed
 // under backend/images (the product `image` field holds '/images/...'). This
 // is middleware (not a route) so the route<->spec audit doesn't require an
@@ -354,6 +399,11 @@ app.post(
     },
   }),
   async (req, res) => {
+    // Bot honeypot: real clients never send `website`; bots that fill every
+    // field trip this and get rejected before any account work.
+    if (req.body.website) {
+      return res.status(400).json({ error: 'Validation failed', details: ['Unexpected field: website'] });
+    }
     const {
       username,
       password,
@@ -580,6 +630,11 @@ app.post(
     },
   }),
   (req, res) => {
+    // Bot honeypot: real clients never send `website`; bots that fill every
+    // field trip this and get rejected before any credential work.
+    if (req.body.website) {
+      return res.status(400).json({ error: 'Validation failed', details: ['Unexpected field: website'] });
+    }
     const {
       username,
       password,

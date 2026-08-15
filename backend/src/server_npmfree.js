@@ -138,23 +138,40 @@ function persistResetTokens() {
 // --- Demo-token auth: HMAC-signed so a token cannot be forged. The SQLite
 // backend signs JWTs with a secret; this mirrors that with zero dependencies.
 const TOKEN_SECRET = process.env.NPMFREE_TOKEN_SECRET || 'inventrak-npmfree-token-secret';
+// Mirrors the SQLite backend's 24h JWT lifetime. Env-tunable so tests can
+// exercise expiry without waiting a day.
+const TOKEN_TTL_MS = Number(process.env.TOKEN_TTL_MS) || 24 * 60 * 60 * 1000;
 
+if (!process.env.NPMFREE_TOKEN_SECRET) {
+  // The fallback is PUBLIC (it lives in this repo): on a server running
+  // without the env var, anyone who reads the source can forge admin tokens.
+  // Render deploys must set NPMFREE_TOKEN_SECRET (see DEPLOY.md).
+  console.warn(
+    '[security] NPMFREE_TOKEN_SECRET is not set — using the PUBLIC fallback secret. ' +
+    'Set NPMFREE_TOKEN_SECRET on the deployed server (Render: Service → Environment), ' +
+    'or anyone who reads this repo can forge admin tokens.'
+  );
+}
+
+// Token format: demo-token-<userId>.<expiresAtEpochMs>.<hmac-sha256(userId.exp)>
+// The expiry is part of the SIGNED payload, so an attacker cannot extend it,
+// and the signature comparison runs in constant time.
 function signToken(userId) {
-  const payload = String(userId);
+  const exp = Date.now() + TOKEN_TTL_MS;
+  const payload = `${userId}.${exp}`;
   const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('base64url');
   return `demo-token-${payload}.${sig}`;
 }
 
 function verifyToken(token) {
   if (!token || !token.startsWith('demo-token-')) return null;
-  const body = token.slice('demo-token-'.length);
-  const dot = body.lastIndexOf('.');
-  if (dot <= 0) return null;
-  const idStr = body.slice(0, dot);
-  const sig = body.slice(dot + 1);
+  const parts = token.slice('demo-token-'.length).split('.');
+  if (parts.length !== 3) return null;
+  const [idStr, expStr, sig] = parts;
   const id = Number(idStr);
-  if (!Number.isInteger(id) || id < 1) return null;
-  const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(idStr).digest('base64url');
+  const exp = Number(expStr);
+  if (!Number.isInteger(id) || id < 1 || !Number.isFinite(exp) || exp <= Date.now()) return null;
+  const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(`${idStr}.${expStr}`).digest('base64url');
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
@@ -414,7 +431,12 @@ function parseBodyWithLimit(req, limitBytes, callback) {
 }
 
 function sendJson(res, status, payload) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    // JSON API payloads are never documents: default-src 'none' is the
+    // strictest (and correct) posture for them.
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+  });
   res.end(JSON.stringify(payload));
 }
 
@@ -422,6 +444,20 @@ function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+// Defense-in-depth response headers applied to every response. HSTS is only
+// sent when the request actually arrived over TLS (Render terminates HTTPS
+// and sets X-Forwarded-Proto) — never on a local plaintext dev server.
+function setSecurityHeaders(req, res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Permissions-Policy', 'microphone=(), geolocation=()');
+  if (req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
 }
 
 // --- Demo-token auth (mirrors the SQLite backend's protected routes) ---
@@ -467,6 +503,16 @@ const swaggerUiHtml = `<!DOCTYPE html>
 const server = http.createServer((req, res) => {
   const url = req.url;
   setCorsHeaders(res);
+  setSecurityHeaders(req, res);
+
+  // Force HTTPS behind the Render/Cloud proxy: a plaintext request is
+  // redirected before any logic runs. Local dev has no X-Forwarded-Proto, so
+  // nothing changes there.
+  if (req.headers['x-forwarded-proto'] === 'http') {
+    const host = req.headers.host || 'localhost';
+    res.writeHead(301, { Location: `https://${host}${req.url}` });
+    return res.end();
+  }
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -521,6 +567,11 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/login') {
     return parseBody(req, (err, obj) => {
       if (err) return bodyError(res, err);
+      // Bot honeypot: real clients never send `website`; bots that fill every
+      // field trip this and get rejected before any credential work.
+      if (obj.website) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['Unexpected field: website'] });
+      }
       if (!obj.username || !obj.password) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username and password are required'] });
       }
@@ -623,6 +674,11 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/register') {
     return parseBody(req, async (err, obj) => {
       if (err) return bodyError(res, err);
+      // Bot honeypot: real clients never send `website`; bots that fill every
+      // form field trip this and get rejected before any account work.
+      if (obj.website) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['Unexpected field: website'] });
+      }
       if (!obj.username || !obj.password || !obj.email || !obj.phone) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username, password, email and phone are required'] });
       }

@@ -12,6 +12,22 @@
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB cap for uploaded images
 
+// Magic-byte signatures for the image formats tesseract can read. A base64
+// string that isn't actually an image (random data, a text file) is rejected
+// BEFORE the engine is invoked, so the OCR endpoint can't be abused as an
+// arbitrary-base64 decoder or a cheap CPU sink.
+const IMAGE_MAGIC = [
+  [0xff, 0xd8, 0xff], // JPEG
+  [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], // PNG
+  [0x52, 0x49, 0x46, 0x46], // RIFF container (WebP)
+  [0x47, 0x49, 0x46, 0x38], // GIF
+  [0x42, 0x4d], // BMP
+];
+function isDecodedImage(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 8) return false;
+  return IMAGE_MAGIC.some((sig) => sig.every((byte, i) => buf[i] === byte));
+}
+
 // Pure size/unit tokens carry no discrimination power ("750 ML", "1 L", "1L",
 // "950 g" are on every size variant of a product) — dropping them keeps them
 // from inflating the match denominator, so a label that reads the exact
@@ -320,6 +336,15 @@ async function handleOcr(req, res, sendJson, products) {
     });
   }
 
+  // Restrict uploads to real image payloads: decode and sniff the magic bytes
+  // so an arbitrary base64 blob can't reach the OCR engine.
+  if (!isDecodedImage(Buffer.from(base64.replace(/\s+/g, ''), 'base64'))) {
+    return sendJson(res, 400, {
+      error: 'Validation failed',
+      details: ['image must be a JPEG, PNG, WebP, GIF or BMP image'],
+    });
+  }
+
   // Filename-first: catalog-image uploads resolve by name, no OCR needed.
   const byFilename = await filenameMatchOrNull(req, products);
   if (byFilename) {
@@ -365,6 +390,15 @@ async function handleOcrStock(req, res, sendJson, products, stockLookup) {
     });
   }
 
+  // Restrict uploads to real image payloads: decode and sniff the magic bytes
+  // so an arbitrary base64 blob can't reach the OCR engine.
+  if (!isDecodedImage(Buffer.from(base64.replace(/\s+/g, ''), 'base64'))) {
+    return sendJson(res, 400, {
+      error: 'Validation failed',
+      details: ['image must be a JPEG, PNG, WebP, GIF or BMP image'],
+    });
+  }
+
   // Filename-first: catalog-image uploads resolve by name, no OCR needed.
   const byFilename = await filenameMatchOrNull(req, products);
   if (byFilename) {
@@ -387,4 +421,4 @@ async function handleOcrStock(req, res, sendJson, products, stockLookup) {
   return sendJson(res, 200, { text, matches });
 }
 
-module.exports = { ocrImage, matchProducts, handleOcr, handleOcrStock, attachStock, normalize, matchScore, filterOcrText, matchByFilename, basenameOf, stemOf };
+module.exports = { ocrImage, matchProducts, handleOcr, handleOcrStock, attachStock, normalize, matchScore, filterOcrText, matchByFilename, basenameOf, stemOf, isDecodedImage };

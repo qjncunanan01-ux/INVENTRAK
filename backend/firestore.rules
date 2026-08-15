@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // INVENTRAK clients (mobile app, admin dashboard) talk ONLY to the
+    // backend API, which uses the firebase-admin SDK — and admin SDK access
+    // BYPASSES these rules entirely. No client SDK ever reads Firestore
+    // directly, so the safest posture is to deny all client access: even if a
+    // client config leaks, nobody can read or mutate data outside the API.
+    //
+    // Deploy: firebase deploy --only firestore:rules (or paste in the
+    // Firebase console: Firestore Database → Rules).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

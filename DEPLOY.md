@@ -464,6 +464,62 @@ the mobile app — the button always works and just opens the relay URL.
   `GOOGLE_CLIENT_IDS` is unset (contract-tested on both backends); the relay
   endpoints are covered by unit + end-to-end tests (`google-relay.test.js`).
 
+## Security hardening (do this before any public demo)
+
+Every production deployment MUST set the token-signing secrets. Without them the
+servers fall back to a **public** constant that lives in this repo — anyone who
+reads the source can forge admin tokens. The server logs a loud warning at boot
+when the env var is missing:
+
+```bash
+[security] NPMFREE_TOKEN_SECRET is not set — using the PUBLIC fallback secret ...
+[security] JWT_SECRET is not set — using the PUBLIC fallback secret ...
+```
+
+Set both on the Render service (Service → Environment):
+
+- `NPMFREE_TOKEN_SECRET` — HMAC key for the npm-free server (the one deployed to
+  Render). Generate with `node -e "console.log('inv-'+require('crypto').randomBytes(32).toString('base64url'))"`.
+- `JWT_SECRET` — key for the SQLite server (local dev / the alternate deploy).
+
+Other hardening already built in (all covered by `backend/src/test/security.test.js`):
+
+- **Session expiry** — API tokens expire after 24h (`TOKEN_TTL_MS` on the npm-free
+  server; JWTs already expire on the SQLite server). An expired token can never
+  authenticate, and the expiry is part of the signed payload (cannot be extended).
+- **Registration can't escalate roles** — `role` is always `customer` server-side;
+  a client that sends `role: "admin"` is ignored (contract-tested).
+- **Bot honeypot** — login/register reject requests that include a `website`
+  field (real clients never send it).
+- **Upload restrictions** — the OCR endpoints accept only real images (magic-byte
+  check: JPEG/PNG/WebP/GIF/BMP, max 8 MB) before the OCR engine runs.
+- **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, CSP (`default-src 'none'` on JSON), and `Strict-Transport-Security`
+  when served over HTTPS.
+- **Force HTTPS** — requests arriving over plaintext (`X-Forwarded-Proto: http`,
+  i.e. behind the Render proxy) are 301-redirected to https.
+- **Firestore rules** — `backend/firestore.rules` denies ALL client access; the
+  apps talk only to the API (admin SDK), which bypasses rules. Deploy it once:
+  `cd backend && npx firebase deploy --only firestore:rules` (or paste it in the
+  Firebase console → Firestore Database → Rules).
+- **Login lockout** — brute-force lockout with exponential backoff (already
+  documented above; see `backend/src/login-lockout.js`).
+- **Secret scan CI** — `.github/workflows/test.yml` fails the build if any private
+  key / service-account / API key pattern is committed.
+
+Known dependency advisories (tracked, not auto-fixed because the fix is breaking):
+
+- Backend: 8 moderate — transitive via `firebase-admin → @google-cloud/storage`
+  (uuid bounds-check advisory). Server-only; no non-breaking fix exists.
+- Admin: remaining ~17 high — all in the CRA 5 build/dev toolchain
+  (webpack-dev-server, svgo, postcss, serialize-javascript). Build-time only;
+  they never ship in the static bundle. A full fix means migrating the admin
+  build off CRA (e.g. Vite) — out of scope before the demo.
+- Mobile: ~22 (11 high) — Expo toolchain chain; fixes exist only in unreleased
+  canary versions. Upgrade Expo when a stable release ships them.
+
+Run the whole security suite locally: `cd backend && node --test src/test/security.test.js`.
+
 ## Verification checklist
 
 - [ ] `GET /api/openapi.json` returns the spec (200)

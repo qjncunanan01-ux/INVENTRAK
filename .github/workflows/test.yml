@@ -7,6 +7,29 @@ on:
     branches: [ main, master ]
 
 jobs:
+  secret-scan:
+    # Purge Git secrets (prevention half): fail CI if any known secret pattern
+    # or private key shows up in the tracked working tree. The repo was
+    # already scrubbed; this job keeps it that way on every push. Runs on the
+    # checkout only (never on git history, which needs a paid plan to rewrite).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan the tracked tree for secrets
+        run: |
+          set -euo pipefail
+          HITS=$(grep -rInE \
+            'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|firebase-adminsdk|GOCSPX-[A-Za-z0-9_-]{10,}|re_[A-Za-z0-9]{20,}' \
+            --exclude-dir=node_modules --exclude-dir=build --exclude-dir=dist \
+            --exclude-dir=.git --exclude-dir=.secrets . || true)
+          if [ -n "$HITS" ]; then
+            echo '::error::Possible secret committed — remove it and rotate the key:'
+            echo "$HITS"
+            exit 1
+          fi
+          echo 'No secrets found in the tracked tree.'
+
   backend-tests:
     runs-on: ubuntu-latest
     defaults:
