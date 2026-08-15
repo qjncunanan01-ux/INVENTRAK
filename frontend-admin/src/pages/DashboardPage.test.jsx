@@ -9,8 +9,8 @@ import { apiGet } from '../api';
 // again. Regression for the 404 bug where DashboardPage called the
 // nonexistent /api/inquiries and the Order Status / Pending Inquiries cards
 // silently showed 0.
-jest.mock('../api', () => ({
-  apiGet: jest.fn(),
+vi.mock('../api', () => ({
+  apiGet: vi.fn(),
 }));
 
 // jsdom has no matchMedia (MUI useMediaQuery) and no ResizeObserver
@@ -66,7 +66,7 @@ function renderPage() {
 
 describe('DashboardPage data wiring', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
     polyfillDom();
   });

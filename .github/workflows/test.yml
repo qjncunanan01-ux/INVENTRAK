@@ -115,14 +115,10 @@ jobs:
       - name: Install admin dependencies
         run: npm install
 
-      - name: Run admin smoke tests
-        env:
-          CI: true
-        run: npm test -- --watchAll=false
+      - name: Run admin tests (Vitest)
+        run: npm test
 
-      - name: Run build check
-        env:
-          CI: false
+      - name: Run build check (Vite)
         run: npm run build
 
   mobile-lint:

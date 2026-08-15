@@ -7,32 +7,26 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^5.16.4",
     "@mui/material": "^5.16.4",
+    "@vitejs/plugin-react": "^4.5.0",
     "axios": "^1.5.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "6.18.0",
-    "react-scripts": "5.0.1",
-    "recharts": "^2.12.7"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "recharts": "^2.12.7",
+    "vite": "^6.3.5"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --env=jsdom"
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.0",
-    "@testing-library/react": "^14.3.1"
+    "@testing-library/react": "^14.3.1",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.0"
   }
 }
