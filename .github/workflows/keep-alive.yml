@@ -1,0 +1,44 @@
+name: Keep Render Backend Awake
+
+# Render's free tier sleeps after ~15 minutes of inactivity; the first request
+# after sleep can take 30-60s to boot the instance (the phone then shows
+# "Network request failed" — see mobile-client/src/api.js wakeBackend).
+#
+# This workflow pings the deployed backend from GitHub's servers every 10
+# minutes (well inside the 15-minute sleep window), so the API is already warm
+# when the demo starts. It runs on GitHub's infrastructure — no local PC, no
+# extra account, no cost (public repo: free Actions minutes).
+#
+# Notes:
+# - Scheduled workflows only run on the DEFAULT branch (main), and GitHub may
+#   pause them after ~60 days without pushes to the repo — an active repo like
+#   this one is unaffected.
+# - Cron is UTC, but a fixed interval like this is timezone-agnostic.
+# - GitHub occasionally delays scheduled runs by a few minutes under load; the
+#   15-min sleep window absorbs that. If you ever want a bigger cushion, change
+#   the cron to "*/5 * * * *" (every 5 minutes).
+# - To ping on demand (e.g. right before the demo), use the "Run workflow"
+#   button: Actions -> Keep Render Backend Awake -> Run workflow.
+
+on:
+  schedule:
+    # Every 10 minutes, UTC. Render sleeps after 15 min idle, so this keeps it
+    # awake with margin.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the backend health endpoint
+        run: |
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 \
+            https://inventrak-api.onrender.com/api/openapi.json)
+          echo "backend responded with HTTP $CODE"
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Backend did not answer 200 (got $CODE) — check https://inventrak-api.onrender.com"
+            exit 1
+          fi
+          # The instance is awake for the next ~15 min; Render resets the idle
+          # timer on every successful request.
