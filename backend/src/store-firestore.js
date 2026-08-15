@@ -43,6 +43,12 @@ const COLLECTIONS = {
   '@users': 'users',
   '@sales': 'sales',
   '@alerts': 'alerts',
+  // Ephemeral code datasets: verification + password-reset codes persist so an
+  // issued code survives a redeploy. (Without the mapping write() early-returns
+  // and the codes live only in the in-memory cache — silently lost on restart,
+  // breaking in-flight signups/resets mid-deploy.)
+  '@verificationCodes': 'verificationCodes',
+  '@resetTokens': 'resetTokens',
 };
 
 let db = null; // injected fake (tests) or real firebase-admin Firestore

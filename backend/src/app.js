@@ -59,12 +59,14 @@ const RESET_CODE_TTL_MS = Number(process.env.RESET_CODE_TTL_MS) || 30 * 60 * 100
 const VERIFICATION_CODE_TTL_MS = Number(process.env.VERIFICATION_CODE_TTL_MS) || 30 * 60 * 1000;
 
 // Shared code-generation helpers for reset + verification codes: 6 random
-// digits, hashed at rest (SHA-256) so a leaked database can't be replayed.
+// digits, hashed at rest with an HMAC-SHA256 keyed by the token secret
+// (JWT_SECRET below) so a leaked database can't be replayed or brute-forced
+// offline (plain SHA-256 of a 6-digit space is recoverable in seconds).
 function generateCode() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 }
 function hashCode(code) {
-  return crypto.createHash('sha256').update(String(code)).digest('hex');
+  return crypto.createHmac('sha256', JWT_SECRET).update(String(code)).digest('hex');
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'inventrak-secret-key-2024';
@@ -950,7 +952,7 @@ app.post(
 
     if (user) {
       const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-      const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+      const codeHash = hashCode(code);
       const nowIso = new Date().toISOString();
       const expiresAt = new Date(Date.now() + RESET_CODE_TTL_MS).toISOString();
 
@@ -1016,7 +1018,7 @@ app.post(
       });
     }
 
-    const codeHash = crypto.createHash('sha256').update(String(code)).digest('hex');
+    const codeHash = hashCode(code);
     const row = db
       .prepare('SELECT * FROM password_resets WHERE code_hash = ?')
       .get(codeHash);

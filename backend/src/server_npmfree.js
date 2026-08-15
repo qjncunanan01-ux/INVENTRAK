@@ -43,8 +43,14 @@ const VERIFICATION_CODE_TTL_MS = Number(process.env.VERIFICATION_CODE_TTL_MS) ||
 function generateCode() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 }
+// Codes are stored as an HMAC-SHA256 keyed with the token secret (TOKEN_SECRET
+// is declared in the auth section below — this function only runs at request
+// time, after the module is fully loaded). Plain SHA-256 of a 6-digit code is
+// offline-brute-forceable in seconds from a leaked database; the keyed hash
+// cannot be recovered without the secret. The hash stays deterministic, so
+// lookups remain exact matches (SQLite indexed query / Firestore map).
 function hashCode(code) {
-  return crypto.createHash('sha256').update(String(code)).digest('hex');
+  return crypto.createHmac('sha256', TOKEN_SECRET).update(String(code)).digest('hex');
 }
 
 // --- Storage driver selection: 'json' (default, zero-dep) or 'firestore' ---
@@ -106,9 +112,10 @@ let nextSaleId = 1;
 let alerts = [];
 let nextAlertId = 1;
 
-// Signup verification codes: code SHA-256 hash -> { user_id, expires_at }.
-// Persisted as '@verificationCodes' in Firestore mode (single-use, hash at
-// rest, expiry pruned on read). Mirrors the SQLite verification_codes table.
+// Signup verification codes: HMAC-SHA256 code hash (keyed with the token
+// secret) -> { user_id, expires_at }. Persisted as '@verificationCodes' in
+// Firestore mode (single-use, hash at rest, expiry pruned on read). Mirrors
+// the SQLite verification_codes table.
 let verificationCodes = new Map();
 
 function persistVerificationCodes() {
@@ -120,10 +127,11 @@ function persistVerificationCodes() {
   })));
 }
 
-// Password reset codes: code SHA-256 hash -> { user_id, expires_at }. In
-// Firestore mode this map is persisted as the '@resetTokens' dataset so an
-// issued code survives a backend restart (single-use, hash at rest, expiry
-// pruned on read). Mirrors the SQLite backend's password_resets table.
+// Password reset codes: HMAC-SHA256 code hash (keyed with the token secret)
+// -> { user_id, expires_at }. In Firestore mode this map is persisted as the
+// '@resetTokens' dataset so an issued code survives a backend restart
+// (single-use, hash at rest, expiry pruned on read). Mirrors the SQLite
+// backend's password_resets table.
 let resetTokens = new Map();
 
 function persistResetTokens() {
@@ -853,7 +861,7 @@ const server = http.createServer((req, res) => {
       const user = users.find(u => u.email && u.email.toLowerCase() === String(obj.email).toLowerCase());
       if (user) {
         const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-        const codeHash = crypto.createHash('sha256').update(code).digest('hex');
+        const codeHash = hashCode(code);
         const now = Date.now();
         const expiresAt = new Date(now + RESET_CODE_TTL_MS).toISOString();
         // Prune this user's previous codes and anything already expired, then
@@ -903,7 +911,7 @@ const server = http.createServer((req, res) => {
           retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
         });
       }
-      const codeHash = crypto.createHash('sha256').update(String(obj.code)).digest('hex');
+      const codeHash = hashCode(obj.code);
       const token = resetTokens.get(codeHash);
       if (!token || new Date(token.expires_at).getTime() < Date.now()) {
         loginLockout.recordFailure('reset-password', sourceIp);

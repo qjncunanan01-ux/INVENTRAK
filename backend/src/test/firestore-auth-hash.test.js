@@ -21,6 +21,7 @@ fs.writeFileSync(path.join(tmpData, 'order_inquiries.json'), '[]');
 fs.writeFileSync(path.join(tmpData, 'stock_movements.json'), '[]');
 process.env.DB_DRIVER = 'firestore';
 
+const crypto = require('node:crypto');
 const { makeFakeDb } = require('./fake-firestore');
 const fsStore = require('../store-firestore');
 const { isHashed, verifyPassword } = require('../password-hash');
@@ -147,4 +148,70 @@ test('demo users are seeded as bcrypt hashes in Firestore mode (boot path)', asy
   assert.strictEqual(usersRes.status, 200);
   const users = await usersRes.json();
   assert.ok(users.every((u) => !('password' in u)), 'password hash never leaves the server');
+});
+
+// Captures the verification code from the console log (no provider is
+// configured in this isolated test, so notify logs it instead of sending).
+function captureCodeDuringRegister(body) {
+  return (async () => {
+    let lines = [];
+    const orig = console.log;
+    console.log = (...args) => {
+      const line = args.join(' ');
+      if (line.includes('verification code')) lines.push(line);
+      orig(...args);
+    };
+    let res;
+    try {
+      res = await fetch(`${baseUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } finally {
+      console.log = orig;
+    }
+    let code = null;
+    if (lines[0]) {
+      const payload = lines[0].slice(lines[0].indexOf(' :: ') + 4);
+      try {
+        const parsed = JSON.parse(payload);
+        const text = String(parsed.text || parsed.html || '');
+        const m = text.match(/\n\s+(\d{6})\s*\n/);
+        code = m ? m[1] : null;
+      } catch {
+        // leave code null; the assertion below reports the capture failure
+      }
+    }
+    return { res, code };
+  })();
+}
+
+test('verification codes stored in Firestore are HMAC-keyed, not plain SHA-256 (cloud at-rest lock)', async () => {
+  // Same at-rest guarantee as the password hash, for the CLOUD path: the
+  // '@verificationCodes' dataset persists to Firestore, so the stored code
+  // hash must be HMAC-SHA256 keyed with the token secret — never plain SHA-256,
+  // which an attacker with the database could offline-brute-force in seconds.
+  const { res, code } = await captureCodeDuringRegister({
+    username: 'cloud_user_hmac',
+    password: PASSWORD,
+    email: 'hmac@test.com',
+    phone: '09171234567',
+  });
+  assert.strictEqual(res.status, 200);
+  const body = await res.json();
+  assert.ok(code && /^\d{6}$/.test(code), 'captured a 6-digit code');
+
+  await fsStore.flush();
+  const docs = [...fake._cols.get('verificationCodes').values()];
+  const mine = docs.find((d) => d.user_id === body.user.id);
+  assert.ok(mine, 'verification code row persisted to the Firestore verificationCodes collection');
+
+  const plainSha = crypto.createHash('sha256').update(code).digest('hex');
+  const keyed = crypto
+    .createHmac('sha256', process.env.NPMFREE_TOKEN_SECRET || 'inventrak-npmfree-token-secret')
+    .update(code)
+    .digest('hex');
+  assert.notStrictEqual(mine.code_hash, plainSha, 'plain SHA-256 of the code must not be stored');
+  assert.strictEqual(mine.code_hash, keyed, 'stored hash is HMAC-SHA256 keyed with the token secret');
 });

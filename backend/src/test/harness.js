@@ -134,4 +134,4 @@ async function both(label, pathname, { method = 'GET', auth = null, body } = {})
   return { a, b };
 }
 
-module.exports = { sqlite, npmfree, bootBoth, teardown, call, shapeOf, both };
+module.exports = { sqlite, npmfree, bootBoth, teardown, call, shapeOf, both, db };

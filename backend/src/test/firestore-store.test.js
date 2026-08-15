@@ -81,6 +81,47 @@ test('firestore driver persists the approval-workflow datasets (adjustments + tr
   assert.strictEqual(readTrf[0].status, 'pending');
 });
 
+test('firestore driver persists verification + password-reset codes so they survive a redeploy', async () => {
+  // Regression lock for the same redeploy data-loss bug as adjustments: the
+  // '@verificationCodes' / '@resetTokens' in-memory maps must be mapped to
+  // real collections, or an issued code dies with the process on restart
+  // (breaking in-flight signups/resets mid-deploy).
+  const fake = makeFakeDb();
+  fsStore._setDb(fake);
+  await fsStore.init();
+
+  assert.strictEqual(fsStore.collectionFor('@verificationCodes'), 'verificationCodes');
+  assert.strictEqual(fsStore.collectionFor('@resetTokens'), 'resetTokens');
+
+  fsStore.write('@verificationCodes', [
+    { code_hash: 'vhash123', user_id: 15, expires_at: '2026-08-15T15:20:00.000Z' },
+  ]);
+  fsStore.write('@resetTokens', [
+    { code_hash: 'rhash456', user_id: 15, expires_at: '2026-08-15T15:20:00.000Z' },
+  ]);
+  await fsStore.flush();
+
+  const vDoc = [...fake._cols.get('verificationCodes').values()][0];
+  assert.ok(vDoc, 'verification code persisted to the verificationCodes collection');
+  assert.strictEqual(vDoc.code_hash, 'vhash123');
+  assert.strictEqual(vDoc.user_id, 15);
+  const rDoc = [...fake._cols.get('resetTokens').values()][0];
+  assert.ok(rDoc, 'reset token persisted to the resetTokens collection');
+  assert.strictEqual(rDoc.code_hash, 'rhash456');
+
+  // A fresh driver on the SAME fake Firestore (a redeploy reads the same cloud
+  // project) sees the codes back: they survived in the cloud, not just memory.
+  fsStore._setDb(fake);
+  await fsStore.init();
+  const verifs = fsStore.read('@verificationCodes');
+  const resets = fsStore.read('@resetTokens');
+  assert.ok(Array.isArray(verifs) && verifs.length === 1, 'verification codes survive driver re-init');
+  assert.strictEqual(verifs[0].code_hash, 'vhash123');
+  assert.strictEqual(verifs[0].user_id, 15);
+  assert.ok(Array.isArray(resets) && resets.length === 1, 'reset tokens survive driver re-init');
+  assert.strictEqual(resets[0].code_hash, 'rhash456');
+});
+
 test('firestore driver sanitizes nulls to empty strings (Firestore rejects null)', async () => {
   const fake = makeFakeDb();
   fsStore._setDb(fake);

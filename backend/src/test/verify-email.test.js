@@ -10,7 +10,8 @@ process.env.LOGIN_LOCKOUT_MAX_FAILURES = '1000';
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
-const { sqlite, npmfree, bootBoth, teardown, call, both, shapeOf } = require('./harness');
+const crypto = require('node:crypto');
+const { sqlite, npmfree, bootBoth, teardown, call, both, shapeOf, db } = require('./harness');
 
 function extractCode(line) {
   const idx = line && line.indexOf(' :: ');
@@ -138,6 +139,34 @@ test('verify: wrong code is 401 and the real code verifies the account on BOTH b
     });
     assert.strictEqual(replay.status, 401, `${side === sqlite ? 'sqlite' : 'npmfree'} replay rejected`);
   }
+});
+
+test('verify: the stored code hash is HMAC-keyed, not plain SHA-256 (SQLite at-rest lock)', async () => {
+  // A plain SHA-256 of a 6-digit code is offline-brute-forceable in seconds
+  // from a leaked database; the stored hash must be HMAC-SHA256 keyed with the
+  // token secret. Assert against the ACTUAL persisted row (the harness exposes
+  // the SQLite handle), using the same fallback secret app.js uses when
+  // JWT_SECRET is unset (which is how these isolated tests boot).
+  const uname = `${user}_hmac_s`;
+  const { res, code } = await registerCapturing(sqlite, {
+    username: uname,
+    password: 'Test123!',
+    email: `${uname}@example.com`,
+    phone: '09171234567',
+  });
+  assert.strictEqual(res.status, 200);
+  assert.ok(code && /^\d{6}$/.test(code), 'captured a 6-digit code');
+
+  const row = db.prepare('SELECT code_hash FROM verification_codes WHERE user_id = ?').get(res.json.user.id);
+  assert.ok(row, 'a verification_codes row was persisted for the new user');
+
+  const plainSha = crypto.createHash('sha256').update(code).digest('hex');
+  const keyed = crypto
+    .createHmac('sha256', process.env.JWT_SECRET || 'inventrak-secret-key-2024')
+    .update(code)
+    .digest('hex');
+  assert.notStrictEqual(row.code_hash, plainSha, 'plain SHA-256 of the code must not be stored');
+  assert.strictEqual(row.code_hash, keyed, 'stored hash is HMAC-SHA256 keyed with the token secret');
 });
 
 test('verify: resend-verification mails a NEW code redeemable on both backends', async () => {
