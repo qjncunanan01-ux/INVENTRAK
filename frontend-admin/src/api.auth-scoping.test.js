@@ -80,4 +80,50 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].method).toBe('PUT');
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-789');
   });
+
+  test('Scan & Stock (ocrStockCheck → POST /api/ocr/stock) carries the admin token', async () => {
+    const calls = captureFetch();
+    const client = makeClient(() => 'admin-token-scan');
+    // ScanStockPage sends the base64 image through this typed endpoint.
+    await client.ocrStockCheck({ image: 'aGVsbG8=' });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${BASE}/api/ocr/stock`);
+    expect(calls[0].method).toBe('POST');
+    expect(calls[0].headers.Authorization).toBe('Bearer admin-token-scan');
+  });
+
+  test('Reports (apiGet /api/reports?days=N) carries the admin token', async () => {
+    const calls = captureFetch();
+    const client = makeClient(() => 'admin-token-reports');
+    // ReportsPage calls apiGet(`/api/reports?days=${d}`) through the helper.
+    await client.apiGet('/api/reports?days=14');
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe(`${BASE}/api/reports?days=14`);
+    expect(calls[0].headers.Authorization).toBe('Bearer admin-token-reports');
+  });
+
+  test('every admin-only read is authenticated: users, sales, alerts, approvals, exports', async () => {
+    const calls = captureFetch();
+    const client = makeClient(() => 'admin-token-all');
+    // One request per admin-only endpoint used by the dashboard/pages.
+    await client.listUsers();
+    await client.listSales();
+    await client.listAlerts();
+    await client.getApprovals();
+    await client.exportAnalytics({ type: 'products' }, { format: 'csv' });
+
+    expect(calls).toHaveLength(5);
+    for (const call of calls) {
+      expect(call.headers.Authorization).toBe('Bearer admin-token-all');
+    }
+    expect(calls.map((c) => c.url)).toEqual([
+      `${BASE}/api/users`,
+      `${BASE}/api/sales`,
+      `${BASE}/api/alerts`,
+      `${BASE}/api/approvals`,
+      `${BASE}/api/analytics/export/products?format=csv`,
+    ]);
+  });
 });
