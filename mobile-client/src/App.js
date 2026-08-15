@@ -23,7 +23,7 @@ import PaymentScreen from './screens/PaymentScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import CartScreen from './screens/CartScreen';
 import { CartProvider, useCart } from './cart-context';
-import { setSessionDetails, setSessionUsername, setToken, useSessionUsername } from './api';
+import { setSessionDetails, setSessionUsername, setToken, useSessionUsername, wakeBackend } from './api';
 import { Toaster } from './toast';
 import { ThemeProvider, useThemeColors } from './theme-context';
 
@@ -138,6 +138,14 @@ function MainTabsNavigator({ route }) {
 
 function AppShell() {
   const { colors, dark } = useThemeColors();
+
+  // Warm the backend immediately at launch (fire-and-forget). The deployed
+  // Render free instance sleeps after ~15 min idle and can take 30-60s to
+  // boot; pinging it now means the first real request (signup, login, order)
+  // lands on an awake instance instead of timing out.
+  useEffect(() => {
+    wakeBackend();
+  }, []);
 
   // Web only: the Google OAuth relay returns with the session token in the
   // URL — `/#/google-auth?token=…` (hash form, always used by this app) or

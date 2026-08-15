@@ -231,29 +231,61 @@ export function useSessionEmail() {
 // Shared client instance wired to this app's base URL + token store.
 const rawClient = createApiClient({ baseUrl: baseUrlHolder, getToken });
 
-// Self-healing wrapper: when a request dies at the network level (no HTTP
-// status) AND the bundle has a baked-in deployed URL (EXPO_PUBLIC_API_URL,
-// e.g. the Render backend) that differs from the current base, we switch to
-// the baked URL and retry once — so a stale address can never permanently
-// break the app.
+// Render's free tier sleeps after ~15 minutes idle. The first request after
+// a cold start can take 30-60s while the instance boots — long enough that
+// the phone's fetch gives up with "Network request failed". Two defenses:
+//
+//   1. wakeBackend() — fired at app launch (see App.js): a cheap GET that
+//      wakes the instance early, so it is already warm by the time the
+//      customer actually signs up, orders, or checks history. Fire-and-
+//      forget with a couple of retries — it never blocks the UI.
+//
+//   2. The request wrapper below retries network-level failures (no HTTP
+//      status) with short backoff — the exact cold-start signature — while
+//      HTTP errors (4xx/5xx) are definitive and never retried.
 const BAKED_API_URL = (process.env.EXPO_PUBLIC_API_URL || '').trim().replace(/\/+$/, '');
+
+// Cheap endpoint that answers with a small body (used only as a warm-up
+// probe; the actual data calls run through the client wrapper below).
+export function wakeBackend() {
+  const probe = `${currentBaseUrl}/api/openapi.json`;
+  const tryWake = (attempt) => {
+    fetch(probe, { method: 'GET' }).catch(() => {
+      // Back off: 2s, 4s, 6s — a cold boot can take longer than one attempt.
+      if (attempt < 3) setTimeout(() => tryWake(attempt + 1), 2000 * attempt);
+    });
+  };
+  tryWake(0);
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 const client = {};
 for (const key of Object.keys(rawClient)) {
   client[key] = async (...args) => {
-    try {
-      return await rawClient[key](...args);
-    } catch (err) {
-      const retryable =
-        BAKED_API_URL &&
-        !err.status &&
-        currentBaseUrl !== BAKED_API_URL;
-      if (retryable) {
-        currentBaseUrl = BAKED_API_URL;
-        API_BASE_URL = BAKED_API_URL;
-        return rawClient[key](...args);
+    let lastErr;
+    // Up to 3 attempts on network-level failures with 1.5s / 3s backoff. The
+    // common case: the instance was asleep, attempt 1 dies, attempts 2-3 land
+    // once it is awake (identical request, so a retry is safe and correct).
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await rawClient[key](...args);
+      } catch (err) {
+        lastErr = err;
+        if (err.status) throw err; // HTTP error: definitive, no retry.
+        if (attempt < 2) await sleep(1500 * (attempt + 1));
       }
-      throw err;
     }
+    // Last resort (dev only): if the request still died at the network level
+    // AND a baked-in deployed URL differs from the current base, switch to
+    // the baked URL and retry once — so a stale local address can never
+    // permanently break the app.
+    if (BAKED_API_URL && currentBaseUrl !== BAKED_API_URL) {
+      currentBaseUrl = BAKED_API_URL;
+      API_BASE_URL = BAKED_API_URL;
+      return rawClient[key](...args);
+    }
+    throw lastErr;
   };
 }
 
