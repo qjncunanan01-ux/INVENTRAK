@@ -17,7 +17,7 @@ talks to the live backend from any network.
 | 1 | Backend up | Open `https://inventrak-api.onrender.com/api/openapi.json` — JSON renders |
 | 2 | Admin up | Open `https://inventrak-admin.onrender.com` — login page loads. **Hard-refresh (Ctrl+Shift+R)** once to drop any cached bundle |
 | 3 | Mobile web up | Open `https://inventrak-mobile.onrender.com` — app loads |
-| 4 | APK installed on phone | The Aug 15 production build (see APK-INSTALL.md link). Reinstall only if the build was rebuilt after this doc |
+| 4 | APK installed on phone | The **final pre-demo build (Aug 15, evening)** — see the latest link in APK-INSTALL.md. Same signing key → updates in place |
 | 5 | Internet on the demo machine + phone | Backend is hosted — no Wi-Fi pairing needed |
 | 6 | Google sign-in works (optional) | Gmail button appears on the mobile login screen; test users approved in the Google Cloud console |
 

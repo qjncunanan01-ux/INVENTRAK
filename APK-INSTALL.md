@@ -11,25 +11,30 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
-## Latest build (Aug 15, 2026)
+## Latest build (Aug 15, 2026 — final pre-demo)
 
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/-fg_iT66Cugeazb8wM9jk-q8k7ccuq-v0SRZOxzJsfk.apk
+https://expo.dev/artifacts/eas/n48hTvGI1oz48Y_1XSdiV7FmeNqcVObgZWwW_c1JDoc.apk
 ```
 
-> **v1.0.0 (Aug 15):** rebuilt from latest `main` so the installed app carries
-> the **Google name fix** (signing in with Gmail now shows your real profile
-> name — e.g. "Jerico Cunanan" — instead of "Jerico + Cunanan") plus
-> everything through the **security hardening pass** (24h session expiry,
-> forge-proof signing keys, stricter OCR upload checks — all server-side, but
-> this build guarantees the installed app works with the hardened backend).
-> Same signing key as previous installs → updates in place, no uninstall
-> needed.
+> **v1.0.0 (Aug 15, final pre-demo):** rebuilt from latest `main` so the
+> installed app carries **everything through today's quality pass** — the
+> **pruned API facade** (the customer app no longer exposes admin-only
+> endpoints), the **Google name fix** (real profile name, e.g.
+> "Jerico Cunanan", not "Jerico + Cunanan"), the **security hardening pass**
+> (24h session expiry, forge-proof signing keys, stricter OCR upload
+> checks), and all the UI/UX + scan-flow fixes. Same signing key as previous
+> installs → updates in place, no uninstall needed.
 >
-> Build ID: `b51bce7b-0a8c-45c9-b9a0-71942123f845` · Build page:
-> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/b51bce7b-0a8c-45c9-b9a0-71942123f845
+> Build ID: `5145d163-d639-4480-b014-8f5095e1f48f` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/5145d163-d639-4480-b014-8f5095e1f48f
+>
+> **v1.0.0 (Aug 15, earlier build):** carried the Google name fix + security
+> hardening pass. Build ID `b51bce7b-0a8c-45c9-b9a0-71942123f845`, link
+> `https://expo.dev/artifacts/eas/-fg_iT66Cugeazb8wM9jk-q8k7ccuq-v0SRZOxzJsfk.apk` —
+> superseded by the build above.
 >
 > **v1.0.0 (Aug 11, crash-fix build):** the previous build crashed on launch
 > because `@expo/vector-icons` (tab bar / icons) needs `expo-font` as a direct
