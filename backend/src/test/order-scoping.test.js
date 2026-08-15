@@ -101,6 +101,71 @@ for (const side of [sqlite, npmfree]) {
     assert.ok(adminIds.includes(stranger), `${label}: admin sees the unrelated guest order`);
   });
 
+  test(`${label}: notifications feed is per-account (listOrderInquiries-backed)`, async () => {
+    // The mobile NotificationsScreen calls listOrderInquiries({ limit: 100 })
+    // with the session token and flattens each order's status_history into
+    // cards (orderId, status, at, name, cost) — so the notification feed is
+    // EXACTLY this scoped list. Replicate that derivation to assert that a
+    // customer's feed can only ever contain their OWN order events, and that
+    // an admin status change surfaces as a card for the owner and nobody else.
+    const alice = await registerAccount(side, 'notif_a');
+    const bob = await registerAccount(side, 'notif_b');
+    const aliceOrder = await placeInquiry(side, { token: alice.token, email: alice.email, name: 'Alice N' });
+    const bobOrder = await placeInquiry(side, { token: bob.token, email: bob.email, name: 'Bob N' });
+    // Legacy guest order carrying Alice's email — must feed HER notifications.
+    const aliceLegacy = await placeInquiry(side, { email: alice.email, name: 'Alice N Guest' });
+
+    // Admin approves Alice's order → her feed gains an "approved" card.
+    const approve = await call(side.url, `/api/order-inquiries/${aliceOrder}`, {
+      method: 'PUT', token: side.token.admin, body: { status: 'approved' },
+    });
+    assert.strictEqual(approve.status, 200, `${label}: admin approves alice's order`);
+
+    // The exact call the Notifications screen makes.
+    const aliceFeed = await call(side.url, '/api/order-inquiries?limit=100', { token: alice.token });
+    const bobFeed = await call(side.url, '/api/order-inquiries?limit=100', { token: bob.token });
+    assert.strictEqual(aliceFeed.status, 200);
+    assert.strictEqual(bobFeed.status, 200);
+    const aliceRows = aliceFeed.json.data || aliceFeed.json;
+    const bobRows = bobFeed.json.data || bobFeed.json;
+
+    // Screen derivation: flatten status_history into cards, skipping the
+    // initial 'placed' event unless it's all there is.
+    const derive = (rows) => {
+      const events = [];
+      rows.forEach((o) => {
+        let history = [];
+        try {
+          const parsed = JSON.parse(o.status_history || '[]');
+          if (Array.isArray(parsed)) history = parsed;
+        } catch {}
+        if (history.length === 0) history = [{ status: o.status, at: o.created_at }];
+        const shown = history.length > 1 ? history.slice(1) : history;
+        shown.forEach((e) => events.push({ orderId: o.id, status: e.status, name: o.customer_name }));
+      });
+      return events;
+    };
+    const aliceCards = derive(aliceRows);
+    const bobCards = derive(bobRows);
+
+    const aliceCardOrders = new Set(aliceCards.map((c) => c.orderId));
+    const bobCardOrders = new Set(bobCards.map((c) => c.orderId));
+
+    // Alice's feed: her own order (with the approved card) + her legacy order.
+    assert.ok(aliceCardOrders.has(aliceOrder), `${label}: alice feed includes her own order`);
+    assert.ok(aliceCardOrders.has(aliceLegacy), `${label}: alice feed includes her legacy order`);
+    assert.ok(!aliceCardOrders.has(bobOrder), `${label}: alice feed has NO card for bob's order`);
+    assert.ok(
+      aliceCards.some((c) => c.orderId === aliceOrder && c.status === 'approved'),
+      `${label}: alice feed shows the approved card for her order`
+    );
+
+    // Bob's feed: ONLY his own order, and never a card for alice's orders.
+    assert.ok(bobCardOrders.has(bobOrder), `${label}: bob feed includes his own order`);
+    assert.ok(!bobCardOrders.has(aliceOrder), `${label}: bob feed has NO card for alice's order`);
+    assert.ok(!bobCardOrders.has(aliceLegacy), `${label}: bob feed has NO card for alice's legacy order`);
+  });
+
   test(`${label}: customer cannot tamper with another account's order`, async () => {
     const alice = await registerAccount(side, 'tamper_a');
     const bob = await registerAccount(side, 'tamper_b');
