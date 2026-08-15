@@ -291,32 +291,26 @@ export async function listAllProducts() {
   }
   return all;
 }
-export const createProduct = client.createProduct;
+// Customer-facing facade: only endpoints the customer app actually uses are
+// re-exported. Admin-only operations (product/location/stock management,
+// sales ledger, alert resolution, user administration, reports, analytics
+// export, integrity, scan-stock) live only in api.generated.js and the admin
+// dashboard — the server rejects them for customers (403), so they must not
+// appear in this module (a future dev importing listSales here would hit a
+// 403 with no warning).
 export const listCategories = client.listCategories;
 export const getProduct = client.getProduct;
-export const updateProduct = client.updateProduct;
-export const deleteProduct = client.deleteProduct;
 export const getInventory = client.getInventory;
 export const listLocations = client.listLocations;
-export const createLocation = client.createLocation;
-export const deleteLocation = client.deleteLocation;
-export const createStockMovement = client.createStockMovement;
 export const listStockMovements = client.listStockMovements;
 export const listStockLots = client.listStockLots;
 export const listOrderInquiries = client.listOrderInquiries;
 export const createOrderInquiry = client.createOrderInquiry;
-export const updateOrderInquiry = client.updateOrderInquiry;
 export const updateInquiryPayment = client.updateInquiryPayment;
 export const scanProductPhoto = client.scanProductPhoto;
 export const getOptimizationBulk = client.getOptimizationBulk;
 export const getOptimizationAbc = client.getOptimizationAbc;
 export const getOptimization = client.getOptimization;
 export const getAnalyticsSummary = client.getAnalyticsSummary;
-export const exportAnalytics = client.exportAnalytics;
-export const listAlerts = client.listAlerts;
-export const resolveAlert = client.resolveAlert;
-export const listSales = client.listSales;
-export const createSale = client.createSale;
-export const listUsers = client.listUsers;
 
 export default client;
