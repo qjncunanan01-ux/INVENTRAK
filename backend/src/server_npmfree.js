@@ -2315,8 +2315,12 @@ const server = http.createServer((req, res) => {
 
   // ================= SALES =================
 
+  // Sales ledger + low-stock alerts are ADMIN-ONLY reads: they expose other
+  // customers' names and operational stock alerts, which no customer screen
+  // consumes (the mobile client exports listSales/listAlerts but never calls
+  // them). Mirrors the SQLite backend's adminOnly middleware.
   if (req.method === 'GET' && url.split('?')[0] === '/api/sales') {
-    return requireAuth(req, res, false, (req, res) => {
+    return requireAuth(req, res, true, (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       const page = parsed.searchParams.get('page');
       const limit = parsed.searchParams.get('limit');
@@ -2406,7 +2410,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/alerts') {
-    return requireAuth(req, res, false, (req, res) => {
+    return requireAuth(req, res, true, (req, res) => {
       const status = new URL(url, 'http://localhost').searchParams.get('status') || 'active';
       // resolved_at is null for open alerts (SQLite returns null); Firestore
       // maps null → '' in storage, so normalize both back to null for parity.

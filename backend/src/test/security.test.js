@@ -132,3 +132,20 @@ test('requests behind an http proxy are redirected to https (301)', async () => 
     assert.ok(res.headers.get('location').startsWith('https://'));
   }
 });
+
+test('sales ledger and alert feeds are admin-only reads (no customer PII leak)', async () => {
+  // A customer must never see the full sales ledger (it contains other
+  // customers' names) or the operational alert feed — the mobile client
+  // exports these but no customer screen calls them. Both backends agree.
+  for (const side of [sqlite, npmfree]) {
+    const asCustomer = await call(side.url, '/api/sales', { token: side.token.customer });
+    assert.strictEqual(asCustomer.status, 403, `${side.name} GET /api/sales as customer must be 403`);
+    const alerts = await call(side.url, '/api/alerts', { token: side.token.customer });
+    assert.strictEqual(alerts.status, 403, `${side.name} GET /api/alerts as customer must be 403`);
+    // Admin still reads both.
+    const asAdmin = await call(side.url, '/api/sales', { token: side.token.admin });
+    assert.strictEqual(asAdmin.status, 200, `${side.name} GET /api/sales as admin must be 200`);
+    const alertsAdmin = await call(side.url, '/api/alerts', { token: side.token.admin });
+    assert.strictEqual(alertsAdmin.status, 200, `${side.name} GET /api/alerts as admin must be 200`);
+  }
+});

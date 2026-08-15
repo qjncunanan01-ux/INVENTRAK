@@ -2011,7 +2011,7 @@
           "Alerts"
         ],
         "operationId": "listAlerts",
-        "summary": "List low-stock alerts",
+        "summary": "List low-stock alerts (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -2091,7 +2091,7 @@
           "Sales"
         ],
         "operationId": "listSales",
-        "summary": "List sales transactions",
+        "summary": "List sales transactions (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -4059,7 +4059,8 @@
                 "image": {
                   "type": "string",
                   "nullable": true
-                },                "score": {
+                },
+                "score": {
                   "type": "number",
                   "description": "0..1 token-overlap match score"
                 },
@@ -4074,8 +4075,6 @@
               }
             }
           }
-          
-
         }
       },
       "BulkOptimization": {

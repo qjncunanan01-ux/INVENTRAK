@@ -132,11 +132,11 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getAnalyticsSummary: (_) => request('GET', '/api/analytics/summary', {  }),
   // GET /api/analytics/export/{type} — Export data as JSON or CSV (admin only)
   exportAnalytics: ({ type }, params) => request('GET', '/api/analytics/export/{type}', { params: { type }, query: params }),
-  // GET /api/alerts — List low-stock alerts
+  // GET /api/alerts — List low-stock alerts (admin only)
   listAlerts: (_) => request('GET', '/api/alerts', {  }),
   // PUT /api/alerts/{id}/resolve — Resolve an alert (admin only)
   resolveAlert: ({ id }) => request('PUT', '/api/alerts/{id}/resolve', { params: { id } }),
-  // GET /api/sales — List sales transactions
+  // GET /api/sales — List sales transactions (admin only)
   listSales: (params) => request('GET', '/api/sales', { query: params }),
   // POST /api/sales — Record a sale
   createSale: (body) => request('POST', '/api/sales', { body }),

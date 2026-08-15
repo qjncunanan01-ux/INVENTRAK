@@ -3171,6 +3171,7 @@ app.get(
 app.get(
   '/api/alerts',
   authenticateToken,
+  adminOnly,
   (req, res) => {
     const {
       status = 'active',
@@ -3283,6 +3284,7 @@ app.post(
 app.get(
   '/api/sales',
   authenticateToken,
+  adminOnly,
   (req, res) => {
     const {
       page = 1,
