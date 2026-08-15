@@ -11,14 +11,26 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
-## Latest build (Aug 11, 2026)
+## Latest build (Aug 15, 2026)
 
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/K4DiM7l5nnQQmBPIYEeMjuf6bFzY7oDgHV7tuR7rn1o.apk
+https://expo.dev/artifacts/eas/-fg_iT66Cugeazb8wM9jk-q8k7ccuq-v0SRZOxzJsfk.apk
 ```
 
+> **v1.0.0 (Aug 15):** rebuilt from latest `main` so the installed app carries
+> the **Google name fix** (signing in with Gmail now shows your real profile
+> name — e.g. "Jerico Cunanan" — instead of "Jerico + Cunanan") plus
+> everything through the **security hardening pass** (24h session expiry,
+> forge-proof signing keys, stricter OCR upload checks — all server-side, but
+> this build guarantees the installed app works with the hardened backend).
+> Same signing key as previous installs → updates in place, no uninstall
+> needed.
+>
+> Build ID: `b51bce7b-0a8c-45c9-b9a0-71942123f845` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/b51bce7b-0a8c-45c9-b9a0-71942123f845
+>
 > **v1.0.0 (Aug 11, crash-fix build):** the previous build crashed on launch
 > because `@expo/vector-icons` (tab bar / icons) needs `expo-font` as a direct
 > native module — missing it, the standalone APK died at startup while Expo Go
