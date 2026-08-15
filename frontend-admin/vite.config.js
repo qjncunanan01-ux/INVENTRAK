@@ -25,6 +25,42 @@ export default defineConfig({
   build: {
     // Render's staticPublishPath is `build` — keep the CRA output dir.
     outDir: 'build',
+    rollupOptions: {
+      output: {
+        // Code-split the vendor libraries so the browser can cache them
+        // across deploys and the app code chunk stays small (faster first
+        // paint). MUI, the charts stack, and the React runtime each get their
+        // own chunk; anything else from node_modules goes to one `vendor`
+        // chunk. Windows-safe: normalize backslashes before matching.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          const norm = id.replace(/\\/g, '/');
+          if (norm.includes('/node_modules/@mui/') || norm.includes('/node_modules/@emotion/')) {
+            return 'mui';
+          }
+          if (
+            norm.includes('/node_modules/recharts/') ||
+            norm.includes('/node_modules/d3-') ||
+            norm.includes('/node_modules/victory-vendor/') ||
+            norm.includes('/node_modules/react-smooth/') ||
+            norm.includes('/node_modules/react-redux/') ||
+            norm.includes('/node_modules/redux')
+          ) {
+            return 'charts';
+          }
+          if (
+            norm.includes('/node_modules/react/') ||
+            norm.includes('/node_modules/react-dom/') ||
+            norm.includes('/node_modules/scheduler/') ||
+            norm.includes('/node_modules/react-router') ||
+            norm.includes('/node_modules/@remix-run/')
+          ) {
+            return 'react';
+          }
+          return 'vendor';
+        },
+      },
+    },
   },
   test: {
     globals: true,
