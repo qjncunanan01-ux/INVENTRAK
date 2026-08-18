@@ -26,6 +26,22 @@ talks to the live backend from any network.
 - Demo customer (mobile): `customer` / `customer123`
 - Google sign-in: any approved test Gmail — creates/links an account by email
 
+**⚠️ Demo-day notes — read before the demo (both verified live Aug 15):**
+
+1. **The verification email only reaches ONE inbox.** Resend's free
+   `onboarding@resend.dev` sender delivers only to the email that owns the
+   Resend account — `qjncunanan01@tip.edu.ph`. If the live signup uses any
+   other address, the code never arrives (`notify.email: false` was confirmed
+   against the deployed server). **For the demo, sign up with
+   `qjncunanan01@tip.edu.ph`** so the code lands in front of the judges.
+   (Once a real domain is verified in Resend, any inbox works.)
+2. **SMS is not demo-ready yet.** The Semaphore SMS account is status
+   **"Pending" with 0 credits**, so no SMS sends (no code SMS, no order-update
+   SMS). Even once approved and funded, it only sends to a **real PH mobile
+   number** — fake numbers like `09171234567` are rejected. The **email path is
+   the one to demo**; treat SMS as "works once the account is approved + a real
+   number is used".
+
 ---
 
 ## 2. The demo flow (about 8 minutes)
@@ -40,8 +56,10 @@ talks to the live backend from any network.
 4. **Create an account** (or log in with the demo customer):
    - Sign up asks for name, email, **phone (required)**, strong password,
      and the **Data Privacy consent** checkbox.
-   - A **verification code** is emailed/SMS'd — enter it (or demo "skip";
-     the code also shows in the backend console if you want to show it).
+   - A **verification code** is emailed — enter it to finish signup. Per the
+     demo-day notes above, use the owner email (`qjncunanan01@tip.edu.ph`)
+     so the code actually arrives. (On the deployed server the code is in
+     the email only — it is NOT echoed in the API response.)
    - **Google button**: sign in with a test Gmail → account auto-creates
      with your real profile name (e.g. "Jerico Cunanan").
 5. **Add a product to the cart** → cart badge updates. Open the cart → shows
@@ -74,7 +92,7 @@ talks to the live backend from any network.
 
 If a judge asks "how do you keep customer data separated / safe?":
 - **Per-account isolation** — order history, cart, and notifications are
-  scoped per account; tested by regression suites (301 backend + 20 admin
+  scoped per account; tested by regression suites (305 backend + 20 admin
   tests on every push).
 - **Auth hardening** — bcrypt-hashed passwords, 24h expiring signed tokens,
   login brute-force lockout with exponential backoff, bot honeypot, admin-only
@@ -93,6 +111,8 @@ If a judge asks "how do you keep customer data separated / safe?":
 | Phone order doesn't appear in admin | Check the phone shows a success screen (order #), then refresh the admin Order Inquiries page |
 | Google button errors | It needs the backend env (`GOOGLE_CLIENT_IDS` + `GOOGLE_CLIENT_SECRET`) and the test user approved in Google Cloud. Password login always works as fallback |
 | Camera black on Scan & Stock | Use **Upload image** instead — OCR runs on the photo the same way |
+| Verification code never arrives | You likely signed up with an address other than `qjncunanan01@tip.edu.ph` — Resend's free sender only delivers to the owner inbox. Re-register with that email, or log in with the demo customer |
+| No SMS received | Semaphore is still **Pending / 0 credits** — not demo-ready. Demo the email leg instead; SMS works once approved + funded and a real number is used |
 
 ---
 
@@ -104,5 +124,5 @@ If a judge asks "how do you keep customer data separated / safe?":
 - **API docs (Swagger):** https://inventrak-api.onrender.com/api/docs
 - **GitHub repo:** https://github.com/qjncunanan01-ux/INVENTRAK
 
-_Last verified: Aug 15, 2026 — backend 301/301 tests, admin 20/20, all live
+_Last verified: Aug 15, 2026 — backend 305/305 tests, admin 20/20, all live
 endpoints green, APK link downloadable (90.6 MB)._
