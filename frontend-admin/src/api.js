@@ -90,5 +90,10 @@ export const rejectStockTransfer = client.rejectStockTransfer;
 export const getApprovals = client.getApprovals;
 export const getReports = client.getReports;
 export const ocrStockCheck = client.ocrStockCheck;
+export const logout = client.logout;
+export const mfaSetup = client.mfaSetup;
+export const mfaConfirm = client.mfaConfirm;
+export const mfaDisable = client.mfaDisable;
+export const mfaVerify = client.mfaVerify;
 
 export default client;

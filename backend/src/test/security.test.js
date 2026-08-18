@@ -23,8 +23,11 @@ after(() => {
 // tamper case because the signature mismatch rejects the token anyway).
 const FALLBACK_SECRET = 'inventrak-npmfree-token-secret';
 
-function forgeToken(userId, exp) {
-  const payload = `${userId}.${exp}`;
+// Token format since the session-hardening pass:
+// demo-token-<userId>.<expMs>.<jti>.<scope>.<sig-over(userId.exp.jti.scope)>
+function forgeToken(userId, exp, scope = 'session') {
+  const jti = 'forged-jti-0000000000000000';
+  const payload = `${userId}.${exp}.${jti}.${scope}`;
   const sig = crypto.createHmac('sha256', FALLBACK_SECRET).update(payload).digest('base64url');
   return `demo-token-${payload}.${sig}`;
 }
@@ -47,8 +50,8 @@ test('npm-free tokens are signed: tampering with the expiry invalidates them', a
   assert.ok(valid && valid.startsWith('demo-token-'));
   // Flip the expiry to "never" while keeping the signature: signature check
   // must reject it (403), never authenticate.
-  const [id, , sig] = valid.slice('demo-token-'.length).split('.');
-  const tampered = `demo-token-${id}.${Date.now() + 10 * 365 * 24 * 60 * 60 * 1000}.${sig}`;
+  const [id, , , , sig] = valid.slice('demo-token-'.length).split('.');
+  const tampered = `demo-token-${id}.${Date.now() + 10 * 365 * 24 * 60 * 60 * 1000}.tampered-jti.session.${sig}`;
   const r = await call(npmfree.url, '/api/auth/me', { token: tampered });
   assert.strictEqual(r.status, 403, 'tampered expiry must be rejected');
 });

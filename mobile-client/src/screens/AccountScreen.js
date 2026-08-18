@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View, ScrollView } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { clearSession, clearToken, useSessionEmail, useSessionUsername, useSessionVerified } from '../api';
+import { clearSession, clearToken, logout, useSessionEmail, useSessionUsername, useSessionVerified } from '../api';
 import { useCart } from '../cart-context';
 import { useThemeColors } from '../theme-context';
 
@@ -39,6 +39,9 @@ export default function AccountScreen({ route, navigation }) {
 
   const handleLogout = () => {
     clear();
+    // Revoke the token server-side too, then clear local state (fire-and-
+    // forget: the local session is cleared even if the network is down).
+    logout();
     clearToken();
     clearSession();
     // Reset the tabs back to a fresh guest session.

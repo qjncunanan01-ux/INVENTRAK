@@ -152,6 +152,16 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   googleAuthStart: (params) => request('GET', '/api/auth/google/start', { query: params }),
   // GET /api/auth/google/callback — Google OAuth callback: exchanges the code server-side and deep-links back to the app with a session token.
   googleAuthCallback: (params) => request('GET', '/api/auth/google/callback', { query: params }),
+  // POST /api/auth/logout — Log out and revoke the presented session token
+  logout: (_) => request('POST', '/api/auth/logout', {  }),
+  // POST /api/auth/mfa/setup — Generate a fresh TOTP secret for the admin (not enabled until confirmed)
+  mfaSetup: (_) => request('POST', '/api/auth/mfa/setup', {  }),
+  // POST /api/auth/mfa/confirm — Confirm a live code to enable MFA for the admin account
+  mfaConfirm: (body) => request('POST', '/api/auth/mfa/confirm', { body }),
+  // POST /api/auth/mfa/disable — Disable MFA — requires the current authenticator code
+  mfaDisable: (body) => request('POST', '/api/auth/mfa/disable', { body }),
+  // POST /api/auth/mfa/verify — Complete the second factor: exchange the MFA challenge for a session token
+  mfaVerify: (body) => request('POST', '/api/auth/mfa/verify', { body }),
   };
 }
 

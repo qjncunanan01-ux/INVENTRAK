@@ -113,5 +113,13 @@ if (!userNames.has('email_verified')) {
 if (!userNames.has('phone')) {
   db.exec('ALTER TABLE users ADD COLUMN phone TEXT');
 }
+// Admin MFA: mfa_secret (base32 TOTP secret) + mfa_enabled (0/1). Additive;
+// existing admins are unaffected until they enroll through the dashboard.
+if (!userNames.has('mfa_secret')) {
+  db.exec('ALTER TABLE users ADD COLUMN mfa_secret TEXT');
+}
+if (!userNames.has('mfa_enabled')) {
+  db.exec('ALTER TABLE users ADD COLUMN mfa_enabled INTEGER DEFAULT 0');
+}
 
 module.exports = { db };

@@ -343,6 +343,19 @@ export const scanProductPhoto = client.scanProductPhoto;
 export const getOptimizationBulk = client.getOptimizationBulk;
 export const getOptimizationAbc = client.getOptimizationAbc;
 export const getOptimization = client.getOptimization;
+
+// Server-side logout: revoke the session token (so a captured token can't be
+// replayed), then clear the local session regardless of network state.
+export async function logout() {
+  try {
+    await client.logout();
+  } catch {
+    // Token may already be revoked/expired — local cleanup still proceeds.
+  } finally {
+    clearToken();
+    clearSession();
+  }
+}
 export const getAnalyticsSummary = client.getAnalyticsSummary;
 
 export default client;

@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
   phone TEXT,
   email_verified INTEGER DEFAULT 1,
   google_sub TEXT,
+  mfa_secret TEXT,
+  mfa_enabled INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
 );
 

@@ -498,6 +498,20 @@ Other hardening already built in (all covered by `backend/src/test/security.test
   when served over HTTPS.
 - **Force HTTPS** — requests arriving over plaintext (`X-Forwarded-Proto: http`,
   i.e. behind the Render proxy) are 301-redirected to https.
+- **Admin MFA (two-factor)** — the **Security** page in the admin dashboard
+  enrolls a TOTP secret (Google Authenticator/Authy). Once enrolled, every
+  admin login needs the 6-digit code; the password alone yields only a
+  short-lived challenge, never a session.
+- **Server-side logout** — POST /api/auth/logout revokes the presented token's
+  jti, so a captured/replayed token dies immediately (both apps call it on
+  logout).
+- **Demo-account gate** — set `DISABLE_DEMO_ACCOUNTS=true` to reject the
+  seeded admin/admin123 + customer/customer123 logins with the generic error
+  (OWASP: no default accounts in production). Leave unset for the demo.
+- **Audit log** — login success/failure, lockouts, MFA changes and account
+  events are written as structured JSON to the server console (Render → Logs),
+  optionally also to a file via `AUDIT_LOG_FILE`.
+
 - **Firestore rules** — `backend/firestore.rules` denies ALL client access; the
   apps talk only to the API (admin SDK), which bypasses rules. Deploy it once:
   `cd backend && npx firebase deploy --only firestore:rules` (or paste it in the

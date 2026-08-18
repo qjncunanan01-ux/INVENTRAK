@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { clearToken, getMe, getToken } from './api';
+import { clearToken, getMe, getToken, logout as apiLogout } from './api';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import ApprovalsPage from './pages/ApprovalsPage';
@@ -13,6 +13,7 @@ import OrderInquiriesPage from './pages/OrderInquiriesPage';
 import ProductsPage from './pages/ProductsPage';
 import ReportsPage from './pages/ReportsPage';
 import ScanStockPage from './pages/ScanStockPage';
+import SecurityPage from './pages/SecurityPage';
 import StockAdjustmentsPage from './pages/StockAdjustmentsPage';
 import StockMovementPage from './pages/StockMovementPage';
 import StockTransfersPage from './pages/StockTransfersPage';
@@ -34,6 +35,10 @@ function AppRoutes() {
   }, [restoring]);
 
   const handleLogout = () => {
+    // Destroy the session server-side too: the token's jti is revoked so a
+    // captured token can't be replayed after logout (fire-and-forget — the
+    // local session is cleared regardless of network state).
+    apiLogout().catch(() => {});
     setUser(null);
     clearToken();
   };
@@ -65,6 +70,7 @@ function AppRoutes() {
         <Route path="/locations" element={<LocationsPage onLogout={handleLogout} />} />
         <Route path="/optimization" element={<OptimizationPage onLogout={handleLogout} />} />
         <Route path="/reports" element={<ReportsPage onLogout={handleLogout} />} />
+        <Route path="/security" element={<SecurityPage onLogout={handleLogout} />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>

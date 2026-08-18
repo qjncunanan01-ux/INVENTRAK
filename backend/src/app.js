@@ -9,6 +9,9 @@ const { db } = require('./db');
 const { passwordError } = require('./password-policy');
 const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
+const { generateSecret, verifyTOTP, otpauthUrl } = require('./totp');
+const { audit } = require('./audit');
+const { isDemoAccountBlocked } = require('./demo-accounts');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
@@ -85,6 +88,25 @@ if (!process.env.JWT_SECRET) {
 const dataDir = path.join(__dirname, '..', 'data');
 const productsFile = path.join(dataDir, 'products.json');
 
+// MFA challenge tokens are short-lived (10 min) so a leaked challenge can't
+// become a session later.
+const MFA_TOKEN_TTL_MS = 10 * 60 * 1000;
+
+// Every session token carries a unique jti so logout can revoke it server-
+// side; revoked jtis are rejected until the token's natural expiry.
+const revokedTokens = new Map(); // jti -> expiresAtMs (pruned lazily)
+
+function pruneRevokedTokens() {
+  const now = Date.now();
+  for (const [jti, exp] of revokedTokens) {
+    if (exp <= now) revokedTokens.delete(jti);
+  }
+}
+
+function signToken(payload, expiresIn = '24h') {
+  return jwt.sign({ ...payload, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn });
+}
+
 function readJSON(file) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -112,7 +134,18 @@ function authenticateToken(req, res, next) {
       });
     }
 
+    // A logged-out (revoked) jti is rejected exactly like an expired token.
+    if (user.jti) {
+      pruneRevokedTokens();
+      if (revokedTokens.has(user.jti)) {
+        return res.status(403).json({
+          error: 'Invalid or expired token',
+        });
+      }
+    }
+
     req.user = user;
+    req.tokenJti = user.jti || null;
     next();
   });
 }
@@ -457,17 +490,13 @@ app.post(
       phone || null
     );
 
-    const token = jwt.sign(
-      {
-        id: result.lastInsertRowid,
-        username,
-        role: 'customer',
-      },
-      JWT_SECRET,
-      {
-        expiresIn: '24h',
-      }
-    );
+    audit('auth.register', { userId: result.lastInsertRowid, username });
+
+    const token = signToken({
+      id: result.lastInsertRowid,
+      username,
+      role: 'customer',
+    });
 
     // Verification code (email always; SMS when a phone was provided).
     // Fire-and-forget; the welcome email is sent only after verification.
@@ -551,6 +580,7 @@ app.post(
     if (owner) notifyWelcome(owner.email, owner.username);
 
     loginLockout.recordSuccess('verify-email', sourceIp);
+    if (owner) audit('auth.email_verified', { userId: row.user_id, username: owner.username });
 
     res.json({
       ok: true,
@@ -668,6 +698,7 @@ app.post(
       // Failed attempts count toward the lockout even for unknown usernames
       // (no username oracle: attackers can't probe which accounts exist).
       loginLockout.recordFailure(username, sourceIp);
+      audit('auth.login.failed', { username, ip: sourceIp });
       return res.status(401).json({
         error: 'Invalid username or password',
       });
@@ -677,6 +708,7 @@ app.post(
 
     if (!verified.ok) {
       loginLockout.recordFailure(username, sourceIp);
+      audit('auth.login.failed', { username, ip: sourceIp });
       return res.status(401).json({
         error: 'Invalid username or password',
       });
@@ -694,17 +726,35 @@ app.post(
       );
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-      },
-      JWT_SECRET,
-      {
-        expiresIn: '24h',
-      }
-    );
+    // Seeded demo credentials can be switched off in production (OWASP: no
+    // default/test accounts in a live system). Rejected with the generic
+    // error so the response doesn't reveal the account exists.
+    if (isDemoAccountBlocked(user.username)) {
+      loginLockout.recordFailure(username, sourceIp);
+      audit('auth.demo_account_blocked', { username, ip: sourceIp });
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // Admin MFA: once the administrator enrolls, the password alone yields
+    // only a short-lived challenge token, never a session.
+    if (user.role === 'admin' && user.mfa_enabled) {
+      audit('auth.login.mfa_required', { userId: user.id, username: user.username });
+      return res.json({
+        mfa_required: true,
+        mfaToken: signToken(
+          { id: user.id, username: user.username, role: user.role, scope: 'mfa' },
+          `${Math.floor(MFA_TOKEN_TTL_MS / 1000)}s`
+        ),
+      });
+    }
+
+    audit('auth.login.success', { userId: user.id, username: user.username, ip: sourceIp });
+
+    const token = signToken({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+    });
 
     res.json({
       token,
@@ -770,17 +820,26 @@ app.post(
       user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-      },
-      JWT_SECRET,
-      {
-        expiresIn: '24h',
-      }
-    );
+    // Admin MFA applies to Google sign-in too: an enrolled admin must
+    // complete the second factor regardless of the first factor used.
+    if (user.role === 'admin' && user.mfa_enabled) {
+      audit('auth.login.mfa_required', { userId: user.id, username: user.username });
+      return res.json({
+        mfa_required: true,
+        mfaToken: signToken(
+          { id: user.id, username: user.username, role: user.role, scope: 'mfa' },
+          `${Math.floor(MFA_TOKEN_TTL_MS / 1000)}s`
+        ),
+      });
+    }
+
+    audit('auth.login.success', { userId: user.id, username: user.username });
+
+    const token = signToken({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+    });
 
     res.json({
       token,
@@ -794,6 +853,125 @@ app.post(
     });
   }
 );
+
+// ---- MFA + session lifecycle (admin) ----
+
+// Second factor: exchange the short-lived MFA challenge for a real session.
+app.post(
+  '/api/auth/mfa/verify',
+  validate({
+    mfaToken: { required: true },
+    code: { required: true },
+  }),
+  (req, res) => {
+    // A 6-digit code is a small space — wrong guesses are throttled per IP
+    // with the same lockout module the login path uses.
+    const sourceIp = req.socket?.remoteAddress || req.ip || '';
+    const lock = loginLockout.check('mfa', sourceIp);
+    if (lock.locked) {
+      return res.status(429).json({
+        error: 'Too many verification attempts. Try again later.',
+        retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(req.body.mfaToken, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Invalid or expired MFA session' });
+    }
+    if (decoded.scope !== 'mfa') {
+      return res.status(401).json({ error: 'Invalid or expired MFA session' });
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
+    if (!user || user.role !== 'admin' || !user.mfa_secret) {
+      return res.status(401).json({ error: 'Invalid or expired MFA session' });
+    }
+    if (!verifyTOTP(user.mfa_secret, req.body.code)) {
+      loginLockout.recordFailure('mfa', sourceIp);
+      audit('auth.mfa.failed', { userId: user.id, username: user.username, ip: sourceIp });
+      return res.status(401).json({ error: 'Invalid verification code' });
+    }
+    loginLockout.recordSuccess('mfa', sourceIp);
+    audit('auth.mfa.verified', { userId: user.id, username: user.username });
+
+    const token = signToken({ id: user.id, username: user.username, role: user.role });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        email: user.email,
+        email_verified: !!user.email_verified,
+      },
+    });
+  }
+);
+
+// Admin-only: generate a fresh TOTP secret (not enabled until confirmed).
+app.post('/api/auth/mfa/setup', authenticateToken, adminOnly, (req, res) => {
+  if (req.user.mfa_enabled) {
+    return res.status(409).json({ error: 'MFA is already enabled' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  const secret = generateSecret();
+  db.prepare('UPDATE users SET mfa_secret = ? WHERE id = ?').run(secret, user.id);
+  audit('auth.mfa.setup', { userId: user.id, username: user.username });
+  res.json({ secret, otpauth_url: otpauthUrl(secret, user.username) });
+});
+
+// Admin-only: prove possession of the secret with a live code, then enabled.
+app.post(
+  '/api/auth/mfa/confirm',
+  authenticateToken,
+  adminOnly,
+  validate({ code: { required: true } }),
+  (req, res) => {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!user.mfa_secret) {
+      return res.status(409).json({ error: 'Start MFA setup first' });
+    }
+    if (!verifyTOTP(user.mfa_secret, req.body.code)) {
+      return res.status(401).json({ error: 'Invalid verification code' });
+    }
+    db.prepare('UPDATE users SET mfa_enabled = 1 WHERE id = ?').run(user.id);
+    audit('auth.mfa.enabled', { userId: user.id, username: user.username });
+    res.json({ ok: true, message: 'MFA enabled' });
+  }
+);
+
+// Admin-only: disable MFA — requires the current authenticator code.
+app.post(
+  '/api/auth/mfa/disable',
+  authenticateToken,
+  adminOnly,
+  validate({ code: { required: true } }),
+  (req, res) => {
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!user.mfa_enabled || !user.mfa_secret) {
+      return res.status(409).json({ error: 'MFA is not enabled' });
+    }
+    if (!verifyTOTP(user.mfa_secret, req.body.code)) {
+      return res.status(401).json({ error: 'Invalid verification code' });
+    }
+    db.prepare('UPDATE users SET mfa_enabled = 0, mfa_secret = NULL WHERE id = ?').run(user.id);
+    audit('auth.mfa.disabled', { userId: user.id, username: user.username });
+    res.json({ ok: true, message: 'MFA disabled' });
+  }
+);
+
+// Logout destroys the session server-side: the presented token's jti goes on
+// the revocation list, so a stolen/replayed token can't be reused.
+app.post('/api/auth/logout', authenticateToken, (req, res) => {
+  if (req.tokenJti) {
+    revokedTokens.set(req.tokenJti, Date.now() + 24 * 60 * 60 * 1000);
+  }
+  audit('auth.logout', { userId: req.user.id, username: req.user.username });
+  res.json({ ok: true });
+});
 
 // ---- Google OAuth relay (server-side code exchange) ----
 // Expo Go deep links can't be OAuth redirect URIs, so the app opens
@@ -880,11 +1058,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
   }
 
-  const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
+  const token = signToken({ id: user.id, username: user.username, role: user.role });
   const q = new URLSearchParams({
     token,
     username: user.username,

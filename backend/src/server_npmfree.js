@@ -10,6 +10,9 @@ const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
+const { generateSecret, verifyTOTP, otpauthUrl } = require('./totp');
+const { audit } = require('./audit');
+const { isDemoAccountBlocked } = require('./demo-accounts');
 const {
   verifyGoogleIdToken,
   isConfigured: googleAuthConfigured,
@@ -161,29 +164,51 @@ if (!process.env.NPMFREE_TOKEN_SECRET) {
   );
 }
 
-// Token format: demo-token-<userId>.<expiresAtEpochMs>.<hmac-sha256(userId.exp)>
-// The expiry is part of the SIGNED payload, so an attacker cannot extend it,
-// and the signature comparison runs in constant time.
-function signToken(userId) {
-  const exp = Date.now() + TOKEN_TTL_MS;
-  const payload = `${userId}.${exp}`;
+// MFA challenge tokens are short-lived (10 minutes) so a leaked challenge
+// can't be replayed into a session later.
+const MFA_TOKEN_TTL_MS = 10 * 60 * 1000;
+
+// Token format: demo-token-<userId>.<expiresAtEpochMs>.<jti>.<scope>.<sig>
+// The expiry and jti are part of the SIGNED payload, so an attacker cannot
+// extend a token or swap its scope, and the signature comparison runs in
+// constant time. jti makes each token unique so logout can revoke it.
+const revokedTokens = new Map(); // jti -> expiresAtMs (pruned lazily)
+
+function signToken(userId, opts = {}) {
+  const exp = Date.now() + (opts.ttlMs || TOKEN_TTL_MS);
+  const jti = crypto.randomBytes(16).toString('hex');
+  const scope = opts.scope || 'session';
+  const payload = `${userId}.${exp}.${jti}.${scope}`;
   const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('base64url');
   return `demo-token-${payload}.${sig}`;
 }
 
+function pruneRevokedTokens() {
+  const now = Date.now();
+  for (const [jti, exp] of revokedTokens) {
+    if (exp <= now) revokedTokens.delete(jti);
+  }
+}
+
+// Returns { user, jti, scope, exp } or null. A revoked (logged-out) jti is
+// rejected exactly like an expired token.
 function verifyToken(token) {
   if (!token || !token.startsWith('demo-token-')) return null;
   const parts = token.slice('demo-token-'.length).split('.');
-  if (parts.length !== 3) return null;
-  const [idStr, expStr, sig] = parts;
+  if (parts.length !== 5) return null;
+  const [idStr, expStr, jti, scope, sig] = parts;
   const id = Number(idStr);
   const exp = Number(expStr);
   if (!Number.isInteger(id) || id < 1 || !Number.isFinite(exp) || exp <= Date.now()) return null;
-  const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(`${idStr}.${expStr}`).digest('base64url');
+  pruneRevokedTokens();
+  if (revokedTokens.has(jti)) return null;
+  const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(`${idStr}.${expStr}.${jti}.${scope}`).digest('base64url');
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  return users.find(u => u.id === id) || null;
+  const user = users.find(u => u.id === id);
+  if (!user) return null;
+  return { user, jti, scope, exp };
 }
 
 // All persistence flows through the active store driver. The store keys on
@@ -473,8 +498,13 @@ function authUser(req) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return { missing: true };
-  const user = verifyToken(token);
-  return user ? { user } : { invalid: true };
+  const result = verifyToken(token);
+  if (!result) return { invalid: true };
+  // Stash the raw token + jti so handlers (logout, audit) can revoke it.
+  req.token = token;
+  req.tokenJti = result.jti;
+  req.tokenScope = result.scope;
+  return { user: result.user, jti: result.jti };
 }
 
 function requireAuth(req, res, adminOnly = false, next) {
@@ -588,6 +618,7 @@ const server = http.createServer((req, res) => {
       // SQLite backend, which checks after its field-validation middleware).
       const lock = loginLockout.check(obj.username, sourceIp);
       if (lock.locked) {
+        audit('auth.lockout', { username: obj.username, ip: sourceIp, retryAfterMs: lock.retryAfterMs });
         return sendJson(res, 429, {
           error: 'Too many failed login attempts. Try again later.',
           retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
@@ -600,11 +631,13 @@ const server = http.createServer((req, res) => {
         // Failed attempts count toward the lockout even for unknown usernames
         // (no username oracle).
         loginLockout.recordFailure(obj.username, sourceIp);
+        audit('auth.login.failed', { username: obj.username, ip: sourceIp });
         return sendJson(res, 401, { error: 'Invalid username or password' });
       }
       const verified = verifyPassword(obj.password, user.password);
       if (!verified.ok) {
         loginLockout.recordFailure(obj.username, sourceIp);
+        audit('auth.login.failed', { username: obj.username, ip: sourceIp });
         return sendJson(res, 401, { error: 'Invalid username or password' });
       }
       // Successful login clears the failure counter.
@@ -616,6 +649,24 @@ const server = http.createServer((req, res) => {
         user.password = hashPassword(obj.password);
         if (useFirestore) writeJSON('@users', users);
       }
+      // Seeded demo credentials can be switched off in production (OWASP: no
+      // default/test accounts in a live system). Rejected with the generic
+      // error so the response doesn't reveal the account exists.
+      if (isDemoAccountBlocked(user.username)) {
+        loginLockout.recordFailure(obj.username, sourceIp);
+        audit('auth.demo_account_blocked', { username: obj.username, ip: sourceIp });
+        return sendJson(res, 401, { error: 'Invalid username or password' });
+      }
+      // Admin MFA: when the administrator has enrolled, the password alone
+      // yields only a short-lived challenge token, never a session.
+      if (user.role === 'admin' && user.mfa_enabled) {
+        audit('auth.login.mfa_required', { userId: user.id, username: user.username });
+        return sendJson(res, 200, {
+          mfa_required: true,
+          mfaToken: signToken(user.id, { scope: 'mfa', ttlMs: MFA_TOKEN_TTL_MS }),
+        });
+      }
+      audit('auth.login.success', { userId: user.id, username: user.username, ip: sourceIp });
       return sendJson(res, 200, {
         token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false }
@@ -672,10 +723,129 @@ const server = http.createServer((req, res) => {
         user.google_sub = sub;
         if (useFirestore) writeJSON('@users', users);
       }
+      // Admin MFA applies to Google sign-in too: an admin who enrolled MFA
+      // must complete the second factor regardless of the first factor.
+      if (user.role === 'admin' && user.mfa_enabled) {
+        audit('auth.login.mfa_required', { userId: user.id, username: user.username });
+        return sendJson(res, 200, {
+          mfa_required: true,
+          mfaToken: signToken(user.id, { scope: 'mfa', ttlMs: MFA_TOKEN_TTL_MS }),
+        });
+      }
+      audit('auth.login.success', { userId: user.id, username: user.username });
       return sendJson(res, 200, {
         token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false },
       });
+    });
+  }
+
+  // ================= MFA + SESSION (admin) =================
+
+  // Second factor: exchange the short-lived MFA challenge for a real session.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/mfa/verify') {
+    return parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!obj.mfaToken || !obj.code) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['mfaToken and code are required'] });
+      }
+      // A 6-digit code is a small space — wrong guesses are throttled per IP
+      // (same lockout module the login path uses).
+      const sourceIp = req.socket?.remoteAddress || '';
+      const lock = loginLockout.check('mfa', sourceIp);
+      if (lock.locked) {
+        return sendJson(res, 429, {
+          error: 'Too many verification attempts. Try again later.',
+          retryAfterSeconds: Math.ceil(lock.retryAfterMs / 1000),
+        });
+      }
+      const result = verifyToken(obj.mfaToken);
+      if (!result || result.scope !== 'mfa') {
+        return sendJson(res, 401, { error: 'Invalid or expired MFA session' });
+      }
+      const user = result.user;
+      if (user.role !== 'admin' || !user.mfa_secret) {
+        return sendJson(res, 401, { error: 'Invalid or expired MFA session' });
+      }
+      if (!verifyTOTP(user.mfa_secret, obj.code)) {
+        loginLockout.recordFailure('mfa', sourceIp);
+        audit('auth.mfa.failed', { userId: user.id, username: user.username, ip: sourceIp });
+        return sendJson(res, 401, { error: 'Invalid verification code' });
+      }
+      loginLockout.recordSuccess('mfa', sourceIp);
+      audit('auth.mfa.verified', { userId: user.id, username: user.username });
+      return sendJson(res, 200, {
+        token: signToken(user.id),
+        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false },
+      });
+    });
+  }
+
+  // Admin-only: generate a fresh TOTP secret (not enabled until confirmed).
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/mfa/setup') {
+    return requireAuth(req, res, true, (req, res) => {
+      if (req.user.mfa_enabled) {
+        return sendJson(res, 409, { error: 'MFA is already enabled' });
+      }
+      const secret = generateSecret();
+      req.user.mfa_secret = secret;
+      if (useFirestore) writeJSON('@users', users);
+      audit('auth.mfa.setup', { userId: req.user.id, username: req.user.username });
+      return sendJson(res, 200, { secret, otpauth_url: otpauthUrl(secret, req.user.username) });
+    });
+  }
+
+  // Admin-only: prove possession of the secret by entering a live code, then
+  // MFA is enabled for every future login.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/mfa/confirm') {
+    return requireAuth(req, res, true, (req, res) => parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!obj.code) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['code is required'] });
+      }
+      if (!req.user.mfa_secret) {
+        return sendJson(res, 409, { error: 'Start MFA setup first' });
+      }
+      if (!verifyTOTP(req.user.mfa_secret, obj.code)) {
+        return sendJson(res, 401, { error: 'Invalid verification code' });
+      }
+      req.user.mfa_enabled = true;
+      if (useFirestore) writeJSON('@users', users);
+      audit('auth.mfa.enabled', { userId: req.user.id, username: req.user.username });
+      return sendJson(res, 200, { ok: true, message: 'MFA enabled' });
+    }));
+  }
+
+  // Admin-only: disable MFA — requires the current authenticator code.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/mfa/disable') {
+    return requireAuth(req, res, true, (req, res) => parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!obj.code) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['code is required'] });
+      }
+      if (!req.user.mfa_enabled || !req.user.mfa_secret) {
+        return sendJson(res, 409, { error: 'MFA is not enabled' });
+      }
+      if (!verifyTOTP(req.user.mfa_secret, obj.code)) {
+        return sendJson(res, 401, { error: 'Invalid verification code' });
+      }
+      req.user.mfa_enabled = false;
+      req.user.mfa_secret = null;
+      if (useFirestore) writeJSON('@users', users);
+      audit('auth.mfa.disabled', { userId: req.user.id, username: req.user.username });
+      return sendJson(res, 200, { ok: true, message: 'MFA disabled' });
+    }));
+  }
+
+  // Logout destroys the session server-side: the presented token's jti goes
+  // onto the revocation list, so a stolen/replayed token can't be reused.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/logout') {
+    return requireAuth(req, res, false, (req, res) => {
+      if (req.tokenJti) {
+        revokedTokens.set(req.tokenJti, Date.now() + TOKEN_TTL_MS);
+      }
+      audit('auth.logout', { userId: req.user.id, username: req.user.username });
+      return sendJson(res, 200, { ok: true });
     });
   }
 
@@ -719,6 +889,7 @@ const server = http.createServer((req, res) => {
       const user = { id: nextUserId++, username: obj.username, password: hashPassword(obj.password), role: 'customer', email: obj.email, phone: obj.phone, email_verified: false, created_at: new Date().toISOString() };
       users.push(user);
       if (useFirestore) writeJSON('@users', users);
+      audit('auth.register', { userId: user.id, username: obj.username });
       const code = generateCode();
       verificationCodes.set(hashCode(code), { user_id: user.id, expires_at: new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString() });
       persistVerificationCodes();
@@ -776,6 +947,7 @@ const server = http.createServer((req, res) => {
       user.email_verified = true;
       persistVerificationCodes();
       if (useFirestore) writeJSON('@users', users);
+      audit('auth.email_verified', { userId: user.id, username: user.username });
       // Now that the address is proven, the welcome lands (fire-and-forget).
       notifyWelcome(user.email, user.username);
       loginLockout.recordSuccess('verify-email', sourceIp);

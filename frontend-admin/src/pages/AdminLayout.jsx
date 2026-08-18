@@ -11,6 +11,7 @@ import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
 import LocationOnOutlined from '@mui/icons-material/LocationOnOutlined';
 import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined';
+import SecurityOutlined from '@mui/icons-material/SecurityOutlined';
 import SwapHorizOutlined from '@mui/icons-material/SwapHorizOutlined';
 import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
@@ -45,6 +46,10 @@ const NAV_SECTIONS = [
       { label: 'Optimization', path: '/optimization', Icon: InsightsOutlined },
       { label: 'Reports', path: '/reports', Icon: AssessmentOutlined },
     ],
+  },
+  {
+    label: 'Account',
+    items: [{ label: 'Security', path: '/security', Icon: SecurityOutlined }],
   },
 ];
 

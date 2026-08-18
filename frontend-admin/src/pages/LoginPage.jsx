@@ -1,6 +1,6 @@
 import { Alert, Box, Button, Container, Paper, Snackbar, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { API_BASE_URL, setToken } from '../api';
+import { API_BASE_URL, mfaVerify, setToken } from '../api';
 import { brandSidebar, colors } from '../theme';
 
 export default function LoginPage({ onLogin }) {
@@ -10,6 +10,10 @@ export default function LoginPage({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [lockoutLeft, setLockoutLeft] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  // Admin MFA second factor: after a successful password login the backend
+  // returns mfa_required + a short-lived challenge token instead of a session.
+  const [mfaToken, setMfaToken] = useState(null);
+  const [mfaCode, setMfaCode] = useState('');
 
   // Live countdown while the account is locked out (429 with retryAfterSeconds).
   useEffect(() => {
@@ -46,6 +50,13 @@ export default function LoginPage({ onLogin }) {
         setError(data.error || 'Login failed');
         return;
       }
+      // Admin MFA: password accepted, now ask for the authenticator code.
+      if (data.mfa_required) {
+        setMfaToken(data.mfaToken);
+        setMfaCode('');
+        setError('');
+        return;
+      }
       // Admin-only sign-in: only accounts with the admin role may open the
       // dashboard. Register (customer app) can never create an admin, so this
       // gate keeps the store's controls out of customer accounts.
@@ -63,8 +74,34 @@ export default function LoginPage({ onLogin }) {
     }
   };
 
+  // Second factor: exchange the challenge token + authenticator code for a
+  // real session. The challenge expires in 10 minutes.
+  const handleMfaSubmit = async () => {
+    if (!mfaCode) {
+      setError('Enter the 6-digit code from your authenticator app.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const data = await mfaVerify({ mfaToken, code: mfaCode });
+      if (!data.user || data.user.role !== 'admin') {
+        setError('This account does not have admin access.');
+        return;
+      }
+      setToken(data.token);
+      setMfaToken(null);
+      setSnackbar({ open: true, message: 'Login successful!', severity: 'success' });
+      setTimeout(() => onLogin(data.user), 500);
+    } catch (err) {
+      setError(err.status === 429 ? 'Too many attempts. Wait a moment and try again.' : (err.message || 'Invalid code'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleSubmit();
+    if (e.key === 'Enter') (mfaToken ? handleMfaSubmit() : handleSubmit());
   };
 
   return (
@@ -97,34 +134,61 @@ export default function LoginPage({ onLogin }) {
         </Typography>
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
-        <TextField
-          fullWidth
-          variant="outlined"
-          label="Username"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          onKeyDown={handleKeyDown}
-          sx={{ mb: 2 }}
-          disabled={loading}
-        />
-        <TextField
-          fullWidth
-          variant="outlined"
-          label="Password"
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          onKeyDown={handleKeyDown}
-          sx={{ mb: 3 }}
-          disabled={loading}
-        />
-        <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large">
-          {loading
-            ? 'Signing in...'
-            : lockoutLeft > 0
-              ? `Locked — try again in ${lockoutLeft}s`
-              : 'Login'}
-        </Button>
+        {mfaToken ? (
+          <>
+            <Typography variant="body2" sx={{ mb: 2, color: colors.textSecondary }}>
+              Two-factor authentication is enabled for this account. Enter the 6-digit code from your authenticator app (Google Authenticator, Authy, etc.).
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Authenticator code"
+              value={mfaCode}
+              onChange={e => setMfaCode(e.target.value)}
+              onKeyDown={handleKeyDown}
+              inputProps={{ maxLength: 6, inputMode: 'numeric' }}
+              sx={{ mb: 3 }}
+              disabled={loading}
+            />
+            <Button fullWidth variant="contained" color="secondary" onClick={handleMfaSubmit} disabled={loading} size="large">
+              {loading ? 'Verifying...' : 'Verify code'}
+            </Button>
+            <Button fullWidth variant="text" onClick={() => setMfaToken(null)} sx={{ mt: 1 }} disabled={loading}>
+              Back to password login
+            </Button>
+          </>
+        ) : (
+          <>
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              onKeyDown={handleKeyDown}
+              sx={{ mb: 2 }}
+              disabled={loading}
+            />
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Password"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
+              sx={{ mb: 3 }}
+              disabled={loading}
+            />
+            <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large">
+              {loading
+                ? 'Signing in...'
+                : lockoutLeft > 0
+                  ? `Locked — try again in ${lockoutLeft}s`
+                  : 'Login'}
+            </Button>
+          </>
+        )}
       </Paper>
       <Snackbar
         open={snackbar.open}

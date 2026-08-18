@@ -237,11 +237,18 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful",
+            "description": "Login successful — either a session token (AuthResponse) or, when the admin has enrolled MFA, an MfaChallenge",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MfaChallenge"
+                    }
+                  ]
                 }
               }
             }
@@ -2466,6 +2473,209 @@
           }
         }
       }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "logout",
+        "summary": "Log out and revoke the presented session token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logged out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaSetup",
+        "summary": "Generate a fresh TOTP secret for the admin (not enabled until confirmed)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetupResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is already enabled"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/confirm": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaConfirm",
+        "summary": "Confirm a live code to enable MFA for the admin account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "Start MFA setup first"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/disable": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaDisable",
+        "summary": "Disable MFA — requires the current authenticator code",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaDisableRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is not enabled"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaVerify",
+        "summary": "Complete the second factor: exchange the MFA challenge for a session token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4611,6 +4821,91 @@
                 }
               }
             }
+          }
+        }
+      },
+      "MfaChallenge": {
+        "type": "object",
+        "required": [
+          "mfa_required",
+          "mfaToken"
+        ],
+        "properties": {
+          "mfa_required": {
+            "type": "boolean",
+            "description": "true when the admin has enrolled MFA and must complete the second factor"
+          },
+          "mfaToken": {
+            "type": "string",
+            "description": "Short-lived (10 min) single-purpose challenge token for /api/auth/mfa/verify"
+          }
+        }
+      },
+      "MfaSetupResponse": {
+        "type": "object",
+        "required": [
+          "secret",
+          "otpauth_url"
+        ],
+        "properties": {
+          "secret": {
+            "type": "string",
+            "description": "Base32 TOTP secret — paste into an authenticator app"
+          },
+          "otpauth_url": {
+            "type": "string",
+            "description": "otpauth:// URI (QR) for Google Authenticator / Authy"
+          }
+        }
+      },
+      "MfaVerifyRequest": {
+        "type": "object",
+        "required": [
+          "mfaToken",
+          "code"
+        ],
+        "properties": {
+          "mfaToken": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "6-digit authenticator code"
+          }
+        }
+      },
+      "MfaConfirmRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "6-digit authenticator code proving possession of the secret"
+          }
+        }
+      },
+      "MfaDisableRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "6-digit authenticator code proving possession of the secret"
+          }
+        }
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
           }
         }
       }
