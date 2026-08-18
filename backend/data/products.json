@@ -70,7 +70,7 @@
     "Image": "/images/coffee-beans--arabica-coffee-beans-1kg.jpg"
   },
   {
-    "Product Name": "Frappase Powder",
+    "Product Name": "Frappease Powder",
     "Category": "Da Vinci Powders",
     "Brand": "",
     "Description": "",
@@ -120,7 +120,7 @@
     "Image": "/images/achievers--acc-ube-syrup-1kg.jpg"
   },
   {
-    "Product Name": "Beryl s Dark Chocolate (1 KG)",
+    "Product Name": "Beryl's Dark Chocolate (1 KG)",
     "Category": "Baking Chocolate",
     "Brand": "",
     "Description": "",
@@ -130,7 +130,7 @@
     "Image": "/images/baking-chocolate--beryl-s-dark-chocolate-1kg.jpg"
   },
   {
-    "Product Name": "Beryl s Dark Chocolate",
+    "Product Name": "Beryl's Dark Chocolate",
     "Category": "Baking Chocolate",
     "Brand": "",
     "Description": "",
@@ -140,7 +140,7 @@
     "Image": "/images/baking-chocolate--beryl-s-dark-chocolate.jpg"
   },
   {
-    "Product Name": "Beryl s Milk Chocolate",
+    "Product Name": "Beryl's Milk Chocolate",
     "Category": "Baking Chocolate",
     "Brand": "",
     "Description": "",
@@ -150,7 +150,7 @@
     "Image": "/images/baking-chocolate--beryl-s-milk-chocolate-1kg.jpg"
   },
   {
-    "Product Name": "Beryl s White Chocolate",
+    "Product Name": "Beryl's White Chocolate",
     "Category": "Baking Chocolate",
     "Brand": "",
     "Description": "",
@@ -160,7 +160,7 @@
     "Image": "/images/baking-chocolate--beryl-s-white-chocolate-1kg.jpg"
   },
   {
-    "Product Name": "Beryl s White Chocolate chips",
+    "Product Name": "Beryl's White Chocolate Chips",
     "Category": "Baking Chocolate",
     "Brand": "",
     "Description": "",
@@ -170,7 +170,7 @@
     "Image": "/images/baking-chocolate--beryl-s-white-chocolate-chips-1kg.jpg"
   },
   {
-    "Product Name": "Callebaut Dark Couvertre Callets",
+    "Product Name": "Callebaut Dark Couverture Callets",
     "Category": "Baking Chocolate",
     "Brand": "",
     "Description": "",
@@ -180,7 +180,7 @@
     "Image": "/images/baking-chocolate--callebaut-dark-couvertre-callets-1kg.jpg"
   },
   {
-    "Product Name": "Van Houten Dark Compound intense",
+    "Product Name": "Van Houten Intense Dark Compound",
     "Category": "Baking Chocolate",
     "Brand": "",
     "Description": "",
@@ -210,7 +210,7 @@
     "Image": "/images/baking-chocolate--van-houten-milk-compound-1kg.jpg"
   },
   {
-    "Product Name": "Original Chicken Pastil by Silong",
+    "Product Name": "Original Chicken Pastil by Silong Kitchen",
     "Category": "Chicken Pastil",
     "Brand": "",
     "Description": "",
@@ -220,7 +220,7 @@
     "Image": "/images/chicken-pastil--original-chicken-pastil-by-silong.jpg"
   },
   {
-    "Product Name": "Spicy Chicken Pastil by Silong",
+    "Product Name": "Spicy Chicken Pastil by Silong Kitchen",
     "Category": "Chicken Pastil",
     "Brand": "",
     "Description": "",
@@ -230,7 +230,7 @@
     "Image": "/images/chicken-pastil--spicy-chicken-pastil-by-silong.jpg"
   },
   {
-    "Product Name": "Arabica Coffee BEans",
+    "Product Name": "Arabica Coffee Beans",
     "Category": "Coffee Beans",
     "Brand": "",
     "Description": "",
@@ -240,7 +240,7 @@
     "Image": "/images/coffee-beans--arabica-coffee-beans-250g.jpg"
   },
   {
-    "Product Name": "Seezione Speciale Coffe Beans",
+    "Product Name": "Selezione Speciale Coffee Beans",
     "Category": "Coffee Beans",
     "Brand": "",
     "Description": "",
@@ -250,7 +250,7 @@
     "Image": "/images/coffee-beans--seezione-speciale-coffe-beans-1kg.jpg"
   },
   {
-    "Product Name": "Sylver Blend Coffee Beans70 Arabic & 30 Robusta",
+    "Product Name": "Sylver Blend Coffee Beans 70% Arabica & 30% Robusta",
     "Category": "Coffee Beans",
     "Brand": "",
     "Description": "",
@@ -690,7 +690,7 @@
     "Image": "/images/da-vinci-sauces--white-chocolate-sauce-2l.jpg"
   },
   {
-    "Product Name": "acadamia",
+    "Product Name": "Macadamia",
     "Category": "Da Vinci Syrup",
     "Brand": "",
     "Description": "",
@@ -751,7 +751,7 @@
     "Image": "/images/da-vinci-syrup--mint-750ml.jpg"
   },
   {
-    "Product Name": "Pecan Praline Mixologies",
+    "Product Name": "Pecan Praline",
     "Category": "Da Vinci Syrup",
     "Brand": "",
     "Description": "",
@@ -811,7 +811,7 @@
     "Image": "/images/da-vinci-syrup--toffee-750ml.jpg"
   },
   {
-    "Product Name": "Vanilla 750LM",
+    "Product Name": "Vanilla 750ML",
     "Category": "Da Vinci Syrup",
     "Brand": "",
     "Description": "",
@@ -841,7 +841,7 @@
     "Image": "/images/da-vinci-syrup--white-chocolate-750ml.jpg"
   },
   {
-    "Product Name": "Buttersotch Syrup",
+    "Product Name": "Butterscotch Syrup",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -921,7 +921,7 @@
     "Image": "/images/dripp-flavours--osmanthus-760ml.jpg"
   },
   {
-    "Product Name": "Pal Sugar 760LM",
+    "Product Name": "Palm Sugar 760ML",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -931,7 +931,7 @@
     "Image": "/images/dripp-flavours--pal-sugar-760lm.jpg"
   },
   {
-    "Product Name": "Pandan 760LM",
+    "Product Name": "Pandan 760ML",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -951,7 +951,7 @@
     "Image": "/images/dripp-flavours--passion-fruit-760ml.jpg"
   },
   {
-    "Product Name": "Peach 760LM",
+    "Product Name": "Peach 760ML",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -981,7 +981,7 @@
     "Image": "/images/dripp-flavours--rose-760ml.jpg"
   },
   {
-    "Product Name": "Strawberry 760LM",
+    "Product Name": "Strawberry 760ML",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -991,7 +991,7 @@
     "Image": "/images/dripp-flavours--strawberry-760lm.jpg"
   },
   {
-    "Product Name": "Tiramisu 760LM",
+    "Product Name": "Tiramisu 760ML",
     "Category": "Dripp Flavours",
     "Brand": "",
     "Description": "",
@@ -1111,7 +1111,7 @@
     "Image": "/images/full-cream-milk--mlekovita-full-cream-milk-12l.jpg"
   },
   {
-    "Product Name": "Yarra s Farm Master Barista Milk",
+    "Product Name": "Yarra's Farm Master Barista Milk",
     "Category": "Full Cream Milk",
     "Brand": "",
     "Description": "",
@@ -1121,7 +1121,7 @@
     "Image": "/images/full-cream-milk--yarra-s-farm-master-barista-milk-12l.jpg"
   },
   {
-    "Product Name": "Allegro",
+    "Product Name": "Allegro Matcha Powder",
     "Category": "MATCHA POWDER",
     "Brand": "",
     "Description": "",
@@ -1131,7 +1131,7 @@
     "Image": "/images/matcha-powder--allegro.jpg"
   },
   {
-    "Product Name": "Top creamery",
+    "Product Name": "Top Creamery Matcha Powder",
     "Category": "MATCHA POWDER",
     "Brand": "",
     "Description": "",
@@ -1561,7 +1561,7 @@
     "Image": "/images/top-creamery--caramel-syrup-750ml.jpg"
   },
   {
-    "Product Name": "Chocolate Syrup 750LM",
+    "Product Name": "Chocolate Syrup 750ML",
     "Category": "Top Creamery",
     "Brand": "",
     "Description": "",
@@ -1712,7 +1712,7 @@
     "Image": "/images/torani--caramel-sauce1-89l.jpg"
   },
   {
-    "Product Name": "Caramel Sause 16.5OZ",
+    "Product Name": "Caramel Sauce 16.5OZ",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1732,7 +1732,7 @@
     "Image": "/images/torani--caramel-syrup-750ml.jpg"
   },
   {
-    "Product Name": "Chocolate Sause 16.5OZ",
+    "Product Name": "Chocolate Sauce 16.5OZ",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1742,7 +1742,7 @@
     "Image": "/images/torani--chocolate-sause-16-5oz.jpg"
   },
   {
-    "Product Name": "Coconu Syrup",
+    "Product Name": "Coconut Syrup",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
@@ -1892,7 +1892,7 @@
     "Image": "/images/torani--white-chocolate-16-5oz.jpg"
   },
   {
-    "Product Name": "White Chocolate Sause",
+    "Product Name": "White Chocolate Sauce",
     "Category": "Torani",
     "Brand": "",
     "Description": "",
