@@ -128,10 +128,13 @@ export default function LoginPage({ onLogin }) {
         </Box>
 
         <Typography variant="subtitle1" sx={{ mb: 3, color: colors.textSecondary }}>
-          Sign in with your admin credentials to manage products, inventory, and orders.
+          Sign in with your staff or admin credentials to manage products, inventory, and orders.
+        </Typography>
+        <Typography variant="caption" sx={{ mb: 1, display: 'block', color: colors.textSecondary }}>
+          Demo owner: username <strong>admin</strong> / password <strong>admin123</strong> (full access)
         </Typography>
         <Typography variant="caption" sx={{ mb: 2, display: 'block', color: colors.textSecondary }}>
-          Demo: username <strong>admin</strong> / password <strong>admin123</strong>
+          Demo staff: username <strong>staff</strong> / password <strong>staff123</strong> (requests &amp; scanning only)
         </Typography>
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
