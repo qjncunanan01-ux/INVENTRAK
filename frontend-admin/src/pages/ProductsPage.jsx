@@ -1,8 +1,10 @@
-import { Alert, AlertTitle, Box, Button, Dialog, DialogActions, DialogTitle, Grid, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, AlertTitle, Autocomplete, Box, Button, Dialog, DialogActions, DialogTitle, Grid, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, createFilterOptions } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiPost, apiPut, bulkUpdatePrices, API_BASE_URL } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
+
+const filter = createFilterOptions();
 
 export default function ProductsPage({ onLogout }) {
   const [products, setProducts] = useState([]);
@@ -20,6 +22,72 @@ export default function ProductsPage({ onLogout }) {
   const [bulkResult, setBulkResult] = useState(null); // { updated, skipped }
   const [bulkBusy, setBulkBusy] = useState(false);
   const fileInputRef = useRef(null);
+
+  const prodArr = Array.isArray(products) ? products : [];
+  const categoryOptions = Array.from(new Set(prodArr.map(p => p.category).filter(Boolean))).sort();
+  const brandOptions = Array.from(new Set(prodArr.map(p => p.brand).filter(Boolean))).sort();
+  const unitOptions = Array.from(new Set([...prodArr.map(p => p.unit), 'pcs', 'kg', 'g', 'L', 'mL', 'box', 'pack', 'bottle', 'can', 'bag'].filter(Boolean))).sort();
+
+  const renderCreatableSelect = (label, value, onChangeField, options, placeholder) => (
+    <Autocomplete
+      value={value || ''}
+      onChange={(event, newValue) => {
+        if (typeof newValue === 'string') {
+          onChangeField(newValue);
+        } else if (newValue && newValue.inputValue) {
+          onChangeField(newValue.inputValue);
+        } else {
+          onChangeField(newValue || '');
+        }
+      }}
+      onInputChange={(event, newInputValue, reason) => {
+        if (reason !== 'reset') {
+          onChangeField(newInputValue);
+        }
+      }}
+      filterOptions={(opts, params) => {
+        const filtered = filter(opts, params);
+        const { inputValue } = params;
+        const trimmed = inputValue.trim();
+        const isExisting = opts.some((option) => trimmed.toLowerCase() === option.toLowerCase());
+        if (trimmed !== '' && !isExisting) {
+          filtered.push({
+            inputValue: trimmed,
+            title: `Add "${trimmed}" as new`,
+          });
+        }
+        return filtered;
+      }}
+      selectOnFocus
+      clearOnBlur
+      handleHomeEndKeys
+      options={options}
+      getOptionLabel={(option) => {
+        if (typeof option === 'string') return option;
+        if (option.inputValue) return option.inputValue;
+        return option.title || '';
+      }}
+      renderOption={(props, option) => {
+        const { key, ...optionProps } = props;
+        if (typeof option === 'object' && option.inputValue) {
+          return (
+            <li key={key} {...optionProps} style={{ fontWeight: 'bold', color: colors.primary }}>
+              {option.title}
+            </li>
+          );
+        }
+        return (
+          <li key={key} {...optionProps}>
+            {option}
+          </li>
+        );
+      }}
+      freeSolo
+      renderInput={(params) => (
+        <TextField {...params} label={label} placeholder={placeholder} variant="outlined" fullWidth />
+      )}
+    />
+  );
 
   const loadProducts = () => {
     setLoading(true);
@@ -232,10 +300,10 @@ export default function ProductsPage({ onLogout }) {
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}><TextField fullWidth variant="outlined" label="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></Grid>
-          <Grid item xs={12} md={4}><TextField fullWidth variant="outlined" label="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></Grid>
-          <Grid item xs={12} md={4}><TextField fullWidth variant="outlined" label="Brand" value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} /></Grid>
-          <Grid item xs={12} sm={6} md={4}><TextField fullWidth variant="outlined" label="Size (e.g. 1.5 KG, 2 L)" value={form.size} onChange={e => setForm({ ...form, size: e.target.value })} /></Grid>
-          <Grid item xs={12} sm={6} md={2}><TextField fullWidth variant="outlined" label="Unit" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="pcs" /></Grid>
+          <Grid item xs={12} md={4}>{renderCreatableSelect('Category', form.category, val => setForm(prev => ({ ...prev, category: val })), categoryOptions)}</Grid>
+          <Grid item xs={12} md={4}>{renderCreatableSelect('Brand', form.brand, val => setForm(prev => ({ ...prev, brand: val })), brandOptions)}</Grid>
+          <Grid item xs={12} sm={6} md={4}><TextField fullWidth variant="outlined" label="Size (e.g. 1.5 KG, 2 L)" value={form.size} onChange={e => setForm(prev => ({ ...prev, size: e.target.value }))} /></Grid>
+          <Grid item xs={12} sm={6} md={2}>{renderCreatableSelect('Unit', form.unit, val => setForm(prev => ({ ...prev, unit: val })), unitOptions, 'pcs')}</Grid>
           <Grid item xs={12} sm={6} md={3}><TextField fullWidth variant="outlined" label="Price" type="text" inputMode="decimal" inputProps={{ inputMode: 'decimal' }} value={form.price} onChange={e => setForm({ ...form, price: sanitizePrice(e.target.value) })} /></Grid>
           <Grid item xs={12} md={9}><TextField fullWidth variant="outlined" label="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} multiline minRows={2} /></Grid>
           <Grid item xs={12} md={6}>
