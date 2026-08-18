@@ -148,7 +148,7 @@
     {
       "product": {
         "id": 8,
-        "name": "Frappase Powder",
+        "name": "Frappease Powder",
         "category": "Da Vinci Powders",
         "brand": "",
         "description": "",
@@ -194,7 +194,7 @@
         "description": "",
         "size": "1KG",
         "unit": "",
-        "price": 420,
+        "price": 172,
         "status": "active",
         "image": "/images/achievers--acc-choco-syrup-1kg.jpg"
       },
@@ -214,7 +214,7 @@
         "description": "",
         "size": "1KG",
         "unit": "",
-        "price": 420,
+        "price": 172,
         "status": "active",
         "image": "/images/achievers--acc-strawberry-syrup-1kg.jpg"
       },
@@ -234,7 +234,7 @@
         "description": "",
         "size": "1KG",
         "unit": "",
-        "price": 420,
+        "price": 172,
         "status": "active",
         "image": "/images/achievers--acc-ube-syrup-1kg.jpg"
       },
@@ -248,7 +248,7 @@
     {
       "product": {
         "id": 13,
-        "name": "Beryl s Dark Chocolate (1 KG)",
+        "name": "Beryl's Dark Chocolate (1 KG)",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
@@ -268,7 +268,7 @@
     {
       "product": {
         "id": 14,
-        "name": "Beryl s Dark Chocolate",
+        "name": "Beryl's Dark Chocolate",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
@@ -288,7 +288,7 @@
     {
       "product": {
         "id": 15,
-        "name": "Beryl s Milk Chocolate",
+        "name": "Beryl's Milk Chocolate",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
@@ -308,7 +308,7 @@
     {
       "product": {
         "id": 16,
-        "name": "Beryl s White Chocolate",
+        "name": "Beryl's White Chocolate",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
@@ -328,13 +328,13 @@
     {
       "product": {
         "id": 17,
-        "name": "Beryl s White Chocolate chips",
+        "name": "Beryl's White Chocolate Chips",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 820,
+        "price": 340,
         "status": "active",
         "image": "/images/baking-chocolate--beryl-s-white-chocolate-chips-1kg.jpg"
       },
@@ -348,13 +348,13 @@
     {
       "product": {
         "id": 18,
-        "name": "Callebaut Dark Couvertre Callets",
+        "name": "Callebaut Dark Couverture Callets",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 820,
+        "price": 1399,
         "status": "active",
         "image": "/images/baking-chocolate--callebaut-dark-couvertre-callets-1kg.jpg"
       },
@@ -368,13 +368,13 @@
     {
       "product": {
         "id": 19,
-        "name": "Van Houten Dark Compound intense",
+        "name": "Van Houten Intense Dark Compound",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
         "size": "",
         "unit": "",
-        "price": 820,
+        "price": 330,
         "status": "active",
         "image": "/images/baking-chocolate--van-houten-dark-compound-intense.jpg"
       },
@@ -394,7 +394,7 @@
         "description": "",
         "size": "",
         "unit": "",
-        "price": 820,
+        "price": 365,
         "status": "active",
         "image": "/images/baking-chocolate--van-houten-dark-compound-semi-sweet.jpg"
       },
@@ -414,7 +414,7 @@
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 820,
+        "price": 330,
         "status": "active",
         "image": "/images/baking-chocolate--van-houten-milk-compound-1kg.jpg"
       },
@@ -428,7 +428,7 @@
     {
       "product": {
         "id": 22,
-        "name": "Original Chicken Pastil by Silong",
+        "name": "Original Chicken Pastil by Silong Kitchen",
         "category": "Chicken Pastil",
         "brand": "",
         "description": "",
@@ -448,7 +448,7 @@
     {
       "product": {
         "id": 23,
-        "name": "Spicy Chicken Pastil by Silong",
+        "name": "Spicy Chicken Pastil by Silong Kitchen",
         "category": "Chicken Pastil",
         "brand": "",
         "description": "",
@@ -468,13 +468,13 @@
     {
       "product": {
         "id": 24,
-        "name": "Arabica Coffee BEans",
+        "name": "Arabica Coffee Beans",
         "category": "Coffee Beans",
         "brand": "",
         "description": "",
         "size": "250 G",
         "unit": "",
-        "price": 1250,
+        "price": 420,
         "status": "active",
         "image": "/images/coffee-beans--arabica-coffee-beans-250g.jpg"
       },
@@ -488,7 +488,7 @@
     {
       "product": {
         "id": 25,
-        "name": "Seezione Speciale Coffe Beans",
+        "name": "Selezione Speciale Coffee Beans",
         "category": "Coffee Beans",
         "brand": "",
         "description": "",
@@ -508,13 +508,13 @@
     {
       "product": {
         "id": 26,
-        "name": "Sylver Blend Coffee Beans70 Arabic & 30 Robusta",
+        "name": "Sylver Blend Coffee Beans 70% Arabica & 30% Robusta",
         "category": "Coffee Beans",
         "brand": "",
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 1250,
+        "price": 1000,
         "status": "active",
         "image": "/images/coffee-beans--sylver-blend-coffee-beans70-arabic-30-robusta-1kg.jpg"
       },
@@ -554,7 +554,7 @@
         "description": "",
         "size": "2.5 KG",
         "unit": "",
-        "price": 700,
+        "price": 320,
         "status": "active",
         "image": "/images/condense-milk--jersey-condensed-milk-2-5-kg.jpg"
       },
@@ -574,7 +574,7 @@
         "description": "",
         "size": "390G",
         "unit": "",
-        "price": 700,
+        "price": 49,
         "status": "active",
         "image": "/images/condense-milk--jersey-condensed-milk-390g.jpg"
       },
@@ -594,7 +594,7 @@
         "description": "",
         "size": "1KG",
         "unit": "",
-        "price": 700,
+        "price": 107,
         "status": "active",
         "image": "/images/condense-milk--marie-condensada-1kg.jpg"
       },
@@ -614,7 +614,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 207,
         "status": "active",
         "image": "/images/cups-and-lid--dabba-elegant-cups-16oz-50pcs.jpg"
       },
@@ -634,7 +634,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 273,
         "status": "active",
         "image": "/images/cups-and-lid--dabba-elegant-cups-22oz-50pcs.jpg"
       },
@@ -654,7 +654,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 80,
         "status": "active",
         "image": "/images/cups-and-lid--dome-lid-95mm-50pcs.jpg"
       },
@@ -674,7 +674,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 316,
         "status": "active",
         "image": "/images/cups-and-lid--double-walled-brown-12oz-50pcs.jpg"
       },
@@ -694,7 +694,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 373,
         "status": "active",
         "image": "/images/cups-and-lid--double-walled-brown-16oz-50pcs.jpg"
       },
@@ -714,7 +714,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 258,
         "status": "active",
         "image": "/images/cups-and-lid--double-walled-brown-8oz-50pcs.jpg"
       },
@@ -734,7 +734,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 71,
         "status": "active",
         "image": "/images/cups-and-lid--flat-lid-95mm-50pcs.jpg"
       },
@@ -754,7 +754,7 @@
         "description": "",
         "size": "100PCS",
         "unit": "",
-        "price": 200,
+        "price": 60,
         "status": "active",
         "image": "/images/cups-and-lid--hard-straw-individual-wrap-100pcs.jpg"
       },
@@ -774,7 +774,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 74,
         "status": "active",
         "image": "/images/cups-and-lid--hot-lid-black-80mm-50pcs.jpg"
       },
@@ -794,7 +794,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 86,
         "status": "active",
         "image": "/images/cups-and-lid--hot-lid-black-90mm-50pcs.jpg"
       },
@@ -814,7 +814,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 155,
         "status": "active",
         "image": "/images/cups-and-lid--pet-cups-12oz-50pcs.jpg"
       },
@@ -834,7 +834,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 178,
         "status": "active",
         "image": "/images/cups-and-lid--pet-cups-16oz-50pcs.jpg"
       },
@@ -854,7 +854,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 201,
         "status": "active",
         "image": "/images/cups-and-lid--pet-cups-22oz-50pcs.jpg"
       },
@@ -874,7 +874,7 @@
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 200,
+        "price": 90,
         "status": "active",
         "image": "/images/cups-and-lid--strawless-lid-95mm-50pcs.jpg"
       },
@@ -954,7 +954,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--blue-ocean-750ml.jpg"
       },
@@ -1014,7 +1014,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--fragrant-lychee-750ml.jpg"
       },
@@ -1034,7 +1034,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--green-apple-750ml.jpg"
       },
@@ -1054,7 +1054,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--grenadine-pomegranate-750ml.jpg"
       },
@@ -1074,7 +1074,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--majestic-mango-750ml.jpg"
       },
@@ -1094,7 +1094,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--menta-cubano-750ml.jpg"
       },
@@ -1114,7 +1114,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--peach-garden-750ml.jpg"
       },
@@ -1134,7 +1134,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--pink-guava-750ml.jpg"
       },
@@ -1154,7 +1154,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--raspberry-rhapsody-750ml.jpg"
       },
@@ -1174,7 +1174,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-mixologies--tropical-passionfruit-750ml.jpg"
       },
@@ -1374,7 +1374,7 @@
         "description": "",
         "size": "2 L",
         "unit": "",
-        "price": 1000,
+        "price": 1070,
         "status": "active",
         "image": "/images/da-vinci-sauces--white-chocolate-sauce-2l.jpg"
       },
@@ -1388,7 +1388,7 @@
     {
       "product": {
         "id": 70,
-        "name": "acadamia",
+        "name": "Macadamia",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1508,13 +1508,13 @@
     {
       "product": {
         "id": 76,
-        "name": "Pecan Praline Mixologies",
+        "name": "Pecan Praline",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-syrup--pecan-praline-mixologies-750ml.jpg"
       },
@@ -1554,7 +1554,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 509,
         "status": "active",
         "image": "/images/da-vinci-syrup--shortbread-cookies-750ml.jpg"
       },
@@ -1628,7 +1628,7 @@
     {
       "product": {
         "id": 82,
-        "name": "Vanilla 750LM",
+        "name": "Vanilla 750ML",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1688,7 +1688,7 @@
     {
       "product": {
         "id": 85,
-        "name": "Buttersotch Syrup",
+        "name": "Butterscotch Syrup",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1714,7 +1714,7 @@
         "description": "",
         "size": "500 ML",
         "unit": "",
-        "price": 460,
+        "price": 580,
         "status": "active",
         "image": "/images/dripp-flavours--caramel-sauce-500ml.jpg"
       },
@@ -1734,7 +1734,7 @@
         "description": "",
         "size": "760 ML",
         "unit": "",
-        "price": 460,
+        "price": 500,
         "status": "active",
         "image": "/images/dripp-flavours--caramel-syrup-760ml.jpg"
       },
@@ -1794,7 +1794,7 @@
         "description": "",
         "size": "500 ML",
         "unit": "",
-        "price": 460,
+        "price": 790,
         "status": "active",
         "image": "/images/dripp-flavours--hazelnut-sauce-500ml.jpg"
       },
@@ -1848,7 +1848,7 @@
     {
       "product": {
         "id": 93,
-        "name": "Pal Sugar 760LM",
+        "name": "Palm Sugar 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1868,7 +1868,7 @@
     {
       "product": {
         "id": 94,
-        "name": "Pandan 760LM",
+        "name": "Pandan 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1908,7 +1908,7 @@
     {
       "product": {
         "id": 96,
-        "name": "Peach 760LM",
+        "name": "Peach 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1968,7 +1968,7 @@
     {
       "product": {
         "id": 99,
-        "name": "Strawberry 760LM",
+        "name": "Strawberry 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1988,7 +1988,7 @@
     {
       "product": {
         "id": 100,
-        "name": "Tiramisu 760LM",
+        "name": "Tiramisu 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -2054,7 +2054,7 @@
         "description": "",
         "size": "10L",
         "unit": "",
-        "price": 1120,
+        "price": 895,
         "status": "active",
         "image": "/images/full-cream-milk--arla-pro-barista-milk-10l.jpg"
       },
@@ -2074,7 +2074,7 @@
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 1120,
+        "price": 940,
         "status": "active",
         "image": "/images/full-cream-milk--conaprole-full-cream-milk-12l.jpg"
       },
@@ -2094,7 +2094,7 @@
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 1120,
+        "price": 892,
         "status": "active",
         "image": "/images/full-cream-milk--emborg-chef-selection-full-cream-milk-12l.jpg"
       },
@@ -2114,7 +2114,7 @@
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 1120,
+        "price": 972,
         "status": "active",
         "image": "/images/full-cream-milk--emborg-full-cream-milk-12l.jpg"
       },
@@ -2134,7 +2134,7 @@
         "description": "",
         "size": "12 L",
         "unit": "",
-        "price": 1120,
+        "price": 924,
         "status": "active",
         "image": "/images/full-cream-milk--happy-barn-full-cream-milk-12l.jpg"
       },
@@ -2154,7 +2154,7 @@
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 1120,
+        "price": 840,
         "status": "active",
         "image": "/images/full-cream-milk--jersey-full-cream-milk-12l.jpg"
       },
@@ -2174,7 +2174,7 @@
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 1120,
+        "price": 940,
         "status": "active",
         "image": "/images/full-cream-milk--laciate-full-cream-milk-12l.jpg"
       },
@@ -2194,7 +2194,7 @@
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 1120,
+        "price": 1215,
         "status": "active",
         "image": "/images/full-cream-milk--milklab-full-cream-milk-12l.jpg"
       },
@@ -2214,7 +2214,7 @@
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 1120,
+        "price": 1020,
         "status": "active",
         "image": "/images/full-cream-milk--mlekovita-full-cream-milk-12l.jpg"
       },
@@ -2228,13 +2228,13 @@
     {
       "product": {
         "id": 112,
-        "name": "Yarra s Farm Master Barista Milk",
+        "name": "Yarra's Farm Master Barista Milk",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 1120,
+        "price": 990,
         "status": "active",
         "image": "/images/full-cream-milk--yarra-s-farm-master-barista-milk-12l.jpg"
       },
@@ -2248,7 +2248,7 @@
     {
       "product": {
         "id": 113,
-        "name": "Allegro",
+        "name": "Allegro Matcha Powder",
         "category": "MATCHA POWDER",
         "brand": "",
         "description": "",
@@ -2268,13 +2268,13 @@
     {
       "product": {
         "id": 114,
-        "name": "Top creamery",
+        "name": "Top Creamery Matcha Powder",
         "category": "MATCHA POWDER",
         "brand": "",
         "description": "",
         "size": "",
         "unit": "",
-        "price": 1175,
+        "price": 475,
         "status": "active",
         "image": "/images/matcha-powder--top-creamery.jpg"
       },
@@ -2294,7 +2294,7 @@
         "description": "",
         "size": "1 L",
         "unit": "",
-        "price": 520,
+        "price": 760,
         "status": "active",
         "image": "/images/monin--caramel-syrup-1l.jpg"
       },
@@ -2414,7 +2414,7 @@
         "description": "",
         "size": "15 ML",
         "unit": "",
-        "price": 400,
+        "price": 380,
         "status": "active",
         "image": "/images/others1--sauce-pump-15ml.jpg"
       },
@@ -2454,7 +2454,7 @@
         "description": "",
         "size": "7.5 ML",
         "unit": "",
-        "price": 400,
+        "price": 380,
         "status": "active",
         "image": "/images/others1--syrup-pump-7-5ml.jpg"
       },
@@ -2494,7 +2494,7 @@
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 460,
+        "price": 169,
         "status": "active",
         "image": "/images/plant-based-milk--freenow-coconut-milk-1l.jpg"
       },
@@ -2514,7 +2514,7 @@
         "description": "",
         "size": "1 L",
         "unit": "",
-        "price": 460,
+        "price": 185,
         "status": "active",
         "image": "/images/plant-based-milk--milklab-almond-1l.jpg"
       },
@@ -2534,7 +2534,7 @@
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 460,
+        "price": 164,
         "status": "active",
         "image": "/images/plant-based-milk--milklab-oat-milk-1l.jpg"
       },
@@ -2554,7 +2554,7 @@
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 460,
+        "price": 199,
         "status": "active",
         "image": "/images/plant-based-milk--milklab-soy-milk-1l.jpg"
       },
@@ -2574,7 +2574,7 @@
         "description": "",
         "size": "1 L",
         "unit": "",
-        "price": 460,
+        "price": 130,
         "status": "active",
         "image": "/images/plant-based-milk--oatbedient-artisan-oatmilk-barista-1l.jpg"
       },
@@ -2594,7 +2594,7 @@
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 460,
+        "price": 170,
         "status": "active",
         "image": "/images/plant-based-milk--oatbedient-oat-milk-barista-1l.jpg"
       },
@@ -2614,7 +2614,7 @@
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 460,
+        "price": 145,
         "status": "active",
         "image": "/images/plant-based-milk--oatside-barista-blend-oatmilk-1l.jpg"
       },
@@ -2634,7 +2634,7 @@
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 460,
+        "price": 165,
         "status": "active",
         "image": "/images/plant-based-milk--oatside-chocolate-oatmilk-1l.jpg"
       },
@@ -2654,7 +2654,7 @@
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 460,
+        "price": 230,
         "status": "active",
         "image": "/images/plant-based-milk--so-good-oat-barista-1l.jpg"
       },
@@ -2694,7 +2694,7 @@
         "description": "",
         "size": "610G",
         "unit": "",
-        "price": 500,
+        "price": 240,
         "status": "active",
         "image": "/images/spread-jams-biscuits--dla-lafruta-strawberry-610g.jpg"
       },
@@ -2714,7 +2714,7 @@
         "description": "",
         "size": "1KG",
         "unit": "",
-        "price": 500,
+        "price": 2091,
         "status": "active",
         "image": "/images/spread-jams-biscuits--dla-pistachio-filling-1kg.jpg"
       },
@@ -2734,7 +2734,7 @@
         "description": "",
         "size": "3KG",
         "unit": "",
-        "price": 500,
+        "price": 345,
         "status": "active",
         "image": "/images/spread-jams-biscuits--doking-blueberry-jam-3kg.jpg"
       },
@@ -2754,7 +2754,7 @@
         "description": "",
         "size": "3KG",
         "unit": "",
-        "price": 500,
+        "price": 345,
         "status": "active",
         "image": "/images/spread-jams-biscuits--doking-mango-jam-3kg.jpg"
       },
@@ -2774,7 +2774,7 @@
         "description": "",
         "size": "3KG",
         "unit": "",
-        "price": 500,
+        "price": 345,
         "status": "active",
         "image": "/images/spread-jams-biscuits--doking-strawberry-jam-3kg.jpg"
       },
@@ -2794,7 +2794,7 @@
         "description": "",
         "size": "2KG",
         "unit": "",
-        "price": 500,
+        "price": 372,
         "status": "active",
         "image": "/images/spread-jams-biscuits--jersey-industrial-cheese-2kg.jpg"
       },
@@ -2834,7 +2834,7 @@
         "description": "",
         "size": "400G",
         "unit": "",
-        "price": 500,
+        "price": 324,
         "status": "active",
         "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-creamy-spread-400g.jpg"
       },
@@ -2854,7 +2854,7 @@
         "description": "",
         "size": "250G",
         "unit": "",
-        "price": 500,
+        "price": 190,
         "status": "active",
         "image": "/images/spread-jams-biscuits--lotus-biscoff-biscuits-250g.jpg"
       },
@@ -2874,7 +2874,7 @@
         "description": "",
         "size": "750G",
         "unit": "",
-        "price": 500,
+        "price": 535,
         "status": "active",
         "image": "/images/spread-jams-biscuits--lotus-biscoff-cookie-crumbs-750g.jpg"
       },
@@ -2894,7 +2894,7 @@
         "description": "",
         "size": "380G",
         "unit": "",
-        "price": 500,
+        "price": 335,
         "status": "active",
         "image": "/images/spread-jams-biscuits--lotus-biscoff-crunchy-spread-380g.jpg"
       },
@@ -2914,7 +2914,7 @@
         "description": "",
         "size": "3KG",
         "unit": "",
-        "price": 500,
+        "price": 2650,
         "status": "active",
         "image": "/images/spread-jams-biscuits--lotus-biscoff-smooth-spread-3kg.jpg"
       },
@@ -2934,7 +2934,7 @@
         "description": "",
         "size": "1KG",
         "unit": "",
-        "price": 500,
+        "price": 1050,
         "status": "active",
         "image": "/images/spread-jams-biscuits--lotus-biscoff-topping-sauce-1kg.jpg"
       },
@@ -2954,7 +2954,7 @@
         "description": "",
         "size": "2.5KG",
         "unit": "",
-        "price": 500,
+        "price": 530,
         "status": "active",
         "image": "/images/spread-jams-biscuits--magnolia-cheese-sauce-2-5kg.jpg"
       },
@@ -2974,7 +2974,7 @@
         "description": "",
         "size": "1KG",
         "unit": "",
-        "price": 500,
+        "price": 899,
         "status": "active",
         "image": "/images/spread-jams-biscuits--master-martini-gran-delice-pistachio-creamy-spread-1kg.jpg"
       },
@@ -2994,7 +2994,7 @@
         "description": "",
         "size": "3.3 KG",
         "unit": "",
-        "price": 500,
+        "price": 644,
         "status": "active",
         "image": "/images/spread-jams-biscuits--maulin-coffee-jelly-3-3-kg.jpg"
       },
@@ -3014,7 +3014,7 @@
         "description": "",
         "size": "2.5KG",
         "unit": "",
-        "price": 500,
+        "price": 310,
         "status": "active",
         "image": "/images/spread-jams-biscuits--milin-crystal-jelly-2-5kg.jpg"
       },
@@ -3034,7 +3034,7 @@
         "description": "",
         "size": "2.5KG",
         "unit": "",
-        "price": 500,
+        "price": 287,
         "status": "active",
         "image": "/images/spread-jams-biscuits--milin-nata-jelly-2-5kg.jpg"
       },
@@ -3054,7 +3054,7 @@
         "description": "",
         "size": "3KG",
         "unit": "",
-        "price": 500,
+        "price": 1855,
         "status": "active",
         "image": "/images/spread-jams-biscuits--nutella-ferrero-food-service-3kg.jpg"
       },
@@ -3074,7 +3074,7 @@
         "description": "",
         "size": "454G",
         "unit": "",
-        "price": 500,
+        "price": 200,
         "status": "active",
         "image": "/images/spread-jams-biscuits--oreo-crushed-cookie-454g.jpg"
       },
@@ -3094,7 +3094,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 243,
         "status": "active",
         "image": "/images/top-creamery--brown-sugar-syrup-750ml.jpg"
       },
@@ -3114,7 +3114,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 264,
         "status": "active",
         "image": "/images/top-creamery--caramel-syrup-750ml.jpg"
       },
@@ -3128,13 +3128,13 @@
     {
       "product": {
         "id": 157,
-        "name": "Chocolate Syrup 750LM",
+        "name": "Chocolate Syrup 750ML",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
         "size": "",
         "unit": "",
-        "price": 460,
+        "price": 324,
         "status": "active",
         "image": "/images/top-creamery--chocolate-syrup-750lm.jpg"
       },
@@ -3154,7 +3154,7 @@
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 460,
+        "price": 395,
         "status": "active",
         "image": "/images/top-creamery--cookies-cream-powder-1kg.jpg"
       },
@@ -3174,7 +3174,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 270,
         "status": "active",
         "image": "/images/top-creamery--creamy-vanilla-syrup-750ml.jpg"
       },
@@ -3194,7 +3194,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 470,
         "status": "active",
         "image": "/images/top-creamery--espresso-syrup-750ml.jpg"
       },
@@ -3214,7 +3214,7 @@
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 460,
+        "price": 330,
         "status": "active",
         "image": "/images/top-creamery--frappe-base-1kg.jpg"
       },
@@ -3234,7 +3234,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 280,
         "status": "active",
         "image": "/images/top-creamery--hazelnut-syrup-750ml.jpg"
       },
@@ -3274,7 +3274,7 @@
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 460,
+        "price": 435,
         "status": "active",
         "image": "/images/top-creamery--salted-cheese-foam-1kg.jpg"
       },
@@ -3314,7 +3314,7 @@
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 460,
+        "price": 310,
         "status": "active",
         "image": "/images/top-creamery--ube-powder-1kg.jpg"
       },
@@ -3334,7 +3334,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 340,
         "status": "active",
         "image": "/images/top-creamery--ube-syrup-750ml.jpg"
       },
@@ -3374,7 +3374,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--brown-sugar-cinnamon-syrup-750ml.jpg"
       },
@@ -3414,7 +3414,7 @@
         "description": "",
         "size": "1.89 L",
         "unit": "",
-        "price": 460,
+        "price": 1250,
         "status": "active",
         "image": "/images/torani--caramel-sauce1-89l.jpg"
       },
@@ -3428,7 +3428,7 @@
     {
       "product": {
         "id": 172,
-        "name": "Caramel Sause 16.5OZ",
+        "name": "Caramel Sauce 16.5OZ",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3454,7 +3454,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--caramel-syrup-750ml.jpg"
       },
@@ -3468,7 +3468,7 @@
     {
       "product": {
         "id": 174,
-        "name": "Chocolate Sause 16.5OZ",
+        "name": "Chocolate Sauce 16.5OZ",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3488,13 +3488,13 @@
     {
       "product": {
         "id": 175,
-        "name": "Coconu Syrup",
+        "name": "Coconut Syrup",
         "category": "Torani",
         "brand": "",
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--coconu-syrup-750ml.jpg"
       },
@@ -3514,7 +3514,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--creme-de-menthe-syrup-750ml.jpg"
       },
@@ -3554,7 +3554,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--english-toffee-syrup-750ml.jpg"
       },
@@ -3574,7 +3574,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--french-vanilla-syrup-750ml.jpg"
       },
@@ -3594,7 +3594,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--hazelnut-syrup-750ml.jpg"
       },
@@ -3634,7 +3634,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--peppermint-syrup-750ml.jpg"
       },
@@ -3654,7 +3654,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--pumpkin-spice-syrup-750ml.jpg"
       },
@@ -3754,7 +3754,7 @@
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 460,
+        "price": 530,
         "status": "active",
         "image": "/images/torani--vanilla-syrup-750ml.jpg"
       },
@@ -3788,13 +3788,13 @@
     {
       "product": {
         "id": 190,
-        "name": "White Chocolate Sause",
+        "name": "White Chocolate Sauce",
         "category": "Torani",
         "brand": "",
         "description": "",
         "size": "1.89 L",
         "unit": "",
-        "price": 460,
+        "price": 1200,
         "status": "active",
         "image": "/images/torani--white-chocolate-sause-1-89l.jpg"
       },
