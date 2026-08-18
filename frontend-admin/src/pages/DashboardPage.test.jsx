@@ -119,6 +119,7 @@ describe('DashboardPage data wiring', () => {
           pendingInquiries: 3,
           totalSales: 999999,
           customersServed: 3,
+          activeAlerts: 7,
           fastMovingProducts: [{ name: 'Caramel Syrup', qty_sold: 40 }],
           slowMovingProducts: [{ name: 'Old Stock', qty_sold: 1 }],
         },
@@ -156,6 +157,12 @@ describe('DashboardPage data wiring', () => {
     // is gone instead — before the fix, staff saw "No sales data yet".
     await waitFor(() => {
       expect(screen.queryByText('No sales data yet')).not.toBeInTheDocument();
+    });
+    // Active Alerts falls back to the public summary count too (the alert
+    // list endpoint is admin-only) — before the fix, staff saw 0.
+    await waitFor(() => {
+      expect(screen.getByText('Active Alerts')).toBeInTheDocument();
+      expect(screen.getByText('7')).toBeInTheDocument();
     });
     mockRole = 'admin';
   });

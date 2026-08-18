@@ -174,10 +174,15 @@ export default function DashboardPage({ user, onLogout }) {
           ? movementsData.length
           : (summaryData.totalMovements || 0);
 
-        // 8. Active alerts count
-        const activeAlerts = Array.isArray(alertsData)
-          ? alertsData.filter(a => a.status === 'active' || !a.status).length
-          : (summaryData.activeAlerts || 0);
+        // 8. Active alerts count. The alert list endpoint is admin-only, so
+        // staff fall back to the public summary's count — otherwise the card
+        // shows 0 while 200+ low-stock alerts exist (same pattern as the
+        // inquiry/sales cards above).
+        const activeAlerts = isStaff
+          ? (summaryData.activeAlerts || 0)
+          : (Array.isArray(alertsData)
+              ? alertsData.filter(a => a.status === 'active' || !a.status).length
+              : (summaryData.activeAlerts || 0));
 
         // 9. This-month sales metrics. Staff use the daily report aggregate
         // (their raw ledger fetch is role-blocked); admins use the ledger.
