@@ -237,11 +237,18 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful",
+            "description": "Login successful — either a session token (AuthResponse) or, when the admin has enrolled MFA, an MfaChallenge",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MfaChallenge"
+                    }
+                  ]
                 }
               }
             }
@@ -1801,6 +1808,10 @@
                   "image": {
                     "type": "string",
                     "description": "Base64-encoded image (max ~8 MB)"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "description": "Original file name of the uploaded image (optional). When it resolves to a catalog product (e.g. an image exported from the catalog), the match is returned by file name without running OCR."
                   }
                 }
               }
@@ -2007,7 +2018,7 @@
           "Alerts"
         ],
         "operationId": "listAlerts",
-        "summary": "List low-stock alerts",
+        "summary": "List low-stock alerts (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -2087,7 +2098,7 @@
           "Sales"
         ],
         "operationId": "listSales",
-        "summary": "List sales transactions",
+        "summary": "List sales transactions (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -2287,6 +2298,48 @@
         }
       }
     },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealth",
+        "summary": "Public liveness probe — returns 200 with service status and active driver",
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "status",
+                    "time"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "driver": {
+                      "type": "string",
+                      "description": "Active storage driver (sqlite | json | firestore)"
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health/integrity": {
       "get": {
         "tags": [
@@ -2315,6 +2368,388 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/ocr/stock": {
+      "post": {
+        "tags": [
+          "OCR"
+        ],
+        "operationId": "ocrStockCheck",
+        "summary": "Admin stock check: OCR a product label and return matches with live per-location stock",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "image"
+                ],
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "description": "Base64-encoded image (max ~8 MB)"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "description": "Original file name of the uploaded image (optional). When it resolves to a catalog product (e.g. an image exported from the catalog), the match is returned by file name without running OCR."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Filtered OCR text + matched products with stock snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcrStockResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "503": {
+            "description": "OCR engine unavailable (tesseract not configured)"
+          }
+        }
+      }
+    },
+    "/api/auth/google/start": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "googleAuthStart",
+        "summary": "Start Google OAuth relay: redirects the browser to Google consent with the backend callback as redirect_uri.",
+        "parameters": [
+          {
+            "name": "returnUrl",
+            "in": "query",
+            "required": true,
+            "description": "App deep link to return to after sign-in (exp:// for Expo Go, inventrak:// for the standalone app, http://localhost for dev).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to Google sign-in"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          }
+        }
+      }
+    },
+    "/api/auth/google/callback": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "googleAuthCallback",
+        "summary": "Google OAuth callback: exchanges the code server-side and deep-links back to the app with a session token.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "OAuth authorization code (from Google)."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "CSRF state issued by googleAuthStart."
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Google error, if the user was denied."
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Deep link back into the app with token/username/role/email params"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "description": "Google token exchange failed"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "logout",
+        "summary": "Log out and revoke the presented session token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Logged out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaSetup",
+        "summary": "Generate a fresh TOTP secret for the admin (not enabled until confirmed)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetupResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is already enabled"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/confirm": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaConfirm",
+        "summary": "Confirm a live code to enable MFA for the admin account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaEnableResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "Start MFA setup first"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/disable": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaDisable",
+        "summary": "Disable MFA — requires the current authenticator code",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaDisableRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is not enabled"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaVerify",
+        "summary": "Complete the second factor: exchange the MFA challenge for a session token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/recovery-codes": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaRecoveryCodes",
+        "summary": "Regenerate one-time recovery codes (invalidates the previous set)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh recovery codes (shown once)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRecoveryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is not enabled"
           }
         }
       }
@@ -2445,6 +2880,7 @@
             "type": "string",
             "enum": [
               "admin",
+              "staff",
               "customer"
             ]
           },
@@ -2459,6 +2895,11 @@
             "type": "string",
             "nullable": true,
             "description": "PH mobile number required at registration (for SMS verification + order updates)"
+          },
+          "google_sub": {
+            "type": "string",
+            "nullable": true,
+            "description": "Google account id when the user signed in with Google (null otherwise)"
           },
           "created_at": {
             "type": "string"
@@ -2874,6 +3315,7 @@
                 "type": "string",
                 "enum": [
                   "admin",
+                  "staff",
                   "customer"
                 ]
               },
@@ -3910,6 +4352,14 @@
                 "score": {
                   "type": "number",
                   "description": "0..1 token-overlap match score"
+                },
+                "matched": {
+                  "type": "integer",
+                  "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
+                },
+                "matchedBy": {
+                  "type": "string",
+                  "description": "How the match was found: 'ocr' (default) or 'filename' (resolved from the uploaded file name without OCR)"
                 }
               }
             }
@@ -4364,6 +4814,217 @@
           "idToken": {
             "type": "string",
             "description": "Google ID token from the OAuth sign-in flow"
+          }
+        }
+      },
+      "StockSnapshot": {
+        "type": "object",
+        "required": [
+          "locations",
+          "total",
+          "status"
+        ],
+        "properties": {
+          "locations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Quantity per location name"
+          },
+          "total": {
+            "type": "number",
+            "description": "Total units across all locations"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "low",
+              "out"
+            ],
+            "description": "ok: >= 80 total, low: < 80, out: 0"
+          }
+        }
+      },
+      "OcrStockResponse": {
+        "type": "object",
+        "required": [
+          "text",
+          "matches"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Filtered OCR text (only lines that can match the catalog)"
+          },
+          "matches": {
+            "type": "array",
+            "description": "Catalog products fuzzy-matched from the OCR text with live stock, best first",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "score",
+                "stock"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "image": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "score": {
+                  "type": "number",
+                  "description": "0..1 token-overlap match score"
+                },
+                "matched": {
+                  "type": "integer",
+                  "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
+                },
+                "matchedBy": {
+                  "type": "string",
+                  "description": "How the match was found: 'ocr' (default) or 'filename' (resolved from the uploaded file name without OCR)"
+                },
+                "stock": {
+                  "$ref": "#/components/schemas/StockSnapshot"
+                }
+              }
+            }
+          }
+        }
+      },
+      "MfaChallenge": {
+        "type": "object",
+        "required": [
+          "mfa_required",
+          "mfaToken"
+        ],
+        "properties": {
+          "mfa_required": {
+            "type": "boolean",
+            "description": "true when the admin has enrolled MFA and must complete the second factor"
+          },
+          "mfaToken": {
+            "type": "string",
+            "description": "Short-lived (10 min) single-purpose challenge token for /api/auth/mfa/verify"
+          }
+        }
+      },
+      "MfaSetupResponse": {
+        "type": "object",
+        "required": [
+          "secret",
+          "otpauth_url"
+        ],
+        "properties": {
+          "secret": {
+            "type": "string",
+            "description": "Base32 TOTP secret — paste into an authenticator app"
+          },
+          "otpauth_url": {
+            "type": "string",
+            "description": "otpauth:// URI (QR) for Google Authenticator / Authy"
+          }
+        }
+      },
+      "MfaVerifyRequest": {
+        "type": "object",
+        "required": [
+          "mfaToken",
+          "code"
+        ],
+        "properties": {
+          "mfaToken": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "description": "6-digit authenticator code OR a 12-char one-time recovery code (e.g. ABCD-EFGH-JKLM)"
+          }
+        }
+      },
+      "MfaConfirmRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "6-digit authenticator code proving possession of the secret"
+          }
+        }
+      },
+      "MfaDisableRequest": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "6-digit authenticator code proving possession of the secret"
+          }
+        }
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MfaEnableResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "message",
+          "recovery_codes"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "recovery_codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "ABCD-EFGH-JKLM"
+            },
+            "description": "One-time recovery codes — shown exactly once, stored only as hashes. Save them somewhere safe."
+          }
+        }
+      },
+      "MfaRecoveryResponse": {
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "properties": {
+          "recovery_codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "ABCD-EFGH-JKLM"
+            },
+            "description": "Fresh one-time recovery codes replacing the previous set (shown exactly once)."
           }
         }
       }
