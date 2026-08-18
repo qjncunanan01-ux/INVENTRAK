@@ -26,7 +26,7 @@ import {
   Pie, PieChart,
   ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis
 } from 'recharts';
-import { apiGet } from '../api';
+import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
 
@@ -124,10 +124,16 @@ export default function DashboardPage({ user, onLogout }) {
           ? locationsData.length
           : (inventoryData.locations?.length || summaryData.totalLocations || 0);
 
-        // 5. Pending inquiries count
-        const pendingInquiries = Array.isArray(inquiriesData)
-          ? inquiriesData.filter(i => i.status === 'pending').length
-          : (summaryData.pendingInquiries || 0);
+        // 5. Pending inquiries count. Staff GET /api/order-inquiries is
+        // scoped to their own account (always empty), so their dashboard must
+        // fall back to the public summary count — otherwise the card would
+        // show 0 while orders are actually pending.
+        const isStaff = getCurrentUser()?.role === 'staff';
+        const pendingInquiries = isStaff
+          ? (summaryData.pendingInquiries || 0)
+          : (Array.isArray(inquiriesData)
+              ? inquiriesData.filter(i => i.status === 'pending').length
+              : (summaryData.pendingInquiries || 0));
 
         // 6. Total sales amount
         const sales = Array.isArray(salesData) ? salesData : [];
@@ -158,13 +164,21 @@ export default function DashboardPage({ user, onLogout }) {
         // 10. Unique customers served (all-time)
         const customersServed = new Set(sales.map(s => s.customer_name).filter(Boolean)).size;
 
-        // 11. Order status counts
+        // 11. Order status counts (staff: use the public summary breakdown,
+        // same reason as the pending-inquiries card above).
         const inquiries = Array.isArray(inquiriesData) ? inquiriesData : [];
-        const orderStatusCounts = {
-          pending: inquiries.filter(i => i.status === 'pending').length,
-          approved: inquiries.filter(i => i.status === 'approved' || i.status === 'fulfilled').length,
-          rejected: inquiries.filter(i => i.status === 'rejected' || i.status === 'cancelled').length,
-        };
+        const summaryStatus = summaryData.orderStatusSummary || {};
+        const orderStatusCounts = isStaff
+          ? {
+              pending: summaryStatus.pending || 0,
+              approved: (summaryStatus.approved || 0) + (summaryStatus.fulfilled || 0),
+              rejected: (summaryStatus.rejected || 0) + (summaryStatus.cancelled || 0),
+            }
+          : {
+              pending: inquiries.filter(i => i.status === 'pending').length,
+              approved: inquiries.filter(i => i.status === 'approved' || i.status === 'fulfilled').length,
+              rejected: inquiries.filter(i => i.status === 'rejected' || i.status === 'cancelled').length,
+            };
 
         // 12. Top products by stock value
         const topProductsLive = items.length > 0

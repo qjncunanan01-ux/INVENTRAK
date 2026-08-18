@@ -7,11 +7,18 @@
 
 const DEMO_SEED = 20240805;
 
-// Fixed anchor for seeded sales dates. Both seeder paths use this constant
-// instead of live `Date.now()`, so identical draws produce byte-identical
-// transaction_date values across the two backends (a live clock differs by
-// milliseconds between boots).
-const SEED_EPOCH = Date.UTC(2024, 0, 1);
+// Anchor for seeded sales dates, pinned to the current UTC day at module
+// load. Both seeder paths use this constant instead of live `Date.now()`, so
+// identical draws produce byte-identical transaction_date values across the
+// two backends (a live clock differs by milliseconds between boots, and two
+// backends booting on the same UTC day compute the same anchor). Sales are
+// drawn as (epoch - 0..89 days), so anchoring at today keeps the demo sales
+// inside the last 90 days and the dashboard's "this month" / "last 7 days"
+// charts populated. Bump + re-seed if the demo data ever looks stale.
+const SEED_EPOCH = (() => {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+})();
 
 // mulberry32: tiny, fast, deterministic 32-bit PRNG. Returns a function that
 // yields floats in [0, 1).
