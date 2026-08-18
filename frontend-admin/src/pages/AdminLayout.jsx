@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Collapse, Divider, Drawer, IconButton, Stack, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, Chip, Collapse, Divider, Drawer, IconButton, Stack, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MenuOutlined from '@mui/icons-material/MenuOutlined';
 import MenuOpenOutlined from '@mui/icons-material/MenuOpenOutlined';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
@@ -257,6 +257,11 @@ export default function AdminLayout({ title, children, onLogout }) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
+  // Signed-in role for the header badge (ADMIN vs STAFF) so the active
+  // account's permission level is obvious at a glance — helpful on stage.
+  const role = getCurrentUser()?.role || 'admin';
+  const isStaff = role === 'staff';
+
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem('inventrak.sidebar.collapsed') === '1';
@@ -357,6 +362,19 @@ export default function AdminLayout({ title, children, onLogout }) {
             <Typography variant="h4" color="text.primary" noWrap>
               {title}
             </Typography>
+            <Chip
+              label={isStaff ? 'STAFF' : 'ADMIN'}
+              size="small"
+              aria-label={isStaff ? 'Signed in as staff' : 'Signed in as admin'}
+              sx={{
+                fontWeight: 800,
+                letterSpacing: 1.2,
+                fontSize: '0.68rem',
+                color: '#fff',
+                backgroundColor: isStaff ? '#e66a0d' : colors.brandPrimary,
+                ml: 1,
+              }}
+            />
           </Box>
           {onLogout ? (
             <Button variant="contained" color="secondary" onClick={onLogout}>

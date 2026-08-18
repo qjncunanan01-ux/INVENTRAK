@@ -156,4 +156,15 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
+
+  test('header shows a role badge matching the signed-in account', () => {
+    mockUser = { role: 'admin' };
+    setViewport(true);
+    renderLayout();
+    expect(screen.getByLabelText('Signed in as admin')).toHaveTextContent('ADMIN');
+
+    mockUser = { role: 'staff' };
+    renderLayout();
+    expect(screen.getByLabelText('Signed in as staff')).toHaveTextContent('STAFF');
+  });
 });
