@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Divider, Drawer, IconButton, Stack, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, Collapse, Divider, Drawer, IconButton, Stack, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MenuOutlined from '@mui/icons-material/MenuOutlined';
 import MenuOpenOutlined from '@mui/icons-material/MenuOpenOutlined';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import CompareArrowsOutlined from '@mui/icons-material/CompareArrowsOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
@@ -18,30 +20,42 @@ import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { brandSidebar, colors } from '../theme';
 
-// Grouped so an 11-item menu reads as a hierarchy instead of a wall of links.
-// Icons come from @mui/icons-material (already a dependency) — glyph icons
-// would have looked cheap against the rest of the MUI design system.
+// Grouped so module items read as a clean collapsible dropdown hierarchy.
 const NAV_SECTIONS = [
   {
     label: 'Overview',
     items: [{ label: 'Dashboard', path: '/', Icon: DashboardOutlined }],
   },
   {
-    label: 'Operations',
+    label: 'Inventory',
+    collapsible: true,
     items: [
-      { label: 'Products', path: '/products', Icon: Inventory2Outlined },
-      { label: 'Inventory', path: '/inventory', Icon: WarehouseOutlined },
-      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined },
+      { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined },
       { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined },
       { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined },
       { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined },
-      { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined },
+      { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined },
+    ],
+  },
+  {
+    label: 'Catalog & Orders',
+    collapsible: true,
+    items: [
+      { label: 'Products', path: '/products', Icon: Inventory2Outlined },
+      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined },
       { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined },
-      { label: 'Locations', path: '/locations', Icon: LocationOnOutlined },
+    ],
+  },
+  {
+    label: 'Governance',
+    collapsible: true,
+    items: [
+      { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined },
     ],
   },
   {
     label: 'Insights',
+    collapsible: true,
     items: [
       { label: 'Optimization', path: '/optimization', Icon: InsightsOutlined },
       { label: 'Reports', path: '/reports', Icon: AssessmentOutlined },
@@ -61,6 +75,19 @@ const EXPANDED_W = 280;
 // mini-variant icon rail (labels hidden, tooltips on hover).
 function NavContent({ collapsed = false, onNavigate }) {
   const location = useLocation();
+  const [expandedGroups, setExpandedGroups] = useState(() => {
+    const initial = {};
+    for (const section of NAV_SECTIONS) {
+      if (section.collapsible) {
+        initial[section.label] = true;
+      }
+    }
+    return initial;
+  });
+
+  const toggleGroup = (label) => {
+    setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+  };
 
   return (
     <>
@@ -81,67 +108,108 @@ function NavContent({ collapsed = false, onNavigate }) {
         )}
       </Box>
 
-      {NAV_SECTIONS.map((section) => (
-        <Box key={section.label}>
-          {collapsed ? (
-            <Divider sx={{ borderColor: 'rgba(255,255,255,0.18)', my: 1 }} />
-          ) : (
-            <Typography
-              variant="caption"
-              sx={{
-                display: 'block',
-                textTransform: 'uppercase',
-                letterSpacing: 1.2,
-                fontSize: '0.68rem',
-                fontWeight: 700,
-                opacity: 0.75,
-                mb: 1,
-                px: 2,
-              }}
-            >
-              {section.label}
-            </Typography>
-          )}
-          <Stack spacing={0.5} alignItems={collapsed ? 'center' : 'stretch'}>
-            {section.items.map(({ label, path, Icon }) => {
-              const active = location.pathname === path;
-              const button = (
-                <Button
-                  component={RouterLink}
-                  to={path}
-                  fullWidth={!collapsed}
-                  onClick={onNavigate}
-                  startIcon={<Icon sx={{ fontSize: 20 }} />}
-                  aria-label={collapsed ? label : undefined}
-                  sx={{
-                    justifyContent: collapsed ? 'center' : 'flex-start',
-                    minWidth: collapsed ? 44 : 0,
-                    px: collapsed ? 1 : 2,
-                    py: 1.4,
-                    borderRadius: 2,
-                    color: '#fff',
-                    backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'transparent',
-                    borderLeft: active ? `3px solid ${colors.brandSecondary}` : '3px solid transparent',
-                    fontWeight: active ? 700 : 500,
-                    '&:hover': {
-                      backgroundColor: 'rgba(255,255,255,0.24)',
-                    },
-                  }}
-                >
-                  {collapsed ? null : label}
-                </Button>
-              );
-              return collapsed ? (
-                <Tooltip key={path} title={label} placement="right" arrow>
-                  {button}
-                </Tooltip>
-              ) : (
-                <Box key={path}>{button}</Box>
-              );
-            })}
-          </Stack>
-        </Box>
-      ))}
+      {NAV_SECTIONS.map((section) => {
+        const isCollapsible = Boolean(section.collapsible) && !collapsed;
+        const isOpen = expandedGroups[section.label] ?? true;
+
+        return (
+          <Box key={section.label}>
+            {collapsed ? (
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.18)', my: 1 }} />
+            ) : isCollapsible ? (
+              <Button
+                fullWidth
+                onClick={() => toggleGroup(section.label)}
+                endIcon={isOpen ? <ExpandLess sx={{ fontSize: 18, color: 'rgba(255,255,255,0.85)' }} /> : <ExpandMore sx={{ fontSize: 18, color: 'rgba(255,255,255,0.85)' }} />}
+                sx={{
+                  justifyContent: 'space-between',
+                  px: 2,
+                  py: 0.75,
+                  mb: 0.5,
+                  color: 'rgba(255,255,255,0.85)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1.2,
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  borderRadius: 1.5,
+                  '&:hover': {
+                    backgroundColor: 'rgba(255,255,255,0.12)',
+                  },
+                }}
+              >
+                {section.label}
+              </Button>
+            ) : (
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1.2,
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  opacity: 0.75,
+                  mb: 1,
+                  px: 2,
+                }}
+              >
+                {section.label}
+              </Typography>
+            )}
+
+            <Collapse in={collapsed ? true : isOpen} timeout="auto" unmountOnExit={false}>
+              <Stack spacing={0.5} alignItems={collapsed ? 'center' : 'stretch'}>
+                {section.items.map(({ label, path, Icon }) => {
+                  const active = location.pathname === path;
+                  const isSubItem = isCollapsible;
+                  const button = (
+                    <Button
+                      component={RouterLink}
+                      to={path}
+                      fullWidth={!collapsed}
+                      onClick={onNavigate}
+                      startIcon={<Icon sx={{ fontSize: 20 }} />}
+                      aria-label={collapsed ? label : undefined}
+                      sx={{
+                        justifyContent: collapsed ? 'center' : 'flex-start',
+                        minWidth: collapsed ? 44 : 0,
+                        px: collapsed ? 1 : isSubItem ? 2.5 : 2,
+                        py: 1.2,
+                        borderRadius: 2,
+                        color: '#fff',
+                        backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'transparent',
+                        borderLeft: active ? `3px solid ${colors.brandSecondary}` : '3px solid transparent',
+                        fontWeight: active ? 700 : 500,
+                        '&:hover': {
+                          backgroundColor: 'rgba(255,255,255,0.24)',
+                        },
+                      }}
+                    >
+                      {collapsed ? null : (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {isSubItem && (
+                            <Typography variant="caption" sx={{ opacity: 0.6, fontSize: '0.9rem', lineHeight: 1 }}>
+                              •
+                            </Typography>
+                          )}
+                          <span>{label}</span>
+                        </Box>
+                      )}
+                    </Button>
+                  );
+                  return collapsed ? (
+                    <Tooltip key={path} title={label} placement="right" arrow>
+                      {button}
+                    </Tooltip>
+                  ) : (
+                    <Box key={path}>{button}</Box>
+                  );
+                })}
+              </Stack>
+            </Collapse>
+          </Box>
+        );
+      })}
 
       <Box sx={{ mt: 'auto' }}>
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.2)' }} />
