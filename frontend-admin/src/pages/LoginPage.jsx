@@ -1,11 +1,24 @@
-import { Alert, Box, Button, Chip, Container, Paper, Snackbar, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Container, InputAdornment, IconButton, Paper, Snackbar, Stack, TextField, Typography } from '@mui/material';
+import AdminPanelSettingsOutlined from '@mui/icons-material/AdminPanelSettingsOutlined';
+import BadgeOutlined from '@mui/icons-material/BadgeOutlined';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../api';
 import { brandSidebar, colors } from '../theme';
 
+// Demo accounts the quick-fill buttons populate. Kept in one place so the
+// two buttons and the hints below can never drift apart.
+const DEMO_ACCOUNTS = {
+  owner: { username: 'admin', password: 'admin123', label: 'Owner', note: 'full access' },
+  staff: { username: 'staff', password: 'staff123', label: 'Staff', note: 'requests & scanning' },
+};
+
 export default function LoginPage({ onLogin }) {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [lockoutLeft, setLockoutLeft] = useState(0);
@@ -22,10 +35,20 @@ export default function LoginPage({ onLogin }) {
     return () => clearInterval(t);
   }, [lockoutLeft]);
 
+  // One tap fills the demo account so presenters never type credentials on
+  // stage (and the form stays clean for real accounts).
+  const fillDemo = (role) => {
+    const account = DEMO_ACCOUNTS[role];
+    if (!account) return;
+    setUsername(account.username);
+    setPassword(account.password);
+    setError('');
+  };
+
   const handleSubmit = async () => {
     if (lockoutLeft > 0) return;
     if (!username || !password) {
-      setError('Please enter username and password');
+      setError('Please enter username and password.');
       return;
     }
     setLoading(true);
@@ -69,7 +92,7 @@ export default function LoginPage({ onLogin }) {
       setSnackbar({ open: true, message: 'Login successful!', severity: 'success' });
       setTimeout(() => onLogin(data.user), 500);
     } catch (err) {
-      setError('Network error. Please ensure the backend server is running on port 4001.');
+      setError('Network error — could not reach the server. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -127,31 +150,60 @@ export default function LoginPage({ onLogin }) {
           </Typography>
         </Box>
 
-        <Typography variant="subtitle1" sx={{ mb: 3, color: colors.textSecondary }}>
+        <Typography variant="subtitle1" sx={{ mb: 2, color: colors.textSecondary }}>
           Sign in with your staff or admin credentials to manage products, inventory, and orders.
         </Typography>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-          <Chip
-            size="small"
-            label="ADMIN"
-            aria-label="Admin role"
-            sx={{ fontWeight: 800, letterSpacing: 1.2, fontSize: '0.62rem', color: '#fff', backgroundColor: colors.brandPrimary }}
-          />
-          <Typography variant="caption" color="textSecondary">
-            owner: <strong>admin</strong> / <strong>admin123</strong> (full access)
-          </Typography>
+
+        {/* Demo quick-fill: one tap populates the account, then press Login. */}
+        <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={() => fillDemo('owner')}
+            startIcon={<AdminPanelSettingsOutlined />}
+            disabled={loading}
+            aria-label="Fill owner demo account (admin / admin123)"
+            sx={{
+              py: 1.25,
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 0.25,
+              backgroundColor: colors.brandPrimary,
+              '&:hover': { backgroundColor: '#19570c' },
+              textTransform: 'none',
+            }}
+          >
+            <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Owner</Box>
+            <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
+              admin / admin123 · full access
+            </Box>
+          </Button>
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={() => fillDemo('staff')}
+            startIcon={<BadgeOutlined />}
+            disabled={loading}
+            aria-label="Fill staff demo account (staff / staff123)"
+            sx={{
+              py: 1.25,
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              gap: 0.25,
+              backgroundColor: '#e66a0d',
+              '&:hover': { backgroundColor: '#cf5c09' },
+              textTransform: 'none',
+            }}
+          >
+            <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Staff</Box>
+            <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
+              staff / staff123 · requests &amp; scanning
+            </Box>
+          </Button>
         </Stack>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-          <Chip
-            size="small"
-            label="STAFF"
-            aria-label="Staff role"
-            sx={{ fontWeight: 800, letterSpacing: 1.2, fontSize: '0.62rem', color: '#fff', backgroundColor: '#e66a0d' }}
-          />
-          <Typography variant="caption" color="textSecondary">
-            staff: <strong>staff</strong> / <strong>staff123</strong> (requests &amp; scanning only)
-          </Typography>
-        </Stack>
+        <Typography variant="caption" sx={{ display: 'block', mb: 3, color: colors.textSecondary }}>
+          One tap fills the demo account — then press Login. The role badge after sign-in shows which account you're on.
+        </Typography>
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
         {mfaToken ? (
@@ -166,6 +218,7 @@ export default function LoginPage({ onLogin }) {
               value={mfaCode}
               onChange={e => setMfaCode(e.target.value)}
               onKeyDown={handleKeyDown}
+              autoFocus
               inputProps={{ maxLength: 6, inputMode: 'numeric' }}
               sx={{ mb: 3 }}
               disabled={loading}
@@ -186,6 +239,7 @@ export default function LoginPage({ onLogin }) {
               value={username}
               onChange={e => setUsername(e.target.value)}
               onKeyDown={handleKeyDown}
+              autoComplete="username"
               sx={{ mb: 2 }}
               disabled={loading}
             />
@@ -193,14 +247,34 @@ export default function LoginPage({ onLogin }) {
               fullWidth
               variant="outlined"
               label="Password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={handleKeyDown}
-              sx={{ mb: 3 }}
+              onKeyUp={e => setCapsLock(Boolean(e.getModifierState && e.getModifierState('CapsLock')))}
+              autoComplete="current-password"
+              sx={{ mb: 1 }}
               disabled={loading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowPassword((s) => !s)}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
-            <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large">
+            {capsLock && (
+              <Typography variant="caption" sx={{ display: 'block', mb: 2, color: 'warning.main' }}>
+                Caps Lock is on — your password will not match.
+              </Typography>
+            )}
+            <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large" sx={{ mt: 2 }}>
               {loading
                 ? 'Signing in...'
                 : lockoutLeft > 0
