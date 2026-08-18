@@ -1,12 +1,17 @@
 import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { apiGet, apiPost } from '../api';
+import { Link } from 'react-router-dom';
+import { apiGet, apiPost, getCurrentUser } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
 
 const statusColor = (s) => (s === 'pending' ? 'warning' : s === 'approved' ? 'success' : 'error');
 
 export default function StockAdjustmentsPage({ onLogout }) {
+  // Staff propose adjustments but only the owner decides them — so the
+  // "Go to Approvals" quick-link and the Approve/Reject buttons are
+  // admin-only (mirrors the backend's adminOnly decision routes).
+  const isStaff = getCurrentUser()?.role === 'staff';
   const [rows, setRows] = useState([]);
   const [products, setProducts] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -128,7 +133,20 @@ export default function StockAdjustmentsPage({ onLogout }) {
 
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
-          <Typography variant="h6">Adjustment history</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="h6">Adjustment history</Typography>
+            {!isStaff && (
+              <Button
+                size="small"
+                variant="outlined"
+                component={Link}
+                to="/approvals"
+                sx={{ color: colors.brandPrimary, borderColor: colors.brandPrimary }}
+              >
+                → Go to Approvals
+              </Button>
+            )}
+          </Box>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 150, backgroundColor: colors.surface }}>
               <InputLabel>Status</InputLabel>
@@ -173,10 +191,14 @@ export default function StockAdjustmentsPage({ onLogout }) {
                 <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
                   {r.status === 'pending' ? (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button size="small" variant="contained" color="success" onClick={() => decide(r.id, 'approve')}>✓ Approve</Button>
-                      <Button size="small" variant="outlined" color="error" onClick={() => decide(r.id, 'reject')}>✕ Reject</Button>
-                    </Box>
+                    isStaff ? (
+                      <Chip size="small" label="Awaiting owner" />
+                    ) : (
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button size="small" variant="contained" color="success" onClick={() => decide(r.id, 'approve')}>✓ Approve</Button>
+                        <Button size="small" variant="outlined" color="error" onClick={() => decide(r.id, 'reject')}>✕ Reject</Button>
+                      </Box>
+                    )
                   ) : '-'}
                 </TableCell>
               </TableRow>
