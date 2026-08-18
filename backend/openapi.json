@@ -2298,6 +2298,48 @@
         }
       }
     },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealth",
+        "summary": "Public liveness probe — returns 200 with service status and active driver",
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "status",
+                    "time"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "driver": {
+                      "type": "string",
+                      "description": "Active storage driver (sqlite | json | firestore)"
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health/integrity": {
       "get": {
         "tags": [

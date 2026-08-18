@@ -557,6 +557,19 @@ const server = http.createServer((req, res) => {
     return res.end();
   }
 
+  // ================= HEALTH =================
+
+  // Public liveness probe (Render/UptimeRobot ping this; returns 200 so
+  // uptime monitors never see the admin-only integrity endpoint's 401/404).
+  if (req.method === 'GET' && url.split('?')[0] === '/api/health') {
+    return sendJson(res, 200, {
+      ok: true,
+      status: 'ok',
+      driver: firestoreConfigured() ? 'firestore' : 'json',
+      time: new Date().toISOString()
+    });
+  }
+
   // ================= INTEGRITY =================
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/health/integrity') {

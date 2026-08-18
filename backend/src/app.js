@@ -3607,6 +3607,19 @@ app.post(
   }
 );
 
+// ================= HEALTH =================
+
+// Public liveness probe (Render/UptimeRobot ping this; returns 200 so
+// uptime monitors never see the admin-only integrity endpoint's 401/404).
+app.get('/api/health', (req, res) => {
+  res.json({
+    ok: true,
+    status: 'ok',
+    driver: 'sqlite',
+    time: new Date().toISOString(),
+  });
+});
+
 // ================= INTEGRITY =================
 
 app.get(
