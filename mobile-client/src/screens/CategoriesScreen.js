@@ -13,6 +13,31 @@ import { useThemeColors } from '../theme-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { categoryIcon } from '../category-icons';
 
+const DEFAULT_CATEGORIES = [
+  'Da Vinci Sauces',
+  'Da Vinci Syrup',
+  'Da Vinci Mixologies',
+  'Da Vinci Powders',
+  'Da Vinci Beverage Mix',
+  'Torani',
+  'Monin',
+  'Dripp Flavours',
+  'Top Creamery',
+  'Full Cream Milk',
+  'Plant Based Milk',
+  'Whip Cream',
+  'Non Dairy Creamer',
+  'Coffee Beans',
+  'Cups and Lid',
+  'Spread/Jams/Biscuits',
+  'Achievers',
+  'Chicken Pastil',
+  'Baking Chocolate',
+  'Condensed Milk',
+  'Matcha Powder',
+  'Others',
+];
+
 export default function CategoriesScreen({ navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -27,7 +52,12 @@ export default function CategoriesScreen({ navigation }) {
         listCategories(),
         listAllProducts(),
       ]);
-      const cats = Array.isArray(catData) ? catData : [];
+      const apiCats = Array.isArray(catData) ? catData : [];
+
+const cats = [
+  ...DEFAULT_CATEGORIES,
+  ...apiCats.filter((cat) => !DEFAULT_CATEGORIES.includes(cat)),
+];
       const c = {};
       cats.forEach((name) => { c[name] = 0; });
       products.forEach((p) => {
@@ -58,9 +88,8 @@ export default function CategoriesScreen({ navigation }) {
   };
 
   const tiles = useMemo(() => {
-    // Put categories with products first, alphabetically within.
-    return [...categories].sort((a, b) => (counts[b] || 0) - (counts[a] || 0) || a.localeCompare(b));
-  }, [categories, counts]);
+  return [...categories];
+}, [categories]);
 
   if (loading && !refreshing) {
     return (
