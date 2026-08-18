@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Container, Paper, Snackbar, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Container, Paper, Snackbar, Stack, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../api';
 import { brandSidebar, colors } from '../theme';
@@ -130,12 +130,28 @@ export default function LoginPage({ onLogin }) {
         <Typography variant="subtitle1" sx={{ mb: 3, color: colors.textSecondary }}>
           Sign in with your staff or admin credentials to manage products, inventory, and orders.
         </Typography>
-        <Typography variant="caption" sx={{ mb: 1, display: 'block', color: colors.textSecondary }}>
-          Demo owner: username <strong>admin</strong> / password <strong>admin123</strong> (full access)
-        </Typography>
-        <Typography variant="caption" sx={{ mb: 2, display: 'block', color: colors.textSecondary }}>
-          Demo staff: username <strong>staff</strong> / password <strong>staff123</strong> (requests &amp; scanning only)
-        </Typography>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+          <Chip
+            size="small"
+            label="ADMIN"
+            aria-label="Admin role"
+            sx={{ fontWeight: 800, letterSpacing: 1.2, fontSize: '0.62rem', color: '#fff', backgroundColor: colors.brandPrimary }}
+          />
+          <Typography variant="caption" color="textSecondary">
+            owner: <strong>admin</strong> / <strong>admin123</strong> (full access)
+          </Typography>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <Chip
+            size="small"
+            label="STAFF"
+            aria-label="Staff role"
+            sx={{ fontWeight: 800, letterSpacing: 1.2, fontSize: '0.62rem', color: '#fff', backgroundColor: '#e66a0d' }}
+          />
+          <Typography variant="caption" color="textSecondary">
+            staff: <strong>staff</strong> / <strong>staff123</strong> (requests &amp; scanning only)
+          </Typography>
+        </Stack>
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
         {mfaToken ? (
