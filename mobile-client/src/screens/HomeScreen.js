@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getInventory, getOptimizationAbc, listAllProducts, listCategories, useSessionUsername } from '../api';
+import { getInventory, getOptimizationAbc, listAllProducts, useSessionUsername,} from '../api';
 import { useCart } from '../cart-context';
 import { useLoginGate } from '../login-gate';
 import { buildFlashPicks, dealPricing, stockMapFromInventory } from '../flash-sale';
@@ -13,29 +13,64 @@ import { categoryIcon } from '../category-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import PressableScale from '../PressableScale';
 
-const DEFAULT_CATEGORIES = [
-  'Da Vinci Sauces',
-  'Da Vinci Syrup',
-  'Da Vinci Mixologies',
-  'Da Vinci Powders',
-  'Da Vinci Beverage Mix',
-  'Torani',
-  'Monin',
-  'Dripp Flavours',
-  'Top Creamery',
-  'Full Cream Milk',
-  'Plant Based Milk',
-  'Whip Cream',
-  'Non Dairy Creamer',
-  'Coffee Beans',
-  'Cups and Lid',
-  'Spread/Jams/Biscuits',
-  'Achievers',
-  'Chicken Pastil',
-  'Baking Chocolate',
-  'Condensed Milk',
-  'Matcha Powder',
-  'Others',
+const HOME_CATEGORY_GROUPS = [
+  {
+    label: 'All',
+    icon: 'view-grid-outline',
+    categories: [],
+  },
+  {
+    label: 'Da Vinci Products',
+    icon: 'bottle-soda-outline',
+    categories: [
+      'Da Vinci Sauces',
+      'Da Vinci Syrup',
+      'Da Vinci Mixologies',
+      'Da Vinci Powders',
+      'Da Vinci Beverage Mix',
+    ],
+  },
+  {
+    label: 'Drinks & Ingredients',
+    icon: 'coffee-outline',
+    categories: [
+      'Torani',
+      'Monin',
+      'Dripp Flavours',
+      'Top Creamery',
+      'Full Cream Milk',
+      'Plant Based Milk',
+      'Whip Cream',
+      'Non Dairy Creamer',
+      'Coffee Beans',
+      'Matcha Powder',
+    ],
+  },
+  {
+    label: 'Food & Baking',
+    icon: 'food-outline',
+    categories: [
+      'Spread/Jams/Biscuits',
+      'Chicken Pastil',
+      'Baking Chocolate',
+      'Condensed Milk',
+    ],
+  },
+  {
+    label: 'Packaging & Supplies',
+    icon: 'package-variant-closed',
+    categories: [
+      'Cups and Lid',
+    ],
+  },
+  {
+    label: 'Others',
+    icon: 'dots-horizontal-circle-outline',
+    categories: [
+      'Achievers',
+      'Others',
+    ],
+  },
 ];
 
 export default function HomeScreen({ route, navigation }) {
@@ -49,10 +84,6 @@ export default function HomeScreen({ route, navigation }) {
   // Featured-card quick-add is member-only (guests get the login gate).
   const { requireLogin, gateModal } = useLoginGate(navigation);
   const [featured, setFeatured] = useState([]);
-  const [categories, setCategories] = useState([
-  'All',
-  ...DEFAULT_CATEGORIES,
-]);
 const [guestPopupVisible, setGuestPopupVisible] = useState(false);
   // productId -> total quantity across locations (from the public inventory
   // API), so each featured card can show an honest In stock / Low / Out tag.
@@ -63,44 +94,21 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
   const fetchSeq = useRef(0);
 
   const fetchProducts = useCallback(async () => {
-    const seq = ++fetchSeq.current;
-    try {
-      // Parallel: full catalog (pages past the 100-row clamp), categories,
-      // ABC top picks, and stock levels — so the featured row shows REAL
-      // recommendations (top-value A-classified supplies), not the first few
-      // rows of the catalog.
-      const [items, cats, abcData, inv] = await Promise.all([
-        listAllProducts(),
-        listCategories(),
-        getOptimizationAbc().catch(() => []),
-        getInventory().catch(() => null),
-      ]);
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+  const seq = ++fetchSeq.current;
 
-      const apiCategories = Array.isArray(cats) ? cats : [];
+  try {
+    const [items, abcData, inv] = await Promise.all([
+      listAllProducts(),
+      getOptimizationAbc().catch(() => []),
+      getInventory().catch(() => null),
+    ]);
 
-const extraCategories = apiCategories.filter(
-  (cat) => !DEFAULT_CATEGORIES.includes(cat)
-);
+    if (seq !== fetchSeq.current) return;
 
-setCategories([
-  'All',
-  ...DEFAULT_CATEGORIES,
-  ...extraCategories,
-]);
-
-      // Today's flash picks, shared with the Recommendations screen (same
-      // helper + same inputs -> identical carousels). buildFlashPicks
-      // enriches the ABC list, keeps photo + in-stock items, and rotates a
-      // deterministic 6-window per local day.
-      const stock = stockMapFromInventory(inv);
-      const abc = abcData && abcData.data ? abcData.data : (Array.isArray(abcData) ? abcData : []);
-      setFeatured(buildFlashPicks(abc, items, stock));
-      setStockMap(stock);
-    } catch (err) {
-      // Home still renders without data
-    }
-  }, []);
+  } catch (err) {
+    // Home still renders without data
+  }
+}, []);
 
   // Refetch whenever Home regains focus so admin edits (new products, price
   // changes) appear without killing and reopening the app. Wrapped in a
@@ -226,44 +234,52 @@ setCategories([
   </Text>
 ) : null}
 
-        {/* Category chips */}
-        <View style={styles.sectionRow}>
+        {/* Grouped Home categories */}
+<View style={styles.sectionRow}>
   <Text style={styles.sectionTitle}>Categories</Text>
+
+  <TouchableOpacity
+    onPress={() =>
+      navigation.navigate('CatalogTab', {
+        screen: 'Categories',
+      })
+    }
+    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+  >
+    <Text style={styles.seeAll}>See all ▸</Text>
+  </TouchableOpacity>
 </View>
-        <View style={styles.categoryGrid}>
-  {categories.map((item) => (
+
+<View style={styles.groupCategoryGrid}>
+  {HOME_CATEGORY_GROUPS.map((item) => (
     <PressableScale
-  key={item}
-  style={[
-    styles.chip,
-    item === 'Others' && styles.chipFullWidth,
-  ]}
-      pressableStyle={styles.chipPressable}
+      key={item.label}
+      style={styles.groupCategoryCard}
+      pressableStyle={styles.groupCategoryCardInner}
       onPress={() =>
         navigation.navigate('CatalogTab', {
           screen: 'Products',
           params: {
-            initialCategory: item === 'All' ? '' : item,
+            initialCategory: '',
+            initialCategories: item.categories,
+            initialGroupLabel: item.label,
           },
         })
       }
     >
-      {item === 'All' ? (
+      <View style={styles.groupCategoryIcon}>
         <MaterialCommunityIcons
-          name="view-grid-outline"
-          size={15}
+          name={item.icon}
+          size={18}
           color={colors.brandPrimary}
         />
-      ) : (
-        <MaterialCommunityIcons
-          name={categoryIcon(item)}
-          size={15}
-          color={colors.brandPrimary}
-        />
-      )}
+      </View>
 
-      <Text style={styles.chipText}>
-        {item}
+      <Text
+        style={styles.groupCategoryText}
+        numberOfLines={2}
+      >
+        {item.label}
       </Text>
     </PressableScale>
   ))}
@@ -508,38 +524,55 @@ searchPlaceholder: {
   bannerTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginTop: 4 },
   bannerSub: { color: '#fff', opacity: 0.9, fontSize: 13, marginTop: 4 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary, marginLeft: 16, marginTop: 8, marginBottom: 10 },
-  categoryGrid: {
+  groupCategoryGrid: {
   flexDirection: 'row',
   flexWrap: 'wrap',
-  paddingHorizontal: 16,
   justifyContent: 'space-between',
-  marginBottom: 8,
+  paddingHorizontal: 16,
+  marginBottom: 10,
 },
-  chip: {
+
+groupCategoryCard: {
   width: '48.5%',
   backgroundColor: colors.surface,
-  borderRadius: 18,
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  marginBottom: 6,
+  borderRadius: 14,
+  marginBottom: 8,
   borderWidth: 1,
   borderColor: 'rgba(0,0,0,0.06)',
+  minHeight: 54,
 },
-chipFullWidth: {
-  width: '100%',
+
+groupCategoryCardInner: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingHorizontal: 12,
+  paddingVertical: 10,
 },
-  // The chip's row layout lives on the PressableScale inner pressable so the
-  // icon + label sit side by side (the animated shell only carries the box).
-  chipPressable: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  // Card-like surfaces with left-aligned text need the inner pressable to
-  // stretch children full-width (PressableScale centers by default).
-  cardContent: { alignItems: 'stretch' },
-  chipText: {
+
+groupCategoryIcon: {
+  width: 30,
+  height: 30,
+  borderRadius: 15,
+  backgroundColor: colors.background,
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginRight: 8,
+},
+
+groupCategoryText: {
+  flex: 1,
   color: colors.textPrimary,
   fontWeight: '600',
   fontSize: 12,
-  flexShrink: 1,
+  lineHeight: 16,
 },
+  // The chip's row layout lives on the PressableScale inner pressable so the
+  // icon + label sit side by side (the animated shell only carries the box).
+  
+  // Card-like surfaces with left-aligned text need the inner pressable to
+  // stretch children full-width (PressableScale centers by default).
+  cardContent: { alignItems: 'stretch' },
+  
   quickRow: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 16, marginTop: 12 },
   quickItem: {
     width: '31%',
