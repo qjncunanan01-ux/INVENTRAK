@@ -41,6 +41,13 @@ talks to the live backend from any network.
    number** — fake numbers like `09171234567` are rejected. The **email path is
    the one to demo**; treat SMS as "works once the account is approved + a real
    number is used".
+3. **The demo customer has NO orders yet.** The seeded `customer` account has
+   an empty order history (the 6 seeded inquiries belong to Juan/Maria/Paolo/
+   Jerico/Bettina, not `customer`). So in Part A step 7, the history list is
+   **empty until you place the order in step 6** — that's expected and is
+   actually a clean way to show "new order lands here with its timeline". If
+   you'd rather show history with existing orders, log in as one of the seeded
+   owners instead (or pre-place an order the night before).
 
 ---
 
@@ -68,6 +75,8 @@ talks to the live backend from any network.
    step / QR demo) or **Cash on Delivery** → place the order.
 7. **Order history** (Account → Orders) → the new order appears with its
    status timeline (Placed → Approved → Delivered) as the admin updates it.
+   *(The list starts empty for the `customer` demo account — see demo-day note
+   3 — so this step shows exactly the order you just placed.)*
 8. **Notifications** tab → shows per-account order status updates.
 
 ### Part B — Admin dashboard (desktop browser, 3–4 min)
