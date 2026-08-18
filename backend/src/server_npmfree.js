@@ -108,8 +108,11 @@ const openapiFile = path.join(__dirname, '..', 'openapi.json');
 let users = [
   { id: 1, username: 'admin', password: hashPassword('admin123'), role: 'admin', email: 'admin@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
   { id: 2, username: 'customer', password: hashPassword('customer123'), role: 'customer', email: 'customer@example.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
+  // Demo staff account: proposes adjustments/transfers + scans stock, but
+  // cannot approve anything (admin-only decision routes).
+  { id: 3, username: 'staff', password: hashPassword('staff123'), role: 'staff', email: 'staff@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
 ];
-let nextUserId = 3;
+let nextUserId = 4;
 let salesTransactions = [];
 let nextSaleId = 1;
 let alerts = [];
@@ -511,7 +514,11 @@ function requireAuth(req, res, adminOnly = false, next) {
   const result = authUser(req);
   if (result.missing) return sendJson(res, 401, { error: 'Access token required' });
   if (result.invalid) return sendJson(res, 403, { error: 'Invalid or expired token' });
-  if (adminOnly && result.user.role !== 'admin') return sendJson(res, 403, { error: 'Admin access required' });
+  // `adminOnly` may be a boolean (true = admin only, false = any authed user)
+  // or an array of allowed roles (e.g. ['admin','staff']) for the staff
+  // role-based access control split.
+  const allowed = Array.isArray(adminOnly) ? adminOnly : adminOnly ? ['admin'] : null;
+  if (allowed && !allowed.includes(result.user.role)) return sendJson(res, 403, { error: 'Admin access required' });
   req.user = result.user;
   return next(req, res);
 }
@@ -1754,14 +1761,14 @@ const server = http.createServer((req, res) => {
   const pathPart = url.split('?')[0];
 
   if (req.method === 'GET' && pathPart === '/api/stock-adjustments') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       return sendJson(res, 200, loadRows('adjustment', parsed.searchParams.get('status')));
     });
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/stock-adjustments') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         const productId = Number(obj.product_id);
@@ -1858,14 +1865,14 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'GET' && pathPart === '/api/stock-transfers') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       return sendJson(res, 200, loadRows('transfer', parsed.searchParams.get('status')));
     });
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/stock-transfers') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         const productId = Number(obj.product_id);
@@ -1980,7 +1987,7 @@ const server = http.createServer((req, res) => {
 
   // Printable report data (Report Viewing module).
   if (req.method === 'GET' && url.split('?')[0] === '/api/reports') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       const days = Math.min(90, Math.max(1, parseInt(parsed.searchParams.get('days'), 10) || 14));
       const generated_at = new Date().toISOString();
@@ -2296,11 +2303,11 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  // Admin stock check: scan a label and get per-location stock — the daily
-  // manual-inventory answer. Admin-only; shares the OCR pipeline with the
-  // public /api/ocr but attaches a live stock snapshot to every match.
+  // Stock check: scan a label and get per-location stock — the daily manual-
+  // inventory answer. Staff-or-admin (staff do the daily counting); shares the
+  // OCR pipeline with the public /api/ocr but attaches a live stock snapshot.
   if (req.method === 'POST' && url.split('?')[0] === '/api/ocr/stock') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
       return parseBodyLarge(req, async (err, obj) => {
         if (err) {
           return err.status === 413
@@ -2516,7 +2523,7 @@ const server = http.createServer((req, res) => {
     }
 
     if (parts[2] === 'export') {
-      return requireAuth(req, res, true, (req, res) => {
+      return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
         const type = parts[3];
         const format = new URL(url, 'http://localhost').searchParams.get('format') || 'json';
         let data = [];

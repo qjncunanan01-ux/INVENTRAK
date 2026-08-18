@@ -42,6 +42,7 @@ async function main() {
     store.write('@users', [
       { id: 1, username: 'admin', password: hashPassword('admin123'), role: 'admin', email: 'admin@inventrak.com', created_at: new Date().toISOString() },
       { id: 2, username: 'customer', password: hashPassword('customer123'), role: 'customer', email: 'customer@example.com', created_at: new Date().toISOString() },
+      { id: 3, username: 'staff', password: hashPassword('staff123'), role: 'staff', email: 'staff@inventrak.com', created_at: new Date().toISOString() },
     ]);
     console.log('  seeded demo users (admin / customer)');
   } else {

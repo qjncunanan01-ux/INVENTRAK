@@ -2880,6 +2880,7 @@
             "type": "string",
             "enum": [
               "admin",
+              "staff",
               "customer"
             ]
           },
@@ -3314,6 +3315,7 @@
                 "type": "string",
                 "enum": [
                   "admin",
+                  "staff",
                   "customer"
                 ]
               },

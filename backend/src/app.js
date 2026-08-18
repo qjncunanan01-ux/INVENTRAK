@@ -160,6 +160,21 @@ function adminOnly(req, res, next) {
   next();
 }
 
+// Staff-or-admin guard: staff accounts may propose stock adjustments and
+// transfers, scan for stock levels, and view reports — but every write that
+// changes real data (approvals, products, orders, locations, sales) stays
+// admin-only. Role-based access control per OWASP: staff get the minimum
+// permissions their daily inventory work needs, nothing more.
+function staffOrAdmin(req, res, next) {
+  if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+    return res.status(403).json({
+      error: 'Staff or admin access required',
+    });
+  }
+
+  next();
+}
+
 // --- Validation Helpers ---
 
 function validate(schema) {
@@ -257,6 +272,25 @@ function seedDatabase() {
       hashedPw,
       'customer',
       'customer@example.com'
+    );
+  }
+
+  // Demo staff account: can propose stock adjustments/transfers, scan for
+  // stock, and view reports — but cannot approve anything (admin-only).
+  const staffExists = db
+    .prepare('SELECT id FROM users WHERE username = ?')
+    .get('staff');
+
+  if (!staffExists) {
+    const hashedPw = hashPassword('staff123');
+
+    db.prepare(
+      'INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
+    ).run(
+      'staff',
+      hashedPw,
+      'staff',
+      'staff@inventrak.com'
     );
   }
 
@@ -2249,14 +2283,14 @@ function listTransfers(dbRef, status) {
     .all(...params);
 }
 
-app.get('/api/stock-adjustments', authenticateToken, adminOnly, (req, res) => {
+app.get('/api/stock-adjustments', authenticateToken, staffOrAdmin, (req, res) => {
   res.json(listAdjustments(db, req.query.status || null));
 });
 
 app.post(
   '/api/stock-adjustments',
   authenticateToken,
-  adminOnly,
+  staffOrAdmin,
   validate({
     product_id: { required: true, type: 'number', min: 1 },
     location_id: { required: true, type: 'number', min: 1 },
@@ -2334,14 +2368,14 @@ function decideAdjustment(req, res, action) {
 app.post('/api/stock-adjustments/:id/approve', authenticateToken, adminOnly, (req, res) => decideAdjustment(req, res, 'approve'));
 app.post('/api/stock-adjustments/:id/reject', authenticateToken, adminOnly, (req, res) => decideAdjustment(req, res, 'reject'));
 
-app.get('/api/stock-transfers', authenticateToken, adminOnly, (req, res) => {
+app.get('/api/stock-transfers', authenticateToken, staffOrAdmin, (req, res) => {
   res.json(listTransfers(db, req.query.status || null));
 });
 
 app.post(
   '/api/stock-transfers',
   authenticateToken,
-  adminOnly,
+  staffOrAdmin,
   validate({
     product_id: { required: true, type: 'number', min: 1 },
     src_location: { required: true, type: 'number', min: 1 },
@@ -2431,7 +2465,7 @@ app.get('/api/approvals', authenticateToken, adminOnly, (req, res) => {
 });
 
 // Printable report data for the Report Viewing module.
-app.get('/api/reports', authenticateToken, adminOnly, (req, res) => {
+app.get('/api/reports', authenticateToken, staffOrAdmin, (req, res) => {
   const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 14));
   const generated_at = new Date().toISOString();
 
@@ -3107,11 +3141,12 @@ app.post('/api/ocr', bodyParser.json({ limit: '12mb' }), async (req, res) => {
   await handleOcr(req, res, (r, code, body) => r.status(code).json(body), products);
 });
 
-// Admin stock check: scan a product label and get the current stock snapshot
-// per location — the "how much is left?" answer for daily manual inventory.
-// Admin-only (reveals live stock levels); shares the OCR pipeline with the
-// public /api/ocr but attaches stock to every match.
-app.post('/api/ocr/stock', bodyParser.json({ limit: '12mb' }), authenticateToken, adminOnly, async (req, res) => {
+// Stock check: scan a product label and get the current stock snapshot per
+// location — the "how much is left?" answer for daily manual inventory.
+// Staff-or-admin (staff do the daily counting; reveals live stock levels);
+// shares the OCR pipeline with the public /api/ocr but attaches stock to
+// every match.
+app.post('/api/ocr/stock', bodyParser.json({ limit: '12mb' }), authenticateToken, staffOrAdmin, async (req, res) => {
   const products = db.prepare('SELECT * FROM products WHERE status = ?').all('active');
   const stockLookup = (productId) => {
     const rows = db
@@ -3307,7 +3342,7 @@ app.get(
 app.get(
   '/api/analytics/export/:type',
   authenticateToken,
-  adminOnly,
+  staffOrAdmin,
   (req, res) => {
     const { type } = req.params;
     const format = req.query.format || 'json';

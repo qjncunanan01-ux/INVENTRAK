@@ -11,6 +11,9 @@ import { apiGet } from '../api';
 // silently showed 0.
 vi.mock('../api', () => ({
   apiGet: vi.fn(),
+  // AdminLayout reads the signed-in role to filter the sidebar; the dashboard
+  // test renders as an admin so the full nav is expected.
+  getCurrentUser: () => ({ role: 'admin' }),
 }));
 
 // jsdom has no matchMedia (MUI useMediaQuery) and no ResizeObserver

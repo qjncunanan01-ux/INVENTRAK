@@ -18,52 +18,58 @@ import SwapHorizOutlined from '@mui/icons-material/SwapHorizOutlined';
 import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { getCurrentUser } from '../api';
 import { brandSidebar, colors } from '../theme';
 
 // Grouped so module items read as a clean collapsible dropdown hierarchy.
+// `roles` on each item drives the role-based nav: staff accounts only see
+// the read/request modules they need (dashboard, inventory levels, movement
+// history, adjustments, transfers, scan & stock, optimization, reports); the
+// owner-only modules (products, approvals, orders, branch locations,
+// security) stay visible to admins only. The backend enforces the same split.
 const NAV_SECTIONS = [
   {
     label: 'Overview',
-    items: [{ label: 'Dashboard', path: '/', Icon: DashboardOutlined }],
+    items: [{ label: 'Dashboard', path: '/', Icon: DashboardOutlined, roles: ['admin', 'staff'] }],
   },
   {
     label: 'Inventory',
     collapsible: true,
     items: [
-      { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined },
-      { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined },
-      { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined },
-      { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined },
-      { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined },
+      { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined, roles: ['admin', 'staff'] },
+      { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined, roles: ['admin', 'staff'] },
+      { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined, roles: ['admin', 'staff'] },
+      { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined, roles: ['admin', 'staff'] },
+      { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined, roles: ['admin'] },
     ],
   },
   {
     label: 'Catalog & Orders',
     collapsible: true,
     items: [
-      { label: 'Products', path: '/products', Icon: Inventory2Outlined },
-      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined },
-      { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined },
+      { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ['admin'] },
+      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: ['admin', 'staff'] },
+      { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ['admin'] },
     ],
   },
   {
     label: 'Governance',
     collapsible: true,
     items: [
-      { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined },
+      { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ['admin'] },
     ],
   },
   {
     label: 'Insights',
     collapsible: true,
     items: [
-      { label: 'Optimization', path: '/optimization', Icon: InsightsOutlined },
-      { label: 'Reports', path: '/reports', Icon: AssessmentOutlined },
+      { label: 'Optimization', path: '/optimization', Icon: InsightsOutlined, roles: ['admin', 'staff'] },
+      { label: 'Reports', path: '/reports', Icon: AssessmentOutlined, roles: ['admin', 'staff'] },
     ],
   },
   {
     label: 'Account',
-    items: [{ label: 'Security', path: '/security', Icon: SecurityOutlined }],
+    items: [{ label: 'Security', path: '/security', Icon: SecurityOutlined, roles: ['admin'] }],
   },
 ];
 
@@ -89,6 +95,16 @@ function NavContent({ collapsed = false, onNavigate }) {
     setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
+  // Filter the nav to the signed-in account's role. Defaults to admin so a
+  // render without a session (tests, pre-login) still shows the full menu.
+  const role = getCurrentUser()?.role || 'admin';
+  const sections = NAV_SECTIONS
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.roles || item.roles.includes(role)),
+    }))
+    .filter((section) => section.items.length > 0);
+
   return (
     <>
       <Box sx={{ px: collapsed ? 0 : 2, textAlign: collapsed ? 'center' : 'left' }}>
@@ -108,7 +124,7 @@ function NavContent({ collapsed = false, onNavigate }) {
         )}
       </Box>
 
-      {NAV_SECTIONS.map((section) => {
+      {sections.map((section) => {
         const isCollapsible = Boolean(section.collapsible) && !collapsed;
         const isOpen = expandedGroups[section.label] ?? true;
 

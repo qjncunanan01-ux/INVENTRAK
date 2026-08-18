@@ -25,6 +25,9 @@ function seedDatabase({ db, productsFile = DEFAULT_PRODUCTS_FILE } = {}) {
   const insertUser = db.prepare('INSERT OR IGNORE INTO users (username, password, role, email) VALUES (?, ?, ?, ?)');
   insertUser.run('admin', hashPassword('admin123'), 'admin', 'admin@inventrak.com');
   insertUser.run('customer', hashPassword('customer123'), 'customer', 'customer@example.com');
+  // Demo staff account for the role-based access control split (proposes
+  // adjustments/transfers + scans stock; cannot approve anything).
+  insertUser.run('staff', hashPassword('staff123'), 'staff', 'staff@inventrak.com');
 
   const existingProducts = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
   if (existingProducts > 0) return { seeded: false };

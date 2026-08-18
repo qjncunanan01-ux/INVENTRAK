@@ -1,10 +1,13 @@
 import { Box, Button, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { apiGet, apiPost } from '../api';
+import { apiGet, apiPost, getCurrentUser } from '../api';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
 
 export default function StockMovementPage({ onLogout }) {
+  // Staff accounts view movement history only — recording stock movements is
+  // an admin write (POST /api/stock-movement is admin-only on the backend).
+  const isStaff = getCurrentUser()?.role === 'staff';
   const [movements, setMovements] = useState([]);
   const [lots, setLots] = useState([]);
   const [products, setProducts] = useState([]);
@@ -87,6 +90,7 @@ export default function StockMovementPage({ onLogout }) {
 
   return (
     <AdminLayout title="Stock Movement" onLogout={onLogout}>
+      {isStaff ? null : (
       <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
         <Typography variant="h6" mb={1}>New stock movement</Typography>
         <Typography variant="body2" color="text.secondary" mb={2}>
@@ -135,6 +139,7 @@ export default function StockMovementPage({ onLogout }) {
           </Button>
         </Box>
       </Paper>
+      )}
 
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>

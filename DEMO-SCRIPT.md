@@ -23,6 +23,7 @@ talks to the live backend from any network.
 
 **Demo credentials (all verified live):**
 - Admin dashboard: `admin` / `admin123`
+- Staff dashboard (role-based access): `staff` / `staff123` — sees only Dashboard, Inventory, Scan & Stock, Stock Movement (view), Stock Adjustments, Stock Transfers, Optimization, Reports. Products, Approvals, Order Inquiries, Locations, and Security are admin-only.
 - Demo customer (mobile): `customer` / `customer123`
 - Google sign-in: any approved test Gmail — creates/links an account by email
 

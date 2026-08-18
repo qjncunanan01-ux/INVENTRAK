@@ -57,11 +57,12 @@ export default function LoginPage({ onLogin }) {
         setError('');
         return;
       }
-      // Admin-only sign-in: only accounts with the admin role may open the
-      // dashboard. Register (customer app) can never create an admin, so this
-      // gate keeps the store's controls out of customer accounts.
-      if (!data.user || data.user.role !== 'admin') {
-        setError('This account does not have admin access. Sign in with an admin account.');
+      // Staff-or-admin sign-in: customer-app accounts can never open the
+      // dashboard. Staff see a read/request-only subset; admins see all the
+      // store's controls. Register (customer app) hardcodes role 'customer',
+      // so this gate keeps the store's controls out of customer accounts.
+      if (!data.user || !['admin', 'staff'].includes(data.user.role)) {
+        setError('This account does not have staff or admin access. Sign in with a staff or admin account.');
         return;
       }
       setToken(data.token);
@@ -85,8 +86,8 @@ export default function LoginPage({ onLogin }) {
     setError('');
     try {
       const data = await mfaVerify({ mfaToken, code: mfaCode });
-      if (!data.user || data.user.role !== 'admin') {
-        setError('This account does not have admin access.');
+      if (!data.user || !['admin', 'staff'].includes(data.user.role)) {
+        setError('This account does not have staff or admin access.');
         return;
       }
       setToken(data.token);

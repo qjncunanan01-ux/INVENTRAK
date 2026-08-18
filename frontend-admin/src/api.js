@@ -29,6 +29,14 @@ export function clearToken() {
   localStorage.removeItem('inventrak_token');
 }
 
+// Current signed-in user, held in memory so AdminLayout/pages can adapt
+// permissions (staff vs admin) without threading `user` through every page
+// prop. Set by App on login/restore, cleared on logout.
+let currentUser = null;
+export function setCurrentUser(user) { currentUser = user || null; }
+export function getCurrentUser() { return currentUser; }
+export function clearCurrentUser() { currentUser = null; }
+
 // Product photos live on the API server (/images/...). Absolute URLs pass
 // through untouched; relative paths are prefixed with the API base URL
 // (same helper as the mobile client).

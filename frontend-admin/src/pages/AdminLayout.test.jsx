@@ -1,8 +1,17 @@
+import { vi } from 'vitest';
 import { render, screen, fireEvent, act, within, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import AdminLayout from './AdminLayout';
 import { createAppTheme } from '../theme';
+
+// AdminLayout reads the signed-in role from api.getCurrentUser() to filter
+// the sidebar. Default to admin (full nav) for the existing tests; the staff
+// describe block swaps it to prove the role-based split.
+let mockUser = { role: 'admin' };
+vi.mock('../api', () => ({
+  getCurrentUser: () => mockUser,
+}));
 
 // jsdom has no matchMedia; MUI's useMediaQuery needs it. We emulate the
 // desktop viewport (md breakpoint = 900px) by returning matches:true for
@@ -119,5 +128,32 @@ describe('AdminLayout responsive sidebar', () => {
     fireEvent.click(screen.getByLabelText('Open navigation menu'));
     const drawer = document.querySelector('.MuiDrawer-root');
     expect(within(drawer).getByRole('navigation')).toBeInTheDocument();
+  });
+});
+
+describe('AdminLayout role-based nav (staff vs admin)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  test('admin sees every module', () => {
+    mockUser = { role: 'admin' };
+    setViewport(true);
+    renderLayout();
+    for (const label of ['Products', 'Inventory', 'Inventory Levels', 'Scan & Stock', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Approvals', 'Order Inquiries', 'Branch Locations', 'Optimization', 'Reports', 'Security']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+
+  test('staff sees only the read/request modules, never the owner-only ones', () => {
+    mockUser = { role: 'staff' };
+    setViewport(true);
+    renderLayout();
+    for (const label of ['Dashboard', 'Inventory Levels', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Scan & Stock', 'Optimization', 'Reports']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    for (const label of ['Products', 'Approvals', 'Order Inquiries', 'Branch Locations', 'Security']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
+    }
   });
 });
