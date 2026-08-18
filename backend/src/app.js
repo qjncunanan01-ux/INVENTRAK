@@ -332,6 +332,14 @@ function seedDatabase() {
     'INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
+  // Low-stock alerts for seeded locations below the 80-unit threshold, so a
+  // fresh boot has real active alerts (matching the npm-free seeder's alert
+  // set exactly — same PRNG stock, same order). Without this the dashboard
+  // shows 0 active alerts while 200+ location entries sit below threshold.
+  const insertAlert = db.prepare(
+    "INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status, created_at) VALUES (?, ?, ?, ?, ?, 'active', datetime('now'))"
+  );
+
   // Deterministic demo data: the same fixed-seed PRNG and draw order as the
   // npm-free fallback and seed.js, so fresh boots of either backend produce
   // identical stock AND sales (cross-backend value parity).
@@ -375,6 +383,12 @@ function seedDatabase() {
           qty,
           new Date().toISOString()
         );
+
+        // Mirror the event-driven upsert rule: any location below the
+        // threshold is an active low-stock alert.
+        if (qty < 80) {
+          insertAlert.run(pid, locId, 'low_stock', 80, qty);
+        }
       }
 
       // Draws 4-9: sales history (2 draws per customer).

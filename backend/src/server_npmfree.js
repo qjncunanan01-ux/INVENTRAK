@@ -295,6 +295,42 @@ function bootstrap() {
 
   seedSales();
 
+  // Seed low-stock alerts from the seeded inventory (any location below the
+  // 80-unit threshold), mirroring the SQLite seeder's alert inserts exactly —
+  // same PRNG stock, same product/location order, so both backends produce the
+  // identical alert set. Only on a fresh boot (alerts empty) so real event-
+  // driven alerts are never overwritten, and persisted once for Firestore
+  // instead of once per alert.
+  if (alerts.length === 0) {
+    const inv = getInventory();
+    const locations = inv.locations || [];
+    (inv.items || []).forEach((item) => {
+      const productId = item.product && item.product.id;
+      if (productId == null) return;
+      Object.entries(item.locations || {}).forEach(([locName, qty]) => {
+        if (Number(qty) >= 80) return;
+        const locationId = locations.indexOf(locName) + 1;
+        if (alerts.some(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.status === 'active')) {
+          return;
+        }
+        alerts.push({
+          id: nextAlertId++,
+          product_id: Number(productId),
+          location_id: Number(locationId),
+          product_name: (item.product && item.product.name) || `Product ${productId}`,
+          location_name: locations[Number(locationId) - 1] || 'All',
+          alert_type: 'low_stock',
+          threshold: 80,
+          current_qty: Number(qty),
+          status: 'active',
+          created_at: new Date().toISOString(),
+          resolved_at: null
+        });
+      });
+    });
+    if (useFirestore) writeJSON('@alerts', alerts);
+  }
+
   if (!readJSON(movementsFile)) writeJSON(movementsFile, []);
   if (!readJSON(orderFile)) writeJSON(orderFile, []);
   if (!readJSON(adjustmentsFile)) writeJSON(adjustmentsFile, []);

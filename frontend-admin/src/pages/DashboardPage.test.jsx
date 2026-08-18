@@ -85,6 +85,9 @@ describe('DashboardPage data wiring', () => {
     });
     // The exact 404 that zeroed the cards must never come back.
     expect(apiGet).not.toHaveBeenCalledWith('/api/inquiries');
+    // The Active Alerts card's modal is wired to the real alert list (never
+    // stock movements masquerading as alerts).
+    expect(apiGet).toHaveBeenCalledWith('/api/alerts');
   });
 
   test('renders non-zero pending counts derived from the inquiries payload', async () => {

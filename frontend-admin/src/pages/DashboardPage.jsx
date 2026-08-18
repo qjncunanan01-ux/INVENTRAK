@@ -59,6 +59,7 @@ export default function DashboardPage({ user, onLogout }) {
   // Store raw fetched data for modal reuse
   const [rawData, setRawData] = useState({
     inventory: [], sales: [], inquiries: [], movements: [], products: [],
+    alerts: [], summary: null, dailySales: [],
   });
 
   useEffect(() => {
@@ -84,6 +85,11 @@ export default function DashboardPage({ user, onLogout }) {
         const salesData = salesRes.status === 'fulfilled' ? (salesRes.value.data || salesRes.value) : [];
         const movementsData = movementsRes.status === 'fulfilled' ? (movementsRes.value.data || movementsRes.value) : [];
         const alertsData = alertsRes.status === 'fulfilled' ? (alertsRes.value.data || alertsRes.value) : [];
+
+        // Alert list fetch is admin-only (staff get 403, handled by
+        // allSettled) — the staff dashboard falls back to the low-stock
+        // entries it can read from inventory instead.
+        const rawAlerts = Array.isArray(alertsData) ? alertsData : [];
 
         // Staff cannot read the raw sales ledger (GET /api/sales is 403 by
         // role design), so pull the daily sales aggregate from /api/reports
@@ -112,6 +118,11 @@ export default function DashboardPage({ user, onLogout }) {
           inquiries: Array.isArray(inquiriesData) ? inquiriesData : [],
           movements: Array.isArray(movementsData) ? movementsData : [],
           products: Array.isArray(productsData) ? productsData : [],
+          alerts: rawAlerts,
+          // Staff-visible fallbacks the detail modals reuse so a card's value
+          // and its modal never disagree (same source the cards count from).
+          summary: summaryData,
+          dailySales,
         });
 
         // 1. Total products count
@@ -323,7 +334,7 @@ export default function DashboardPage({ user, onLogout }) {
     setSearchQuery('');
 
     // All data is already in rawData — no second fetch needed
-    const { inventory, sales, inquiries, movements, products } = rawData;
+    const { inventory, sales, inquiries, movements, products, alerts, summary, dailySales } = rawData;
 
     if (panel.key === 'lowStock') {
       const lowEntries = [];
@@ -371,7 +382,19 @@ export default function DashboardPage({ user, onLogout }) {
     } else if (panel.key === 'monthlySales') {
       const now = new Date();
       const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      setModalData(sales.filter(s => (s.transaction_date || s.created_at || '').startsWith(thisMonth)));
+      if (sales.length > 0) {
+        setModalData(sales.filter(s => (s.transaction_date || s.created_at || '').startsWith(thisMonth)));
+      } else if (dailySales.length > 0) {
+        // Staff cannot read the raw ledger; show this month's daily report
+        // rows (same data the card totals) as a compact table.
+        setModalData(
+          dailySales
+            .filter(d => (d.date || '').startsWith(thisMonth))
+            .map(d => ({ id: d.date, product_name: `${d.transactions} transaction(s)`, qty: d.transactions, total_amount: d.value, transaction_date: d.date, customer_name: '—' }))
+        );
+      } else {
+        setModalData([]);
+      }
     } else if (panel.key === 'customers') {
       const seen = new Set();
       const unique = [];
@@ -391,25 +414,67 @@ export default function DashboardPage({ user, onLogout }) {
     } else if (panel.key === 'movements') {
       setModalData(movements);
     } else if (panel.key === 'fastMoving') {
-      const productSalesMap = {};
-      sales.forEach(s => {
-        const key = s.product_name || `Product #${s.product_id}`;
-        if (!productSalesMap[key]) productSalesMap[key] = { product_name: key, qty: 0, revenue: 0 };
-        productSalesMap[key].qty += Number(s.qty || s.quantity) || 0;
-        productSalesMap[key].revenue += Number(s.total_amount || s.total_price) || 0;
-      });
-      setModalData(Object.values(productSalesMap).sort((a, b) => b.qty - a.qty).slice(0, 10));
+      if (sales.length > 0) {
+        const productSalesMap = {};
+        sales.forEach(s => {
+          const key = s.product_name || `Product #${s.product_id}`;
+          if (!productSalesMap[key]) productSalesMap[key] = { product_name: key, qty: 0, revenue: 0 };
+          productSalesMap[key].qty += Number(s.qty || s.quantity) || 0;
+          productSalesMap[key].revenue += Number(s.total_amount || s.total_price) || 0;
+        });
+        setModalData(Object.values(productSalesMap).sort((a, b) => b.qty - a.qty).slice(0, 10));
+      } else {
+        // Staff fall back to the public summary's ranked list.
+        setModalData(((summary && summary.fastMovingProducts) || []).map(p => ({ product_name: p.name, qty: Number(p.qty_sold) || 0, revenue: Number(p.value) || 0 })));
+      }
     } else if (panel.key === 'slowMoving') {
-      const productSalesMap = {};
-      sales.forEach(s => {
-        const key = s.product_name || `Product #${s.product_id}`;
-        if (!productSalesMap[key]) productSalesMap[key] = { product_name: key, qty: 0, revenue: 0 };
-        productSalesMap[key].qty += Number(s.qty || s.quantity) || 0;
-        productSalesMap[key].revenue += Number(s.total_amount || s.total_price) || 0;
-      });
-      setModalData(Object.values(productSalesMap).sort((a, b) => a.qty - b.qty).slice(0, 10));
+      if (sales.length > 0) {
+        const productSalesMap = {};
+        sales.forEach(s => {
+          const key = s.product_name || `Product #${s.product_id}`;
+          if (!productSalesMap[key]) productSalesMap[key] = { product_name: key, qty: 0, revenue: 0 };
+          productSalesMap[key].qty += Number(s.qty || s.quantity) || 0;
+          productSalesMap[key].revenue += Number(s.total_amount || s.total_price) || 0;
+        });
+        setModalData(Object.values(productSalesMap).sort((a, b) => a.qty - b.qty).slice(0, 10));
+      } else {
+        setModalData(((summary && summary.slowMovingProducts) || []).map(p => ({ product_name: p.name, qty: Number(p.qty_sold) || 0, revenue: Number(p.value) || 0 })));
+      }
     } else if (panel.key === 'alerts') {
-      setModalData(rawData.movements); // reuse — alerts come from inventory
+      // Real alerts (admin) or, when the alert list is role-blocked/empty, the
+      // low-stock entries from inventory — never stock movements masquerading
+      // as alerts. Staff get the low-stock fallback since /api/alerts is
+      // admin-only; the card's count (summary.activeAlerts) matches the
+      // low-stock threshold on both roles.
+      if (alerts.length > 0) {
+        setModalData(
+          alerts
+            .filter(a => a.status === 'active' || !a.status)
+            .map(a => ({
+              id: a.id,
+              type: a.alert_type || 'low_stock',
+              message: `${a.product_name || `Product #${a.product_id}`} at ${a.location_name || 'a location'} — ${a.current_qty} units below ${a.threshold ?? 80}`,
+              created_at: a.created_at,
+            }))
+        );
+      } else {
+        const lowEntries = [];
+        inventory.forEach(item => {
+          if (item.locations) {
+            Object.entries(item.locations).forEach(([locName, qty]) => {
+              if (Number(qty) < 80) {
+                lowEntries.push({
+                  id: `${item.product?.id || item.name}-${locName}`,
+                  type: 'low_stock',
+                  message: `${item.product?.name || item.name} at ${locName} — ${qty} units below 80`,
+                  created_at: null,
+                });
+              }
+            });
+          }
+        });
+        setModalData(lowEntries);
+      }
     }
   };
 

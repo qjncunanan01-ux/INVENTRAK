@@ -38,6 +38,9 @@ function seedDatabase({ db, productsFile = DEFAULT_PRODUCTS_FILE } = {}) {
   const insertStock = db.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, ?)');
   const insertLot = db.prepare('INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)');
   const insertSales = db.prepare('INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?)');
+  // Low-stock alerts for seeded locations below the 80-unit threshold (same
+  // set as app.js seedDatabase and the npm-free seeder).
+  const insertAlert = db.prepare("INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status, created_at) VALUES (?, ?, ?, ?, ?, 'active', datetime('now'))");
 
   // Deterministic demo data: same fixed-seed PRNG and draw order as app.js
   // seedDatabase and the npm-free fallback.
@@ -73,6 +76,9 @@ function seedDatabase({ db, productsFile = DEFAULT_PRODUCTS_FILE } = {}) {
         const qty = Math.floor(rand() * 160) + 20;
         insertStock.run(pid, locId, qty);
         insertLot.run(pid, locId, qty, new Date().toISOString());
+        if (qty < 80) {
+          insertAlert.run(pid, locId, 'low_stock', 80, qty);
+        }
       }
 
       // Draws 4-9: sales history (2 draws per customer).
