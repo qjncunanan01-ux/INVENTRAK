@@ -7,6 +7,16 @@ import { API_BASE_URL, login, setSessionDetails, setSessionUsername, setToken } 
 import BackButton from '../BackButton';
 import { useThemeColors } from '../theme-context';
 
+// Demo account the quick-fill button populates (matches the seeded
+// customer/customer123 account on both backends). Kept in one place so the
+// button and any hints can never drift apart.
+const DEMO_ACCOUNT = {
+  username: 'customer',
+  password: 'customer123',
+  label: 'Customer',
+  note: 'demo account',
+};
+
 // Google sign-in runs through the backend OAuth relay (/api/auth/google/start
 // → Google → /api/auth/google/callback): Expo Go deep links (exp://…) can't be
 // registered as Google OAuth redirect URIs and the old auth.expo.io proxy is
@@ -49,7 +59,7 @@ function parseQuery(url) {
 export default function LoginScreen({ navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [username, setUsername] = useState('customer');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [lockoutLeft, setLockoutLeft] = useState(0);
@@ -78,6 +88,13 @@ export default function LoginScreen({ navigation }) {
     } else {
       navigation.replace('Main', { username: loggedInAs });
     }
+  };
+
+  // One tap fills the demo customer so the phone demo never types
+  // credentials on stage (and the form stays clean for real accounts).
+  const fillDemo = () => {
+    setUsername(DEMO_ACCOUNT.username);
+    setPassword(DEMO_ACCOUNT.password);
   };
 
   const handleLogin = async () => {
@@ -189,6 +206,18 @@ export default function LoginScreen({ navigation }) {
         secureTextEntry
         editable={!loading}
       />
+      <TouchableOpacity
+        style={styles.demoBtn}
+        onPress={fillDemo}
+        disabled={loading}
+        activeOpacity={0.85}
+        accessibilityLabel="Fill demo account"
+      >
+        <MaterialCommunityIcons name="account-outline" size={18} color={colors.brandPrimary} />
+        <Text style={styles.demoBtnText}>
+          Fill {DEMO_ACCOUNT.label} account
+        </Text>
+      </TouchableOpacity>
       {loading ? (
         <ActivityIndicator size="large" color={colors.brandPrimary} />
       ) : (
@@ -236,6 +265,19 @@ const createStyles = (colors) => StyleSheet.create({
   title: { fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center', color: colors.brandPrimary },
   subtitle: { fontSize: 16, marginBottom: 8, textAlign: 'center', color: colors.textSecondary },
   input: { backgroundColor: colors.surface, padding: 14, marginBottom: 16, borderRadius: 10, color: colors.textPrimary, fontSize: 16 },
+  demoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  demoBtnText: { fontSize: 14, fontWeight: '700', color: colors.brandPrimary },
   linkRow: { alignItems: 'center', marginTop: 14 },
   linkText: { fontSize: 14, color: colors.textSecondary },
   linkStrong: { color: colors.brandPrimary, fontWeight: '700' },
@@ -252,7 +294,7 @@ const createStyles = (colors) => StyleSheet.create({
     gap: 10,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.14)',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingVertical: 14,
   },
