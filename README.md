@@ -15,6 +15,22 @@ INVENTRAK/
 └── .github/          # CI/CD workflows
 ```
 
+## Security
+
+Built around the OWASP Top-10 checklist: bcrypt-hashed passwords (10 rounds),
+admin two-factor authentication (TOTP + one-time recovery codes), login
+brute-force lockout with exponential backoff, generic error messages (no
+username enumeration), HMAC-signed 24h session tokens with **server-side
+logout revocation**, role-based access control with per-account data scoping,
+parameterized SQL, input validation on both backends, and HTTPS-only
+transport. Every login attempt, lockout, MFA change and account event is
+written to a structured **audit log** (`[audit] {…}` JSONL, live in
+[Render → inventrak-api → Logs](https://dashboard.render.com)).
+
+See **[SECURITY.md](SECURITY.md)** for the full OWASP checklist →
+module/endpoint/test compliance mapping (the evidence table used in the
+capstone paper).
+
 ## Features
 
 ### Backend API
