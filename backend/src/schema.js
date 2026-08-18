@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   google_sub TEXT,
   mfa_secret TEXT,
   mfa_enabled INTEGER DEFAULT 0,
+  mfa_recovery TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 

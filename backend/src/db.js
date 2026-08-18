@@ -121,5 +121,10 @@ if (!userNames.has('mfa_secret')) {
 if (!userNames.has('mfa_enabled')) {
   db.exec('ALTER TABLE users ADD COLUMN mfa_enabled INTEGER DEFAULT 0');
 }
+// Admin MFA recovery codes: JSON array of HMAC hashes (single-use backup
+// codes for a lost authenticator app). Additive.
+if (!userNames.has('mfa_recovery')) {
+  db.exec('ALTER TABLE users ADD COLUMN mfa_recovery TEXT');
+}
 
 module.exports = { db };

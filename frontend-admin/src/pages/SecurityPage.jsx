@@ -1,6 +1,6 @@
 import { Alert, Box, Button, Card, CardContent, Chip, Divider, Link, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
-import { mfaConfirm, mfaDisable, mfaSetup } from '../api';
+import { mfaConfirm, mfaDisable, mfaRecoveryCodes, mfaSetup } from '../api';
 import { colors } from '../theme';
 
 // Admin Security page — two-factor authentication management. Enabling MFA
@@ -14,6 +14,8 @@ export default function SecurityPage({ onLogout }) {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
+  // One-time recovery codes — shown exactly once after enrollment/regeneration.
+  const [recoveryCodes, setRecoveryCodes] = useState(null);
 
   const handleStartSetup = async () => {
     setLoading(true);
@@ -35,13 +37,28 @@ export default function SecurityPage({ onLogout }) {
     setLoading(true);
     setError('');
     try {
-      await mfaConfirm({ code });
+      const data = await mfaConfirm({ code });
       setMfaEnabled(true);
       setPending(null);
       setCode('');
+      setRecoveryCodes(data.recovery_codes || null);
       setInfo('Two-factor authentication is now enabled for this account.');
     } catch (err) {
       setError(err.message || 'Invalid code. Check that the time on your phone is correct.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await mfaRecoveryCodes();
+      setRecoveryCodes(data.recovery_codes || null);
+      setInfo('New recovery codes generated — the previous set is now invalid.');
+    } catch (err) {
+      setError(err.message || 'Could not regenerate recovery codes.');
     } finally {
       setLoading(false);
     }
@@ -146,14 +163,40 @@ export default function SecurityPage({ onLogout }) {
           )}
 
           {mfaEnabled && !pending && (
-            <TextField
-              label="Current code (to disable)"
-              value={code}
-              onChange={e => setCode(e.target.value)}
-              inputProps={{ maxLength: 6, inputMode: 'numeric' }}
-              sx={{ mt: 2, width: 220 }}
-              disabled={loading}
-            />
+            <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              <TextField
+                label="Current code (to disable)"
+                value={code}
+                onChange={e => setCode(e.target.value)}
+                inputProps={{ maxLength: 6, inputMode: 'numeric' }}
+                sx={{ width: 220 }}
+                disabled={loading}
+              />
+              <Button variant="outlined" color="secondary" onClick={handleRegenerate} disabled={loading}>
+                Regenerate recovery codes
+              </Button>
+            </Box>
+          )}
+
+          {recoveryCodes && (
+            <Box sx={{ mt: 3, p: 2, borderRadius: 2, border: '1px solid', borderColor: 'warning.main', backgroundColor: 'rgba(255, 193, 7, 0.08)' }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ color: 'warning.dark' }}>
+                ⚠️ Save these one-time recovery codes now — they are shown only once
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.textSecondary, mb: 1 }}>
+                If you lose your phone, enter any unused code instead of the authenticator code at login. Each code works once.
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(5, 1fr)' }, gap: 1 }}>
+                {recoveryCodes.map((c) => (
+                  <Box key={c} sx={{ fontFamily: 'monospace', fontSize: 13, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 1, py: 0.5, textAlign: 'center' }}>
+                    {c}
+                  </Box>
+                ))}
+              </Box>
+              <Button variant="text" size="small" sx={{ mt: 1 }} onClick={() => setRecoveryCodes(null)}>
+                I've saved them — hide
+              </Button>
+            </Box>
           )}
         </CardContent>
       </Card>

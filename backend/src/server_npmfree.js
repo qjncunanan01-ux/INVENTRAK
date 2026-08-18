@@ -10,7 +10,7 @@ const { createLoginLockout } = require('./login-lockout');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
-const { generateSecret, verifyTOTP, otpauthUrl } = require('./totp');
+const { generateSecret, verifyTOTP, otpauthUrl, generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode } = require('./totp');
 const { audit } = require('./audit');
 const { isDemoAccountBlocked } = require('./demo-accounts');
 const {
@@ -767,13 +767,26 @@ const server = http.createServer((req, res) => {
       if (user.role !== 'admin' || !user.mfa_secret) {
         return sendJson(res, 401, { error: 'Invalid or expired MFA session' });
       }
-      if (!verifyTOTP(user.mfa_secret, obj.code)) {
+      // Second factor = TOTP code OR one of the single-use recovery codes
+      // (backup for a lost authenticator app). Recovery codes are hashed at
+      // rest and consumed on use.
+      let usedRecovery = false;
+      let codeOk = verifyTOTP(user.mfa_secret, obj.code);
+      if (!codeOk && matchRecoveryCode(user.mfa_recovery, obj.code, hashCode)) {
+        codeOk = true;
+        usedRecovery = true;
+        const norm = normalizeRecoveryCode(obj.code);
+        const usedHash = hashCode(norm);
+        user.mfa_recovery = (user.mfa_recovery || []).filter((h) => h !== usedHash);
+        if (useFirestore) writeJSON('@users', users);
+      }
+      if (!codeOk) {
         loginLockout.recordFailure('mfa', sourceIp);
         audit('auth.mfa.failed', { userId: user.id, username: user.username, ip: sourceIp });
         return sendJson(res, 401, { error: 'Invalid verification code' });
       }
       loginLockout.recordSuccess('mfa', sourceIp);
-      audit('auth.mfa.verified', { userId: user.id, username: user.username });
+      audit(usedRecovery ? 'auth.mfa.recovery_used' : 'auth.mfa.verified', { userId: user.id, username: user.username });
       return sendJson(res, 200, {
         token: signToken(user.id),
         user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false },
@@ -809,11 +822,36 @@ const server = http.createServer((req, res) => {
       if (!verifyTOTP(req.user.mfa_secret, obj.code)) {
         return sendJson(res, 401, { error: 'Invalid verification code' });
       }
+      // Issue one-time recovery codes at enrollment: plaintext returned EXACTLY
+      // once, only hashes stored at rest.
+      const recoveryCodes = generateRecoveryCodes(10);
       req.user.mfa_enabled = true;
+      // Hash the NORMALIZED form (no dashes) — the verify path normalizes user
+      // input before hashing, so storage must match or codes never match.
+      req.user.mfa_recovery = recoveryCodes.map((c) => hashCode(normalizeRecoveryCode(c)));
       if (useFirestore) writeJSON('@users', users);
       audit('auth.mfa.enabled', { userId: req.user.id, username: req.user.username });
-      return sendJson(res, 200, { ok: true, message: 'MFA enabled' });
+      return sendJson(res, 200, {
+        ok: true,
+        message: 'MFA enabled',
+        recovery_codes: recoveryCodes,
+      });
     }));
+  }
+
+  // Admin-only: regenerate the one-time recovery codes (invalidates the old
+  // set). Requires MFA already enabled; plaintext returned exactly once.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/auth/mfa/recovery-codes') {
+    return requireAuth(req, res, true, (req, res) => {
+      if (!req.user.mfa_enabled || !req.user.mfa_secret) {
+        return sendJson(res, 409, { error: 'MFA is not enabled' });
+      }
+      const recoveryCodes = generateRecoveryCodes(10);
+      req.user.mfa_recovery = recoveryCodes.map((c) => hashCode(normalizeRecoveryCode(c)));
+      if (useFirestore) writeJSON('@users', users);
+      audit('auth.mfa.recovery_regenerated', { userId: req.user.id, username: req.user.username });
+      return sendJson(res, 200, { recovery_codes: recoveryCodes });
+    });
   }
 
   // Admin-only: disable MFA — requires the current authenticator code.
@@ -831,6 +869,7 @@ const server = http.createServer((req, res) => {
       }
       req.user.mfa_enabled = false;
       req.user.mfa_secret = null;
+      req.user.mfa_recovery = [];
       if (useFirestore) writeJSON('@users', users);
       audit('auth.mfa.disabled', { userId: req.user.id, username: req.user.username });
       return sendJson(res, 200, { ok: true, message: 'MFA disabled' });

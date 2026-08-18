@@ -506,6 +506,9 @@ Other hardening already built in (all covered by `backend/src/test/security.test
   jti, so a captured/replayed token dies immediately (both apps call it on
   logout).
 - **Demo-account gate** — set `DISABLE_DEMO_ACCOUNTS=true` to reject the
+- **MFA recovery codes** — enrollment (Security page) also issues 10 single-use
+  recovery codes (hashed at rest) so a lost authenticator app never locks the
+  owner out; regenerate them any time from the Security page.
   seeded admin/admin123 + customer/customer123 logins with the generic error
   (OWASP: no default accounts in production). Leave unset for the demo.
 - **Audit log** — login success/failure, lockouts, MFA changes and account

@@ -93,6 +93,7 @@ export const ocrStockCheck = client.ocrStockCheck;
 export const logout = client.logout;
 export const mfaSetup = client.mfaSetup;
 export const mfaConfirm = client.mfaConfirm;
+export const mfaRecoveryCodes = client.mfaRecoveryCodes;
 export const mfaDisable = client.mfaDisable;
 export const mfaVerify = client.mfaVerify;
 

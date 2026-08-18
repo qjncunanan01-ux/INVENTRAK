@@ -2569,7 +2569,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LogoutResponse"
+                  "$ref": "#/components/schemas/MfaEnableResponse"
                 }
               }
             }
@@ -2673,6 +2673,41 @@
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/recovery-codes": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaRecoveryCodes",
+        "summary": "Regenerate one-time recovery codes (invalidates the previous set)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh recovery codes (shown once)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRecoveryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is not enabled"
           }
         }
       }
@@ -4870,7 +4905,7 @@
           },
           "code": {
             "type": "string",
-            "description": "6-digit authenticator code"
+            "description": "6-digit authenticator code OR a 12-char one-time recovery code (e.g. ABCD-EFGH-JKLM)"
           }
         }
       },
@@ -4906,6 +4941,46 @@
         "properties": {
           "ok": {
             "type": "boolean"
+          }
+        }
+      },
+      "MfaEnableResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "message",
+          "recovery_codes"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "recovery_codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "ABCD-EFGH-JKLM"
+            },
+            "description": "One-time recovery codes — shown exactly once, stored only as hashes. Save them somewhere safe."
+          }
+        }
+      },
+      "MfaRecoveryResponse": {
+        "type": "object",
+        "required": [
+          "recovery_codes"
+        ],
+        "properties": {
+          "recovery_codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "ABCD-EFGH-JKLM"
+            },
+            "description": "Fresh one-time recovery codes replacing the previous set (shown exactly once)."
           }
         }
       }

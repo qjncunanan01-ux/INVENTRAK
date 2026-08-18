@@ -9,7 +9,7 @@ const { db } = require('./db');
 const { passwordError } = require('./password-policy');
 const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
-const { generateSecret, verifyTOTP, otpauthUrl } = require('./totp');
+const { generateSecret, verifyTOTP, otpauthUrl, generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode } = require('./totp');
 const { audit } = require('./audit');
 const { isDemoAccountBlocked } = require('./demo-accounts');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
@@ -889,13 +889,27 @@ app.post(
     if (!user || user.role !== 'admin' || !user.mfa_secret) {
       return res.status(401).json({ error: 'Invalid or expired MFA session' });
     }
-    if (!verifyTOTP(user.mfa_secret, req.body.code)) {
+    // Second factor = TOTP code OR one of the single-use recovery codes
+    // (backup for a lost authenticator app). Recovery codes are hashed at
+    // rest and consumed on use.
+    let recoveryHashes = [];
+    try { recoveryHashes = JSON.parse(user.mfa_recovery || '[]'); } catch {}
+    let usedRecovery = false;
+    let codeOk = verifyTOTP(user.mfa_secret, req.body.code);
+    if (!codeOk && matchRecoveryCode(recoveryHashes, req.body.code, hashCode)) {
+      codeOk = true;
+      usedRecovery = true;
+      const usedHash = hashCode(normalizeRecoveryCode(req.body.code));
+      recoveryHashes = recoveryHashes.filter((h) => h !== usedHash);
+      db.prepare('UPDATE users SET mfa_recovery = ? WHERE id = ?').run(JSON.stringify(recoveryHashes), user.id);
+    }
+    if (!codeOk) {
       loginLockout.recordFailure('mfa', sourceIp);
       audit('auth.mfa.failed', { userId: user.id, username: user.username, ip: sourceIp });
       return res.status(401).json({ error: 'Invalid verification code' });
     }
     loginLockout.recordSuccess('mfa', sourceIp);
-    audit('auth.mfa.verified', { userId: user.id, username: user.username });
+    audit(usedRecovery ? 'auth.mfa.recovery_used' : 'auth.mfa.verified', { userId: user.id, username: user.username });
 
     const token = signToken({ id: user.id, username: user.username, role: user.role });
     res.json({
@@ -937,11 +951,33 @@ app.post(
     if (!verifyTOTP(user.mfa_secret, req.body.code)) {
       return res.status(401).json({ error: 'Invalid verification code' });
     }
-    db.prepare('UPDATE users SET mfa_enabled = 1 WHERE id = ?').run(user.id);
+    // Issue one-time recovery codes at enrollment: plaintext returned EXACTLY
+    // once, only hashes stored at rest.
+    const recoveryCodes = generateRecoveryCodes(10);
+    // Hash the NORMALIZED form (no dashes) — the verify path normalizes user
+    // input before hashing, so storage must match or codes never match.
+    const recoveryHashes = recoveryCodes.map((c) => hashCode(normalizeRecoveryCode(c)));
+    db.prepare('UPDATE users SET mfa_enabled = 1, mfa_recovery = ? WHERE id = ?')
+      .run(JSON.stringify(recoveryHashes), user.id);
     audit('auth.mfa.enabled', { userId: user.id, username: user.username });
-    res.json({ ok: true, message: 'MFA enabled' });
+    res.json({ ok: true, message: 'MFA enabled', recovery_codes: recoveryCodes });
   }
 );
+
+// Admin-only: regenerate the one-time recovery codes (invalidates the old
+// set). Requires MFA already enabled; plaintext returned exactly once.
+app.post('/api/auth/mfa/recovery-codes', authenticateToken, adminOnly, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  if (!user.mfa_enabled || !user.mfa_secret) {
+    return res.status(409).json({ error: 'MFA is not enabled' });
+  }
+  const recoveryCodes = generateRecoveryCodes(10);
+  const recoveryHashes = recoveryCodes.map((c) => hashCode(normalizeRecoveryCode(c)));
+  db.prepare('UPDATE users SET mfa_recovery = ? WHERE id = ?')
+    .run(JSON.stringify(recoveryHashes), user.id);
+  audit('auth.mfa.recovery_regenerated', { userId: user.id, username: user.username });
+  res.json({ recovery_codes: recoveryCodes });
+});
 
 // Admin-only: disable MFA — requires the current authenticator code.
 app.post(
@@ -957,7 +993,7 @@ app.post(
     if (!verifyTOTP(user.mfa_secret, req.body.code)) {
       return res.status(401).json({ error: 'Invalid verification code' });
     }
-    db.prepare('UPDATE users SET mfa_enabled = 0, mfa_secret = NULL WHERE id = ?').run(user.id);
+    db.prepare('UPDATE users SET mfa_enabled = 0, mfa_secret = NULL, mfa_recovery = NULL WHERE id = ?').run(user.id);
     audit('auth.mfa.disabled', { userId: user.id, username: user.username });
     res.json({ ok: true, message: 'MFA disabled' });
   }

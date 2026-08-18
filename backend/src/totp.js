@@ -108,4 +108,43 @@ function otpauthUrl(secret, account, issuer = 'INVENTRAK') {
   );
 }
 
-module.exports = { generateSecret, totp, verifyTOTP, otpauthUrl, base32Encode, base32Decode };
+// ---- One-time recovery codes (backup for a lost authenticator app) ----
+// 10 single-use codes, each 12 chars in 3 groups of 4, from a 32-char
+// alphabet WITHOUT ambiguous characters (no 0/O/1/I) — ~60 bits of entropy
+// each, so offline guessing is infeasible even if a hash leaks.
+const RECOVERY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const RECOVERY_LENGTH = 12;
+
+function generateRecoveryCodes(count = 10) {
+  const codes = [];
+  for (let i = 0; i < count; i++) {
+    const bytes = crypto.randomBytes(RECOVERY_LENGTH);
+    let raw = '';
+    for (let j = 0; j < RECOVERY_LENGTH; j++) {
+      raw += RECOVERY_ALPHABET[bytes[j] & 31];
+    }
+    codes.push(raw.match(/.{1,4}/g).join('-'));
+  }
+  return codes;
+}
+
+// Canonical form for hashing: uppercase, no dashes/spaces. Entry is forgiving
+// (lowercase, missing dashes, pasted with spaces — all normalize identically).
+function normalizeRecoveryCode(code) {
+  return String(code || '').toUpperCase().replace(/[^A-Z2-9]/g, '');
+}
+
+// True when `code` matches one of the stored hashes. `hashFn` is the caller's
+// keyed hash (HMAC with the token secret) so the same scheme protects
+// recovery codes and verification codes at rest.
+function matchRecoveryCode(storedHashes, code, hashFn) {
+  const norm = normalizeRecoveryCode(code);
+  if (norm.length !== RECOVERY_LENGTH) return false;
+  const hash = hashFn(norm);
+  return Array.isArray(storedHashes) && storedHashes.includes(hash);
+}
+
+module.exports = {
+  generateSecret, totp, verifyTOTP, otpauthUrl, base32Encode, base32Decode,
+  generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode,
+};

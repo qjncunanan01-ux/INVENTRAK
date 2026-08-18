@@ -162,6 +162,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   mfaDisable: (body) => request('POST', '/api/auth/mfa/disable', { body }),
   // POST /api/auth/mfa/verify — Complete the second factor: exchange the MFA challenge for a session token
   mfaVerify: (body) => request('POST', '/api/auth/mfa/verify', { body }),
+  // POST /api/auth/mfa/recovery-codes — Regenerate one-time recovery codes (invalidates the previous set)
+  mfaRecoveryCodes: (_) => request('POST', '/api/auth/mfa/recovery-codes', {  }),
   };
 }
 
