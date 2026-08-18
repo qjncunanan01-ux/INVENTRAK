@@ -1,7 +1,7 @@
 # INVENTRAK — Demo Script & Pre-Demo Checklist
 
 The one-page script for tomorrow's presentation. Everything below is **live
-right now** (verified Aug 15, 2026): the backend runs on Render with Firebase
+right now** (verified Aug 18, 2026): the backend runs on Render with Firebase
 Firestore, the admin dashboard and mobile web site are deployed, and the APK
 talks to the live backend from any network.
 
@@ -102,13 +102,53 @@ talks to the live backend from any network.
 
 If a judge asks "how do you keep customer data separated / safe?":
 - **Per-account isolation** — order history, cart, and notifications are
-  scoped per account; tested by regression suites (305 backend + 20 admin
+  scoped per account; tested by regression suites (330 backend + 27 admin
   tests on every push).
 - **Auth hardening** — bcrypt-hashed passwords, 24h expiring signed tokens,
   login brute-force lockout with exponential backoff, bot honeypot, admin-only
   endpoints (sales/alerts/users) locked server-side.
+- **Role-based access control (staff vs owner)** — see Part D below: staff
+  can *request* stock changes but only the owner can *approve* them.
 - **API contract** — an OpenAPI 3.0 spec drives generated clients for both
   frontends; contract tests assert both backends return identical shapes.
+
+### Part D — Staff vs Owner approval workflow (the request-and-approve highlight, 2–3 min)
+
+This is the "approval of important transactions" answer for the evaluators:
+staff propose, the owner decides. Demo it as a complete loop on the live
+admin dashboard.
+
+1. **Log out** of the admin account. **Log in as `staff` / `staff123`** →
+   note the orange **STAFF** badge next to the title, and the **reduced
+   sidebar**: Dashboard, Inventory Levels, Stock Movement, Stock
+   Adjustments, Stock Transfers, Scan & Stock, Optimization, Reports.
+   Call out what staff CANNOT see — **no Products, Approvals, Order
+   Inquiries, Branch Locations, or Security** (even typing the URL
+   redirects back to the Dashboard).
+2. **Stock Movement page** → staff see the movement **history only** (the
+   "New stock movement" form is hidden — recording movements is owner-only).
+3. **Stock Adjustments** → click **New adjustment** and create one, e.g.:
+   product = any item, location = Showroom, **new quantity** = current + 10
+   (or any correction), reason = "Staff count correction during inventory".
+   Submit → it's saved as **pending**. Say: *"Staff can propose, but they
+   can't apply it — it now waits for the owner."*
+4. Try to open **Approvals** while logged in as staff → it's not in the
+   sidebar (and the URL redirects). The staff account simply has no way to
+   approve.
+5. **Log out**, **log in as `admin` / `admin123`** → green **ADMIN** badge,
+   full sidebar, **Approvals** is back.
+6. **Approvals** → the adjustment you just created is waiting (pending
+   adjustments table, alongside any pending transfers). Click **Approve** →
+   the system says the change was applied to stock.
+7. **Inventory Levels** → find the product → the quantity now reflects the
+   new count. **Order Inquiries → Approvals** shows the request as decided.
+   That's the full loop: **request → approve → stock updated**, with a
+   clear audit trail (who proposed, who decided, when).
+
+*Tip: this writes a real adjustment to the live Firestore. Approving it in
+step 6 completes the flow, so the demo ends with consistent data. If you'd
+rather not change stock, reject the request instead — stock stays untouched
+and the audit trail still shows the decision.*
 
 ---
 
@@ -134,5 +174,5 @@ If a judge asks "how do you keep customer data separated / safe?":
 - **API docs (Swagger):** https://inventrak-api.onrender.com/api/docs
 - **GitHub repo:** https://github.com/qjncunanan01-ux/INVENTRAK
 
-_Last verified: Aug 15, 2026 — backend 305/305 tests, admin 20/20, all live
-endpoints green, APK link downloadable (90.6 MB)._
+_Last verified: Aug 18, 2026 — backend 330/330 tests, admin 27/27, all live
+endpoints green (incl. staff-role split + role badge), APK link downloadable._
