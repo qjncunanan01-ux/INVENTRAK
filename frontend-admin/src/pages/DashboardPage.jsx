@@ -85,6 +85,24 @@ export default function DashboardPage({ user, onLogout }) {
         const movementsData = movementsRes.status === 'fulfilled' ? (movementsRes.value.data || movementsRes.value) : [];
         const alertsData = alertsRes.status === 'fulfilled' ? (alertsRes.value.data || alertsRes.value) : [];
 
+        // Staff cannot read the raw sales ledger (GET /api/sales is 403 by
+        // role design), so pull the daily sales aggregate from /api/reports
+        // (staff-allowed) to keep this-month totals and the chart populated
+        // instead of showing zeros.
+        const isStaff = getCurrentUser()?.role === 'staff';
+        let reportsData = null;
+        if (isStaff) {
+          try {
+            const r = await apiGet('/api/reports?days=90');
+            reportsData = r.data || r;
+          } catch (e) {
+            reportsData = null;
+          }
+        }
+        const dailySales = isStaff && reportsData && Array.isArray(reportsData.dailySales)
+          ? reportsData.dailySales
+          : [];
+
         const items = inventoryData.items || [];
 
         // Store raw data for modal use
@@ -128,7 +146,6 @@ export default function DashboardPage({ user, onLogout }) {
         // scoped to their own account (always empty), so their dashboard must
         // fall back to the public summary count — otherwise the card would
         // show 0 while orders are actually pending.
-        const isStaff = getCurrentUser()?.role === 'staff';
         const pendingInquiries = isStaff
           ? (summaryData.pendingInquiries || 0)
           : (Array.isArray(inquiriesData)
@@ -151,18 +168,33 @@ export default function DashboardPage({ user, onLogout }) {
           ? alertsData.filter(a => a.status === 'active' || !a.status).length
           : (summaryData.activeAlerts || 0);
 
-        // 9. This-month sales metrics
+        // 9. This-month sales metrics. Staff use the daily report aggregate
+        // (their raw ledger fetch is role-blocked); admins use the ledger.
         const now = new Date();
         const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const monthlySales = sales.filter(s => {
-          const d = s.transaction_date || s.created_at || '';
-          return d.startsWith(thisMonth);
-        });
-        const monthlySalesValue = monthlySales.reduce((s, x) => s + (Number(x.total_amount || x.total_price) || 0), 0);
-        const monthlyTransactions = monthlySales.length;
+        let monthlySalesValue = 0;
+        let monthlyTransactions = 0;
+        if (isStaff && dailySales.length > 0) {
+          dailySales.forEach(d => {
+            if ((d.date || '').startsWith(thisMonth)) {
+              monthlySalesValue += Number(d.value) || 0;
+              monthlyTransactions += Number(d.transactions) || 0;
+            }
+          });
+        } else {
+          const monthlySales = sales.filter(s => {
+            const d = s.transaction_date || s.created_at || '';
+            return d.startsWith(thisMonth);
+          });
+          monthlySalesValue = monthlySales.reduce((s, x) => s + (Number(x.total_amount || x.total_price) || 0), 0);
+          monthlyTransactions = monthlySales.length;
+        }
 
-        // 10. Unique customers served (all-time)
-        const customersServed = new Set(sales.map(s => s.customer_name).filter(Boolean)).size;
+        // 10. Unique customers served (all-time). Staff fall back to the
+        // public summary (their ledger fetch is role-blocked).
+        const customersServed = isStaff
+          ? (summaryData.customersServed || 0)
+          : new Set(sales.map(s => s.customer_name).filter(Boolean)).size;
 
         // 11. Order status counts (staff: use the public summary breakdown,
         // same reason as the pending-inquiries card above).
@@ -209,15 +241,27 @@ export default function DashboardPage({ user, onLogout }) {
               .slice(-12)
           : (summaryData.monthlyMovements || []);
 
-        // 14. Fast-moving & slow-moving products (by qty sold)
-        const productSalesMap = {};
-        sales.forEach(s => {
-          const key = s.product_name || `Product #${s.product_id}`;
-          productSalesMap[key] = (productSalesMap[key] || 0) + (Number(s.qty || s.quantity) || 0);
-        });
-        const sortedBySales = Object.entries(productSalesMap).sort((a, b) => b[1] - a[1]);
-        const fastMoving = sortedBySales.slice(0, 5).map(([name, qty]) => ({ name: name.length > 20 ? name.substring(0, 20) + '…' : name, qty }));
-        const slowMoving = sortedBySales.slice(-5).reverse().map(([name, qty]) => ({ name: name.length > 20 ? name.substring(0, 20) + '…' : name, qty }));
+        // 14. Fast-moving & slow-moving products (by qty sold). Staff use the
+        // summary's ranked lists (their raw ledger fetch is role-blocked).
+        let fastMoving = [];
+        let slowMoving = [];
+        if (isStaff) {
+          const fmt = (list) => (list || []).map(p => ({
+            name: (p.name || 'Product').length > 20 ? (p.name || 'Product').substring(0, 20) + '…' : (p.name || 'Product'),
+            qty: Number(p.qty_sold) || 0,
+          }));
+          fastMoving = fmt(summaryData.fastMovingProducts).slice(0, 5);
+          slowMoving = fmt(summaryData.slowMovingProducts).slice(-5).reverse();
+        } else {
+          const productSalesMap = {};
+          sales.forEach(s => {
+            const key = s.product_name || `Product #${s.product_id}`;
+            productSalesMap[key] = (productSalesMap[key] || 0) + (Number(s.qty || s.quantity) || 0);
+          });
+          const sortedBySales = Object.entries(productSalesMap).sort((a, b) => b[1] - a[1]);
+          fastMoving = sortedBySales.slice(0, 5).map(([name, qty]) => ({ name: name.length > 20 ? name.substring(0, 20) + '…' : name, qty }));
+          slowMoving = sortedBySales.slice(-5).reverse().map(([name, qty]) => ({ name: name.length > 20 ? name.substring(0, 20) + '…' : name, qty }));
+        }
 
         // 15. Available stock per location
         const locationStockMap = {};
@@ -230,16 +274,30 @@ export default function DashboardPage({ user, onLogout }) {
           .map(([location, stock]) => ({ location, stock }))
           .sort((a, b) => b.stock - a.stock);
 
-        // 16. Monthly sales value chart
-        const monthlySalesMapChart = {};
-        sales.forEach(s => {
-          const month = (s.transaction_date || s.created_at || '').substring(0, 7);
-          if (month) monthlySalesMapChart[month] = (monthlySalesMapChart[month] || 0) + (Number(s.total_amount || s.total_price) || 0);
-        });
-        const monthlySalesChart = Object.entries(monthlySalesMapChart)
-          .sort((a, b) => a[0].localeCompare(b[0]))
-          .slice(-12)
-          .map(([month, value]) => ({ month, value: Math.round(value) }));
+        // 16. Monthly sales value chart. Staff build it from the daily
+        // report rows (their raw ledger fetch is role-blocked).
+        let monthlySalesChart = [];
+        if (isStaff && dailySales.length > 0) {
+          const monthlySalesMapChart = {};
+          dailySales.forEach(d => {
+            const month = (d.date || '').substring(0, 7);
+            if (month) monthlySalesMapChart[month] = (monthlySalesMapChart[month] || 0) + (Number(d.value) || 0);
+          });
+          monthlySalesChart = Object.entries(monthlySalesMapChart)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .slice(-12)
+            .map(([month, value]) => ({ month, value: Math.round(value) }));
+        } else {
+          const monthlySalesMapChart = {};
+          sales.forEach(s => {
+            const month = (s.transaction_date || s.created_at || '').substring(0, 7);
+            if (month) monthlySalesMapChart[month] = (monthlySalesMapChart[month] || 0) + (Number(s.total_amount || s.total_price) || 0);
+          });
+          monthlySalesChart = Object.entries(monthlySalesMapChart)
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .slice(-12)
+            .map(([month, value]) => ({ month, value: Math.round(value) }));
+        }
 
         setSummary({
           totalProducts, totalStock, lowStockItems: lowStockCount, totalLocations,
