@@ -2756,7 +2756,7 @@ async function start(port) {
 
 if (require.main === module) {
   start()
-    .then(() => console.log(`[${DB_DRIVER}] npm-free backend running on ${process.env.PORT || 4001}`))
+    .then(() => console.log(`[${DB_DRIVER}] npm-free backend running on ${process.env.PORT || 4001} (v2)`))
     .catch(err => {
       console.error(`[firestore] failed to start: ${err.message}`);
       console.error('Check your Firebase env vars (see README "Firebase (Firestore)" section).');
