@@ -8,7 +8,7 @@
     {
       "product": {
         "id": 1,
-        "name": "Butterscotch Sauce",
+        "name": "Da Vinci Butterscotch Sauce (2L)",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
@@ -16,7 +16,9 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-sauces--butterscotch.jpg"
+        "image": "/images/da-vinci-sauces--butterscotch.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 113,
@@ -28,7 +30,7 @@
     {
       "product": {
         "id": 2,
-        "name": "Caramel Sauce (2 L)",
+        "name": "Da Vinci Caramel Sauce (2L)",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
@@ -36,7 +38,9 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-sauces--caramel-2l.jpg"
+        "image": "/images/da-vinci-sauces--caramel-2l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 50,
@@ -48,7 +52,7 @@
     {
       "product": {
         "id": 3,
-        "name": "Chocolate Sauce",
+        "name": "Da Vinci Chocolate Sauce (2L)",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
@@ -56,7 +60,9 @@
         "unit": "",
         "price": 1060,
         "status": "active",
-        "image": "/images/da-vinci-sauces--chocolate-2l.jpg"
+        "image": "/images/da-vinci-sauces--chocolate-2l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 147,
@@ -68,7 +74,7 @@
     {
       "product": {
         "id": 4,
-        "name": "Da Vinci Matcha Powder",
+        "name": "Da Vinci Matcha Powder (1KG)",
         "category": "MATCHA POWDER",
         "brand": "",
         "description": "",
@@ -76,7 +82,9 @@
         "unit": "",
         "price": 1175,
         "status": "active",
-        "image": "/images/matcha-powder--da-vinci.jpg"
+        "image": "/images/matcha-powder--da-vinci.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 46,
@@ -88,7 +96,7 @@
     {
       "product": {
         "id": 5,
-        "name": "Arla Full Cream Milk",
+        "name": "Arla Full Cream Milk (12L)",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
@@ -96,7 +104,9 @@
         "unit": "",
         "price": 1120,
         "status": "active",
-        "image": "/images/full-cream-milk--arla-full-cream-milk-12l.jpg"
+        "image": "/images/full-cream-milk--arla-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 46,
@@ -108,7 +118,7 @@
     {
       "product": {
         "id": 6,
-        "name": "Dabba Elegant Cups 12oz",
+        "name": "Dabba Elegant Cups 12oz (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
@@ -116,7 +126,9 @@
         "unit": "",
         "price": 198,
         "status": "active",
-        "image": "/images/cups-and-lid--dabba-elegant-cups-12oz-50pcs.jpg"
+        "image": "/images/cups-and-lid--dabba-elegant-cups-12oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 128,
@@ -128,7 +140,7 @@
     {
       "product": {
         "id": 7,
-        "name": "Sylver Arabica Coffee Beans",
+        "name": "Sylver Arabica Coffee Beans (1kg)",
         "category": "Coffee Beans",
         "brand": "",
         "description": "",
@@ -136,7 +148,9 @@
         "unit": "",
         "price": 1400,
         "status": "active",
-        "image": "/images/coffee-beans--arabica-coffee-beans-1kg.jpg"
+        "image": "/images/coffee-beans--arabica-coffee-beans-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 146,
@@ -148,7 +162,7 @@
     {
       "product": {
         "id": 8,
-        "name": "Frappease Powder",
+        "name": "Da Vinci Frappease Powder (1.5KG)",
         "category": "Da Vinci Powders",
         "brand": "",
         "description": "",
@@ -156,7 +170,9 @@
         "unit": "",
         "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-powders--frappease-powder-1-5kg.jpg"
+        "image": "/images/da-vinci-powders--frappease-powder-1-5kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 120,
@@ -168,7 +184,7 @@
     {
       "product": {
         "id": 9,
-        "name": "Acc Caramel Syrup",
+        "name": "Acc Caramel Syrup (1KG)",
         "category": "Achievers",
         "brand": "",
         "description": "",
@@ -176,7 +192,9 @@
         "unit": "",
         "price": 172,
         "status": "active",
-        "image": "/images/achievers--acc-caramel-syrup-1kg.jpg"
+        "image": "/images/achievers--acc-caramel-syrup-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 77,
@@ -188,7 +206,7 @@
     {
       "product": {
         "id": 10,
-        "name": "Acc Choco Syrup",
+        "name": "Acc Choco Syrup (1KG)",
         "category": "Achievers",
         "brand": "",
         "description": "",
@@ -196,7 +214,9 @@
         "unit": "",
         "price": 172,
         "status": "active",
-        "image": "/images/achievers--acc-choco-syrup-1kg.jpg"
+        "image": "/images/achievers--acc-choco-syrup-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 72,
@@ -208,7 +228,7 @@
     {
       "product": {
         "id": 11,
-        "name": "Acc Strawberry Syrup",
+        "name": "Acc Strawberry Syrup (1KG)",
         "category": "Achievers",
         "brand": "",
         "description": "",
@@ -216,7 +236,9 @@
         "unit": "",
         "price": 172,
         "status": "active",
-        "image": "/images/achievers--acc-strawberry-syrup-1kg.jpg"
+        "image": "/images/achievers--acc-strawberry-syrup-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 113,
@@ -228,7 +250,7 @@
     {
       "product": {
         "id": 12,
-        "name": "Acc Ube Syrup",
+        "name": "Acc Ube Syrup (1KG)",
         "category": "Achievers",
         "brand": "",
         "description": "",
@@ -236,7 +258,9 @@
         "unit": "",
         "price": 172,
         "status": "active",
-        "image": "/images/achievers--acc-ube-syrup-1kg.jpg"
+        "image": "/images/achievers--acc-ube-syrup-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 139,
@@ -256,7 +280,9 @@
         "unit": "",
         "price": 365,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-dark-chocolate-1kg.jpg"
+        "image": "/images/baking-chocolate--beryl-s-dark-chocolate-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 47,
@@ -268,15 +294,17 @@
     {
       "product": {
         "id": 14,
-        "name": "Beryl's Dark Chocolate",
+        "name": "Beryl's Dark Chocolate Chips (1KG)",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
         "size": "",
         "unit": "",
-        "price": 365,
+        "price": 364,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-dark-chocolate.jpg"
+        "image": "/images/baking-chocolate--beryl-s-dark-chocolate.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 152,
@@ -288,7 +316,7 @@
     {
       "product": {
         "id": 15,
-        "name": "Beryl's Milk Chocolate",
+        "name": "Beryl's Milk Chocolate Compound (1KG)",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
@@ -296,7 +324,9 @@
         "unit": "",
         "price": 377,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-milk-chocolate-1kg.jpg"
+        "image": "/images/baking-chocolate--beryl-s-milk-chocolate-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 165,
@@ -308,15 +338,17 @@
     {
       "product": {
         "id": 16,
-        "name": "Beryl's White Chocolate",
+        "name": "Beryl's White Chocolate Chips (1KG)",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 402,
+        "price": 340,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-white-chocolate-1kg.jpg"
+        "image": "/images/baking-chocolate--beryl-s-white-chocolate-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 155,
@@ -328,15 +360,17 @@
     {
       "product": {
         "id": 17,
-        "name": "Beryl's White Chocolate Chips",
+        "name": "Callebaut Dark Couverture Callets (1KG)",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 340,
+        "price": 1399,
         "status": "active",
-        "image": "/images/baking-chocolate--beryl-s-white-chocolate-chips-1kg.jpg"
+        "image": "/images/baking-chocolate--callebaut-dark-couvertre-callets-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 147,
@@ -348,15 +382,17 @@
     {
       "product": {
         "id": 18,
-        "name": "Callebaut Dark Couverture Callets",
+        "name": "Van Houten Intense Dark Compound",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
-        "size": "1 KG",
+        "size": "",
         "unit": "",
-        "price": 1399,
+        "price": 330,
         "status": "active",
-        "image": "/images/baking-chocolate--callebaut-dark-couvertre-callets-1kg.jpg"
+        "image": "/images/baking-chocolate--van-houten-dark-compound-intense.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 157,
@@ -368,15 +404,17 @@
     {
       "product": {
         "id": 19,
-        "name": "Van Houten Intense Dark Compound",
+        "name": "Van Houten Dark Compound - Semi Sweet (1KG)",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
         "size": "",
         "unit": "",
-        "price": 330,
+        "price": 365,
         "status": "active",
-        "image": "/images/baking-chocolate--van-houten-dark-compound-intense.jpg"
+        "image": "/images/baking-chocolate--van-houten-dark-compound-semi-sweet.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 25,
@@ -388,15 +426,17 @@
     {
       "product": {
         "id": 20,
-        "name": "Van Houten Dark Compound Semi Sweet",
+        "name": "Van Houten Milk Compound (1KG)",
         "category": "Baking Chocolate",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "1 KG",
         "unit": "",
-        "price": 365,
+        "price": 330,
         "status": "active",
-        "image": "/images/baking-chocolate--van-houten-dark-compound-semi-sweet.jpg"
+        "image": "/images/baking-chocolate--van-houten-milk-compound-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 108,
@@ -408,15 +448,17 @@
     {
       "product": {
         "id": 21,
-        "name": "Van Houten Milk Compound",
-        "category": "Baking Chocolate",
+        "name": "Original Chicken Pastil by Silong Kitchen",
+        "category": "Chicken Pastil",
         "brand": "",
         "description": "",
-        "size": "1 KG",
+        "size": "",
         "unit": "",
-        "price": 330,
+        "price": 140,
         "status": "active",
-        "image": "/images/baking-chocolate--van-houten-milk-compound-1kg.jpg"
+        "image": "/images/chicken-pastil--original-chicken-pastil-by-silong.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 162,
@@ -428,15 +470,17 @@
     {
       "product": {
         "id": 22,
-        "name": "Original Chicken Pastil by Silong Kitchen",
+        "name": "Spicy Chicken Pastil by Silong Kitchen",
         "category": "Chicken Pastil",
         "brand": "",
         "description": "",
         "size": "",
         "unit": "",
-        "price": 140,
+        "price": 170,
         "status": "active",
-        "image": "/images/chicken-pastil--original-chicken-pastil-by-silong.jpg"
+        "image": "/images/chicken-pastil--spicy-chicken-pastil-by-silong.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 27,
@@ -448,15 +492,17 @@
     {
       "product": {
         "id": 23,
-        "name": "Spicy Chicken Pastil by Silong Kitchen",
-        "category": "Chicken Pastil",
+        "name": "Essse Cafe Selezione Speciale Coffee Beans 1 kg",
+        "category": "Coffee Beans",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "1 KG",
         "unit": "",
-        "price": 170,
+        "price": 1350,
         "status": "active",
-        "image": "/images/chicken-pastil--spicy-chicken-pastil-by-silong.jpg"
+        "image": "/images/coffee-beans--seezione-speciale-coffe-beans-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 97,
@@ -468,15 +514,17 @@
     {
       "product": {
         "id": 24,
-        "name": "Arabica Coffee Beans",
+        "name": "Sylver Blend Coffee Beans 70% Arabica & 30% Robusta",
         "category": "Coffee Beans",
         "brand": "",
         "description": "",
-        "size": "250 G",
+        "size": "1 KG",
         "unit": "",
-        "price": 420,
+        "price": 1000,
         "status": "active",
-        "image": "/images/coffee-beans--arabica-coffee-beans-250g.jpg"
+        "image": "/images/coffee-beans--sylver-blend-coffee-beans70-arabic-30-robusta-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 59,
@@ -488,15 +536,17 @@
     {
       "product": {
         "id": 25,
-        "name": "Selezione Speciale Coffee Beans",
-        "category": "Coffee Beans",
+        "name": "Jersey Condensed Milk (1KG)",
+        "category": "Condense Milk",
         "brand": "",
         "description": "",
-        "size": "1 KG",
+        "size": "1KG",
         "unit": "",
-        "price": 1350,
+        "price": 115,
         "status": "active",
-        "image": "/images/coffee-beans--seezione-speciale-coffe-beans-1kg.jpg"
+        "image": "/images/condense-milk--jersey-condensed-milk-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 158,
@@ -508,15 +558,17 @@
     {
       "product": {
         "id": 26,
-        "name": "Sylver Blend Coffee Beans 70% Arabica & 30% Robusta",
-        "category": "Coffee Beans",
+        "name": "Jersey Condensed Milk (2.5 KG)",
+        "category": "Condense Milk",
         "brand": "",
         "description": "",
-        "size": "1 KG",
+        "size": "2.5 KG",
         "unit": "",
-        "price": 1000,
+        "price": 320,
         "status": "active",
-        "image": "/images/coffee-beans--sylver-blend-coffee-beans70-arabic-30-robusta-1kg.jpg"
+        "image": "/images/condense-milk--jersey-condensed-milk-2-5-kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 46,
@@ -528,15 +580,17 @@
     {
       "product": {
         "id": 27,
-        "name": "Jersey Condensed Milk (1KG)",
+        "name": "Jersey Condensed Milk (390G)",
         "category": "Condense Milk",
         "brand": "",
         "description": "",
-        "size": "1KG",
+        "size": "390G",
         "unit": "",
-        "price": 115,
+        "price": 49,
         "status": "active",
-        "image": "/images/condense-milk--jersey-condensed-milk-1kg.jpg"
+        "image": "/images/condense-milk--jersey-condensed-milk-390g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 127,
@@ -548,15 +602,17 @@
     {
       "product": {
         "id": 28,
-        "name": "Jersey Condensed Milk (2.5 KG)",
+        "name": "Marie Condensada (1KG)",
         "category": "Condense Milk",
         "brand": "",
         "description": "",
-        "size": "2.5 KG",
+        "size": "1KG",
         "unit": "",
-        "price": 320,
+        "price": 107,
         "status": "active",
-        "image": "/images/condense-milk--jersey-condensed-milk-2-5-kg.jpg"
+        "image": "/images/condense-milk--marie-condensada-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 26,
@@ -568,15 +624,17 @@
     {
       "product": {
         "id": 29,
-        "name": "Jersey Condensed Milk (390G)",
-        "category": "Condense Milk",
+        "name": "Dabba Elegant Cups 16oz (50PCS)",
+        "category": "Cups and Lid",
         "brand": "",
         "description": "",
-        "size": "390G",
+        "size": "50PCS",
         "unit": "",
-        "price": 49,
+        "price": 207,
         "status": "active",
-        "image": "/images/condense-milk--jersey-condensed-milk-390g.jpg"
+        "image": "/images/cups-and-lid--dabba-elegant-cups-16oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 68,
@@ -588,15 +646,17 @@
     {
       "product": {
         "id": 30,
-        "name": "Marie Condensada",
-        "category": "Condense Milk",
+        "name": "Dabba Elegant Cups 22oz (50PCS)",
+        "category": "Cups and Lid",
         "brand": "",
         "description": "",
-        "size": "1KG",
+        "size": "50PCS",
         "unit": "",
-        "price": 107,
+        "price": 273,
         "status": "active",
-        "image": "/images/condense-milk--marie-condensada-1kg.jpg"
+        "image": "/images/cups-and-lid--dabba-elegant-cups-22oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 166,
@@ -608,15 +668,17 @@
     {
       "product": {
         "id": 31,
-        "name": "Dabba Elegant Cups 16oz",
+        "name": "Dome Lid 95mm (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 207,
+        "price": 80,
         "status": "active",
-        "image": "/images/cups-and-lid--dabba-elegant-cups-16oz-50pcs.jpg"
+        "image": "/images/cups-and-lid--dome-lid-95mm-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 126,
@@ -628,15 +690,17 @@
     {
       "product": {
         "id": 32,
-        "name": "Dabba Elegant Cups 22oz",
+        "name": "Double Walled Brown 12oz (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 273,
+        "price": 316,
         "status": "active",
-        "image": "/images/cups-and-lid--dabba-elegant-cups-22oz-50pcs.jpg"
+        "image": "/images/cups-and-lid--double-walled-brown-12oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 32,
@@ -648,15 +712,17 @@
     {
       "product": {
         "id": 33,
-        "name": "Dome Lid 95mm",
+        "name": "Double Walled Brown 16oz (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 80,
+        "price": 373,
         "status": "active",
-        "image": "/images/cups-and-lid--dome-lid-95mm-50pcs.jpg"
+        "image": "/images/cups-and-lid--double-walled-brown-16oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 104,
@@ -668,15 +734,17 @@
     {
       "product": {
         "id": 34,
-        "name": "Double Walled Brown 12oz",
+        "name": "Double Walled Brown 8oz (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 316,
+        "price": 258,
         "status": "active",
-        "image": "/images/cups-and-lid--double-walled-brown-12oz-50pcs.jpg"
+        "image": "/images/cups-and-lid--double-walled-brown-8oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 150,
@@ -688,15 +756,17 @@
     {
       "product": {
         "id": 35,
-        "name": "Double Walled Brown 16oz",
+        "name": "Flat Lid 95mm (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 373,
+        "price": 71,
         "status": "active",
-        "image": "/images/cups-and-lid--double-walled-brown-16oz-50pcs.jpg"
+        "image": "/images/cups-and-lid--flat-lid-95mm-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 123,
@@ -708,15 +778,17 @@
     {
       "product": {
         "id": 36,
-        "name": "Double Walled Brown 8oz",
+        "name": "Hard Straw Individual Wrap (100PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
-        "size": "50PCS",
+        "size": "100PCS",
         "unit": "",
-        "price": 258,
+        "price": 60,
         "status": "active",
-        "image": "/images/cups-and-lid--double-walled-brown-8oz-50pcs.jpg"
+        "image": "/images/cups-and-lid--hard-straw-individual-wrap-100pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 159,
@@ -728,15 +800,17 @@
     {
       "product": {
         "id": 37,
-        "name": "Flat Lid 95mm",
+        "name": "Hot lid Black 80mm (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 71,
+        "price": 74,
         "status": "active",
-        "image": "/images/cups-and-lid--flat-lid-95mm-50pcs.jpg"
+        "image": "/images/cups-and-lid--hot-lid-black-80mm-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 95,
@@ -748,15 +822,17 @@
     {
       "product": {
         "id": 38,
-        "name": "Hard Straw Individual Wrap",
+        "name": "Hot lid Black 90mm (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
-        "size": "100PCS",
+        "size": "50PCS",
         "unit": "",
-        "price": 60,
+        "price": 86,
         "status": "active",
-        "image": "/images/cups-and-lid--hard-straw-individual-wrap-100pcs.jpg"
+        "image": "/images/cups-and-lid--hot-lid-black-90mm-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 163,
@@ -768,15 +844,17 @@
     {
       "product": {
         "id": 39,
-        "name": "Hot lid Black 80mm",
+        "name": "PET Cups 12oz (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 74,
+        "price": 155,
         "status": "active",
-        "image": "/images/cups-and-lid--hot-lid-black-80mm-50pcs.jpg"
+        "image": "/images/cups-and-lid--pet-cups-12oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 68,
@@ -788,15 +866,17 @@
     {
       "product": {
         "id": 40,
-        "name": "Hot lid Black 90mm",
+        "name": "PET Cups 16oz (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 86,
+        "price": 178,
         "status": "active",
-        "image": "/images/cups-and-lid--hot-lid-black-90mm-50pcs.jpg"
+        "image": "/images/cups-and-lid--pet-cups-16oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 39,
@@ -808,15 +888,17 @@
     {
       "product": {
         "id": 41,
-        "name": "PET Cups 12oz",
+        "name": "PET Cups 22oz (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 155,
+        "price": 201,
         "status": "active",
-        "image": "/images/cups-and-lid--pet-cups-12oz-50pcs.jpg"
+        "image": "/images/cups-and-lid--pet-cups-22oz-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 145,
@@ -828,15 +910,17 @@
     {
       "product": {
         "id": 42,
-        "name": "PET Cups 16oz",
+        "name": "Strawless Lid 95mm (50PCS)",
         "category": "Cups and Lid",
         "brand": "",
         "description": "",
         "size": "50PCS",
         "unit": "",
-        "price": 178,
+        "price": 90,
         "status": "active",
-        "image": "/images/cups-and-lid--pet-cups-16oz-50pcs.jpg"
+        "image": "/images/cups-and-lid--strawless-lid-95mm-50pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 148,
@@ -848,15 +932,17 @@
     {
       "product": {
         "id": 43,
-        "name": "PET Cups 22oz",
-        "category": "Cups and Lid",
+        "name": "Da Vinci Black Tea Concentrate (1L)",
+        "category": "Da Vinci BeverageMix",
         "brand": "",
         "description": "",
-        "size": "50PCS",
+        "size": "1 L",
         "unit": "",
-        "price": 201,
+        "price": 920,
         "status": "active",
-        "image": "/images/cups-and-lid--pet-cups-22oz-50pcs.jpg"
+        "image": "/images/da-vinci-beveragemix--black-tea-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 56,
@@ -868,15 +954,17 @@
     {
       "product": {
         "id": 44,
-        "name": "Strawless Lid 95mm",
-        "category": "Cups and Lid",
+        "name": "Da Vinci Mixed Berries Beverage Mix (1L)",
+        "category": "Da Vinci BeverageMix",
         "brand": "",
         "description": "",
-        "size": "50PCS",
+        "size": "1 L",
         "unit": "",
-        "price": 90,
+        "price": 820,
         "status": "active",
-        "image": "/images/cups-and-lid--strawless-lid-95mm-50pcs.jpg"
+        "image": "/images/da-vinci-beveragemix--mixed-berries-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 23,
@@ -888,15 +976,17 @@
     {
       "product": {
         "id": 45,
-        "name": "Black Tea",
+        "name": "Da Vinci Strawberry Fruit Beverage Mix (1L)",
         "category": "Da Vinci BeverageMix",
         "brand": "",
         "description": "",
         "size": "1 L",
         "unit": "",
-        "price": 620,
+        "price": 820,
         "status": "active",
-        "image": "/images/da-vinci-beveragemix--black-tea-1l.jpg"
+        "image": "/images/da-vinci-beveragemix--strawberry-fruit-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 148,
@@ -908,15 +998,17 @@
     {
       "product": {
         "id": 46,
-        "name": "Mixed Berries",
-        "category": "Da Vinci BeverageMix",
+        "name": "Da Vinci Blue Ocean Mixologies (750ML)",
+        "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
-        "size": "1 L",
+        "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-beveragemix--mixed-berries-1l.jpg"
+        "image": "/images/da-vinci-mixologies--blue-ocean-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 103,
@@ -928,15 +1020,17 @@
     {
       "product": {
         "id": 47,
-        "name": "Strawberry Fruit",
-        "category": "Da Vinci BeverageMix",
+        "name": "Da Vinci European Strawberry Mixologies (750ML)",
+        "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
-        "size": "1 L",
+        "size": "750 ML",
         "unit": "",
-        "price": 620,
+        "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-beveragemix--strawberry-fruit-1l.jpg"
+        "image": "/images/da-vinci-mixologies--european-strawberry-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 102,
@@ -948,7 +1042,7 @@
     {
       "product": {
         "id": 48,
-        "name": "Blue Ocean",
+        "name": "Da Vinci Forest Berries Syrup (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -956,7 +1050,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--blue-ocean-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--forest-berries-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 139,
@@ -968,7 +1064,7 @@
     {
       "product": {
         "id": 49,
-        "name": "European Strawberry",
+        "name": "Da Vinci Fragrant Lychee Mixologies (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -976,7 +1072,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--european-strawberry-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--fragrant-lychee-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 105,
@@ -988,7 +1086,7 @@
     {
       "product": {
         "id": 50,
-        "name": "Forest Berries",
+        "name": "Da Vinci Green Apple Mixologies (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -996,7 +1094,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--forest-berries-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--green-apple-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 102,
@@ -1008,7 +1108,7 @@
     {
       "product": {
         "id": 51,
-        "name": "Fragrant Lychee",
+        "name": "Da Vinci Grenadine Pomegranate Mixologies (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -1016,7 +1116,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--fragrant-lychee-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--grenadine-pomegranate-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 78,
@@ -1028,7 +1130,7 @@
     {
       "product": {
         "id": 52,
-        "name": "Green Apple",
+        "name": "Da Vinci Majestic Mango Mixologies (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -1036,7 +1138,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--green-apple-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--majestic-mango-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 165,
@@ -1048,7 +1152,7 @@
     {
       "product": {
         "id": 53,
-        "name": "Grenadine Pomegranate",
+        "name": "Da Vinci Menta Cubano Mixology (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -1056,7 +1160,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--grenadine-pomegranate-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--menta-cubano-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 148,
@@ -1068,7 +1174,7 @@
     {
       "product": {
         "id": 54,
-        "name": "Majestic Mango",
+        "name": "Da Vinci Peach Garden Mixologies (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -1076,7 +1182,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--majestic-mango-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--peach-garden-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 124,
@@ -1088,7 +1196,7 @@
     {
       "product": {
         "id": 55,
-        "name": "Menta Cubano",
+        "name": "Da Vinci Pink Guava Mixologies (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -1096,7 +1204,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--menta-cubano-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--pink-guava-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 149,
@@ -1108,7 +1218,7 @@
     {
       "product": {
         "id": 56,
-        "name": "Peach Garden",
+        "name": "Da Vinci Raspberry Rhapsody Mixologies (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -1116,7 +1226,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--peach-garden-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--raspberry-rhapsody-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 42,
@@ -1128,7 +1240,7 @@
     {
       "product": {
         "id": 57,
-        "name": "Pink Guava",
+        "name": "Da Vinci Tropical Passionfruit Mixologies (750ML)",
         "category": "Da Vinci Mixologies",
         "brand": "",
         "description": "",
@@ -1136,7 +1248,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--pink-guava-750ml.jpg"
+        "image": "/images/da-vinci-mixologies--tropical-passionfruit-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 141,
@@ -1148,15 +1262,17 @@
     {
       "product": {
         "id": 58,
-        "name": "Raspberry Rhapsody",
-        "category": "Da Vinci Mixologies",
+        "name": "Da Vinci Bellagio Chocolate Sipping Powder (1KG)",
+        "category": "Da Vinci Powders",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "1 KG",
         "unit": "",
-        "price": 509,
+        "price": 1175,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--raspberry-rhapsody-750ml.jpg"
+        "image": "/images/da-vinci-powders--chocolate-sipping-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 175,
@@ -1168,15 +1284,17 @@
     {
       "product": {
         "id": 59,
-        "name": "Tropical Passionfruit",
-        "category": "Da Vinci Mixologies",
+        "name": "Caramel (500 ML)",
+        "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "500 ML",
         "unit": "",
-        "price": 509,
+        "price": 320,
         "status": "active",
-        "image": "/images/da-vinci-mixologies--tropical-passionfruit-750ml.jpg"
+        "image": "/images/da-vinci-sauces--caramel-500ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 86,
@@ -1188,15 +1306,17 @@
     {
       "product": {
         "id": 60,
-        "name": "Chocolate Sipping",
-        "category": "Da Vinci Powders",
+        "name": "Da Vinci Cheesecake Sauce (2L)",
+        "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
-        "size": "1 KG",
+        "size": "2 L",
         "unit": "",
-        "price": 1175,
+        "price": 1080,
         "status": "active",
-        "image": "/images/da-vinci-powders--chocolate-sipping-1kg.jpg"
+        "image": "/images/da-vinci-sauces--cheesecake-2l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 99,
@@ -1208,15 +1328,17 @@
     {
       "product": {
         "id": 61,
-        "name": "Caramel (500 ML)",
+        "name": "Da Vinci Creamy Vanilla Sauce",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
-        "size": "500 ML",
+        "size": "",
         "unit": "",
-        "price": 320,
+        "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-sauces--caramel-500ml.jpg"
+        "image": "/images/da-vinci-sauces--creamy-vanilla.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 59,
@@ -1228,15 +1350,17 @@
     {
       "product": {
         "id": 62,
-        "name": "Cheesecake",
+        "name": "Da Vinci Gourmet Pistachio Sauce (1L)",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
-        "size": "2 L",
+        "size": "1 L",
         "unit": "",
-        "price": 1080,
+        "price": 935,
         "status": "active",
-        "image": "/images/da-vinci-sauces--cheesecake-2l.jpg"
+        "image": "/images/da-vinci-sauces--gourmet-pistachio-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 96,
@@ -1248,15 +1372,17 @@
     {
       "product": {
         "id": 63,
-        "name": "Chocolate",
+        "name": "Pandan",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
-        "size": "500 ML",
+        "size": "1 L",
         "unit": "",
-        "price": 320,
+        "price": 580,
         "status": "active",
-        "image": "/images/da-vinci-sauces--chocolate-500ml.jpg"
+        "image": "/images/da-vinci-sauces--pandan-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 141,
@@ -1268,15 +1394,17 @@
     {
       "product": {
         "id": 64,
-        "name": "Creamy Vanilla",
+        "name": "Salted Caramel (2 L)",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "2 L",
         "unit": "",
         "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-sauces--creamy-vanilla.jpg"
+        "image": "/images/da-vinci-sauces--salted-caramel-2l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 35,
@@ -1288,15 +1416,17 @@
     {
       "product": {
         "id": 65,
-        "name": "Gourmet Pistachio",
+        "name": "Da Vinci Madagascar Vanilla Bean Sauce (2L)",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
-        "size": "1 L",
+        "size": "2 L",
         "unit": "",
-        "price": 935,
+        "price": 1130,
         "status": "active",
-        "image": "/images/da-vinci-sauces--gourmet-pistachio-1l.jpg"
+        "image": "/images/da-vinci-sauces--vanilla-bean-2l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 119,
@@ -1308,15 +1438,17 @@
     {
       "product": {
         "id": 66,
-        "name": "Pandan",
+        "name": "Da Vinci White Chocolate Sauce (2L)",
         "category": "Da Vinci Sauces",
         "brand": "",
         "description": "",
-        "size": "1 L",
+        "size": "2 L",
         "unit": "",
-        "price": 580,
+        "price": 1070,
         "status": "active",
-        "image": "/images/da-vinci-sauces--pandan-1l.jpg"
+        "image": "/images/da-vinci-sauces--white-chocolate-sauce-2l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 146,
@@ -1328,15 +1460,17 @@
     {
       "product": {
         "id": 67,
-        "name": "Salted Caramel (2 L)",
-        "category": "Da Vinci Sauces",
+        "name": "Da Vinci Macadamia Nut Syrup (750ML)",
+        "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
-        "size": "2 L",
+        "size": "750 ML",
         "unit": "",
-        "price": 1070,
+        "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-sauces--salted-caramel-2l.jpg"
+        "image": "/images/da-vinci-syrup--acadamia-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 31,
@@ -1348,15 +1482,17 @@
     {
       "product": {
         "id": 68,
-        "name": "Vanilla Bean",
-        "category": "Da Vinci Sauces",
+        "name": "Almond",
+        "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
-        "size": "2 L",
+        "size": "750 ML",
         "unit": "",
-        "price": 1130,
+        "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-sauces--vanilla-bean-2l.jpg"
+        "image": "/images/da-vinci-syrup--almond-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 104,
@@ -1368,15 +1504,17 @@
     {
       "product": {
         "id": 69,
-        "name": "White Chocolate Sauce",
-        "category": "Da Vinci Sauces",
+        "name": "Da Vinci Blueberry Syrup (750ML)",
+        "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
-        "size": "2 L",
+        "size": "750 ML",
         "unit": "",
-        "price": 1070,
+        "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-sauces--white-chocolate-sauce-2l.jpg"
+        "image": "/images/da-vinci-syrup--blueberry-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 65,
@@ -1388,7 +1526,7 @@
     {
       "product": {
         "id": 70,
-        "name": "Macadamia",
+        "name": "Caramel (750 ML)",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1396,7 +1534,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--acadamia-750ml.jpg"
+        "image": "/images/da-vinci-syrup--caramel-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 121,
@@ -1408,7 +1548,7 @@
     {
       "product": {
         "id": 71,
-        "name": "Almond",
+        "name": "Hazelnut (750 ML)",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1416,7 +1556,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--almond-750ml.jpg"
+        "image": "/images/da-vinci-syrup--hazelnut-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 166,
@@ -1428,7 +1570,7 @@
     {
       "product": {
         "id": 72,
-        "name": "Blueberry",
+        "name": "Mint",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1436,7 +1578,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--blueberry-750ml.jpg"
+        "image": "/images/da-vinci-syrup--mint-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 42,
@@ -1448,7 +1592,7 @@
     {
       "product": {
         "id": 73,
-        "name": "Caramel (750 ML)",
+        "name": "Da Vinci Pecan Praline Mixologies (750ML)",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1456,7 +1600,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--caramel-750ml.jpg"
+        "image": "/images/da-vinci-syrup--pecan-praline-mixologies-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 32,
@@ -1468,7 +1614,7 @@
     {
       "product": {
         "id": 74,
-        "name": "Hazelnut (750 ML)",
+        "name": "Da Vinci Peppermint Syrup (750ML)",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1476,7 +1622,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--hazelnut-750ml.jpg"
+        "image": "/images/da-vinci-syrup--peppermint-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 66,
@@ -1488,7 +1636,7 @@
     {
       "product": {
         "id": 75,
-        "name": "Mint",
+        "name": "Da Vinci Shortbread Cookies Mixologies (750ML)",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1496,7 +1644,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--mint-750ml.jpg"
+        "image": "/images/da-vinci-syrup--shortbread-cookies-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 89,
@@ -1508,7 +1658,7 @@
     {
       "product": {
         "id": 76,
-        "name": "Pecan Praline",
+        "name": "Da Vinci Strawberry Syrup (750ML)",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1516,7 +1666,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--pecan-praline-mixologies-750ml.jpg"
+        "image": "/images/da-vinci-syrup--strawberry-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 63,
@@ -1528,15 +1680,17 @@
     {
       "product": {
         "id": 77,
-        "name": "Peppermint",
+        "name": "Sugar",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 509,
+        "price": 400,
         "status": "active",
-        "image": "/images/da-vinci-syrup--peppermint-750ml.jpg"
+        "image": "/images/da-vinci-syrup--sugar-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 124,
@@ -1548,7 +1702,7 @@
     {
       "product": {
         "id": 78,
-        "name": "Shortbread Cookies",
+        "name": "Toffee",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1556,7 +1710,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--shortbread-cookies-750ml.jpg"
+        "image": "/images/da-vinci-syrup--toffee-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 146,
@@ -1568,15 +1724,17 @@
     {
       "product": {
         "id": 79,
-        "name": "Strawberry",
+        "name": "Vanilla 750ML",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "",
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--strawberry-750ml.jpg"
+        "image": "/images/da-vinci-syrup--vanilla-750lm.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 91,
@@ -1588,15 +1746,17 @@
     {
       "product": {
         "id": 80,
-        "name": "Sugar",
+        "name": "Vanilla (750 ML)",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 400,
+        "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--sugar-750ml.jpg"
+        "image": "/images/da-vinci-syrup--vanilla-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 73,
@@ -1608,7 +1768,7 @@
     {
       "product": {
         "id": 81,
-        "name": "Toffee",
+        "name": "Da Vinci White Chocolate Syrup (750ML)",
         "category": "Da Vinci Syrup",
         "brand": "",
         "description": "",
@@ -1616,7 +1776,9 @@
         "unit": "",
         "price": 509,
         "status": "active",
-        "image": "/images/da-vinci-syrup--toffee-750ml.jpg"
+        "image": "/images/da-vinci-syrup--white-chocolate-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 105,
@@ -1628,15 +1790,17 @@
     {
       "product": {
         "id": 82,
-        "name": "Vanilla 750ML",
-        "category": "Da Vinci Syrup",
+        "name": "Dripp Butterscotch Syrup (760ML)",
+        "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "760 ML",
         "unit": "",
-        "price": 509,
+        "price": 500,
         "status": "active",
-        "image": "/images/da-vinci-syrup--vanilla-750lm.jpg"
+        "image": "/images/dripp-flavours--buttersotch-syrup-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 149,
@@ -1648,15 +1812,17 @@
     {
       "product": {
         "id": 83,
-        "name": "Vanilla (750 ML)",
-        "category": "Da Vinci Syrup",
+        "name": "Dripp Caramel Sauce (500ML)",
+        "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "500 ML",
         "unit": "",
-        "price": 509,
+        "price": 580,
         "status": "active",
-        "image": "/images/da-vinci-syrup--vanilla-750ml.jpg"
+        "image": "/images/dripp-flavours--caramel-sauce-500ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 33,
@@ -1668,15 +1834,17 @@
     {
       "product": {
         "id": 84,
-        "name": "White Chocolate",
-        "category": "Da Vinci Syrup",
+        "name": "Dripp Caramel Syrup (760ML)",
+        "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "760 ML",
         "unit": "",
-        "price": 509,
+        "price": 500,
         "status": "active",
-        "image": "/images/da-vinci-syrup--white-chocolate-750ml.jpg"
+        "image": "/images/dripp-flavours--caramel-syrup-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 169,
@@ -1688,7 +1856,7 @@
     {
       "product": {
         "id": 85,
-        "name": "Butterscotch Syrup",
+        "name": "Dripp Cream Cheese Syrup (760ML)",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1696,7 +1864,9 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--buttersotch-syrup-760ml.jpg"
+        "image": "/images/dripp-flavours--cream-cheese-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 113,
@@ -1708,15 +1878,17 @@
     {
       "product": {
         "id": 86,
-        "name": "Caramel Sauce (500 ML)",
+        "name": "Hazelnut (760 ML)",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "500 ML",
+        "size": "760 ML",
         "unit": "",
-        "price": 580,
+        "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--caramel-sauce-500ml.jpg"
+        "image": "/images/dripp-flavours--hazelnut-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 119,
@@ -1728,15 +1900,17 @@
     {
       "product": {
         "id": 87,
-        "name": "Caramel Syrup (760 ML)",
+        "name": "Dripp Hazelnut Sauce (500ML)",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "760 ML",
+        "size": "500 ML",
         "unit": "",
-        "price": 500,
+        "price": 790,
         "status": "active",
-        "image": "/images/dripp-flavours--caramel-syrup-760ml.jpg"
+        "image": "/images/dripp-flavours--hazelnut-sauce-500ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 89,
@@ -1748,7 +1922,7 @@
     {
       "product": {
         "id": 88,
-        "name": "Cream Cheese",
+        "name": "Lychee",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1756,7 +1930,9 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--cream-cheese-760ml.jpg"
+        "image": "/images/dripp-flavours--lychee-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 120,
@@ -1768,15 +1944,17 @@
     {
       "product": {
         "id": 89,
-        "name": "Hazelnut (760 ML)",
+        "name": "Dripp Osmanthus Syrup (760ML)",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
         "size": "760 ML",
         "unit": "",
-        "price": 500,
+        "price": 785,
         "status": "active",
-        "image": "/images/dripp-flavours--hazelnut-760ml.jpg"
+        "image": "/images/dripp-flavours--osmanthus-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 81,
@@ -1788,15 +1966,17 @@
     {
       "product": {
         "id": 90,
-        "name": "Hazelnut Sauce",
+        "name": "Palm Sugar 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "500 ML",
+        "size": "",
         "unit": "",
-        "price": 790,
+        "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--hazelnut-sauce-500ml.jpg"
+        "image": "/images/dripp-flavours--pal-sugar-760lm.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 125,
@@ -1808,15 +1988,17 @@
     {
       "product": {
         "id": 91,
-        "name": "Lychee",
+        "name": "Pandan 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "760 ML",
+        "size": "",
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--lychee-760ml.jpg"
+        "image": "/images/dripp-flavours--pandan-760lm.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 66,
@@ -1828,15 +2010,17 @@
     {
       "product": {
         "id": 92,
-        "name": "Osmanthus",
+        "name": "Dripp Passion Fruit Syrup (760ML)",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
         "size": "760 ML",
         "unit": "",
-        "price": 785,
+        "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--osmanthus-760ml.jpg"
+        "image": "/images/dripp-flavours--passion-fruit-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 126,
@@ -1848,7 +2032,7 @@
     {
       "product": {
         "id": 93,
-        "name": "Palm Sugar 760ML",
+        "name": "Peach 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1856,7 +2040,9 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--pal-sugar-760lm.jpg"
+        "image": "/images/dripp-flavours--peach-760lm.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 65,
@@ -1868,15 +2054,17 @@
     {
       "product": {
         "id": 94,
-        "name": "Pandan 760ML",
+        "name": "Dripp Pistachio Syrup (760ML)",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "760 ML",
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--pandan-760lm.jpg"
+        "image": "/images/dripp-flavours--pistachio-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 79,
@@ -1888,7 +2076,7 @@
     {
       "product": {
         "id": 95,
-        "name": "Passion Fruit",
+        "name": "Rose",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1896,7 +2084,9 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--passion-fruit-760ml.jpg"
+        "image": "/images/dripp-flavours--rose-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 49,
@@ -1908,7 +2098,7 @@
     {
       "product": {
         "id": 96,
-        "name": "Peach 760ML",
+        "name": "Strawberry 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1916,7 +2106,9 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--peach-760lm.jpg"
+        "image": "/images/dripp-flavours--strawberry-760lm.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 27,
@@ -1928,15 +2120,17 @@
     {
       "product": {
         "id": 97,
-        "name": "Pistachio",
+        "name": "Tiramisu 760ML",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "760 ML",
+        "size": "",
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--pistachio-760ml.jpg"
+        "image": "/images/dripp-flavours--tiramisu-760lm.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 164,
@@ -1948,7 +2142,7 @@
     {
       "product": {
         "id": 98,
-        "name": "Rose",
+        "name": "Vanilla (760 ML)",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
@@ -1956,7 +2150,9 @@
         "unit": "",
         "price": 500,
         "status": "active",
-        "image": "/images/dripp-flavours--rose-760ml.jpg"
+        "image": "/images/dripp-flavours--vanilla-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 81,
@@ -1968,15 +2164,17 @@
     {
       "product": {
         "id": 99,
-        "name": "Strawberry 760ML",
+        "name": "Dripp Yuzu Fruit Pulp (760ML)",
         "category": "Dripp Flavours",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "760 ML",
         "unit": "",
-        "price": 500,
+        "price": 785,
         "status": "active",
-        "image": "/images/dripp-flavours--strawberry-760lm.jpg"
+        "image": "/images/dripp-flavours--yuzu-fruit-760ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 135,
@@ -1988,15 +2186,17 @@
     {
       "product": {
         "id": 100,
-        "name": "Tiramisu 760ML",
-        "category": "Dripp Flavours",
+        "name": "Arla Pro Barista Milk (10L)",
+        "category": "Full Cream Milk",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "10L",
         "unit": "",
-        "price": 500,
+        "price": 895,
         "status": "active",
-        "image": "/images/dripp-flavours--tiramisu-760lm.jpg"
+        "image": "/images/full-cream-milk--arla-pro-barista-milk-10l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 137,
@@ -2008,15 +2208,17 @@
     {
       "product": {
         "id": 101,
-        "name": "Vanilla (760 ML)",
-        "category": "Dripp Flavours",
+        "name": "Conaprole Full Cream Milk (12L)",
+        "category": "Full Cream Milk",
         "brand": "",
         "description": "",
-        "size": "760 ML",
+        "size": "12L",
         "unit": "",
-        "price": 500,
+        "price": 940,
         "status": "active",
-        "image": "/images/dripp-flavours--vanilla-760ml.jpg"
+        "image": "/images/full-cream-milk--conaprole-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 31,
@@ -2028,15 +2230,17 @@
     {
       "product": {
         "id": 102,
-        "name": "Yuzu Fruit",
-        "category": "Dripp Flavours",
+        "name": "Emborg Chef Selection Full Cream Milk (12L)",
+        "category": "Full Cream Milk",
         "brand": "",
         "description": "",
-        "size": "760 ML",
+        "size": "12L",
         "unit": "",
-        "price": 785,
+        "price": 892,
         "status": "active",
-        "image": "/images/dripp-flavours--yuzu-fruit-760ml.jpg"
+        "image": "/images/full-cream-milk--emborg-chef-selection-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 40,
@@ -2048,15 +2252,17 @@
     {
       "product": {
         "id": 103,
-        "name": "Arla Pro Barista Milk",
+        "name": "Emborg Full Cream Milk (12L)",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
-        "size": "10L",
+        "size": "12L",
         "unit": "",
-        "price": 895,
+        "price": 972,
         "status": "active",
-        "image": "/images/full-cream-milk--arla-pro-barista-milk-10l.jpg"
+        "image": "/images/full-cream-milk--emborg-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 122,
@@ -2068,15 +2274,17 @@
     {
       "product": {
         "id": 104,
-        "name": "Conaprole Full Cream Milk",
+        "name": "Happy Barn Full Cream Milk 12L",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
-        "size": "12L",
+        "size": "12 L",
         "unit": "",
-        "price": 940,
+        "price": 924,
         "status": "active",
-        "image": "/images/full-cream-milk--conaprole-full-cream-milk-12l.jpg"
+        "image": "/images/full-cream-milk--happy-barn-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 25,
@@ -2088,15 +2296,17 @@
     {
       "product": {
         "id": 105,
-        "name": "Emborg Chef Selection Full Cream Milk",
+        "name": "Jersey Full Cream Milk (12L)",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 892,
+        "price": 840,
         "status": "active",
-        "image": "/images/full-cream-milk--emborg-chef-selection-full-cream-milk-12l.jpg"
+        "image": "/images/full-cream-milk--jersey-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 141,
@@ -2108,15 +2318,17 @@
     {
       "product": {
         "id": 106,
-        "name": "Emborg Full Cream Milk",
+        "name": "Laciate Full Cream Milk (12L)",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 972,
+        "price": 940,
         "status": "active",
-        "image": "/images/full-cream-milk--emborg-full-cream-milk-12l.jpg"
+        "image": "/images/full-cream-milk--laciate-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 27,
@@ -2128,15 +2340,17 @@
     {
       "product": {
         "id": 107,
-        "name": "Happy Barn Full Cream Milk",
+        "name": "Milklab Full Cream Milk (12L)",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
-        "size": "12 L",
+        "size": "12L",
         "unit": "",
-        "price": 924,
+        "price": 1215,
         "status": "active",
-        "image": "/images/full-cream-milk--happy-barn-full-cream-milk-12l.jpg"
+        "image": "/images/full-cream-milk--milklab-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 25,
@@ -2148,15 +2362,17 @@
     {
       "product": {
         "id": 108,
-        "name": "Jersey Full Cream Milk",
+        "name": "Mlekovita Full Cream Milk (12L)",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 840,
+        "price": 1020,
         "status": "active",
-        "image": "/images/full-cream-milk--jersey-full-cream-milk-12l.jpg"
+        "image": "/images/full-cream-milk--mlekovita-full-cream-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 24,
@@ -2168,15 +2384,17 @@
     {
       "product": {
         "id": 109,
-        "name": "Laciate Full Cream Milk",
+        "name": "Yarra's Farm Master Barista Milk (12L)",
         "category": "Full Cream Milk",
         "brand": "",
         "description": "",
         "size": "12L",
         "unit": "",
-        "price": 940,
+        "price": 990,
         "status": "active",
-        "image": "/images/full-cream-milk--laciate-full-cream-milk-12l.jpg"
+        "image": "/images/full-cream-milk--yarra-s-farm-master-barista-milk-12l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 107,
@@ -2188,15 +2406,17 @@
     {
       "product": {
         "id": 110,
-        "name": "Milklab Full Cream Milk",
-        "category": "Full Cream Milk",
+        "name": "Allegro Matcha Powder",
+        "category": "MATCHA POWDER",
         "brand": "",
         "description": "",
-        "size": "12L",
+        "size": "",
         "unit": "",
-        "price": 1215,
+        "price": 850,
         "status": "active",
-        "image": "/images/full-cream-milk--milklab-full-cream-milk-12l.jpg"
+        "image": "/images/matcha-powder--allegro.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 30,
@@ -2208,15 +2428,17 @@
     {
       "product": {
         "id": 111,
-        "name": "Mlekovita Full Cream Milk",
-        "category": "Full Cream Milk",
+        "name": "Top Creamery Matcha Powder (1KG)",
+        "category": "MATCHA POWDER",
         "brand": "",
         "description": "",
-        "size": "12L",
+        "size": "",
         "unit": "",
-        "price": 1020,
+        "price": 475,
         "status": "active",
-        "image": "/images/full-cream-milk--mlekovita-full-cream-milk-12l.jpg"
+        "image": "/images/matcha-powder--top-creamery.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 80,
@@ -2228,15 +2450,17 @@
     {
       "product": {
         "id": 112,
-        "name": "Yarra's Farm Master Barista Milk",
-        "category": "Full Cream Milk",
+        "name": "Monin Caramel Syrup (1L)",
+        "category": "Monin",
         "brand": "",
         "description": "",
-        "size": "12L",
+        "size": "1 L",
         "unit": "",
-        "price": 990,
+        "price": 760,
         "status": "active",
-        "image": "/images/full-cream-milk--yarra-s-farm-master-barista-milk-12l.jpg"
+        "image": "/images/monin--caramel-syrup-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 89,
@@ -2248,15 +2472,17 @@
     {
       "product": {
         "id": 113,
-        "name": "Allegro Matcha Powder",
-        "category": "MATCHA POWDER",
+        "name": "Monin Mango Syrup (700ML)",
+        "category": "Monin",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "700 ML",
         "unit": "",
-        "price": 850,
+        "price": 550,
         "status": "active",
-        "image": "/images/matcha-powder--allegro.jpg"
+        "image": "/images/monin--mango-syrup-700ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 157,
@@ -2268,15 +2494,17 @@
     {
       "product": {
         "id": 114,
-        "name": "Top Creamery Matcha Powder",
-        "category": "MATCHA POWDER",
+        "name": "Malaysian Non Dairy Creamer (1KG)",
+        "category": "Non Dairy Creamer",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "1KG",
         "unit": "",
-        "price": 475,
+        "price": 155,
         "status": "active",
-        "image": "/images/matcha-powder--top-creamery.jpg"
+        "image": "/images/non-dairy-creamer--malaysian-non-dairy-creamer-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 171,
@@ -2288,15 +2516,17 @@
     {
       "product": {
         "id": 115,
-        "name": "Caramel Syrup (1 L)",
-        "category": "Monin",
+        "name": "Brew with Sylver",
+        "category": "Others",
         "brand": "",
         "description": "",
-        "size": "1 L",
+        "size": "",
         "unit": "",
-        "price": 760,
+        "price": 300,
         "status": "active",
-        "image": "/images/monin--caramel-syrup-1l.jpg"
+        "image": "/images/others--brew-with-sylver.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 58,
@@ -2308,15 +2538,17 @@
     {
       "product": {
         "id": 116,
-        "name": "Mango Syrup",
-        "category": "Monin",
+        "name": "Mosa Cream Chargers (10PCS)",
+        "category": "Others1",
         "brand": "",
         "description": "",
-        "size": "700 ML",
+        "size": "10 PCS",
         "unit": "",
-        "price": 550,
+        "price": 195,
         "status": "active",
-        "image": "/images/monin--mango-syrup-700ml.jpg"
+        "image": "/images/others1--cream-chargers-10pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 129,
@@ -2328,15 +2560,17 @@
     {
       "product": {
         "id": 117,
-        "name": "Malaysian Non Dairy Creamer",
-        "category": "Non Dairy Creamer",
+        "name": "Banquet Dor Frozen Croissant",
+        "category": "Others1",
         "brand": "",
         "description": "",
-        "size": "1KG",
+        "size": "",
         "unit": "",
-        "price": 155,
+        "price": 440,
         "status": "active",
-        "image": "/images/non-dairy-creamer--malaysian-non-dairy-creamer-1kg.jpg"
+        "image": "/images/others1--frozen-croissant.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 91,
@@ -2348,15 +2582,17 @@
     {
       "product": {
         "id": 118,
-        "name": "Brew with Sylver",
-        "category": "Others",
+        "name": "Da Vinci Sauce Pump 15ml",
+        "category": "Others1",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "15 ML",
         "unit": "",
-        "price": 300,
+        "price": 380,
         "status": "active",
-        "image": "/images/others--brew-with-sylver.jpg"
+        "image": "/images/others1--sauce-pump-15ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 97,
@@ -2368,7 +2604,7 @@
     {
       "product": {
         "id": 119,
-        "name": "Cream Chargers",
+        "name": "Mosa Soda Chargers (10PCS)",
         "category": "Others1",
         "brand": "",
         "description": "",
@@ -2376,7 +2612,9 @@
         "unit": "",
         "price": 195,
         "status": "active",
-        "image": "/images/others1--cream-chargers-10pcs.jpg"
+        "image": "/images/others1--soda-chargers-10pcs.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 79,
@@ -2388,15 +2626,17 @@
     {
       "product": {
         "id": 120,
-        "name": "Frozen Croissant",
+        "name": "Da Vinci Syrup Pump 7.5ml",
         "category": "Others1",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "7.5 ML",
         "unit": "",
-        "price": 440,
+        "price": 380,
         "status": "active",
-        "image": "/images/others1--frozen-croissant.jpg"
+        "image": "/images/others1--syrup-pump-7-5ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 127,
@@ -2408,15 +2648,17 @@
     {
       "product": {
         "id": 121,
-        "name": "Sauce Pump",
-        "category": "Others1",
+        "name": "Farm Fresh Oat Barista Milk(1L)",
+        "category": "Plant Based Milk",
         "brand": "",
         "description": "",
-        "size": "15 ML",
+        "size": "1L",
         "unit": "",
-        "price": 380,
+        "price": 99,
         "status": "active",
-        "image": "/images/others1--sauce-pump-15ml.jpg"
+        "image": "/images/plant-based-milk--farm-fresh-oat-barista-milk-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 161,
@@ -2428,15 +2670,17 @@
     {
       "product": {
         "id": 122,
-        "name": "Soda Chargers",
-        "category": "Others1",
+        "name": "Freenow Coconut Milk (1L)",
+        "category": "Plant Based Milk",
         "brand": "",
         "description": "",
-        "size": "10 PCS",
+        "size": "1L",
         "unit": "",
-        "price": 195,
+        "price": 169,
         "status": "active",
-        "image": "/images/others1--soda-chargers-10pcs.jpg"
+        "image": "/images/plant-based-milk--freenow-coconut-milk-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 72,
@@ -2448,15 +2692,17 @@
     {
       "product": {
         "id": 123,
-        "name": "Syrup Pump",
-        "category": "Others1",
+        "name": "Milklab Almond",
+        "category": "Plant Based Milk",
         "brand": "",
         "description": "",
-        "size": "7.5 ML",
+        "size": "1 L",
         "unit": "",
-        "price": 380,
+        "price": 185,
         "status": "active",
-        "image": "/images/others1--syrup-pump-7-5ml.jpg"
+        "image": "/images/plant-based-milk--milklab-almond-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 125,
@@ -2468,15 +2714,17 @@
     {
       "product": {
         "id": 124,
-        "name": "Farm Fresh Oat Barista Milk",
+        "name": "Milklab Oat Milk (1L)",
         "category": "Plant Based Milk",
         "brand": "",
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 99,
+        "price": 164,
         "status": "active",
-        "image": "/images/plant-based-milk--farm-fresh-oat-barista-milk-1l.jpg"
+        "image": "/images/plant-based-milk--milklab-oat-milk-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 44,
@@ -2488,15 +2736,17 @@
     {
       "product": {
         "id": 125,
-        "name": "Freenow Coconut Milk",
+        "name": "Milklab Soy Milk (1L)",
         "category": "Plant Based Milk",
         "brand": "",
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 169,
+        "price": 199,
         "status": "active",
-        "image": "/images/plant-based-milk--freenow-coconut-milk-1l.jpg"
+        "image": "/images/plant-based-milk--milklab-soy-milk-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 120,
@@ -2508,15 +2758,17 @@
     {
       "product": {
         "id": 126,
-        "name": "Milklab Almond",
+        "name": "Oatbedient Artisan Oatmilk Barista",
         "category": "Plant Based Milk",
         "brand": "",
         "description": "",
         "size": "1 L",
         "unit": "",
-        "price": 185,
+        "price": 130,
         "status": "active",
-        "image": "/images/plant-based-milk--milklab-almond-1l.jpg"
+        "image": "/images/plant-based-milk--oatbedient-artisan-oatmilk-barista-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 52,
@@ -2528,15 +2780,17 @@
     {
       "product": {
         "id": 127,
-        "name": "Milklab Oat Milk",
+        "name": "Oatbedient Oat Milk Barista (1L)",
         "category": "Plant Based Milk",
         "brand": "",
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 164,
+        "price": 170,
         "status": "active",
-        "image": "/images/plant-based-milk--milklab-oat-milk-1l.jpg"
+        "image": "/images/plant-based-milk--oatbedient-oat-milk-barista-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 84,
@@ -2548,15 +2802,17 @@
     {
       "product": {
         "id": 128,
-        "name": "Milklab Soy Milk",
+        "name": "Oatside Barista Blend Oatmilk (1L)",
         "category": "Plant Based Milk",
         "brand": "",
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 199,
+        "price": 145,
         "status": "active",
-        "image": "/images/plant-based-milk--milklab-soy-milk-1l.jpg"
+        "image": "/images/plant-based-milk--oatside-barista-blend-oatmilk-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 90,
@@ -2568,15 +2824,17 @@
     {
       "product": {
         "id": 129,
-        "name": "Oatbedient Artisan Oatmilk Barista",
+        "name": "Oatside Chocolate Oatmilk (1L)",
         "category": "Plant Based Milk",
         "brand": "",
         "description": "",
-        "size": "1 L",
+        "size": "1L",
         "unit": "",
-        "price": 130,
+        "price": 165,
         "status": "active",
-        "image": "/images/plant-based-milk--oatbedient-artisan-oatmilk-barista-1l.jpg"
+        "image": "/images/plant-based-milk--oatside-chocolate-oatmilk-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 36,
@@ -2588,15 +2846,17 @@
     {
       "product": {
         "id": 130,
-        "name": "Oatbedient Oat Milk Barista",
+        "name": "So Good Oat Barista (1L)",
         "category": "Plant Based Milk",
         "brand": "",
         "description": "",
         "size": "1L",
         "unit": "",
-        "price": 170,
+        "price": 230,
         "status": "active",
-        "image": "/images/plant-based-milk--oatbedient-oat-milk-barista-1l.jpg"
+        "image": "/images/plant-based-milk--so-good-oat-barista-1l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 91,
@@ -2608,15 +2868,17 @@
     {
       "product": {
         "id": 131,
-        "name": "Oatside Barista Blend Oatmilk",
-        "category": "Plant Based Milk",
+        "name": "DLA Lafruta Blueberry (610G)",
+        "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "1L",
+        "size": "610G",
         "unit": "",
-        "price": 145,
+        "price": 420,
         "status": "active",
-        "image": "/images/plant-based-milk--oatside-barista-blend-oatmilk-1l.jpg"
+        "image": "/images/spread-jams-biscuits--dla-lafruta-blueberry-610g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 94,
@@ -2628,15 +2890,17 @@
     {
       "product": {
         "id": 132,
-        "name": "Oatside Chocolate Oatmilk",
-        "category": "Plant Based Milk",
+        "name": "DLA Lafruta Strawberry (610G)",
+        "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "1L",
+        "size": "610G",
         "unit": "",
-        "price": 165,
+        "price": 240,
         "status": "active",
-        "image": "/images/plant-based-milk--oatside-chocolate-oatmilk-1l.jpg"
+        "image": "/images/spread-jams-biscuits--dla-lafruta-strawberry-610g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 157,
@@ -2648,15 +2912,17 @@
     {
       "product": {
         "id": 133,
-        "name": "So Good Oat Barista",
-        "category": "Plant Based Milk",
+        "name": "DLA Pistachio Filling (1KG)",
+        "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "1L",
+        "size": "1KG",
         "unit": "",
-        "price": 230,
+        "price": 2091,
         "status": "active",
-        "image": "/images/plant-based-milk--so-good-oat-barista-1l.jpg"
+        "image": "/images/spread-jams-biscuits--dla-pistachio-filling-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 176,
@@ -2668,15 +2934,17 @@
     {
       "product": {
         "id": 134,
-        "name": "DLA Lafruta Blueberry",
+        "name": "Doking Blueberry Jam (3KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "610G",
+        "size": "3KG",
         "unit": "",
-        "price": 420,
+        "price": 345,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--dla-lafruta-blueberry-610g.jpg"
+        "image": "/images/spread-jams-biscuits--doking-blueberry-jam-3kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 72,
@@ -2688,15 +2956,17 @@
     {
       "product": {
         "id": 135,
-        "name": "DLA Lafruta Strawberry",
+        "name": "Doking Mango Jam (3KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "610G",
+        "size": "3KG",
         "unit": "",
-        "price": 240,
+        "price": 345,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--dla-lafruta-strawberry-610g.jpg"
+        "image": "/images/spread-jams-biscuits--doking-mango-jam-3kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 122,
@@ -2708,15 +2978,17 @@
     {
       "product": {
         "id": 136,
-        "name": "DLA Pistachio Filling",
+        "name": "Doking Strawberry Jam (3KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "1KG",
+        "size": "3KG",
         "unit": "",
-        "price": 2091,
+        "price": 345,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--dla-pistachio-filling-1kg.jpg"
+        "image": "/images/spread-jams-biscuits--doking-strawberry-jam-3kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 64,
@@ -2728,15 +3000,17 @@
     {
       "product": {
         "id": 137,
-        "name": "Doking Blueberry Jam",
+        "name": "Jersey Industrial Cheese (2KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "3KG",
+        "size": "2KG",
         "unit": "",
-        "price": 345,
+        "price": 372,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--doking-blueberry-jam-3kg.jpg"
+        "image": "/images/spread-jams-biscuits--jersey-industrial-cheese-2kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 125,
@@ -2748,15 +3022,17 @@
     {
       "product": {
         "id": 138,
-        "name": "Doking Mango Jam",
+        "name": "La Ricetta Speculoos Biscuits (200G)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "3KG",
+        "size": "200G",
         "unit": "",
-        "price": 345,
+        "price": 105,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--doking-mango-jam-3kg.jpg"
+        "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-biscuits-200g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 177,
@@ -2768,15 +3044,17 @@
     {
       "product": {
         "id": 139,
-        "name": "Doking Strawberry Jam",
+        "name": "La Ricetta Speculoos Creamy Spread (400G)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "3KG",
+        "size": "400G",
         "unit": "",
-        "price": 345,
+        "price": 324,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--doking-strawberry-jam-3kg.jpg"
+        "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-creamy-spread-400g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 178,
@@ -2788,15 +3066,17 @@
     {
       "product": {
         "id": 140,
-        "name": "Jersey Industrial Cheese",
+        "name": "Lotus Biscoff biscuits (250G)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "2KG",
+        "size": "250G",
         "unit": "",
-        "price": 372,
+        "price": 190,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--jersey-industrial-cheese-2kg.jpg"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-biscuits-250g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 55,
@@ -2808,15 +3088,17 @@
     {
       "product": {
         "id": 141,
-        "name": "La Ricetta Speculoos Biscuits",
+        "name": "Lotus Biscoff Cookie Crumbs (750G)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "200G",
+        "size": "750G",
         "unit": "",
-        "price": 105,
+        "price": 535,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-biscuits-200g.jpg"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-cookie-crumbs-750g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 168,
@@ -2828,15 +3110,17 @@
     {
       "product": {
         "id": 142,
-        "name": "La Ricetta Speculoos Creamy Spread",
+        "name": "Lotus Biscoff Crunchy Spread (380G)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "400G",
+        "size": "380G",
         "unit": "",
-        "price": 324,
+        "price": 335,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--la-ricetta-speculoos-creamy-spread-400g.jpg"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-crunchy-spread-380g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 74,
@@ -2848,15 +3132,17 @@
     {
       "product": {
         "id": 143,
-        "name": "Lotus Biscoff biscuits",
+        "name": "Lotus Biscoff Smooth Spread (3KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "250G",
+        "size": "3KG",
         "unit": "",
-        "price": 190,
+        "price": 2650,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-biscuits-250g.jpg"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-smooth-spread-3kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 155,
@@ -2868,15 +3154,17 @@
     {
       "product": {
         "id": 144,
-        "name": "Lotus Biscoff Cookie Crumbs",
+        "name": "Lotus Biscoff Topping Sauce (1KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "750G",
+        "size": "1KG",
         "unit": "",
-        "price": 535,
+        "price": 1050,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-cookie-crumbs-750g.jpg"
+        "image": "/images/spread-jams-biscuits--lotus-biscoff-topping-sauce-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 53,
@@ -2888,15 +3176,17 @@
     {
       "product": {
         "id": 145,
-        "name": "Lotus Biscoff Crunchy Spread",
+        "name": "Magnolia Cheese Sauce (2.5KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "380G",
+        "size": "2.5KG",
         "unit": "",
-        "price": 335,
+        "price": 530,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-crunchy-spread-380g.jpg"
+        "image": "/images/spread-jams-biscuits--magnolia-cheese-sauce-2-5kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 50,
@@ -2908,15 +3198,17 @@
     {
       "product": {
         "id": 146,
-        "name": "Lotus Biscoff Smooth Spread",
+        "name": "Master Martini Gran Delice Pistachio Creamy Spread (1KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "3KG",
+        "size": "1KG",
         "unit": "",
-        "price": 2650,
+        "price": 899,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-smooth-spread-3kg.jpg"
+        "image": "/images/spread-jams-biscuits--master-martini-gran-delice-pistachio-creamy-spread-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 81,
@@ -2928,15 +3220,17 @@
     {
       "product": {
         "id": 147,
-        "name": "Lotus Biscoff Topping Sauce",
+        "name": "Maulin Coffee Jelly (3.3 KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "1KG",
+        "size": "3.3 KG",
         "unit": "",
-        "price": 1050,
+        "price": 644,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--lotus-biscoff-topping-sauce-1kg.jpg"
+        "image": "/images/spread-jams-biscuits--maulin-coffee-jelly-3-3-kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 106,
@@ -2948,15 +3242,17 @@
     {
       "product": {
         "id": 148,
-        "name": "Magnolia Cheese Sauce",
+        "name": "Milin Crystal Jelly (2.5KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
         "size": "2.5KG",
         "unit": "",
-        "price": 530,
+        "price": 310,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--magnolia-cheese-sauce-2-5kg.jpg"
+        "image": "/images/spread-jams-biscuits--milin-crystal-jelly-2-5kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 108,
@@ -2968,15 +3264,17 @@
     {
       "product": {
         "id": 149,
-        "name": "Master Martini Gran Delice Pistachio Creamy Spread",
+        "name": "Milin Nata Jelly (2.5KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "1KG",
+        "size": "2.5KG",
         "unit": "",
-        "price": 899,
+        "price": 287,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--master-martini-gran-delice-pistachio-creamy-spread-1kg.jpg"
+        "image": "/images/spread-jams-biscuits--milin-nata-jelly-2-5kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 120,
@@ -2988,15 +3286,17 @@
     {
       "product": {
         "id": 150,
-        "name": "Maulin Coffee Jelly",
+        "name": "Nutella Ferrero Food Service (3KG)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "3.3 KG",
+        "size": "3KG",
         "unit": "",
-        "price": 644,
+        "price": 1855,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--maulin-coffee-jelly-3-3-kg.jpg"
+        "image": "/images/spread-jams-biscuits--nutella-ferrero-food-service-3kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 171,
@@ -3008,15 +3308,17 @@
     {
       "product": {
         "id": 151,
-        "name": "Milin Crystal Jelly",
+        "name": "Oreo Crushed Cookie (454G)",
         "category": "Spread_Jams_Biscuits",
         "brand": "",
         "description": "",
-        "size": "2.5KG",
+        "size": "454G",
         "unit": "",
-        "price": 310,
+        "price": 200,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--milin-crystal-jelly-2-5kg.jpg"
+        "image": "/images/spread-jams-biscuits--oreo-crushed-cookie-454g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 155,
@@ -3028,15 +3330,17 @@
     {
       "product": {
         "id": 152,
-        "name": "Milin Nata Jelly",
-        "category": "Spread_Jams_Biscuits",
+        "name": "Top Creamery Brown Sugar Syrup (750ML)",
+        "category": "Top Creamery",
         "brand": "",
         "description": "",
-        "size": "2.5KG",
+        "size": "750 ML",
         "unit": "",
-        "price": 287,
+        "price": 243,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--milin-nata-jelly-2-5kg.jpg"
+        "image": "/images/top-creamery--brown-sugar-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 56,
@@ -3048,15 +3352,17 @@
     {
       "product": {
         "id": 153,
-        "name": "Nutella Ferrero Food Service",
-        "category": "Spread_Jams_Biscuits",
+        "name": "Caramel Syrup (750 ML) - Top Creamery",
+        "category": "Top Creamery",
         "brand": "",
         "description": "",
-        "size": "3KG",
+        "size": "750 ML",
         "unit": "",
-        "price": 1855,
+        "price": 264,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--nutella-ferrero-food-service-3kg.jpg"
+        "image": "/images/top-creamery--caramel-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 37,
@@ -3068,15 +3374,17 @@
     {
       "product": {
         "id": 154,
-        "name": "Oreo Crushed Cookie",
-        "category": "Spread_Jams_Biscuits",
+        "name": "Top Creamery Chocolate Syrup (750ML)",
+        "category": "Top Creamery",
         "brand": "",
         "description": "",
-        "size": "454G",
+        "size": "",
         "unit": "",
-        "price": 200,
+        "price": 324,
         "status": "active",
-        "image": "/images/spread-jams-biscuits--oreo-crushed-cookie-454g.jpg"
+        "image": "/images/top-creamery--chocolate-syrup-750lm.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 156,
@@ -3088,15 +3396,17 @@
     {
       "product": {
         "id": 155,
-        "name": "Brown Sugar Syrup",
+        "name": "Cookies & Cream Powder",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "1 KG",
         "unit": "",
-        "price": 243,
+        "price": 395,
         "status": "active",
-        "image": "/images/top-creamery--brown-sugar-syrup-750ml.jpg"
+        "image": "/images/top-creamery--cookies-cream-powder-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 64,
@@ -3108,15 +3418,17 @@
     {
       "product": {
         "id": 156,
-        "name": "Caramel Syrup (750 ML) - Top Creamery",
+        "name": "Top Creamery Creamy Vanilla Syrup (750ML)",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 264,
+        "price": 270,
         "status": "active",
-        "image": "/images/top-creamery--caramel-syrup-750ml.jpg"
+        "image": "/images/top-creamery--creamy-vanilla-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 171,
@@ -3128,15 +3440,17 @@
     {
       "product": {
         "id": 157,
-        "name": "Chocolate Syrup 750ML",
+        "name": "Top Creamery Espresso Syrup (750ML)",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
-        "size": "",
+        "size": "750 ML",
         "unit": "",
-        "price": 324,
+        "price": 470,
         "status": "active",
-        "image": "/images/top-creamery--chocolate-syrup-750lm.jpg"
+        "image": "/images/top-creamery--espresso-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 140,
@@ -3148,15 +3462,17 @@
     {
       "product": {
         "id": 158,
-        "name": "Cookies & Cream Powder",
+        "name": "Top Creamery Frappe Base (1KG)",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 395,
+        "price": 330,
         "status": "active",
-        "image": "/images/top-creamery--cookies-cream-powder-1kg.jpg"
+        "image": "/images/top-creamery--frappe-base-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 146,
@@ -3168,15 +3484,17 @@
     {
       "product": {
         "id": 159,
-        "name": "Creamy Vanilla Syrup",
+        "name": "Hazelnut Syrup (750 ML) - Top Creamery",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 270,
+        "price": 280,
         "status": "active",
-        "image": "/images/top-creamery--creamy-vanilla-syrup-750ml.jpg"
+        "image": "/images/top-creamery--hazelnut-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 22,
@@ -3188,15 +3506,17 @@
     {
       "product": {
         "id": 160,
-        "name": "Espresso Syrup",
+        "name": "Salted Caramel (750 ML) - Top Creamery",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 470,
+        "price": 270,
         "status": "active",
-        "image": "/images/top-creamery--espresso-syrup-750ml.jpg"
+        "image": "/images/top-creamery--salted-caramel-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 89,
@@ -3208,15 +3528,17 @@
     {
       "product": {
         "id": 161,
-        "name": "Frappe Base",
+        "name": "Top Creamery Salted Cheese Foam (1KG)",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
         "size": "1 KG",
         "unit": "",
-        "price": 330,
+        "price": 435,
         "status": "active",
-        "image": "/images/top-creamery--frappe-base-1kg.jpg"
+        "image": "/images/top-creamery--salted-cheese-foam-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 108,
@@ -3228,15 +3550,17 @@
     {
       "product": {
         "id": 162,
-        "name": "Hazelnut Syrup (750 ML) - Top Creamery",
+        "name": "Barista Supreme Doppio Chocolate Powder (750G)",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "750 G",
         "unit": "",
-        "price": 280,
+        "price": 572,
         "status": "active",
-        "image": "/images/top-creamery--hazelnut-syrup-750ml.jpg"
+        "image": "/images/top-creamery--supreme-doppio-chocolate-powder-750g.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 49,
@@ -3248,15 +3572,17 @@
     {
       "product": {
         "id": 163,
-        "name": "Salted Caramel (750 ML) - Top Creamery",
+        "name": "Top Creamery Ube Powder (1KG)",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "1 KG",
         "unit": "",
-        "price": 270,
+        "price": 310,
         "status": "active",
-        "image": "/images/top-creamery--salted-caramel-750ml.jpg"
+        "image": "/images/top-creamery--ube-powder-1kg.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 133,
@@ -3268,15 +3594,17 @@
     {
       "product": {
         "id": 164,
-        "name": "Salted Cheese Foam",
+        "name": "Top Creamery Ube Syrup",
         "category": "Top Creamery",
         "brand": "",
         "description": "",
-        "size": "1 KG",
+        "size": "750 ML",
         "unit": "",
-        "price": 435,
+        "price": 340,
         "status": "active",
-        "image": "/images/top-creamery--salted-cheese-foam-1kg.jpg"
+        "image": "/images/top-creamery--ube-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 171,
@@ -3288,15 +3616,17 @@
     {
       "product": {
         "id": 165,
-        "name": "Supreme Doppio Chocolate Powder",
-        "category": "Top Creamery",
+        "name": "Torani Almond Roca Syrup (750ML)",
+        "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "750 G",
+        "size": "750 ML",
         "unit": "",
-        "price": 572,
+        "price": 530,
         "status": "active",
-        "image": "/images/top-creamery--supreme-doppio-chocolate-powder-750g.jpg"
+        "image": "/images/torani--almond-roca-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 98,
@@ -3308,15 +3638,17 @@
     {
       "product": {
         "id": 166,
-        "name": "Ube Powder",
-        "category": "Top Creamery",
+        "name": "Torani Brown Sugar Cinnamon Syrup (750ML)",
+        "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "1 KG",
+        "size": "750 ML",
         "unit": "",
-        "price": 310,
+        "price": 530,
         "status": "active",
-        "image": "/images/top-creamery--ube-powder-1kg.jpg"
+        "image": "/images/torani--brown-sugar-cinnamon-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 77,
@@ -3328,15 +3660,17 @@
     {
       "product": {
         "id": 167,
-        "name": "Ube Syrup",
-        "category": "Top Creamery",
+        "name": "Torani Butterscotch Syrup (750ML)",
+        "category": "Torani",
         "brand": "",
         "description": "",
         "size": "750 ML",
         "unit": "",
-        "price": 340,
+        "price": 530,
         "status": "active",
-        "image": "/images/top-creamery--ube-syrup-750ml.jpg"
+        "image": "/images/torani--butterscotch-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 179,
@@ -3348,15 +3682,17 @@
     {
       "product": {
         "id": 168,
-        "name": "Almond Roca",
+        "name": "Torani Caramel Sauce (1.89L)",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "1.89 L",
         "unit": "",
-        "price": 530,
+        "price": 1250,
         "status": "active",
-        "image": "/images/torani--almond-roca-750ml.jpg"
+        "image": "/images/torani--caramel-sauce1-89l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 62,
@@ -3368,15 +3704,17 @@
     {
       "product": {
         "id": 169,
-        "name": "Brown Sugar Cinnamon Syrup",
+        "name": "Caramel Sauce 16.5OZ",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "16.5 OZ",
         "unit": "",
-        "price": 530,
+        "price": 450,
         "status": "active",
-        "image": "/images/torani--brown-sugar-cinnamon-syrup-750ml.jpg"
+        "image": "/images/torani--caramel-sause-16-5oz.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 44,
@@ -3388,7 +3726,7 @@
     {
       "product": {
         "id": 170,
-        "name": "Butterscotch",
+        "name": "Caramel Syrup (750 ML) - Torani",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3396,7 +3734,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--butterscotch-750ml.jpg"
+        "image": "/images/torani--caramel-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 119,
@@ -3408,15 +3748,17 @@
     {
       "product": {
         "id": 171,
-        "name": "Caramel Sauce (1.89 L)",
+        "name": "Chocolate Sauce 16.5OZ",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "1.89 L",
+        "size": "16.5 OZ",
         "unit": "",
-        "price": 1250,
+        "price": 470,
         "status": "active",
-        "image": "/images/torani--caramel-sauce1-89l.jpg"
+        "image": "/images/torani--chocolate-sause-16-5oz.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 172,
@@ -3428,15 +3770,17 @@
     {
       "product": {
         "id": 172,
-        "name": "Caramel Sauce 16.5OZ",
+        "name": "Torani Coconut Syrup (750ML)",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "16.5 OZ",
+        "size": "750 ML",
         "unit": "",
-        "price": 450,
+        "price": 530,
         "status": "active",
-        "image": "/images/torani--caramel-sause-16-5oz.jpg"
+        "image": "/images/torani--coconu-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 179,
@@ -3448,7 +3792,7 @@
     {
       "product": {
         "id": 173,
-        "name": "Caramel Syrup (750 ML) - Torani",
+        "name": "Torani Creme De Menthe Syrup (750ML)",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3456,7 +3800,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--caramel-syrup-750ml.jpg"
+        "image": "/images/torani--creme-de-menthe-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 26,
@@ -3468,15 +3814,17 @@
     {
       "product": {
         "id": 174,
-        "name": "Chocolate Sauce 16.5OZ",
+        "name": "Torani Dark Chocolate Sauce (1.89L)",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "16.5 OZ",
+        "size": "1.89 L",
         "unit": "",
-        "price": 470,
+        "price": 1160,
         "status": "active",
-        "image": "/images/torani--chocolate-sause-16-5oz.jpg"
+        "image": "/images/torani--dark-chocolate-1-89l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 172,
@@ -3488,7 +3836,7 @@
     {
       "product": {
         "id": 175,
-        "name": "Coconut Syrup",
+        "name": "Torani English Toffee Syrup (750ML)",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3496,7 +3844,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--coconu-syrup-750ml.jpg"
+        "image": "/images/torani--english-toffee-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 96,
@@ -3508,7 +3858,7 @@
     {
       "product": {
         "id": 176,
-        "name": "Creme De Menthe Syrup",
+        "name": "Torani French Vanilla Syrup (750ML)",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3516,7 +3866,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--creme-de-menthe-syrup-750ml.jpg"
+        "image": "/images/torani--french-vanilla-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 128,
@@ -3528,15 +3880,17 @@
     {
       "product": {
         "id": 177,
-        "name": "Dark Chocolate",
+        "name": "Hazelnut Syrup (750 ML) - Torani",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "1.89 L",
+        "size": "750 ML",
         "unit": "",
-        "price": 1160,
+        "price": 530,
         "status": "active",
-        "image": "/images/torani--dark-chocolate-1-89l.jpg"
+        "image": "/images/torani--hazelnut-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 63,
@@ -3548,7 +3902,7 @@
     {
       "product": {
         "id": 178,
-        "name": "English Toffee Syrup",
+        "name": "Lemon Syrup",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3556,7 +3910,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--english-toffee-syrup-750ml.jpg"
+        "image": "/images/torani--lemon-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 57,
@@ -3568,7 +3924,7 @@
     {
       "product": {
         "id": 179,
-        "name": "French Vanilla Syrup",
+        "name": "Torani Peppermint Syrup (750ML)",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3576,7 +3932,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--french-vanilla-syrup-750ml.jpg"
+        "image": "/images/torani--peppermint-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 63,
@@ -3588,7 +3946,7 @@
     {
       "product": {
         "id": 180,
-        "name": "Hazelnut Syrup (750 ML) - Torani",
+        "name": "Torani Pumpkin Spice Syrup (750ML)",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3596,7 +3954,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--hazelnut-syrup-750ml.jpg"
+        "image": "/images/torani--pumpkin-spice-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 92,
@@ -3608,7 +3968,7 @@
     {
       "product": {
         "id": 181,
-        "name": "Lemon Syrup",
+        "name": "Salted Caramel (750 ML) - Torani",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3616,7 +3976,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--lemon-syrup-750ml.jpg"
+        "image": "/images/torani--salted-caramel-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 28,
@@ -3628,15 +3990,17 @@
     {
       "product": {
         "id": 182,
-        "name": "Peppermint Syrup",
+        "name": "Strawberry Puree 64OZ",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "64 OZ",
         "unit": "",
-        "price": 530,
+        "price": 2000,
         "status": "active",
-        "image": "/images/torani--peppermint-syrup-750ml.jpg"
+        "image": "/images/torani--strawberry-puree-64oz.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 165,
@@ -3648,7 +4012,7 @@
     {
       "product": {
         "id": 183,
-        "name": "Pumpkin Spice Syrup",
+        "name": "Strawberry Syrup",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3656,7 +4020,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--pumpkin-spice-syrup-750ml.jpg"
+        "image": "/images/torani--strawberry-syrup-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 161,
@@ -3668,7 +4034,7 @@
     {
       "product": {
         "id": 184,
-        "name": "Salted Caramel (750 ML) - Torani",
+        "name": "Torani Toasted Marshmallow Syrup (750ML)",
         "category": "Torani",
         "brand": "",
         "description": "",
@@ -3676,7 +4042,9 @@
         "unit": "",
         "price": 530,
         "status": "active",
-        "image": "/images/torani--salted-caramel-750ml.jpg"
+        "image": "/images/torani--toasted-marshmallow-750ml.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 77,
@@ -3688,15 +4056,17 @@
     {
       "product": {
         "id": 185,
-        "name": "Strawberry Puree 64OZ",
+        "name": "White Chocolate 16.5OZ",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "64 OZ",
+        "size": "16.5 OZ",
         "unit": "",
-        "price": 2000,
+        "price": 470,
         "status": "active",
-        "image": "/images/torani--strawberry-puree-64oz.jpg"
+        "image": "/images/torani--white-chocolate-16-5oz.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 171,
@@ -3708,15 +4078,17 @@
     {
       "product": {
         "id": 186,
-        "name": "Strawberry Syrup",
+        "name": "Torani White Chocolate Sauce (1.89L)",
         "category": "Torani",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "1.89 L",
         "unit": "",
-        "price": 530,
+        "price": 1200,
         "status": "active",
-        "image": "/images/torani--strawberry-syrup-750ml.jpg"
+        "image": "/images/torani--white-chocolate-sause-1-89l.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 171,
@@ -3728,15 +4100,17 @@
     {
       "product": {
         "id": 187,
-        "name": "Toasted Marshmallow",
-        "category": "Torani",
+        "name": "Everwhip Nondairy Whipping Cream (1L)",
+        "category": "Whip Cream",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "",
         "unit": "",
-        "price": 530,
+        "price": 215,
         "status": "active",
-        "image": "/images/torani--toasted-marshmallow-750ml.jpg"
+        "image": "/images/whip-cream--ever-whip.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 44,
@@ -3748,15 +4122,17 @@
     {
       "product": {
         "id": 188,
-        "name": "Vanilla Syrup",
-        "category": "Torani",
+        "name": "Vivo",
+        "category": "Whip Cream",
         "brand": "",
         "description": "",
-        "size": "750 ML",
+        "size": "",
         "unit": "",
-        "price": 530,
+        "price": 195,
         "status": "active",
-        "image": "/images/torani--vanilla-syrup-750ml.jpg"
+        "image": "/images/whip-cream--vivo.jpg",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 159,
@@ -3768,15 +4144,17 @@
     {
       "product": {
         "id": 189,
-        "name": "White Chocolate 16.5OZ",
-        "category": "Torani",
-        "brand": "",
-        "description": "",
-        "size": "16.5 OZ",
+        "name": "Allegro Green Tea Matcha (1KG)",
+        "category": "MATCHA POWDER",
+        "brand": "MATCHA POWDER",
+        "description": "Product Description\nAllegro Green Tea Matcha is a finely milled premium green tea powder with a vibrant color, smooth texture, and balanced flavor—slightly earthy with a subtle natural sweetness.\n\nKey",
+        "size": "",
         "unit": "",
-        "price": 470,
+        "price": 850,
         "status": "active",
-        "image": "/images/torani--white-chocolate-16-5oz.jpg"
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/aP9KsxGWObf7jJrEvp5ZrYDswbA3%2F877A9D0C-9625-4C1C-B163-1FEC5B0AFD72.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 26,
@@ -3788,15 +4166,17 @@
     {
       "product": {
         "id": 190,
-        "name": "White Chocolate Sauce",
-        "category": "Torani",
-        "brand": "",
-        "description": "",
-        "size": "1.89 L",
+        "name": "Da Vinci French Vanilla Syrup (750ML)",
+        "category": "Da Vinci Syrup",
+        "brand": "Da Vinci Syrup",
+        "description": "Product Description:\nSweet and familiar yet never ordinary, DaVinci Gourmet’s Classic French Vanilla Syrup beautifully complements nearly any flavor profile. Its light amber hue delivers a smooth, cre",
+        "size": "",
         "unit": "",
-        "price": 1200,
+        "price": 509,
         "status": "active",
-        "image": "/images/torani--white-chocolate-sause-1-89l.jpg"
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/r21K7BBsZjOppUkOTqtsCF5C4Wo1%2FUTuGbiyvYm60zJvOj8XtmA%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 52,
@@ -3808,15 +4188,17 @@
     {
       "product": {
         "id": 191,
-        "name": "Ever-Whip",
-        "category": "Whip Cream",
-        "brand": "",
-        "description": "",
+        "name": "Da Vinci Hazelnut Syrup (750ML)",
+        "category": "Da Vinci Syrup",
+        "brand": "Da Vinci Syrup",
+        "description": "Product Description:\nHarvested during the mid-autumn season, this syrup captures the delicate and authentic flavor of premium hazelnuts — offering a smooth, nutty aroma with a perfectly balanced sweet",
         "size": "",
         "unit": "",
-        "price": 215,
+        "price": 509,
         "status": "active",
-        "image": "/images/whip-cream--ever-whip.jpg"
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/r21K7BBsZjOppUkOTqtsCF5C4Wo1%2FBgyPYYeheQx%2BJKP6chJRQ%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 112,
@@ -3828,15 +4210,17 @@
     {
       "product": {
         "id": 192,
-        "name": "Vivo",
-        "category": "Whip Cream",
-        "brand": "",
-        "description": "",
+        "name": "Da Vinci Salted Caramel Sauce (2L)",
+        "category": "Da Vinci Sauces",
+        "brand": "Da Vinci Sauces",
+        "description": "Product Description:\nDaVinci Gourmet captures the beloved flavor of slow-cooked salted caramel in a convenient, easy-to-use format — delivering the perfect balance of buttery sweetness and subtle salt",
         "size": "",
         "unit": "",
-        "price": 195,
+        "price": 1070,
         "status": "active",
-        "image": "/images/whip-cream--vivo.jpg"
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/r21K7BBsZjOppUkOTqtsCF5C4Wo1%2FnSYjIYJ7wx0wBVIz%2Bwx6iQ%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
         "Showroom": 125,
@@ -3844,6 +4228,270 @@
         "Stockroom 2": 74
       },
       "total": 273
+    },
+    {
+      "product": {
+        "id": 193,
+        "name": "Da Vinci Vanilla Syrup (750ML)",
+        "category": "Da Vinci Syrup",
+        "brand": "Da Vinci Syrup",
+        "description": "Product Description:\nThe pure vanilla taste in this syrup comes from premium-grade vanilla pods, rich in natural vanillin content. It delivers a smooth, aromatic sweetness that enhances coffee, milk t",
+        "size": "",
+        "unit": "",
+        "price": 509,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/r21K7BBsZjOppUkOTqtsCF5C4Wo1%2FzrhcKRc53FKuqigSoewSjA%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 121,
+        "Stockroom 1": 170,
+        "Stockroom 2": 178
+      },
+      "total": 469
+    },
+    {
+      "product": {
+        "id": 194,
+        "name": "Dripp Peach Syrup (760ML)",
+        "category": "Dripp Flavours",
+        "brand": "Dripp Flavours",
+        "description": "Product Description\nDripp Peach Syrup is a premium beverage syrup crafted to capture the luscious essence of ripe peaches. It delivers a sweet, fleshy, and velvety flavor profile with a smooth, juicy ",
+        "size": "",
+        "unit": "",
+        "price": 500,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/aP9KsxGWObf7jJrEvp5ZrYDswbA3%2F%2ByRkSYW6jboOm%2BZVgADsg%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 115,
+        "Stockroom 1": 20,
+        "Stockroom 2": 24
+      },
+      "total": 159
+    },
+    {
+      "product": {
+        "id": 195,
+        "name": "Dripp Tiramisu Syrup (760ML)",
+        "category": "Dripp Flavours",
+        "brand": "Dripp Flavours",
+        "description": "Product Description\nDripp Tiramisu Syrup is an indulgent, creamy syrup that captures the rich, layered flavors of the classic Italian dessert. With its smooth, velvety texture, it blends notes of coff",
+        "size": "",
+        "unit": "",
+        "price": 500,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/aP9KsxGWObf7jJrEvp5ZrYDswbA3%2FXBvoDL1kkJ%2Bj3O0PuAguRA%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 92,
+        "Stockroom 1": 106,
+        "Stockroom 2": 82
+      },
+      "total": 280
+    },
+    {
+      "product": {
+        "id": 196,
+        "name": "Dripp Vanilla Syrup (760ML)",
+        "category": "Dripp Flavours",
+        "brand": "Dripp Flavours",
+        "description": "Product Description\nElevate your drinks and desserts with the smooth, classic taste of Dripp Vanilla Syrup. Crafted with premium ingredients, it delivers a rich, aromatic profile with perfectly balanc",
+        "size": "",
+        "unit": "",
+        "price": 500,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/06KUJ8BysofGzHU1lS629N6bXY72%2F05yOkxuuIxTW6vZpLa2nkQ%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 65,
+        "Stockroom 1": 49,
+        "Stockroom 2": 28
+      },
+      "total": 142
+    },
+    {
+      "product": {
+        "id": 197,
+        "name": "Top Creamery Hazelnut Syrup (750ML)",
+        "category": "Top Creamery",
+        "brand": "Top Creamery",
+        "description": "Product Description\nTOP Series Hazelnut Syrup delivers a rich, nutty sweetness with a signature roasted flavor that enhances both beverages and desserts. Crafted as a versatile flavored syrup for drin",
+        "size": "",
+        "unit": "",
+        "price": 280,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/06KUJ8BysofGzHU1lS629N6bXY72%2FdfgIbmGbh%2BwtYqfSz7hbcA%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 66,
+        "Stockroom 1": 133,
+        "Stockroom 2": 105
+      },
+      "total": 304
+    },
+    {
+      "product": {
+        "id": 198,
+        "name": "Torani Chocolate Sauce Small (16.5OZ)",
+        "category": "Torani",
+        "brand": "Torani",
+        "description": "Torani Chocolate Sauce 16.5 oz (468 g) delivers a rich, smooth chocolate flavor that’s perfect for creating café-quality beverages and desserts. Its thick, creamy texture makes it ideal for mochas, ho",
+        "size": "",
+        "unit": "",
+        "price": 470,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/06KUJ8BysofGzHU1lS629N6bXY72%2F3922ABFB-1183-45B7-AFD5-C5A12F1B6977.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 63,
+        "Stockroom 1": 107,
+        "Stockroom 2": 56
+      },
+      "total": 226
+    },
+    {
+      "product": {
+        "id": 199,
+        "name": "Torani Hazelnut Syrup (750ML)",
+        "category": "Torani",
+        "brand": "Torani",
+        "description": "Product Description:\nTorani Hazelnut Syrup delivers a warm, roasted nut flavor that instantly enhances any beverage. Its smooth, buttery profile blends beautifully with coffee, chocolate, milk-based d",
+        "size": "",
+        "unit": "",
+        "price": 530,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/aP9KsxGWObf7jJrEvp5ZrYDswbA3%2FakJVXD12GBBbo6Fa0DFcNA%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 169,
+        "Stockroom 1": 117,
+        "Stockroom 2": 34
+      },
+      "total": 320
+    },
+    {
+      "product": {
+        "id": 200,
+        "name": "Torani Lemon Syurp (750ML)",
+        "category": "Torani",
+        "brand": "Torani",
+        "description": "Torani Lemon Syurp (750ML)",
+        "size": "",
+        "unit": "",
+        "price": 530,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/06KUJ8BysofGzHU1lS629N6bXY72%2FD35694A6-94FA-4AF9-8830-A1C0CEA692CA.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 92,
+        "Stockroom 1": 45,
+        "Stockroom 2": 80
+      },
+      "total": 217
+    },
+    {
+      "product": {
+        "id": 201,
+        "name": "Torani Salted Caramel Syrup (750ML)",
+        "category": "Torani",
+        "brand": "Torani",
+        "description": "Product Description:\nTorani Salted Caramel Syrup delivers the perfect harmony of rich, buttery caramel complemented by a delicate hint of sea salt. Smooth, indulgent, and beautifully layered, it trans",
+        "size": "",
+        "unit": "",
+        "price": 530,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/aP9KsxGWObf7jJrEvp5ZrYDswbA3%2F39m%2BxGF5dTiIqHQot8n2zw%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 175,
+        "Stockroom 1": 175,
+        "Stockroom 2": 99
+      },
+      "total": 449
+    },
+    {
+      "product": {
+        "id": 202,
+        "name": "Torani Strawberry Puree Blend (64OZ)",
+        "category": "Torani",
+        "brand": "Torani",
+        "description": "Bring real fruit flavor to your drinks with Torani Strawberry Purée Blend. Made with ripe strawberry goodness, this purée delivers a naturally sweet, slightly tangy taste with a smooth, vibrant finish",
+        "size": "",
+        "unit": "",
+        "price": 2000,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/aP9KsxGWObf7jJrEvp5ZrYDswbA3%2F08A50CF6-89A2-44D9-9A03-B0F7B1CE5177.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 127,
+        "Stockroom 1": 142,
+        "Stockroom 2": 112
+      },
+      "total": 381
+    },
+    {
+      "product": {
+        "id": 203,
+        "name": "Torani Strawberry Syurp (750ML)",
+        "category": "Torani",
+        "brand": "Torani",
+        "description": "Torani Strawberry Syrup 750 mL delivers the sweet, juicy taste of ripe strawberries, making it easy to create refreshing café-quality drinks and desserts. Perfect for Italian sodas, lemonades, teas, m",
+        "size": "",
+        "unit": "",
+        "price": 530,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/06KUJ8BysofGzHU1lS629N6bXY72%2F8B212768-42BA-422B-BD9A-3314A3BA17C4.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 144,
+        "Stockroom 1": 136,
+        "Stockroom 2": 117
+      },
+      "total": 397
+    },
+    {
+      "product": {
+        "id": 204,
+        "name": "Torani Vanilla Syrup (750ML)",
+        "category": "Torani",
+        "brand": "Torani",
+        "description": "Product Description:\nLiven up your beverages with Torani Vanilla Syrup, offering a lightly sweet flavor with a delicate floral essence that gently warms the senses. Smooth and versatile, it enhances c",
+        "size": "",
+        "unit": "",
+        "price": 530,
+        "status": "active",
+        "image": "https://firebasestorage.googleapis.com/v0/b/kyte-7c484.appspot.com/o/aP9KsxGWObf7jJrEvp5ZrYDswbA3%2F6bQuIeWiyKtysZia2cVag%3D%3D.jpg?alt=media",
+        "created_at": "2026-08-19 05:40:50",
+        "updated_at": "2026-08-19 05:40:50"
+      },
+      "locations": {
+        "Showroom": 39,
+        "Stockroom 1": 50,
+        "Stockroom 2": 72
+      },
+      "total": 161
     }
   ]
 }
