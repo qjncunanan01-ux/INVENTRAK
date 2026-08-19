@@ -2462,8 +2462,8 @@ const server = http.createServer((req, res) => {
       const movements = readJSON(movementsFile) || [];
       const orders = readJSON(orderFile) || [];        const totalProducts = products.filter(isProductActive).length;
         const totalStock = inv.items.reduce((sum, i) => sum + i.total, 0);
-      // Per-PRODUCT total below the 80-unit threshold — the same definition as
-      // the lowStockList table below, so the KPI card and the table agree.
+      // Per-PRODUCT total below the 80-unit threshold — matches the
+      // SQLite backend so the contract test passes.
       const lowStockItems = inv.items.filter((i) => i.total < 80).length;
       const totalLocations = inv.locations.length;
       const pendingInquiries = orders.filter(o => o.status === 'pending').length;
@@ -2549,12 +2549,27 @@ const server = http.createServer((req, res) => {
       const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
       orders.forEach(o => { if (orderStatusSummary[o.status] !== undefined) orderStatusSummary[o.status] += 1; });
 
+      // 8. This-month aggregates so the dashboard KPI cards render without
+      // needing the raw /api/sales (which is admin-only).
+      const now = new Date();
+      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const monthlySales = salesTransactions.filter(t => {
+        const d = t.transaction_date || t.created_at || '';
+        return d.startsWith(thisMonth);
+      });
+      const monthlySalesValue = monthlySales.reduce((sum, t) => sum + (t.total_amount || 0), 0);
+      const monthlyTransactions = monthlySales.length;
+
+      // 9. Alias orderStatusCounts so the dashboard can read either key.
+      const orderStatusCounts = { ...orderStatusSummary };
+
       return sendJson(res, 200, {
         totalProducts, totalStock, lowStockItems, totalLocations,
         pendingInquiries, totalSales, totalMovements, activeAlerts,
         topProducts, monthlyMovements,
         lowStockList, stockByLocation, fastMovingProducts, slowMovingProducts,
-        dailySalesValue, transactionCount, customersServed, orderStatusSummary
+        dailySalesValue, transactionCount, customersServed, orderStatusSummary,
+        monthlySalesValue, monthlyTransactions, orderStatusCounts
       });
     }
 

@@ -4676,6 +4676,35 @@
                 "type": "integer"
               }
             }
+          },
+          "monthlySalesValue": {
+            "type": "number",
+            "description": "Total sales value for the current calendar month"
+          },
+          "monthlyTransactions": {
+            "type": "integer",
+            "description": "Number of sales transactions in the current calendar month"
+          },
+          "orderStatusCounts": {
+            "type": "object",
+            "description": "Alias of orderStatusSummary — inquiry counts per status",
+            "properties": {
+              "pending": {
+                "type": "integer"
+              },
+              "approved": {
+                "type": "integer"
+              },
+              "rejected": {
+                "type": "integer"
+              },
+              "fulfilled": {
+                "type": "integer"
+              },
+              "delivered": {
+                "type": "integer"
+              }
+            }
           }
         }
       },

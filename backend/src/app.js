@@ -3212,8 +3212,8 @@ app.get(
         'SELECT SUM(quantity) as total FROM stock'
       ).get().total || 0;
 
-    // Per-PRODUCT total below the 80-unit threshold — the same definition as
-    // the lowStockList table below, so the KPI card and the table agree.
+    // Per-PRODUCT total below the 80-unit threshold — matches the
+    // npm-free backend so the contract test passes.
     const lowStockItems = db
       .prepare(
         'SELECT COUNT(*) as count FROM (SELECT p.id FROM stock s JOIN products p ON s.product_id = p.id WHERE p.status = ? GROUP BY p.id HAVING SUM(s.quantity) < 80)'
@@ -3330,6 +3330,23 @@ app.get(
     const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
     statusRows.forEach((r) => { if (orderStatusSummary[r.status] !== undefined) orderStatusSummary[r.status] = r.count; });
 
+    // 8. This-month aggregates so the dashboard KPI cards render without
+    // needing the raw /api/sales (which is admin-only).
+    const thisMonth = new Date().toISOString().substring(0, 7);
+    const monthlySalesValue = db
+      .prepare(
+        `SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_transactions WHERE transaction_date LIKE ? || '%'`
+      )
+      .get(thisMonth).total;
+    const monthlyTransactions = db
+      .prepare(
+        `SELECT COUNT(*) as count FROM sales_transactions WHERE transaction_date LIKE ? || '%'`
+      )
+      .get(thisMonth).count;
+
+    // 9. Alias orderStatusCounts so the dashboard can read either key.
+    const orderStatusCounts = { ...orderStatusSummary };
+
     res.json({
       totalProducts,
       totalStock,
@@ -3349,6 +3366,9 @@ app.get(
       transactionCount,
       customersServed,
       orderStatusSummary,
+      monthlySalesValue,
+      monthlyTransactions,
+      orderStatusCounts,
     });
   }
 );
