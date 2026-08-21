@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "start:npmfree": "node src/server_npmfree.js",
     "start:firestore": "node src/server_npmfree.js --firestore",
+    "start:supabase": "node src/server_npmfree.js --supabase",
     "start:firestore:emulator": "node scripts/start-firestore-emulator.js",
     "emulators:start": "firebase emulators:start --only firestore",
     "emulators:export": "firebase emulators:export .firestore-data",
@@ -28,6 +29,7 @@
     "verify": "npm run docs:validate && npm run spec:audit && npm run client:check && npm test"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^13.0.2",
     "body-parser": "^1.20.2",

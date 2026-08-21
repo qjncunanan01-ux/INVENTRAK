@@ -77,16 +77,23 @@ function firestoreConfigured({ env = process.env } = {}) {
   );
 }
 
+function supabaseConfigured({ env = process.env } = {}) {
+  return Boolean(env.SUPABASE_URL && (env.SUPABASE_KEY || env.SUPABASE_ANON_KEY));
+}
+
 function resolveDriver({ env = process.env, argv = process.argv } = {}) {
   if (argv.includes('--firestore')) return 'firestore';
+  if (argv.includes('--supabase')) return 'supabase';
   const explicit = env.DB_DRIVER;
-  if (explicit === 'json' || explicit === 'firestore') return explicit;
+  if (explicit === 'json' || explicit === 'firestore' || explicit === 'supabase') return explicit;
+  if (supabaseConfigured({ env })) return 'supabase';
   return firestoreConfigured({ env }) ? 'firestore' : 'json';
 }
 
 const DB_DRIVER = resolveDriver();
 const useFirestore = DB_DRIVER === 'firestore';
-const store = useFirestore ? require('./store-firestore') : require('./store-json');
+const useSupabase = DB_DRIVER === 'supabase';
+const store = useSupabase ? require('./store-supabase') : useFirestore ? require('./store-firestore') : require('./store-json');
 
 // Allow tests to point the fallback at an isolated data directory.
 const dataDir = process.env.INVENTRAK_DATA_DIR || path.join(__dirname, '..', 'data');
@@ -241,7 +248,7 @@ function readOpenapi() {
 // load (as it always has); in Firestore mode it runs inside start() after the
 // cloud cache is loaded, so it only seeds what is genuinely absent.
 function bootstrap() {
-  if (useFirestore) {
+  if (useFirestore || useSupabase) {
     // Hydrate the in-memory datasets from Firestore so registrations, sales
     // and alerts accumulate across restarts instead of resetting.
     const persistedUsers = readJSON('@users');
@@ -328,7 +335,7 @@ function bootstrap() {
         });
       });
     });
-    if (useFirestore) writeJSON('@alerts', alerts);
+    if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
   }
 
   if (!readJSON(movementsFile)) writeJSON(movementsFile, []);
@@ -336,16 +343,14 @@ function bootstrap() {
   if (!readJSON(adjustmentsFile)) writeJSON(adjustmentsFile, []);
   if (!readJSON(transfersFile)) writeJSON(transfersFile, []);
 
-  // Firestore mode: persist the demo users/sales/alerts so registrations and
+  // Cloud mode: persist the demo users/sales/alerts so registrations and
   // sales accumulate on them across restarts.
-  if (useFirestore) {
+  if (useFirestore || useSupabase) {
     writeJSON('@users', users);
     writeJSON('@sales', salesTransactions);
     writeJSON('@alerts', alerts);
   }
-}
-
-if (!useFirestore) bootstrap();
+}  if (!useFirestore && !useSupabase) bootstrap();
 
 // Seed the in-memory sales history from the same stream (draws 4-9 per
 // product: 2 per customer), mirroring the SQLite seeder exactly.
@@ -437,7 +442,7 @@ function upsertLowStockAlert(productId, locationId, qty) {
   const existing = alerts.find(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.status === 'active');
   if (existing) {
     existing.current_qty = qty;
-    if (useFirestore) writeJSON('@alerts', alerts);
+    if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
     return;
   }
   const inv = getInventory();
@@ -455,7 +460,7 @@ function upsertLowStockAlert(productId, locationId, qty) {
     created_at: new Date().toISOString(),
     resolved_at: null
   });
-  if (useFirestore) writeJSON('@alerts', alerts);
+  if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
 }
 
 function computeAlerts() {
@@ -703,7 +708,7 @@ const server = http.createServer((req, res) => {
       // in Firestore mode).
       if (verified.needsRehash) {
         user.password = hashPassword(obj.password);
-        if (useFirestore) writeJSON('@users', users);
+        if (useFirestore || useSupabase) writeJSON('@users', users);
       }
       // Seeded demo credentials can be switched off in production (OWASP: no
       // default/test accounts in a live system). Rejected with the generic
@@ -774,10 +779,10 @@ const server = http.createServer((req, res) => {
           created_at: new Date().toISOString(),
         };
         users.push(user);
-        if (useFirestore) writeJSON('@users', users);
+        if (useFirestore || useSupabase) writeJSON('@users', users);
       } else if (!user.google_sub) {
         user.google_sub = sub;
-        if (useFirestore) writeJSON('@users', users);
+        if (useFirestore || useSupabase) writeJSON('@users', users);
       }
       // Admin MFA applies to Google sign-in too: an admin who enrolled MFA
       // must complete the second factor regardless of the first factor.
@@ -834,7 +839,7 @@ const server = http.createServer((req, res) => {
         const norm = normalizeRecoveryCode(obj.code);
         const usedHash = hashCode(norm);
         user.mfa_recovery = (user.mfa_recovery || []).filter((h) => h !== usedHash);
-        if (useFirestore) writeJSON('@users', users);
+        if (useFirestore || useSupabase) writeJSON('@users', users);
       }
       if (!codeOk) {
         loginLockout.recordFailure('mfa', sourceIp);
@@ -858,7 +863,7 @@ const server = http.createServer((req, res) => {
       }
       const secret = generateSecret();
       req.user.mfa_secret = secret;
-      if (useFirestore) writeJSON('@users', users);
+      if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.mfa.setup', { userId: req.user.id, username: req.user.username });
       return sendJson(res, 200, { secret, otpauth_url: otpauthUrl(secret, req.user.username) });
     });
@@ -885,7 +890,7 @@ const server = http.createServer((req, res) => {
       // Hash the NORMALIZED form (no dashes) — the verify path normalizes user
       // input before hashing, so storage must match or codes never match.
       req.user.mfa_recovery = recoveryCodes.map((c) => hashCode(normalizeRecoveryCode(c)));
-      if (useFirestore) writeJSON('@users', users);
+      if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.mfa.enabled', { userId: req.user.id, username: req.user.username });
       return sendJson(res, 200, {
         ok: true,
@@ -904,7 +909,7 @@ const server = http.createServer((req, res) => {
       }
       const recoveryCodes = generateRecoveryCodes(10);
       req.user.mfa_recovery = recoveryCodes.map((c) => hashCode(normalizeRecoveryCode(c)));
-      if (useFirestore) writeJSON('@users', users);
+      if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.mfa.recovery_regenerated', { userId: req.user.id, username: req.user.username });
       return sendJson(res, 200, { recovery_codes: recoveryCodes });
     });
@@ -926,7 +931,7 @@ const server = http.createServer((req, res) => {
       req.user.mfa_enabled = false;
       req.user.mfa_secret = null;
       req.user.mfa_recovery = [];
-      if (useFirestore) writeJSON('@users', users);
+      if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.mfa.disabled', { userId: req.user.id, username: req.user.username });
       return sendJson(res, 200, { ok: true, message: 'MFA disabled' });
     }));
@@ -983,7 +988,7 @@ const server = http.createServer((req, res) => {
       // verification code emailed/SMS'd below; the welcome email waits.
       const user = { id: nextUserId++, username: obj.username, password: hashPassword(obj.password), role: 'customer', email: obj.email, phone: obj.phone, email_verified: false, created_at: new Date().toISOString() };
       users.push(user);
-      if (useFirestore) writeJSON('@users', users);
+      if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.register', { userId: user.id, username: obj.username });
       const code = generateCode();
       verificationCodes.set(hashCode(code), { user_id: user.id, expires_at: new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString() });
@@ -1041,7 +1046,7 @@ const server = http.createServer((req, res) => {
       }
       user.email_verified = true;
       persistVerificationCodes();
-      if (useFirestore) writeJSON('@users', users);
+      if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.email_verified', { userId: user.id, username: user.username });
       // Now that the address is proven, the welcome lands (fire-and-forget).
       notifyWelcome(user.email, user.username);
@@ -1194,7 +1199,7 @@ const server = http.createServer((req, res) => {
       }
       user.password = hashPassword(obj.password);
       persistResetTokens();
-      if (useFirestore) writeJSON('@users', users);
+      if (useFirestore || useSupabase) writeJSON('@users', users);
       // A successful reset proves account ownership: clear the per-IP reset
       // quota and lift any login lockout on the account.
       loginLockout.recordSuccess('reset-password', sourceIp);
@@ -1285,10 +1290,10 @@ const server = http.createServer((req, res) => {
           created_at: new Date().toISOString(),
         };
         users.push(user);
-        if (useFirestore) writeJSON('@users', users);
+        if (useFirestore || useSupabase) writeJSON('@users', users);
       } else if (!user.google_sub) {
         user.google_sub = sub;
-        if (useFirestore) writeJSON('@users', users);
+        if (useFirestore || useSupabase) writeJSON('@users', users);
       }
       const token = signToken(user.id);
       const q = new URLSearchParams({
@@ -1602,7 +1607,7 @@ const server = http.createServer((req, res) => {
     const type = parsed.searchParams.get('type');
     const productId = parsed.searchParams.get('product_id');
     let movements = readJSON(movementsFile) || [];
-    // Firestore cannot store null, so the store driver maps it to '' — fold
+    // Cloud store cannot store null, so the store driver maps it to '' — fold
     // both representations back to null so JSON and Firestore modes (and the
     // SQLite backend) return byte-identical values.
     movements = movements.map(m => ({
@@ -2668,7 +2673,7 @@ const server = http.createServer((req, res) => {
           transaction_date: new Date().toISOString(),
           customer_name: obj.customer_name || 'anonymous'
         });
-        if (useFirestore) writeJSON('@sales', salesTransactions);
+        if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
         return sendJson(res, 201, { ok: true, total });
       });
     });
@@ -2693,7 +2698,7 @@ const server = http.createServer((req, res) => {
         const user = users.find(u => u.username === obj.username);
         if (!user || user.role !== 'customer') return sendJson(res, 404, { error: 'Customer not found or already an admin' });
         user.role = 'admin';
-        if (useFirestore) writeJSON('@users', users);
+        if (useFirestore || useSupabase) writeJSON('@users', users);
         return sendJson(res, 200, { ok: true, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
       });
     });
@@ -2718,7 +2723,7 @@ const server = http.createServer((req, res) => {
       if (!alert) return sendJson(res, 404, { error: 'Alert not found or already resolved' });
       alert.status = 'resolved';
       alert.resolved_at = new Date().toISOString();
-      if (useFirestore) writeJSON('@alerts', alerts);
+      if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
       return sendJson(res, 200, { ok: true, message: 'Alert resolved' });
     });
   }
@@ -2764,7 +2769,7 @@ function createServer(port = process.env.PORT || 4001) {
 // mode bootstrap() already ran at module load, so calling start() there is a
 // harmless no-op re-seed (every step is guarded).
 async function start(port) {
-  if (useFirestore) await store.init();
+  if (useFirestore || useSupabase) await store.init();
   bootstrap();
   return createServer(port);
 }
@@ -2779,7 +2784,7 @@ if (require.main === module) {
       // health-check server so Render doesn't kill the instance.  The
       // keep-alive workflow can still ping it, and a redeploy (with
       // corrected credentials) will fix things.
-      if (useFirestore) {
+      if (useFirestore || useSupabase) {
         console.error('[firestore] Starting fallback health server — fix credentials and redeploy.');
         const http = require('http');
         const body = JSON.stringify({ status: 'error', message: 'Firestore init failed — redeploy with correct FIREBASE_SERVICE_ACCOUNT_JSON', detail: err.message });
