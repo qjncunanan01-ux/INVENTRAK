@@ -117,6 +117,8 @@ export default function ProductsPage({ onLogout }) {
     }
   };
 
+  const formRef = useRef(null);
+
   const handleEdit = (product) => {
     setEditingProductId(product.id);
     setForm({
@@ -129,6 +131,10 @@ export default function ProductsPage({ onLogout }) {
       price: product.price?.toString() || '',
       image: product.image || ''
     });
+    // Scroll to the edit form at the top
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const handleCreate = async () => {
@@ -293,7 +299,7 @@ export default function ProductsPage({ onLogout }) {
 
   return (
     <AdminLayout title="Product Management" onLogout={onLogout}>
-      <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
+      <Paper ref={formRef} sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
         <Typography variant="h6" mb={2}>Product catalog controls</Typography>
         <Typography variant="body2" color="text.secondary" mb={3}>
           Add, edit, and manage product details for inventory tracking.
