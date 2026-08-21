@@ -252,11 +252,25 @@ async function init() {
           let cred;
           try {
             cred = saJson ? JSON.parse(saJson) : require(credPath);
-            // Render (and some env-var UIs) collapse literal backslash-n sequences
-            // in the private_key field.  Restore them to actual newlines so the
-            // crypto layer can parse the PEM block.
-            if (cred && cred.private_key && !cred.private_key.includes('\n')) {
-              cred.private_key = cred.private_key.replace(/\\n/g, '\n');
+            // Render (and some env-var UIs) mangle the private_key in different
+            // ways.  Fix whichever variant we get so the PEM block is valid.
+            if (cred && cred.private_key) {
+              let pk = cred.private_key;
+              // Case 1: literal backslash-n strings (e.g. "...\n...") after parse.
+              if (!pk.includes('\n') && pk.includes('\\n')) {
+                pk = pk.replace(/\\n/g, '\n');
+              }
+              // Case 2: all newlines completely stripped — one long line.
+              // Reconstruct PEM: BEGIN ... base64 in 64-char lines ... END.
+              if (!pk.includes('\n') && pk.includes('BEGIN PRIVATE KEY')) {
+                const b64Start = pk.indexOf('-----BEGIN PRIVATE KEY-----') + '-----BEGIN PRIVATE KEY-----'.length;
+                const b64End = pk.lastIndexOf('-----END PRIVATE KEY-----');
+                const b64 = pk.substring(b64Start, b64End).trim();
+                const lines = [];
+                for (let i = 0; i < b64.length; i += 64) lines.push(b64.substring(i, i + 64));
+                pk = '-----BEGIN PRIVATE KEY-----\n' + lines.join('\n') + '\n-----END PRIVATE KEY-----\n';
+              }
+              cred.private_key = pk;
             }
           } catch (err) {
             throw new Error('Failed to load Firebase service account credentials: ' + err.message);
