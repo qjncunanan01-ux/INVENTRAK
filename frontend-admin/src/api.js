@@ -15,18 +15,18 @@ import { createApiClient } from './api.generated';
 
 export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4001';
 
-// Get stored token from localStorage
+// Get stored token from sessionStorage (clears on tab close for security)
 export function getToken() {
-  return localStorage.getItem('inventrak_token');
+  return sessionStorage.getItem('inventrak_token');
 }
- // Set token in localStorage
+ // Set token in sessionStorage
 export function setToken(token) {
-  localStorage.setItem('inventrak_token', token);
+  sessionStorage.setItem('inventrak_token', token);
 }
 
 // Remove token
 export function clearToken() {
-  localStorage.removeItem('inventrak_token');
+  sessionStorage.removeItem('inventrak_token');
 }
 
 // Current signed-in user, held in memory so AdminLayout/pages can adapt

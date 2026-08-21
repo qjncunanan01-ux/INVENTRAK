@@ -33,7 +33,7 @@ function RequireRole({ roles, children }) {
 
 function AppRoutes() {
   const [user, setUser] = useState(null);
-  // A saved token survives a hard refresh (localStorage), so restore the
+  // A saved token survives a page refresh (sessionStorage), so restore the
   // session at boot via /api/auth/me instead of forcing a re-login. Invalid
   // or expired tokens are cleared so the login page starts clean.
   const [restoring, setRestoring] = useState(() => !!getToken());
