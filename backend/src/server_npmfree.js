@@ -2782,7 +2782,7 @@ if (require.main === module) {
       if (useFirestore) {
         console.error('[firestore] Starting fallback health server — fix credentials and redeploy.');
         const http = require('http');
-        const body = JSON.stringify({ status: 'error', message: 'Firestore init failed — redeploy with correct FIREBASE_SERVICE_ACCOUNT_JSON' });
+        const body = JSON.stringify({ status: 'error', message: 'Firestore init failed — redeploy with correct FIREBASE_SERVICE_ACCOUNT_JSON', detail: err.message });
         http.createServer((req, res) => {
           if (req.url === '/api/openapi.json') {
             try {
