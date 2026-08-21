@@ -33,12 +33,23 @@ jobs:
     steps:
       - name: Ping the backend health endpoint
         run: |
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 \
-            https://inventrak-api.onrender.com/api/openapi.json)
-          echo "backend responded with HTTP $CODE"
-          if [ "$CODE" != "200" ]; then
-            echo "::error::Backend did not answer 200 (got $CODE) — check https://inventrak-api.onrender.com"
-            exit 1
-          fi
-          # The instance is awake for the next ~15 min; Render resets the idle
-          # timer on every successful request.
+          # Render free-tier cold-starts can take up to 3 min; retry up to 3 times.
+          MAX_ATTEMPTS=3
+          ATTEMPT=0
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS — pinging backend..."
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 \
+              https://inventrak-api.onrender.com/api/openapi.json)
+            echo "  HTTP $CODE"
+            if [ "$CODE" = "200" ]; then
+              echo "Backend is awake!"
+              exit 0
+            fi
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "  Waiting 60s before retry..."
+              sleep 60
+            fi
+          done
+          echo "::error::Backend did not answer 200 after $MAX_ATTEMPTS attempts — check https://inventrak-api.onrender.com"
+          exit 1
