@@ -52,11 +52,15 @@ function DealPrice({ deal, size = 'md', styles }) {
 export default function ProductScreen({ route, navigation }) {
   const initialSearch = route.params?.initialSearch || '';
   const initialCategory = route.params?.initialCategory || '';
+  const initialCategories = route.params?.initialCategories || [];
+  const initialGroupLabel = route.params?.initialGroupLabel || '';
   const focusId = route.params?.focusId;
 
   const [products, setProducts] = useState([]);
   const [filter, setFilter] = useState(initialSearch);
   const [category, setCategory] = useState(initialCategory);
+  const [categoryGroup, setCategoryGroup] = useState(initialCategories);
+  const [groupLabel, setGroupLabel] = useState(initialGroupLabel);
   const [sort, setSort] = useState('default');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -159,7 +163,9 @@ export default function ProductScreen({ route, navigation }) {
   useEffect(() => {
     if (route.params?.initialSearch !== undefined) setFilter(route.params.initialSearch);
     if (route.params?.initialCategory !== undefined) setCategory(route.params.initialCategory);
-  }, [route.params?.initialSearch, route.params?.initialCategory]);
+    if (route.params?.initialCategories !== undefined) setCategoryGroup(route.params.initialCategories);
+    if (route.params?.initialGroupLabel !== undefined) setGroupLabel(route.params.initialGroupLabel);
+  }, [route.params?.initialSearch, route.params?.initialCategory, route.params?.initialCategories, route.params?.initialGroupLabel]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -175,7 +181,10 @@ export default function ProductScreen({ route, navigation }) {
     let list = products.filter((p) => {
       const q = filter.toLowerCase().trim();
       const matchQ = !q || (p.name || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q);
-      const matchC = !category || p.category === category;
+      // Support both single category and category group (array of categories)
+      const matchC = categoryGroup.length > 0
+        ? categoryGroup.includes(p.category)
+        : (!category || p.category === category);
       return matchQ && matchC;
     });
     if (sort === 'name') list = [...list].sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
@@ -485,13 +494,25 @@ export default function ProductScreen({ route, navigation }) {
         style={styles.chipList}
         contentContainerStyle={styles.chipRow}
       >
+        {/* Active group filter chip — shows the group name with an X to clear */}
+        {categoryGroup.length > 0 && (
+          <TouchableOpacity
+            key="group"
+            style={[styles.chip, styles.chipActive]}
+            onPress={() => { setCategoryGroup([]); setGroupLabel(''); }}
+          >
+            <Text style={[styles.chipText, styles.chipTextActive]}>
+              {groupLabel || 'Group'} ✕
+            </Text>
+          </TouchableOpacity>
+        )}
         {categories.map((c) => (
           <TouchableOpacity
             key={c || 'all'}
-            style={[styles.chip, category === c && styles.chipActive]}
-            onPress={() => setCategory(c)}
+            style={[styles.chip, category === c && !categoryGroup.length && styles.chipActive]}
+            onPress={() => { setCategory(c); setCategoryGroup([]); setGroupLabel(''); }}
           >
-            <Text style={[styles.chipText, category === c && styles.chipTextActive]}>
+            <Text style={[styles.chipText, category === c && !categoryGroup.length && styles.chipTextActive]}>
               {c || 'All'}
             </Text>
           </TouchableOpacity>
@@ -519,7 +540,7 @@ export default function ProductScreen({ route, navigation }) {
       </ScrollView>
       <Text style={styles.resultCount}>
         {filtered.length} product{filtered.length === 1 ? null : 's'}
-        {category ? ` in ${category}` : null}
+        {categoryGroup.length > 0 && groupLabel ? ` in ${groupLabel}` : category ? ` in ${category}` : null}
       </Text>
 
       <FlatList
