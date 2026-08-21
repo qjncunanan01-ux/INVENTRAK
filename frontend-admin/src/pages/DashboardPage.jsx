@@ -364,19 +364,16 @@ export default function DashboardPage({ user, onLogout }) {
     } else if (panel.key === 'inventory') {
       setModalData(inventory);
     } else if (panel.key === 'locationStock') {
-      // Flatten per-location stock
-      const rows = [];
+      // Aggregate total stock per location (not per product)
+      const locationTotals = {};
       inventory.forEach(item => {
         Object.entries(item.locations || {}).forEach(([loc, qty]) => {
-          rows.push({
-            id: `${item.product?.id || item.name}-${loc}`,
-            product_name: item.product?.name || item.name,
-            location: loc,
-            quantity: Number(qty),
-          });
+          locationTotals[loc] = (locationTotals[loc] || 0) + Number(qty);
         });
       });
-      rows.sort((a, b) => b.quantity - a.quantity);
+      const rows = Object.entries(locationTotals)
+        .map(([loc, total]) => ({ id: loc, location: loc, total_stock: total }))
+        .sort((a, b) => b.total_stock - a.total_stock);
       setModalData(rows);
     } else if (panel.key === 'inquiries') {
       setModalData(inquiries.filter(i => i.status === 'pending'));
@@ -866,9 +863,8 @@ export default function DashboardPage({ user, onLogout }) {
                         )}
                         {activeModal.key === 'locationStock' && (
                           <>
-                            <TableCell><strong>Product</strong></TableCell>
                             <TableCell><strong>Location</strong></TableCell>
-                            <TableCell align="right"><strong>Quantity</strong></TableCell>
+                            <TableCell align="right"><strong>Total Stock</strong></TableCell>
                           </>
                         )}
                         {(activeModal.key === 'inquiries' || activeModal.key === 'orderStatus') && (
@@ -957,9 +953,8 @@ export default function DashboardPage({ user, onLogout }) {
                           )}
                           {activeModal.key === 'locationStock' && (
                             <>
-                              <TableCell><strong>{item.product_name}</strong></TableCell>
-                              <TableCell>{item.location}</TableCell>
-                              <TableCell align="right"><strong>{item.quantity}</strong></TableCell>
+                              <TableCell><strong>{item.location}</strong></TableCell>
+                              <TableCell align="right"><strong>{item.total_stock?.toLocaleString()}</strong></TableCell>
                             </>
                           )}
                           {(activeModal.key === 'inquiries' || activeModal.key === 'orderStatus') && (
