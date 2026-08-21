@@ -93,9 +93,9 @@ export default function LoginPage({ onLogin }) {
       setSnackbar({ open: true, message: 'Login successful!', severity: 'success' });
       setTimeout(() => {
         onLogin(data.user);
-        // Force a clean page reload so the dashboard renders from scratch
-        // instead of inheriting any stale login-page state.
-        window.location.reload();
+        // Always land on the dashboard after login, regardless of which
+        // page the user was on before (e.g. logged out from Products).
+        window.location.href = '/';
       }, 500);
     } catch (err) {
       setError('Network error — could not reach the server. Check your connection and try again.');
@@ -124,7 +124,7 @@ export default function LoginPage({ onLogin }) {
       setSnackbar({ open: true, message: 'MFA verified — login successful!', severity: 'success' });
       setTimeout(() => {
         onLogin(data.user);
-        window.location.reload();
+        window.location.href = '/';
       }, 500);
     } catch (err) {
       setError(err.status === 429 ? 'Too many attempts. Wait a moment and try again.' : (err.message || 'Invalid code'));
