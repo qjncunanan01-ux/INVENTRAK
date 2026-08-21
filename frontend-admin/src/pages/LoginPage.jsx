@@ -22,6 +22,7 @@ export default function LoginPage({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [lockoutLeft, setLockoutLeft] = useState(0);
+  const [showDemo, setShowDemo] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   // Admin MFA second factor: after a successful password login the backend
   // returns mfa_required + a short-lived challenge token instead of a session.
@@ -171,7 +172,7 @@ export default function LoginPage({ onLogin }) {
             onClick={() => fillDemo('owner')}
             startIcon={<AdminPanelSettingsOutlined />}
             disabled={loading}
-            aria-label="Fill owner demo account (admin / admin123)"
+            aria-label="Fill owner demo account"
             sx={{
               py: 1.25,
               flexDirection: 'column',
@@ -184,7 +185,7 @@ export default function LoginPage({ onLogin }) {
           >
             <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Owner</Box>
             <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
-              admin / admin123 · full access
+              {showDemo ? 'admin / admin123' : 'Tap to fill'} · full access
             </Box>
           </Button>
           <Button
@@ -193,7 +194,7 @@ export default function LoginPage({ onLogin }) {
             onClick={() => fillDemo('staff')}
             startIcon={<BadgeOutlined />}
             disabled={loading}
-            aria-label="Fill staff demo account (staff / staff123)"
+            aria-label="Fill staff demo account"
             sx={{
               py: 1.25,
               flexDirection: 'column',
@@ -206,12 +207,16 @@ export default function LoginPage({ onLogin }) {
           >
             <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Staff</Box>
             <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
-              staff / staff123 · requests &amp; scanning
+              {showDemo ? 'staff / staff123' : 'Tap to fill'} · requests &amp; scanning
             </Box>
           </Button>
         </Stack>
-        <Typography variant="caption" sx={{ display: 'block', mb: 3, color: colors.textSecondary }}>
-          One tap fills the demo account — then press Login. The role badge after sign-in shows which account you're on.
+        <Typography
+          variant="caption"
+          sx={{ display: 'block', mb: 3, color: colors.textSecondary, cursor: 'pointer', textDecoration: 'underline' }}
+          onClick={() => setShowDemo(s => !s)}
+        >
+          {showDemo ? 'Hide demo credentials' : 'Show demo credentials'} — one tap fills the account, then press Login.
         </Typography>
 
         {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
