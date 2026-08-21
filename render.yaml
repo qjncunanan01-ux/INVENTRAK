@@ -32,6 +32,10 @@ services:
       # still runs on the local JSON files (ephemeral disk on the free plan).
       - key: FIREBASE_PROJECT_ID
         value: inventrak-6b079
+      # Force JSON driver until Firestore quota resets (RESOURCE_EXHAUSTED).
+      # Remove this line when quota recovers to use live Firestore data.
+      - key: DB_DRIVER
+        value: json
 
       # Real email + SMS delivery (see DEPLOY.md -> "Real email + SMS
       # notifications"). Without these, notifications are LOGGED, not sent.
