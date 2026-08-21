@@ -18,6 +18,9 @@ Thumbs.db
 # Firebase service-account keys (NEVER commit these)
 **/.secrets/
 
+# Runtime state files
+backend/data/revoked-tokens.json
+
 # Build artifacts
 **/build/
 **/dist/

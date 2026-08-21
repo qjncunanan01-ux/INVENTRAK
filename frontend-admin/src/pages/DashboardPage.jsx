@@ -18,8 +18,9 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend,
   Line, LineChart,
@@ -50,6 +51,7 @@ export default function DashboardPage({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const [lastRefreshed, setLastRefreshed] = useState(null);
 
   const [activeModal, setActiveModal] = useState(null);
   const [modalData, setModalData] = useState([]);
@@ -327,6 +329,7 @@ export default function DashboardPage({ user, onLogout }) {
         setError('Failed to load dashboard data. Make sure the backend is running.');
         setSnackbar({ open: true, message: err.message });
       } finally {
+        setLastRefreshed(new Date());
         setLoading(false);
       }
     };
@@ -575,6 +578,18 @@ export default function DashboardPage({ user, onLogout }) {
         {summary.lowStockItems > 0 && (
           <Chip label={`${summary.lowStockItems} low-stock location(s)`} color="warning" size="small" />
         )}
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+          {lastRefreshed && (
+            <Typography variant="caption" color="text.secondary">
+              Updated {lastRefreshed.toLocaleTimeString()}
+            </Typography>
+          )}
+          <Tooltip title="Refresh data">
+            <IconButton size="small" onClick={() => window.location.reload()}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       {/* ─── Summary Cards ─── */}

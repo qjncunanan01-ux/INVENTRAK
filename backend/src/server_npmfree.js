@@ -525,9 +525,12 @@ function parseBodyWithLimit(req, limitBytes, callback) {
   });
 }
 
+let requestCounter = 0;
 function sendJson(res, status, payload) {
+  const requestId = `req-${++requestCounter}-${Date.now().toString(36)}`;
   res.writeHead(status, {
     'Content-Type': 'application/json',
+    'X-Request-Id': requestId,
     // JSON API payloads are never documents: default-src 'none' is the
     // strictest (and correct) posture for them.
     'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
@@ -635,10 +638,14 @@ const server = http.createServer((req, res) => {
   // Public liveness probe (Render/UptimeRobot ping this; returns 200 so
   // uptime monitors never see the admin-only integrity endpoint's 401/404).
   if (req.method === 'GET' && url.split('?')[0] === '/api/health') {
+    const mem = process.memoryUsage();
     return sendJson(res, 200, {
       ok: true,
       status: 'ok',
-      driver: firestoreConfigured() ? 'firestore' : 'json',
+      driver: useSupabase ? 'supabase' : firestoreConfigured() ? 'firestore' : 'json',
+      uptime: Math.floor(process.uptime()),
+      memoryMB: Math.round(mem.heapUsed / 1048576),
+      products: (readJSON(productsFile) || []).length,
       time: new Date().toISOString()
     });
   }
