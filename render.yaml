@@ -33,14 +33,13 @@ services:
       - key: FIREBASE_PROJECT_ID
         value: inventrak-6b079
       # Supabase driver — no quota limits, real PostgreSQL.
-      # To enable: set SUPABASE_URL and SUPABASE_KEY in the Render dashboard.
-      # Until then, falls back to JSON driver.
-      # - key: DB_DRIVER
-      #   value: supabase
-      # - key: SUPABASE_URL
-      #   value: https://your-project.supabase.co
-      # - key: SUPABASE_KEY
-      #   value: your-service-role-key
+      # Set these in the Render dashboard after deploy:
+      - key: DB_DRIVER
+        value: supabase
+      # SUPABASE_URL and SUPABASE_KEY are secrets — paste in Render dashboard:
+      #   Service -> Environment -> Environment Variables
+      #   SUPABASE_URL = https://uvzlenwcdbjckwmhefpm.supabase.co
+      #   SUPABASE_KEY = <your service_role key>
 
       # Real email + SMS delivery (see DEPLOY.md -> "Real email + SMS
       # notifications"). Without these, notifications are LOGGED, not sent.
