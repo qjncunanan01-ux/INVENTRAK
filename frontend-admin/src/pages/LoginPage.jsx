@@ -78,6 +78,7 @@ export default function LoginPage({ onLogin }) {
         setMfaToken(data.mfaToken);
         setMfaCode('');
         setError('');
+        setLoading(false);
         return;
       }
       // Staff-or-admin sign-in: customer-app accounts can never open the
@@ -90,7 +91,12 @@ export default function LoginPage({ onLogin }) {
       }
       setToken(data.token);
       setSnackbar({ open: true, message: 'Login successful!', severity: 'success' });
-      setTimeout(() => onLogin(data.user), 500);
+      setTimeout(() => {
+        onLogin(data.user);
+        // Force a clean page reload so the dashboard renders from scratch
+        // instead of inheriting any stale login-page state.
+        window.location.reload();
+      }, 500);
     } catch (err) {
       setError('Network error — could not reach the server. Check your connection and try again.');
     } finally {
@@ -115,8 +121,11 @@ export default function LoginPage({ onLogin }) {
       }
       setToken(data.token);
       setMfaToken(null);
-      setSnackbar({ open: true, message: 'Login successful!', severity: 'success' });
-      setTimeout(() => onLogin(data.user), 500);
+      setSnackbar({ open: true, message: 'MFA verified — login successful!', severity: 'success' });
+      setTimeout(() => {
+        onLogin(data.user);
+        window.location.reload();
+      }, 500);
     } catch (err) {
       setError(err.status === 429 ? 'Too many attempts. Wait a moment and try again.' : (err.message || 'Invalid code'));
     } finally {
@@ -226,8 +235,8 @@ export default function LoginPage({ onLogin }) {
             <Button fullWidth variant="contained" color="secondary" onClick={handleMfaSubmit} disabled={loading} size="large">
               {loading ? 'Verifying...' : 'Verify code'}
             </Button>
-            <Button fullWidth variant="text" onClick={() => setMfaToken(null)} sx={{ mt: 1 }} disabled={loading}>
-              Back to password login
+            <Button fullWidth variant="outlined" onClick={() => setMfaToken(null)} sx={{ mt: 1 }} disabled={loading}>
+              ← Back to login
             </Button>
           </>
         ) : (
