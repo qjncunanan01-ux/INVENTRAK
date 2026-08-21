@@ -27,6 +27,7 @@ const TABLES = {
   '@sales':                 'sales',
   '@alerts':                'alerts',
   '@verificationCodes':     'verification_codes',
+  '@inventoryMeta':         'inventory_meta',
   '@resetTokens':           'reset_tokens',
 };
 
@@ -109,7 +110,7 @@ function read(file) {
   if (!table) return null;
 
   if (file === 'inventory.json') {
-    const metaEntry = cache['inventory_meta'] && cache['inventory_meta'].byId.get('_meta');
+    const metaEntry = (cache['inventory_meta'] || cache['@inventoryMeta']) && (cache['inventory_meta'] || cache['@inventoryMeta']).byId.get('_meta');
     const locations = metaEntry ? metaEntry.data : [];
     const items = rebuildRows('inventory');
     if (!items.length && !locations.length) return null;
