@@ -111,7 +111,9 @@ function read(file) {
 
   if (file === 'inventory.json') {
     const metaEntry = (cache['inventory_meta'] || cache['@inventoryMeta']) && (cache['inventory_meta'] || cache['@inventoryMeta']).byId.get('_meta');
-    const locations = metaEntry ? metaEntry.data : [];
+    const rawLocations = metaEntry ? metaEntry.data : [];
+    // Normalize: server expects locations as string[], not {id,name}[]
+    const locations = rawLocations.map(loc => typeof loc === 'string' ? loc : (loc && loc.name) || String(loc));
     const items = rebuildRows('inventory');
     if (!items.length && !locations.length) return null;
     return { locations, items };
