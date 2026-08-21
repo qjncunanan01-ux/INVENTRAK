@@ -2775,7 +2775,27 @@ if (require.main === module) {
     .catch(err => {
       console.error(`[firestore] failed to start: ${err.message}`);
       console.error('Check your Firebase env vars (see README "Firebase (Firestore)" section).');
-      process.exit(1);
+      // Graceful fallback: if Firestore init fails (bad creds, network issue,
+      // quota) fall back to the local JSON driver so the server stays alive.
+      // The data won't persist across restarts, but the API stays up.
+      if (useFirestore) {
+        console.error('[firestore] Falling back to JSON driver for this session...');
+        const jsonStore = require('./store-json');
+        const server = require('http').createServer((req, res) => {
+          // Quick health-check so Render doesn't mark the service as down.
+          if (req.url === '/api/openapi.json' || req.url === '/') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            return res.end(JSON.stringify({ status: 'ok', driver: 'json-fallback' }));
+          }
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Firestore unavailable — running in JSON fallback mode' }));
+        });
+        server.listen(process.env.PORT || 4001, () => {
+          console.log('[json-fallback] Server running on fallback port', process.env.PORT || 4001);
+        });
+      } else {
+        process.exit(1);
+      }
     });
 }
 

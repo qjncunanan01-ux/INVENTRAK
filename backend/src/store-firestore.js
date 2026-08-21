@@ -252,6 +252,12 @@ async function init() {
           let cred;
           try {
             cred = saJson ? JSON.parse(saJson) : require(credPath);
+            // Render (and some env-var UIs) collapse literal backslash-n sequences
+            // in the private_key field.  Restore them to actual newlines so the
+            // crypto layer can parse the PEM block.
+            if (cred && cred.private_key && !cred.private_key.includes('\n')) {
+              cred.private_key = cred.private_key.replace(/\\n/g, '\n');
+            }
           } catch (err) {
             throw new Error('Failed to load Firebase service account credentials: ' + err.message);
           }
