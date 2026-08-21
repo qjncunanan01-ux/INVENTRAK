@@ -182,7 +182,23 @@ const MFA_TOKEN_TTL_MS = 10 * 60 * 1000;
 // The expiry and jti are part of the SIGNED payload, so an attacker cannot
 // extend a token or swap its scope, and the signature comparison runs in
 // constant time. jti makes each token unique so logout can revoke it.
-const revokedTokens = new Map(); // jti -> expiresAtMs (pruned lazily)
+// Persisted revoked tokens so logout survives server restarts. On startup,
+// the file is loaded and pruned of expired entries.
+const REVOKED_FILE = path.join(__dirname, '..', 'data', 'revoked-tokens.json');
+let revokedTokens = new Map(); // jti -> expiresAtMs
+try {
+  const raw = JSON.parse(require('fs').readFileSync(REVOKED_FILE, 'utf8'));
+  const now = Date.now();
+  for (const [jti, exp] of Object.entries(raw)) {
+    if (exp > now) revokedTokens.set(jti, exp);
+  }
+} catch { /* first run or missing file — start empty */ }
+
+function persistRevokedTokens() {
+  const obj = {};
+  for (const [jti, exp] of revokedTokens) obj[jti] = exp;
+  try { require('fs').writeFileSync(REVOKED_FILE, JSON.stringify(obj, null, 2)); } catch {}
+}
 
 function signToken(userId, opts = {}) {
   const exp = Date.now() + (opts.ttlMs || TOKEN_TTL_MS);
@@ -195,9 +211,11 @@ function signToken(userId, opts = {}) {
 
 function pruneRevokedTokens() {
   const now = Date.now();
+  let changed = false;
   for (const [jti, exp] of revokedTokens) {
-    if (exp <= now) revokedTokens.delete(jti);
+    if (exp <= now) { revokedTokens.delete(jti); changed = true; }
   }
+  if (changed) persistRevokedTokens();
 }
 
 // Returns { user, jti, scope, exp } or null. A revoked (logged-out) jti is
@@ -517,10 +535,17 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+function setCorsHeaders(req, res) {
+  const origin = req.headers.origin || '';
+  // In production, only allow explicitly listed origins. In local dev with no
+  // CORS_ORIGINS set, allow all (convenience). This prevents arbitrary sites
+  // from making authenticated API calls to the deployed server.
+  const allowed = ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin);
+  res.setHeader('Access-Control-Allow-Origin', allowed ? (origin || '*') : ALLOWED_ORIGINS[0]);
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 }
 
 // Defense-in-depth response headers applied to every response. HSTS is only
@@ -588,7 +613,7 @@ const swaggerUiHtml = `<!DOCTYPE html>
 
 const server = http.createServer((req, res) => {
   const url = req.url;
-  setCorsHeaders(res);
+  setCorsHeaders(req, res);
   setSecurityHeaders(req, res);
 
   // Force HTTPS behind the Render/Cloud proxy: a plaintext request is
@@ -943,6 +968,7 @@ const server = http.createServer((req, res) => {
     return requireAuth(req, res, false, (req, res) => {
       if (req.tokenJti) {
         revokedTokens.set(req.tokenJti, Date.now() + TOKEN_TTL_MS);
+        persistRevokedTokens();
       }
       audit('auth.logout', { userId: req.user.id, username: req.user.username });
       return sendJson(res, 200, { ok: true });

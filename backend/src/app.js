@@ -417,7 +417,15 @@ function seedDatabase() {
 
 const app = express();
 
-app.use(cors());
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors({
+  origin: ALLOWED_ORIGINS.length > 0 ? (origin, cb) => {
+    // Allow requests with no origin (curl, server-to-server) or listed origins
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true);
+    else cb(null, false);
+  } : undefined, // undefined = allow all (local dev)
+  credentials: true,
+}));
 app.use(bodyParser.json());
 
 // --- Security headers (defense-in-depth). HSTS is only sent when the request

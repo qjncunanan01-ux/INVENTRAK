@@ -36,6 +36,10 @@ services:
       # Set these in the Render dashboard after deploy:
       - key: DB_DRIVER
         value: supabase
+      # CORS origins — restrict to your deployed apps in production.
+      # Local dev without this env var allows all origins (convenience).
+      - key: CORS_ORIGINS
+        value: https://inventrak-admin.onrender.com,https://inventrak-mobile.onrender.com
       # SUPABASE_URL and SUPABASE_KEY are secrets — paste in Render dashboard:
       #   Service -> Environment -> Environment Variables
       #   SUPABASE_URL = https://uvzlenwcdbjckwmhefpm.supabase.co
