@@ -2775,24 +2775,26 @@ if (require.main === module) {
     .catch(err => {
       console.error(`[firestore] failed to start: ${err.message}`);
       console.error('Check your Firebase env vars (see README "Firebase (Firestore)" section).');
-      // Graceful fallback: if Firestore init fails (bad creds, network issue,
-      // quota) fall back to the local JSON driver so the server stays alive.
-      // The data won't persist across restarts, but the API stays up.
+      // If Firestore init fails, keep the process alive with a minimal
+      // health-check server so Render doesn't kill the instance.  The
+      // keep-alive workflow can still ping it, and a redeploy (with
+      // corrected credentials) will fix things.
       if (useFirestore) {
-        console.error('[firestore] Falling back to JSON driver for this session...');
-        const jsonStore = require('./store-json');
-        const server = require('http').createServer((req, res) => {
-          // Quick health-check so Render doesn't mark the service as down.
-          if (req.url === '/api/openapi.json' || req.url === '/') {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            return res.end(JSON.stringify({ status: 'ok', driver: 'json-fallback' }));
+        console.error('[firestore] Starting fallback health server — fix credentials and redeploy.');
+        const http = require('http');
+        const body = JSON.stringify({ status: 'error', message: 'Firestore init failed — redeploy with correct FIREBASE_SERVICE_ACCOUNT_JSON' });
+        http.createServer((req, res) => {
+          if (req.url === '/api/openapi.json') {
+            try {
+              const spec = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'openapi.json'), 'utf8'));
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              return res.end(JSON.stringify(spec));
+            } catch (_) { /* fall through */ }
           }
           res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Firestore unavailable — running in JSON fallback mode' }));
-        });
-        server.listen(process.env.PORT || 4001, () => {
-          console.log('[json-fallback] Server running on fallback port', process.env.PORT || 4001);
-        });
+          res.end(body);
+        }).listen(process.env.PORT || 4001, () =>
+          console.log('[fallback] Health server on', process.env.PORT || 4001));
       } else {
         process.exit(1);
       }
