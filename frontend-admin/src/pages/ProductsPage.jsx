@@ -133,7 +133,7 @@ export default function ProductsPage({ onLogout }) {
     });
     // Scroll to the edit form at the top
     setTimeout(() => {
-      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      formRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
     }, 100);
   };
 
