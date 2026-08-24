@@ -23,12 +23,18 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: npm ci
-      - name: Run tests
+      - name: Run unit tests
         working-directory: backend
         run: npm test
+      - name: Run E2E API tests
+        working-directory: backend
+        run: node --test src/test/e2e-ci.test.js
       - name: Validate OpenAPI spec
         working-directory: backend
         run: npm run docs:validate
+      - name: Verify client generation
+        working-directory: backend
+        run: npm run client:check
 
   admin:
     name: Admin Dashboard
@@ -49,6 +55,23 @@ jobs:
       - name: Build
         working-directory: frontend-admin
         run: npm run build
+      - name: Install Playwright browsers
+        working-directory: frontend-admin
+        run: npx playwright install chromium --with-deps
+      - name: Start backend for E2E
+        working-directory: backend
+        run: |
+          node src/server_npmfree.js &
+          sleep 5
+          curl -f http://localhost:4001/api/health || exit 1
+      - name: Build admin for E2E
+        working-directory: frontend-admin
+        run: REACT_APP_API_BASE_URL=http://localhost:4001 npm run build
+      - name: Run Playwright E2E tests
+        working-directory: frontend-admin
+        run: npx vite preview --port 4173 & sleep 3 && npx playwright test e2e/admin-login.spec.js e2e/order-flow.spec.js --reporter=list
+        env:
+          CI: true
 
   mobile:
     name: Mobile App
