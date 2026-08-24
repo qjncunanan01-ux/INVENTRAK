@@ -239,7 +239,7 @@ export default function ProductScreen({ route, navigation }) {
     return (
       <View style={styles.container}>
         <ScrollView ref={scrollRef} style={styles.pdp} contentContainerStyle={styles.pdpContent}>
-          <TouchableOpacity onPress={closePdp} style={styles.backLink}>
+          <TouchableOpacity onPress={closePdp} style={styles.backLink} accessibilityLabel="Go back to products" accessibilityRole="button">
             <Text style={styles.backText}>{'< Back to products'}</Text>
           </TouchableOpacity>
 
@@ -325,7 +325,7 @@ export default function ProductScreen({ route, navigation }) {
                   );
                 })
               ) : (
-                <Text style={styles.locEmpty}>Loading stock levels...</Text>
+                <Text style={styles.locEmpty}>Loading stock levels…</Text>
               )}
             </View>
 
@@ -376,34 +376,32 @@ export default function ProductScreen({ route, navigation }) {
           </View>
         </ScrollView>
 
-        <View style={styles.stickyBar}>
-          <TouchableOpacity
-            style={styles.addCartBtn}
-            onPress={() =>
-              requireLogin(() => {
-                addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
-                // Cross-platform confirmation (react-native-web's Alert drops
-                // the button list, so the 'View Cart' shortcut used a Modal).
-                setAddedToCart(selected);
-              })
-            }
-          >
+        <View style={styles.stickyBar}>              <TouchableOpacity
+                style={styles.addCartBtn}
+                onPress={() =>
+                  requireLogin(() => {
+                    addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
+                    setAddedToCart(selected);
+                  })
+                }
+                accessibilityLabel="Add to cart"
+                accessibilityRole="button"
+              >
             <Text style={styles.addCartBtnText}>Add to Cart</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.stickyBtn}
-            onPress={() =>
-              requireLogin(() => {
-                // Buy Now = add to the basket and go straight to checkout
-                // (Shopee/Lazada pattern).
-                addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
-                navigation.navigate('OrdersTab', {
-                  screen: 'OrderInquiry',
-                  params: { preselectId: selected.id },
-                });
-              })
-            }
-          >
+          </TouchableOpacity>              <TouchableOpacity
+                style={styles.stickyBtn}
+                onPress={() =>
+                  requireLogin(() => {
+                    addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
+                    navigation.navigate('OrdersTab', {
+                      screen: 'OrderInquiry',
+                      params: { preselectId: selected.id },
+                    });
+                  })
+                }
+                accessibilityLabel="Buy now"
+                accessibilityRole="button"
+              >
             <Text style={styles.stickyBtnText}>Buy Now</Text>
           </TouchableOpacity>
         </View>
@@ -443,6 +441,8 @@ export default function ProductScreen({ route, navigation }) {
                     navigation.navigate('CartTab');
                   }}
                   activeOpacity={0.85}
+                  accessibilityLabel="View cart"
+                  accessibilityRole="button"
                 >
                   <Text style={styles.addedBtnPrimaryText}>View Cart</Text>
                 </TouchableOpacity>
@@ -450,6 +450,8 @@ export default function ProductScreen({ route, navigation }) {
                   style={[styles.addedBtn, styles.addedBtnGhost]}
                   onPress={() => setAddedToCart(null)}
                   activeOpacity={0.85}
+                  accessibilityLabel="Continue shopping"
+                  accessibilityRole="button"
                 >
                   <Text style={styles.addedBtnGhostText}>Continue shopping</Text>
                 </TouchableOpacity>
@@ -467,7 +469,7 @@ export default function ProductScreen({ route, navigation }) {
       <View style={styles.searchWrap}>
         <TextInput
           style={styles.input}
-          placeholder="Search products by name..."
+          placeholder="Search products by name…"
           value={filter}
           onChangeText={setFilter}
           autoCapitalize="none"
@@ -554,7 +556,7 @@ export default function ProductScreen({ route, navigation }) {
         renderItem={({ item }) => {
           const cardDeal = pickIds.has(Number(item.id)) ? dealPricing(item) : null;
           return (
-            <TouchableOpacity style={styles.card} onPress={() => setSelected(item)}>
+            <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} accessibilityLabel={`${item.name}, ${item.category}, P${item.price}`} accessibilityRole="button">
               <View style={styles.cardTop}>
                 {item.image ? (
                   <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="cover" />
@@ -566,7 +568,6 @@ export default function ProductScreen({ route, navigation }) {
                   onPress={() =>
                     requireLogin(() => {
                       addItem(item, 1, cardDeal ? cardDeal.deal : undefined, cardDeal ? cardDeal.original : undefined);
-                      // Toast feedback — the grid quick-add used to be silent.
                       showToast('Added to cart', {
                         actionLabel: 'View',
                         onAction: () => navigation.navigate('CartTab'),
@@ -574,6 +575,8 @@ export default function ProductScreen({ route, navigation }) {
                     })
                   }
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityLabel={`Add ${item.name} to cart`}
+                  accessibilityRole="button"
                 >
                   <Text style={styles.quickAddText}>+</Text>
                 </TouchableOpacity>

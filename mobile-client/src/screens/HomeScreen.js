@@ -143,6 +143,8 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
         }
       }}
       activeOpacity={0.7}
+      accessibilityLabel={isLoggedIn ? `Logged in as ${sessionUser}. Tap to view account.` : 'Guest mode. Tap to log in.'}
+      accessibilityRole="button"
     >
       <MaterialCommunityIcons
         name={isLoggedIn ? 'account-circle' : 'account-circle-outline'}
@@ -169,6 +171,8 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
     style={styles.searchBar}
     onPress={openSearch}
     activeOpacity={0.7}
+    accessibilityLabel="Search supplies, brands"
+    accessibilityRole="search"
   >
     <MaterialCommunityIcons
       name="magnify"
@@ -177,7 +181,7 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
     />
 
     <Text style={styles.searchPlaceholder}>
-      Search supplies, brands...
+      Search supplies, brands…
     </Text>
   </TouchableOpacity>
 </View>
@@ -206,6 +210,8 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
               key={a.key}
               style={[styles.quickItem, a.primary && styles.quickItemPrimary]}
               onPress={a.onPress}
+              accessibilityLabel={a.label}
+              accessibilityRole="button"
             >
               {/* Shopee-style colored icon disc: each action gets a tinted
                   circular badge behind its vector icon; the primary CTA
@@ -266,6 +272,8 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
           },
         })
       }
+      accessibilityLabel={`Browse ${item.label} products`}
+      accessibilityRole="button"
     >
       <View style={styles.groupCategoryIcon}>
         <MaterialCommunityIcons
@@ -385,6 +393,8 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
                 style={styles.cancelButton}
                 onPress={() => setGuestPopupVisible(false)}
                 activeOpacity={0.8}
+                accessibilityLabel="Cancel and close"
+                accessibilityRole="button"
               >
                 <Text style={styles.cancelButtonText}>
                   Cancel
@@ -398,6 +408,8 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
                   navigation.navigate('Login');
                 }}
                 activeOpacity={0.8}
+                accessibilityLabel="Go to login or sign up"
+                accessibilityRole="button"
               >
                 <Text style={styles.loginButtonText}>
                   Log In / Sign Up

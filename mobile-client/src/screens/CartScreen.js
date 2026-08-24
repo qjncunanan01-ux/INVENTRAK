@@ -104,6 +104,8 @@ export default function CartScreen({ navigation }) {
                   style={styles.stepBtn}
                   onPress={() => setQty(item.product.id, item.qty - 1)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel="Decrease quantity"
+                  accessibilityRole="button"
                 >
                   <Text style={styles.stepText}>−</Text>
                 </TouchableOpacity>
@@ -112,12 +114,14 @@ export default function CartScreen({ navigation }) {
                   style={styles.stepBtn}
                   onPress={() => setQty(item.product.id, item.qty + 1)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel="Increase quantity"
+                  accessibilityRole="button"
                 >
                   <Text style={styles.stepText}>+</Text>
                 </TouchableOpacity>
               </View>
               <Text style={styles.lineTotal}>P{((Number(item.price) > 0 ? Number(item.price) : Number(item.product.price) || 0) * item.qty).toFixed(2)}</Text>
-              <TouchableOpacity onPress={() => removeItem(item.product.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={() => removeItem(item.product.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={`Remove ${item.product.name} from cart`} accessibilityRole="button">
                 <Text style={styles.remove}>Remove</Text>
               </TouchableOpacity>
             </View>
@@ -132,16 +136,18 @@ export default function CartScreen({ navigation }) {
           </Text>
           <Text style={styles.totalValue}>P{subtotal.toFixed(2)}</Text>
         </View>
-        <TouchableOpacity style={styles.checkoutBtn} onPress={goCheckout} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.checkoutBtn} onPress={goCheckout} activeOpacity={0.85} accessibilityLabel="Proceed to checkout" accessibilityRole="button">
           <Text style={styles.checkoutText}>Proceed to Checkout</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={goBrowse} hitSlop={{ top: 8, bottom: 8 }}>
+        <TouchableOpacity onPress={goBrowse} hitSlop={{ top: 8, bottom: 8 }} accessibilityLabel="Browse more products" accessibilityRole="button">
           <Text style={styles.continue}>+ Add more supplies</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setConfirmClear(true)}
           hitSlop={{ top: 8, bottom: 8 }}
           style={styles.clearWrap}
+          accessibilityLabel="Clear all items from cart"
+          accessibilityRole="button"
         >
           <Text style={styles.clear}>Clear cart</Text>
         </TouchableOpacity>
