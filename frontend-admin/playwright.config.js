@@ -9,6 +9,9 @@ export default defineConfig({
     headless: true,
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
+    // Visual regression: consistent viewport for screenshot comparisons
+    viewport: { width: 1280, height: 720 },
+    deviceScaleFactor: 1,
   },
   webServer: {
     command: 'npx vite preview --port 4173',
@@ -19,4 +22,7 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
   ],
+  // Snapshot directory for visual regression baselines
+  snapshotDir: './e2e/__snapshots__',
+  snapshotPathTemplate: '{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{projectName}{ext}',
 });
