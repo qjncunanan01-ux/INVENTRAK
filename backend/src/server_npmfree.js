@@ -12,6 +12,7 @@ const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
 const { generateSecret, verifyTOTP, otpauthUrl, generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode } = require('./totp');
 const { audit } = require('./audit');
+const cache = require('./cache');
 const { isDemoAccountBlocked } = require('./demo-accounts');
 const {
   verifyGoogleIdToken,
@@ -657,7 +658,16 @@ const server = http.createServer((req, res) => {
       uptime: Math.floor(process.uptime()),
       memoryMB: Math.round(mem.heapUsed / 1048576),
       products: (readJSON(productsFile) || []).length,
-      time: new Date().toISOString()
+      time: new Date().toISOString(),
+      cache: cache.stats(),
+    });
+  }
+
+  // ================= CACHE STATS (admin) =================
+  // Exposes cache hit rates, entry counts, and top keys for monitoring.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/cache/stats') {
+    return requireAuth(req, res, true, (req, res) => {
+      return sendJson(res, 200, cache.stats());
     });
   }
 
@@ -1368,8 +1378,12 @@ const server = http.createServer((req, res) => {
   // ================= PRODUCTS =================
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/products/categories') {
-    const products = readJSON(productsFile) || [];
-    const cats = [...new Set(products.filter(isProductActive).map(p => p['Category'] || p.category).filter(Boolean))].sort();
+    const cats = cache.get('categories:all') || (() => {
+      const products = readJSON(productsFile) || [];
+      const c = [...new Set(products.filter(isProductActive).map(p => p['Category'] || p.category).filter(Boolean))].sort();
+      cache.set('categories:all', c);
+      return c;
+    })();
     return sendJson(res, 200, cats, READ_CACHE_TTL);
   }
 
@@ -1447,6 +1461,8 @@ const server = http.createServer((req, res) => {
         };
         products.push(newProduct);
         writeJSON(productsFile, products);
+        cache.invalidate('products');
+        cache.invalidate('categories');
         return sendJson(res, 201, { id: products.length });
       });
     });
@@ -1508,6 +1524,8 @@ const server = http.createServer((req, res) => {
           updated += 1;
         }
         writeJSON(productsFile, products);
+        cache.invalidate('products');
+        cache.invalidate('categories');
         return sendJson(res, 200, { ok: true, total: obj.prices.length, updated, skipped });
       });
     });
@@ -1532,6 +1550,8 @@ const server = http.createServer((req, res) => {
         p['status'] = obj.status ?? null;
         p['Image'] = obj.image ?? null;
         writeJSON(productsFile, products);
+        cache.invalidate('products');
+        cache.invalidate('categories');
         return sendJson(res, 200, { ok: true });
       });
     });
@@ -1548,6 +1568,8 @@ const server = http.createServer((req, res) => {
       if (!products[id - 1]) return sendJson(res, 404, { error: 'Product not found' });
       products[id - 1]['status'] = 'inactive';
       writeJSON(productsFile, products);
+      cache.invalidate('products');
+      cache.invalidate('categories');
       return sendJson(res, 200, { ok: true, message: 'Product deactivated' });
     });
   }
@@ -1555,7 +1577,11 @@ const server = http.createServer((req, res) => {
   // ================= INVENTORY =================
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/inventory') {
-    const inv = getInventory();
+    const inv = cache.get('inventory:full') || (() => {
+      const i = getInventory();
+      cache.set('inventory:full', i);
+      return i;
+    })();
     const parsed = new URL(url, 'http://localhost');
     const lowStock = parsed.searchParams.get('low_stock') === 'true';
     const location = parsed.searchParams.get('location');
@@ -1610,6 +1636,7 @@ const server = http.createServer((req, res) => {
         if (inv.locations.includes(obj.name)) return sendJson(res, 409, { error: 'Location already exists' });
         inv.locations.push(obj.name);
         writeJSON(inventoryFile, inv);
+        cache.invalidate('inventory');
         return sendJson(res, 201, { id: inv.locations.length, name: obj.name });
       });
     });
@@ -1750,6 +1777,7 @@ const server = http.createServer((req, res) => {
         };
         movements.unshift(newMovement);
         writeJSON(movementsFile, movements);
+        cache.invalidate('inventory');
 
         if (item) {
           if (obj.type === 'stock-in' && obj.dst_location) {
@@ -2239,6 +2267,7 @@ const server = http.createServer((req, res) => {
         order.status = updatedStatus;
         order.status_history = JSON.stringify(history);
         writeJSON(orderFile, orders);
+        cache.invalidate('inventory');
         if (order.status !== 'pending') notifyInquiryStatus(order, order.status);
         return sendJson(res, 200, { ok: true, message: `Inquiry ${order.status}` });
       });
