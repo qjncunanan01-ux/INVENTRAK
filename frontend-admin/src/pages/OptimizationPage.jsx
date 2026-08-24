@@ -64,7 +64,7 @@ export default function OptimizationPage({ onLogout }) {
           </div>
           <TextField
             size="small"
-            label="Search products..."
+            label="Search products…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             sx={{ minWidth: 220, backgroundColor: colors.surface }}
@@ -80,7 +80,7 @@ export default function OptimizationPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={3}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={3}>Loading…</TableCell></TableRow>
             ) : abcList.length === 0 ? (
               <TableRow><TableCell colSpan={3}>No optimization data available</TableCell></TableRow>
             ) : abcList.map(item => (

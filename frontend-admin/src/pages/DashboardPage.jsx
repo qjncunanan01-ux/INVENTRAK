@@ -545,7 +545,7 @@ export default function DashboardPage({ user, onLogout }) {
   if (error && loading === false) {
     return (
       <AdminLayout title="Admin Dashboard" onLogout={onLogout}>
-        <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: colors.surfaceAlt }}>
+        <Paper sx={{ p: 4, textAlign: 'center', backgroundColor: colors.surfaceAlt }} aria-live="polite">
           <Typography variant="h6" color="error" gutterBottom>Unable to load dashboard</Typography>
           <Typography color="text.secondary">{error}</Typography>
           <Typography variant="body2" sx={{ mt: 2 }}>Run the backend server first.</Typography>
@@ -580,7 +580,7 @@ export default function DashboardPage({ user, onLogout }) {
         )}
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
           {lastRefreshed && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" aria-live="polite">
               Updated {lastRefreshed.toLocaleTimeString()}
             </Typography>
           )}
@@ -828,8 +828,7 @@ export default function DashboardPage({ user, onLogout }) {
 
             <DialogContent dividers>
               <Box sx={{ mb: 2 }}>
-                <TextField
-                  placeholder="Search items..."
+                <TextField                   placeholder="Search items…"
                   size="small" fullWidth
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -1063,6 +1062,8 @@ export default function DashboardPage({ user, onLogout }) {
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         message={snackbar.message}
+        role="status"
+        aria-live="polite"
       />
     </AdminLayout>
   );
@@ -1074,26 +1075,38 @@ function StatCard({ panel, loading, onClick }) {
     <Tooltip title="Click to view detailed item list" arrow placement="top">
       <Paper
         onClick={() => onClick(panel)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(panel); } }}
+        tabIndex={0}
+        role="button"
+        aria-label={`${panel.label}: ${loading ? 'loading' : panel.value}. Click to inspect.`}
         sx={{
           p: 2.5,
           backgroundColor: 'white',
           borderRadius: 3,
           borderLeft: `4px solid ${panel.color}`,
           cursor: 'pointer',
-          transition: 'all 0.2s ease-in-out',
+          transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
           '&:hover': {
             transform: 'translateY(-3px)',
             boxShadow: '0 8px 24px rgba(0,0,0,0.13)',
-          }
+          },
+          '&:focus-visible': {
+            outline: '2px solid #1f640e',
+            outlineOffset: '2px',
+          },
+          // Taste Skill tactile feedback: scale down on active
+          '&:active': {
+            transform: 'scale(0.98)',
+          },
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, fontSize: '0.72rem' }}>
             {panel.label}
           </Typography>
-          <Box sx={{ color: 'text.secondary', opacity: 0.5 }}>{panel.icon}</Box>
+          <Box sx={{ color: 'text.secondary', opacity: 0.5 }} aria-hidden="true">{panel.icon}</Box>
         </Box>
-        <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700 }}>
+        <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
           {loading ? '…' : panel.value}
         </Typography>
         <Typography variant="caption" color="primary" sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>

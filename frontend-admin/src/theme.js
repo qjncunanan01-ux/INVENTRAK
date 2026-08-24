@@ -40,6 +40,31 @@ export function createAppTheme() {
       button: { textTransform: 'none' },
     },
     components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          // Vercel guideline: touch-action manipulation prevents double-tap zoom delay
+          'button, a, [role="button"]': {
+            touchAction: 'manipulation',
+          },
+          // Vercel guideline: font-variant-numeric tabular-nums for number columns
+          'td, th, .tabular-nums': {
+            fontVariantNumeric: 'tabular-nums',
+          },
+          // Vercel guideline: scroll-margin-top so sticky headers don't cover anchors
+          'h1, h2, h3, h4, h5, h6': {
+            scrollMarginTop: '80px',
+          },
+          // Vercel guideline: visible focus ring on interactive elements
+          'button:focus-visible, a:focus-visible, [role="button"]:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible': {
+            outline: '2px solid #1f640e',
+            outlineOffset: '2px',
+          },
+          // Taste Skill: tactile feedback on active buttons
+          'button:active': {
+            transform: 'scale(0.98)',
+          },
+        },
+      },
       MuiPaper: {
         styleOverrides: {
           root: {

@@ -84,7 +84,7 @@ export default function LocationsPage({ onLogout }) {
           <Typography variant="h6">Locations</Typography>
           <TextField
             size="small"
-            label="Search locations..."
+            label="Search locations…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             sx={{ minWidth: 220, backgroundColor: colors.surface }}
@@ -100,7 +100,7 @@ export default function LocationsPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={3}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={3}>Loading…</TableCell></TableRow>
             ) : locList.length === 0 ? (
               <TableRow><TableCell colSpan={3}>No locations available</TableCell></TableRow>
             ) : locList.map(loc => (

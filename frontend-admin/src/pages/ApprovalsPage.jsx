@@ -61,7 +61,7 @@ export default function ApprovalsPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6}>Loading…</TableCell></TableRow>
             ) : adjustments.length === 0 ? (
               <TableRow><TableCell colSpan={6}>No pending adjustments.</TableCell></TableRow>
             ) : adjustments.map(r => (
@@ -98,7 +98,7 @@ export default function ApprovalsPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6}>Loading…</TableCell></TableRow>
             ) : transfers.length === 0 ? (
               <TableRow><TableCell colSpan={6}>No pending transfers.</TableCell></TableRow>
             ) : transfers.map(r => (

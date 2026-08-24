@@ -219,7 +219,7 @@ export default function LoginPage({ onLogin }) {
           {showDemo ? 'Hide demo credentials' : 'Show demo credentials'} — one tap fills the account, then press Login.
         </Typography>
 
-        {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+        {error ? <Alert severity="error" sx={{ mb: 2 }} aria-live="polite">{error}</Alert> : null}
         {mfaToken ? (
           <>
             <Typography variant="body2" sx={{ mb: 2, color: colors.textSecondary }}>
@@ -238,7 +238,7 @@ export default function LoginPage({ onLogin }) {
               disabled={loading}
             />
             <Button fullWidth variant="contained" color="secondary" onClick={handleMfaSubmit} disabled={loading} size="large">
-              {loading ? 'Verifying...' : 'Verify code'}
+              {loading ? 'Verifying…' : 'Verify code'}
             </Button>
             <Button fullWidth variant="outlined" onClick={() => setMfaToken(null)} sx={{ mt: 1 }} disabled={loading}>
               ← Back to login
@@ -290,7 +290,7 @@ export default function LoginPage({ onLogin }) {
             )}
             <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large" sx={{ mt: 2 }}>
               {loading
-                ? 'Signing in...'
+                ? 'Signing in…'
                 : lockoutLeft > 0
                   ? `Locked — try again in ${lockoutLeft}s`
                   : 'Login'}

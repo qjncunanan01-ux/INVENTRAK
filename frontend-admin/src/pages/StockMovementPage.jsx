@@ -134,8 +134,7 @@ export default function StockMovementPage({ onLogout }) {
             </FormControl>
           )}
           <TextField label="Notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} multiline rows={2} fullWidth sx={{ backgroundColor: colors.surface }} />
-          <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.qty}>
-            {saving ? 'Saving...' : 'Submit movement'}
+          <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.qty}>              {saving ? 'Saving…' : 'Submit movement'}
           </Button>
         </Box>
       </Paper>
@@ -147,7 +146,7 @@ export default function StockMovementPage({ onLogout }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <TextField
               size="small"
-              label="Search product / type..."
+              label="Search product / type…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               sx={{ minWidth: 220, backgroundColor: colors.surface }}
@@ -168,7 +167,7 @@ export default function StockMovementPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6}>Loading stock movements...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6}>Loading stock movements…</TableCell></TableRow>
             ) : movList.length === 0 ? (
               <TableRow><TableCell colSpan={6}>No stock movements found.</TableCell></TableRow>
             ) : movList.map((movement) => (
@@ -197,7 +196,7 @@ export default function StockMovementPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={4}>Loading lots...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={4}>Loading lots…</TableCell></TableRow>
             ) : lotList.length === 0 ? (
               <TableRow><TableCell colSpan={4}>No lot data available.</TableCell></TableRow>
             ) : lotList.map(lot => (

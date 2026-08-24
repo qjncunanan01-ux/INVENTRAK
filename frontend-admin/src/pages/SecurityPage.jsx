@@ -144,7 +144,7 @@ export default function SecurityPage({ onLogout }) {
               />
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button variant="contained" color="secondary" onClick={handleConfirm} disabled={loading}>
-                  {loading ? 'Verifying...' : 'Enable MFA'}
+                  {loading ? 'Verifying…' : 'Enable MFA'}
                 </Button>
                 <Button variant="text" onClick={() => { setPending(null); setError(''); }} disabled={loading}>
                   Cancel
@@ -158,7 +158,7 @@ export default function SecurityPage({ onLogout }) {
               onClick={mfaEnabled ? handleDisable : handleStartSetup}
               disabled={loading}
             >
-              {loading ? 'Working...' : mfaEnabled ? 'Disable MFA' : 'Enable MFA'}
+              {loading ? 'Working…' : mfaEnabled ? 'Disable MFA' : 'Enable MFA'}
             </Button>
           )}
 

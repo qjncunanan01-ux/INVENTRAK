@@ -365,7 +365,7 @@ export default function ProductsPage({ onLogout }) {
             </Button>
             <Button variant="outlined" onClick={runBulkPreview} disabled={!bulkText.trim()}>Parse preview</Button>
             <Button variant="contained" color="success" onClick={applyBulkPrices} disabled={bulkBusy || !bulkRows.length}>
-              {bulkBusy ? 'Applying...' : `Apply ${bulkRows.length || ''} price${bulkRows.length === 1 ? '' : 's'}`}
+              {bulkBusy ? 'Applying…' : `Apply ${bulkRows.length || ''} price${bulkRows.length === 1 ? '' : 's'}`}
             </Button>
           </Grid>
         </Grid>
@@ -404,7 +404,7 @@ export default function ProductsPage({ onLogout }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <TextField
               size="small"
-              label="Search products..."
+              label="Search products…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               sx={{ minWidth: 240, backgroundColor: colors.surface }}
@@ -426,7 +426,7 @@ export default function ProductsPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7}>Loading…</TableCell></TableRow>
             ) : prodList.length === 0 ? (
               <TableRow><TableCell colSpan={7}>No products found</TableCell></TableRow>
             ) : prodList.map(product => (

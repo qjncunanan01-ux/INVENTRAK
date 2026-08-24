@@ -196,7 +196,7 @@ export default function OrderInquiriesPage({ onLogout }) {
             </FormControl>
             <TextField
               size="small"
-              label="Search customer / email / status..."
+              label="Search customer / email / status…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               sx={{ minWidth: 260, backgroundColor: colors.surface }}
@@ -227,7 +227,7 @@ export default function OrderInquiriesPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>
             ) : orderList.length === 0 ? (
               <TableRow><TableCell colSpan={8}>No order inquiries</TableCell></TableRow>
             ) : orderList.map(order => {

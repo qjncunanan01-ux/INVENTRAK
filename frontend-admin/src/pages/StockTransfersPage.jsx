@@ -126,8 +126,7 @@ export default function StockTransfersPage({ onLogout }) {
             sx={{ backgroundColor: colors.surface }}
           />
           <TextField label="Reason" value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} fullWidth sx={{ backgroundColor: colors.surface }} />
-          <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.src_location || !form.dst_location || !form.qty}>
-            {saving ? 'Saving...' : 'Request transfer'}
+          <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.src_location || !form.dst_location || !form.qty}>              {saving ? 'Saving…' : 'Request transfer'}
           </Button>
         </Box>
       </Paper>
@@ -144,8 +143,7 @@ export default function StockTransfersPage({ onLogout }) {
                 <MenuItem value="approved">Approved</MenuItem>
                 <MenuItem value="rejected">Rejected</MenuItem>
               </Select>
-            </FormControl>
-            <TextField size="small" label="Search product / location / reason..." value={search} onChange={e => setSearch(e.target.value)} sx={{ minWidth: 240, backgroundColor: colors.surface }} />
+            </FormControl>              <TextField size="small" label="Search product / location / reason…" value={search} onChange={e => setSearch(e.target.value)} sx={{ minWidth: 240, backgroundColor: colors.surface }} />
           </Box>
         </Box>
         <Table>
@@ -164,7 +162,7 @@ export default function StockTransfersPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={9}>Loading transfers...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9}>Loading transfers…</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={9}>No transfers found.</TableCell></TableRow>
             ) : filtered.map(r => (

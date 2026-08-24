@@ -125,8 +125,7 @@ export default function StockAdjustmentsPage({ onLogout }) {
             fullWidth
             sx={{ backgroundColor: colors.surface }}
           />
-          <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.location_id || form.new_qty === ''}>
-            {saving ? 'Saving...' : 'Request adjustment'}
+          <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.location_id || form.new_qty === ''}>              {saving ? 'Saving…' : 'Request adjustment'}
           </Button>
         </Box>
       </Paper>
@@ -157,7 +156,7 @@ export default function StockAdjustmentsPage({ onLogout }) {
                 <MenuItem value="rejected">Rejected</MenuItem>
               </Select>
             </FormControl>
-            <TextField size="small" label="Search product / location / reason..." value={search} onChange={e => setSearch(e.target.value)} sx={{ minWidth: 240, backgroundColor: colors.surface }} />
+            <TextField size="small" label="Search product / location / reason…" value={search} onChange={e => setSearch(e.target.value)} sx={{ minWidth: 240, backgroundColor: colors.surface }} />
           </Box>
         </Box>
         <Table>
@@ -176,7 +175,7 @@ export default function StockAdjustmentsPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={9}>Loading adjustments...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9}>Loading adjustments…</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={9}>No adjustments found.</TableCell></TableRow>
             ) : filtered.map(r => (

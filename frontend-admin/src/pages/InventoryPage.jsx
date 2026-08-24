@@ -58,7 +58,7 @@ export default function InventoryPage({ onLogout }) {
             </Button>
             <TextField
               size="small"
-              label="Search products..."
+              label="Search products…"
               value={search}
               onChange={e => setSearch(e.target.value)}
               sx={{ minWidth: 220, backgroundColor: colors.surface }}
@@ -90,7 +90,7 @@ export default function InventoryPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={locs.length + 2}>Loading...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={locs.length + 2}>Loading…</TableCell></TableRow>
             ) : items.length === 0 ? (
               <TableRow><TableCell colSpan={locs.length + 2}>No inventory data</TableCell></TableRow>
             ) : items.map(item => (
