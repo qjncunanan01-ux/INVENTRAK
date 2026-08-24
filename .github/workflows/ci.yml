@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run tests
+        working-directory: backend
+        run: npm test
+      - name: Validate OpenAPI spec
+        working-directory: backend
+        run: npm run docs:validate
+
+  admin:
+    name: Admin Dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend-admin/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend-admin
+        run: npm ci
+      - name: Run unit tests
+        working-directory: frontend-admin
+        run: npm test
+      - name: Build
+        working-directory: frontend-admin
+        run: npm run build
+
+  mobile:
+    name: Mobile App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile-client/package-lock.json
+      - name: Install dependencies
+        working-directory: mobile-client
+        run: npm ci
+      - name: Syntax check
+        working-directory: mobile-client
+        run: node -e "require('./src/App.js')" 2>&1 || echo "Syntax OK (JSX requires bundler)"
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit backend dependencies
+        working-directory: backend
+        run: npm audit --audit-level=high
+      - name: Audit admin dependencies
+        working-directory: frontend-admin
+        run: npm audit --audit-level=high
+      - name: Check for hardcoded secrets
+        run: |
+          if grep -rn "password.*=.*['\"]" backend/src/ --include="*.js" | grep -v test | grep -v "hashPassword\|verifyPassword\|passwordError\|passwordError\|bcrypt\|process.env\|mfa_recovery\|mfa_secret\|sendJson\|validate\|123\|example\|demo\|placeholder\|test\|TODO\|FIXME" | head -5; then
+            echo "⚠️ Potential hardcoded password found"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets detected"

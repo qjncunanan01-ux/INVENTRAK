@@ -53,3 +53,4 @@ backend/data/*.tmp
 # Signing secrets (EAS keystore recovered for local release builds)
 mobile-client/android-release.keystore
 mobile-client/android/keystore.properties
+frontend-admin/test-results/

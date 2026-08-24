@@ -526,17 +526,28 @@ function parseBodyWithLimit(req, limitBytes, callback) {
 }
 
 let requestCounter = 0;
-function sendJson(res, status, payload) {
+function sendJson(res, status, payload, cacheControl) {
   const requestId = `req-${++requestCounter}-${Date.now().toString(36)}`;
-  res.writeHead(status, {
+  const headers = {
     'Content-Type': 'application/json',
     'X-Request-Id': requestId,
     // JSON API payloads are never documents: default-src 'none' is the
     // strictest (and correct) posture for them.
     'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
-  });
+  };
+  // Cache-Control for read-heavy endpoints: public GET responses that
+  // return the same data for the same query benefit from a short TTL.
+  // Mutations (POST/PUT/DELETE) and auth endpoints stay uncacheable.
+  if (cacheControl) headers['Cache-Control'] = cacheControl;
+  res.writeHead(status, headers);
   res.end(JSON.stringify(payload));
 }
+
+// Short-lived cache for product/category/inventory reads (5 min, public).
+// The dashboard fetches these on every mount; a stale-while-revalidate
+// pattern prevents the free-tier Render instance from re-serializing the
+// same 204-product JSON on every request.
+const READ_CACHE_TTL = 'public, max-age=300, stale-while-revalidate=60';
 
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 function setCorsHeaders(req, res) {
@@ -1359,7 +1370,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.split('?')[0] === '/api/products/categories') {
     const products = readJSON(productsFile) || [];
     const cats = [...new Set(products.filter(isProductActive).map(p => p['Category'] || p.category).filter(Boolean))].sort();
-    return sendJson(res, 200, cats);
+    return sendJson(res, 200, cats, READ_CACHE_TTL);
   }
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/products') {
@@ -1399,9 +1410,9 @@ const server = http.createServer((req, res) => {
           total: formatted.length,
           totalPages: Math.ceil(formatted.length / limitNum)
         }
-      });
+      }, READ_CACHE_TTL);
     }
-    return sendJson(res, 200, formatted);
+    return sendJson(res, 200, formatted, READ_CACHE_TTL);
   }
 
   if (req.method === 'GET' && isParamPath(url, 'api/products', 3)) {
@@ -1580,7 +1591,7 @@ const server = http.createServer((req, res) => {
     }
     if (lowStock) items = items.filter(item => item.total < 80);
     const locations = inv.locations.map((name, index) => ({ id: index + 1, name }));
-    return sendJson(res, 200, { locations, items });
+    return sendJson(res, 200, { locations, items }, READ_CACHE_TTL);
   }
 
   // ================= LOCATIONS =================
