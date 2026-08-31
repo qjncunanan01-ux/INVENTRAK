@@ -31,7 +31,7 @@ const {
   relayCallbackUrl,
   googleUsername,
 } = require('./google-auth');
-
+const { audit } = require('./audit');
 // Attach a parsed, normalized `products_detail` array to every inquiry row so
 // clients (admin + mobile) can render per-line prices without re-parsing the
 // products JSON themselves. Resilient to legacy/malformed payloads.
@@ -2143,6 +2143,14 @@ app.post(
         }
       }
     }
+    audit('stock.movement.created', {
+      userId: req.user.id,
+      username: req.user.username,
+      type,
+      productId: product_id,
+      quantity: qty,
+    });
+
 
     res.json({
       ok: true,
@@ -2331,6 +2339,15 @@ app.post(
         'INSERT INTO stock_adjustments (product_id, location_id, new_qty, reason, status) VALUES (?, ?, ?, ?, ?)'
       )
       .run(product_id, location_id, new_qty, reason || '', 'pending');
+    
+    audit('stock.adjustment.created', {
+      userId: req.user.id,
+      username: req.user.username,
+      adjustmentId: info.lastInsertRowid,
+      productId: product_id,
+      locationId: location_id,
+      newQty: new_qty,
+    });
 
     res.status(201).json({ ok: true, id: info.lastInsertRowid, message: 'Adjustment created (pending approval)' });
   }
@@ -2378,12 +2395,26 @@ function decideAdjustment(req, res, action) {
       ).run(now, actor, row.id);
     })();
     if (applied.changes === 0) return res.status(400).json({ error: 'Adjustment already decided' });
+
+    audit('stock.adjustment.approved', {
+      userId: req.user.id,
+      username: req.user.username,
+      adjustmentId: row.id,
+    });
+
     return res.json({ ok: true, message: 'Adjustment approved and applied to stock' });
   }
 
   db.prepare(
     "UPDATE stock_adjustments SET status = 'rejected', decided_at = ?, decided_by = ? WHERE id = ?"
   ).run(now, actor, row.id);
+
+  audit('stock.adjustment.rejected', {
+    userId: req.user.id,
+    username: req.user.username,
+    adjustmentId: row.id,
+  });
+
   res.json({ ok: true, message: 'Adjustment rejected (stock unchanged)' });
 }
 
@@ -3637,6 +3668,52 @@ app.get(
     });
   }
 );
+// ================= AUDIT LOG ROUTES =================
+
+app.get('/api/audit-trail', authenticateToken, adminOnly, (req, res) => {
+  try {
+    const auditFile =
+      process.env.AUDIT_LOG_FILE || 'audit.log';
+
+    if (!fs.existsSync(auditFile)) {
+      return res.json({
+        data: [],
+        pagination: {
+          total: 0,
+        },
+      });
+    }
+
+    const lines = fs
+      .readFileSync(auditFile, 'utf8')
+      .split('\n')
+      .filter(Boolean);
+
+    const logs = lines
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .reverse();
+
+    res.json({
+      data: logs,
+      pagination: {
+        total: logs.length,
+      },
+    });
+  } catch (err) {
+    console.error('Audit trail error:', err);
+
+    res.status(500).json({
+      error: 'Failed to load audit trail',
+    });
+  }
+});
 
 // ================= USER MANAGEMENT =================
 
