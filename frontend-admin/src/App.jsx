@@ -4,6 +4,7 @@ import { clearCurrentUser, clearToken, getCurrentUser, getMe, getToken, logout a
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
 import ApprovalsPage from './pages/ApprovalsPage';
+import AuditTrailPage from './pages/AuditTrailPage';
 import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import LocationsPage from './pages/LocationsPage';
@@ -96,6 +97,7 @@ function AppRoutes() {
         <Route path="/optimization" element={<OptimizationPage onLogout={handleLogout} />} />
         <Route path="/reports" element={<ReportsPage onLogout={handleLogout} />} />
         <Route path="/security" element={<RequireRole roles={['admin']}><SecurityPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/audit-trail" element={<RequireRole roles={['admin']}><AuditTrailPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

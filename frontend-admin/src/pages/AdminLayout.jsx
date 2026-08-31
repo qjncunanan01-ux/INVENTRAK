@@ -9,6 +9,7 @@ import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
+import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
 import LocationOnOutlined from '@mui/icons-material/LocationOnOutlined';
@@ -58,6 +59,7 @@ const NAV_SECTIONS = [
     collapsible: true,
     items: [
       { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ['admin'] },
+      { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: ['admin']},
     ],
   },
   {
