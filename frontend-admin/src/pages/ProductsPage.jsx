@@ -2,11 +2,13 @@ import { Alert, AlertTitle, Autocomplete, Box, Button, Dialog, DialogActions, Di
 import { useEffect, useRef, useState } from 'react';
 import { apiDelete, apiGet, apiPost, apiPut, bulkUpdatePrices, API_BASE_URL } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 const filter = createFilterOptions();
 
 export default function ProductsPage({ onLogout }) {
+  usePageTitle('/products');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });

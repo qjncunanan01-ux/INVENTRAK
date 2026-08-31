@@ -2,9 +2,11 @@ import { Box, Button, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost, getCurrentUser } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 export default function StockMovementPage({ onLogout }) {
+  usePageTitle('/stock-movement');
   // Staff accounts view movement history only — recording stock movements is
   // an admin write (POST /api/stock-movement is admin-only on the backend).
   const isStaff = getCurrentUser()?.role === 'staff';

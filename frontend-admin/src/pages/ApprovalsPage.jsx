@@ -2,9 +2,11 @@ import { Box, Button, Chip, Paper, Snackbar, Table, TableBody, TableCell, TableH
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 export default function ApprovalsPage({ onLogout }) {
+  usePageTitle('/approvals');
   const [data, setData] = useState({ adjustments: [], transfers: [] });
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });

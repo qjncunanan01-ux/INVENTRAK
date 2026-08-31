@@ -25,6 +25,8 @@ export default defineConfig({
   build: {
     // Render's staticPublishPath is `build` — keep the CRA output dir.
     outDir: 'build',
+    // Disable source maps in production to prevent source code leakage
+    sourcemap: false,
     rollupOptions: {
       output: {
         // Code-split the vendor libraries so the browser can cache them

@@ -29,6 +29,7 @@ import {
 } from 'recharts';
 import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 const CHART_COLORS = ['#1f640e', '#a8d22b', '#f9a825', '#1565c0', '#d32f2f', '#c8e6c9'];
@@ -36,6 +37,7 @@ const FAST_COLOR = '#1f640e';
 const SLOW_COLOR = '#f9a825';
 
 export default function DashboardPage({ user, onLogout }) {
+  usePageTitle('/');
   const navigate = useNavigate();
   const [summary, setSummary] = useState({
     totalProducts: 0, totalStock: 0, lowStockItems: 0, totalLocations: 0,

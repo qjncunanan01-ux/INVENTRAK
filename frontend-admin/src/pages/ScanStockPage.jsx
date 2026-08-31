@@ -18,6 +18,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { imageUrl, ocrStockCheck } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 const STATUS_META = {
@@ -199,6 +200,7 @@ async function preprocessForOcr(b64, mimeType = 'image/jpeg') {
 }
 
 export default function ScanStockPage({ onLogout }) {
+  usePageTitle('/scan-stock');
   const fileRef = useRef(null);
   const cameraRef = useRef(null);
   const [busy, setBusy] = useState(false);

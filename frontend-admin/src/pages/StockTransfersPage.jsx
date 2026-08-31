@@ -2,11 +2,13 @@ import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Sn
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 const statusColor = (s) => (s === 'pending' ? 'warning' : s === 'approved' ? 'success' : 'error');
 
 export default function StockTransfersPage({ onLogout }) {
+  usePageTitle('/stock-transfers');
   const [rows, setRows] = useState([]);
   const [products, setProducts] = useState([]);
   const [locations, setLocations] = useState([]);

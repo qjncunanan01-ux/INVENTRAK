@@ -2,9 +2,11 @@ import { Box, Button, Dialog, DialogActions, DialogTitle, Paper, Snackbar, Table
 import { useEffect, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 export default function LocationsPage({ onLogout }) {
+  usePageTitle('/locations');
   const [locations, setLocations] = useState([]);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);

@@ -2,6 +2,7 @@ import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, F
 import { useEffect, useState } from 'react';
 import { apiGet, apiPut } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 const STATUS_COLORS = {
@@ -93,6 +94,7 @@ function linesToText(lines) {
 }
 
 export default function OrderInquiriesPage({ onLogout }) {
+  usePageTitle('/order-inquiries');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });

@@ -2,11 +2,13 @@ import { Box, Button, FormControl, InputLabel, MenuItem, Paper, Select, Table, T
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 const peso = (n) => 'P' + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 export default function ReportsPage({ onLogout }) {
+  usePageTitle('/reports');
   const [report, setReport] = useState(null);
   const [days, setDays] = useState(14);
   const [loading, setLoading] = useState(true);

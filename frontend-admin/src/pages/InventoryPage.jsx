@@ -3,10 +3,12 @@ import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Ta
 import { Link as RouterLink } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api';
+import usePageTitle from '../hooks/usePageTitle';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
 
 export default function InventoryPage({ onLogout }) {
+  usePageTitle('/inventory');
   const [inventory, setInventory] = useState({ locations: [], items: [] });
   const [loading, setLoading] = useState(true);
   const [lowStockOnly, setLowStockOnly] = useState(false);

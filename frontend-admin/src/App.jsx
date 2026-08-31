@@ -11,6 +11,7 @@ import LoginPage from './pages/LoginPage';
 import OptimizationPage from './pages/OptimizationPage';
 import OrderInquiriesPage from './pages/OrderInquiriesPage';
 import ProductsPage from './pages/ProductsPage';
+import NotFoundPage from './pages/NotFoundPage';
 import ReportsPage from './pages/ReportsPage';
 import ScanStockPage from './pages/ScanStockPage';
 import SecurityPage from './pages/SecurityPage';
@@ -95,7 +96,7 @@ function AppRoutes() {
         <Route path="/optimization" element={<OptimizationPage onLogout={handleLogout} />} />
         <Route path="/reports" element={<ReportsPage onLogout={handleLogout} />} />
         <Route path="/security" element={<RequireRole roles={['admin']}><SecurityPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );

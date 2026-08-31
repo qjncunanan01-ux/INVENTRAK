@@ -2,12 +2,15 @@ import { Alert, Box, Button, Card, CardContent, Chip, Divider, Link, TextField, 
 import { useState } from 'react';
 import { mfaConfirm, mfaDisable, mfaRecoveryCodes, mfaSetup } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
+import AdminLayout from './AdminLayout';
 
 // Admin Security page — two-factor authentication management. Enabling MFA
 // means every future admin login needs a code from the authenticator app in
 // addition to the password (defense in depth: a leaked password alone can no
 // longer open the dashboard).
 export default function SecurityPage({ onLogout }) {
+  usePageTitle('/security');
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [pending, setPending] = useState(null); // { secret, otpauth_url } from setup
   const [code, setCode] = useState('');
@@ -81,6 +84,7 @@ export default function SecurityPage({ onLogout }) {
   };
 
   return (
+    <AdminLayout title="Security" onLogout={onLogout}>
     <Box sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>
         Security
@@ -209,5 +213,6 @@ export default function SecurityPage({ onLogout }) {
         Log out
       </Button>
     </Box>
+    </AdminLayout>
   );
 }

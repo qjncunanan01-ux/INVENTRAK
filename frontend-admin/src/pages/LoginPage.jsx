@@ -6,6 +6,7 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../api';
 import { brandSidebar, colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 
 // Demo accounts the quick-fill buttons populate. Kept in one place so the
 // two buttons and the hints below can never drift apart.
@@ -15,6 +16,7 @@ const DEMO_ACCOUNTS = {
 };
 
 export default function LoginPage({ onLogin }) {
+  usePageTitle('/');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

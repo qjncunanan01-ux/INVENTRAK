@@ -20,6 +20,7 @@ import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { getCurrentUser } from '../api';
 import { brandSidebar, colors } from '../theme';
+import Breadcrumbs from '../components/Breadcrumbs';
 
 // Grouped so module items read as a clean collapsible dropdown hierarchy.
 // `roles` on each item drives the role-based nav: staff accounts only see
@@ -382,6 +383,7 @@ export default function AdminLayout({ title, children, onLogout }) {
             </Button>
           ) : null}
         </Box>
+        <Breadcrumbs />
         {children}
       </Box>
     </Box>

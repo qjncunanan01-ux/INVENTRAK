@@ -1,2 +1,8 @@
+# INVENTRAK Admin Dashboard — not for public indexing
 User-agent: *
-Disallow:
+Disallow: /
+
+# Allow AI crawlers to read llms.txt for context
+Allow: /llms.txt
+
+Sitemap: https://inventrak-admin.onrender.com/sitemap.xml

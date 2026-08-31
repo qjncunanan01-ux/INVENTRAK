@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiGet, apiPost, getCurrentUser } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 const statusColor = (s) => (s === 'pending' ? 'warning' : s === 'approved' ? 'success' : 'error');
 
 export default function StockAdjustmentsPage({ onLogout }) {
+  usePageTitle('/stock-adjustments');
   // Staff propose adjustments but only the owner decides them — so the
   // "Go to Approvals" quick-link and the Approve/Reject buttons are
   // admin-only (mirrors the backend's adminOnly decision routes).

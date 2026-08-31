@@ -2,9 +2,11 @@ import { Box, Card, CardContent, Chip, FormControl, InputLabel, MenuItem, Paper,
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api';
 import { colors } from '../theme';
+import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
 export default function OptimizationPage({ onLogout }) {
+  usePageTitle('/optimization');
   const [abc, setAbc] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedProductId, setSelectedProductId] = useState('');
