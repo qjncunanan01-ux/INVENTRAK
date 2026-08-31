@@ -54,19 +54,8 @@ function hashCode(code) {
   return crypto.createHmac('sha256', TOKEN_SECRET).update(String(code)).digest('hex');
 }
 
-// --- Storage driver selection: 'json' (default, zero-dep) or 'firestore' ---
-// The REST API surface is identical either way; only where the data lives
-// changes. Selection precedence (resolveDriver is a pure function so tests
-// exercise the full matrix without touching process state):
-//   1. `--firestore` CLI flag forces Firestore
-//   2. DB_DRIVER=json|firestore is an explicit pin (escape hatch)
-//   3. Otherwise, if Firebase credentials are configured, Firestore is
-//      auto-selected — "Firebase as the database of it all" — so deploying
-//      with the Firebase env vars (or docker-compose) just works, while
-//      local dev without them keeps using the JSON files.
-//   The Firestore EMULATOR (FIRESTORE_EMULATOR_HOST) also counts as
-//   "configured": the driver runs the full cloud code path against a local
-//   emulator with zero credentials.
+// Storage driver: 'json' (default), 'firestore', or 'supabase'.
+// Precedence: CLI flag > DB_DRIVER env > auto-detect from credentials.
 function firestoreConfigured({ env = process.env } = {}) {
   if (env.FIRESTORE_EMULATOR_HOST) return true;
   return Boolean(
@@ -123,10 +112,7 @@ let nextSaleId = 1;
 let alerts = [];
 let nextAlertId = 1;
 
-// Signup verification codes: HMAC-SHA256 code hash (keyed with the token
-// secret) -> { user_id, expires_at }. Persisted as '@verificationCodes' in
-// Firestore mode (single-use, hash at rest, expiry pruned on read). Mirrors
-// the SQLite verification_codes table.
+// verificationCodes: HMAC-SHA256 hash -> { user_id, expires_at }
 let verificationCodes = new Map();
 
 function persistVerificationCodes() {
@@ -138,11 +124,7 @@ function persistVerificationCodes() {
   })));
 }
 
-// Password reset codes: HMAC-SHA256 code hash (keyed with the token secret)
-// -> { user_id, expires_at }. In Firestore mode this map is persisted as the
-// '@resetTokens' dataset so an issued code survives a backend restart
-// (single-use, hash at rest, expiry pruned on read). Mirrors the SQLite
-// backend's password_resets table.
+// resetTokens: HMAC-SHA256 hash -> { user_id, expires_at }
 let resetTokens = new Map();
 
 function persistResetTokens() {
@@ -180,8 +162,7 @@ if (!process.env.NPMFREE_TOKEN_SECRET) {
 // The expiry and jti are part of the SIGNED payload, so an attacker cannot
 // extend a token or swap its scope, and the signature comparison runs in
 // constant time. jti makes each token unique so logout can revoke it.
-// Persisted revoked tokens so logout survives server restarts. On startup,
-// the file is loaded and pruned of expired entries.
+// Persisted revoked tokens — loaded at startup, pruned on read.
 const REVOKED_FILE = path.join(__dirname, '..', 'data', 'revoked-tokens.json');
 let revokedTokens = new Map(); // jti -> expiresAtMs
 try {
@@ -248,8 +229,6 @@ function writeJSON(file, obj) {
   store.write(path.basename(file), obj);
 }
 
-// The OpenAPI spec is a static file in the backend root (not a dataset in the
-// data dir), so it bypasses the store driver.
 function readOpenapi() {
   try {
     return JSON.parse(fs.readFileSync(openapiFile, 'utf8'));
@@ -359,8 +338,6 @@ function bootstrap() {
   if (!readJSON(adjustmentsFile)) writeJSON(adjustmentsFile, []);
   if (!readJSON(transfersFile)) writeJSON(transfersFile, []);
 
-  // Cloud mode: persist the demo users/sales/alerts so registrations and
-  // sales accumulate on them across restarts.
   if (useFirestore || useSupabase) {
     writeJSON('@users', users);
     writeJSON('@sales', salesTransactions);
@@ -395,10 +372,7 @@ function seedSales() {
     });
   });
 }
-// (seeding moved into bootstrap() above)
 
-// Mirrors the SQLite backend: empty/absent seed fields map to '' and an
-// explicit null (e.g. a partial PUT that nulls a column) stays null.
 function formatProduct(p, idx) {
   const now = new Date().toISOString();
   const pick = (a, b, fallback) => (a !== undefined ? a : (b !== undefined ? b : fallback));
@@ -483,9 +457,6 @@ function computeAlerts() {
   return alerts.filter(a => a.status === 'active');
 }
 
-// Mirror Express/body-parser: cap request bodies at 100 KB so a client cannot
-// exhaust memory with a giant payload (the SQLite backend rejects these too).
-// MAX_BODY_BYTES is imported from config.js
 
 function bodyError(res, err) {
   if (err && err.status === 413) return sendJson(res, 413, { error: 'Payload Too Large' });
@@ -541,11 +512,6 @@ function sendJson(res, status, payload, cacheControl) {
   res.end(JSON.stringify(payload));
 }
 
-// Short-lived cache for product/category/inventory reads (5 min, public).
-// The dashboard fetches these on every mount; a stale-while-revalidate
-// pattern prevents the free-tier Render instance from re-serializing the
-// same 204-product JSON on every request.
-// READ_CACHE_TTL is imported from config.js
 
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 function setCorsHeaders(req, res) {
@@ -1035,8 +1001,6 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 400, { error: 'Validation failed', details: [pwError] });
       }
       if (users.some(u => u.username === obj.username)) return sendJson(res, 409, { error: 'Username already exists' });
-      // New accounts start UNVERIFIED — the customer must redeem the
-      // verification code emailed/SMS'd below; the welcome email waits.
       const user = { id: nextUserId++, username: obj.username, password: hashPassword(obj.password), role: 'customer', email: obj.email, phone: obj.phone, email_verified: false, created_at: new Date().toISOString() };
       users.push(user);
       if (useFirestore || useSupabase) writeJSON('@users', users);
@@ -1812,10 +1776,8 @@ const server = http.createServer((req, res) => {
   //
   // Mirrors the SQLite backend's dedicated modules (same shapes, same flow):
   // adjustments and transfers are created PENDING and only change stock once
-  // an admin approves them — the 'approval of important transactions' workflow.
+  // an admin approves them.
 
-  // Rich row builders: SQLite joins product/location names at read time, so
-  // the npm-free store snapshots the same fields onto each row.
   function adjustmentRow(a, inv, products) {
     const product = products[Number(a.product_id) - 1] || null;
     const locationName = a.location_name || (inv.locations[Number(a.location_id) - 1]) || `Location ${a.location_id}`;

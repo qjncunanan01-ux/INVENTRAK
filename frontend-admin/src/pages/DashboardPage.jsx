@@ -61,7 +61,6 @@ export default function DashboardPage({ user, onLogout }) {
   const [modalLoading, setModalLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Store raw fetched data for modal reuse
   const [rawData, setRawData] = useState({
     inventory: [], sales: [], inquiries: [], movements: [], products: [],
     alerts: [], summary: null, dailySales: [],
@@ -116,7 +115,6 @@ export default function DashboardPage({ user, onLogout }) {
 
         const items = inventoryData.items || [];
 
-        // Store raw data for modal use
         setRawData({
           inventory: items,
           sales: Array.isArray(salesData) ? salesData : [],
@@ -344,7 +342,6 @@ export default function DashboardPage({ user, onLogout }) {
     setModalLoading(false);
     setSearchQuery('');
 
-    // All data is already in rawData — no second fetch needed
     const { inventory, sales, inquiries, movements, products, alerts, summary, dailySales } = rawData;
 
     if (panel.key === 'lowStock') {
