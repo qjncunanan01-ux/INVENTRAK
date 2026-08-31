@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { passwordError } = require('./password-policy');
 const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
+const { LOW_STOCK_THRESHOLD, TOKEN_TTL_MS, MFA_TOKEN_TTL_MS, RESET_CODE_TTL_MS, VERIFICATION_CODE_TTL_MS, MAX_BODY_BYTES, MAX_OCR_BODY_BYTES, READ_CACHE_TTL, BULK_PRICES_MAX_ENTRIES, PRODUCT_NAME_MAX_LENGTH, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } = require('./config');
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
@@ -38,11 +39,7 @@ const loginLockout = createLoginLockout();
 // so tests can exercise expiry without sleeping for 30 minutes). The raw code
 // is never stored — only its SHA-256 hash, so a database leak can't be used
 // to reset accounts. Mirrors the SQLite backend's constant exactly.
-const RESET_CODE_TTL_MS = Number(process.env.RESET_CODE_TTL_MS) || 30 * 60 * 1000;
-
-// Signup verification codes: same model as reset codes (single-use, hashed at
-// rest, env-tunable TTL). Mirrors the SQLite backend's constant.
-const VERIFICATION_CODE_TTL_MS = Number(process.env.VERIFICATION_CODE_TTL_MS) || 30 * 60 * 1000;
+// RESET_CODE_TTL_MS and VERIFICATION_CODE_TTL_MS are imported from config.js
 
 function generateCode() {
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
@@ -162,7 +159,7 @@ function persistResetTokens() {
 const TOKEN_SECRET = process.env.NPMFREE_TOKEN_SECRET || 'inventrak-npmfree-token-secret';
 // Mirrors the SQLite backend's 24h JWT lifetime. Env-tunable so tests can
 // exercise expiry without waiting a day.
-const TOKEN_TTL_MS = Number(process.env.TOKEN_TTL_MS) || 24 * 60 * 60 * 1000;
+// TOKEN_TTL_MS is imported from config.js
 
 if (!process.env.NPMFREE_TOKEN_SECRET) {
   // The fallback is PUBLIC (it lives in this repo): on a server running
@@ -177,7 +174,7 @@ if (!process.env.NPMFREE_TOKEN_SECRET) {
 
 // MFA challenge tokens are short-lived (10 minutes) so a leaked challenge
 // can't be replayed into a session later.
-const MFA_TOKEN_TTL_MS = 10 * 60 * 1000;
+// MFA_TOKEN_TTL_MS is imported from config.js
 
 // Token format: demo-token-<userId>.<expiresAtEpochMs>.<jti>.<scope>.<sig>
 // The expiry and jti are part of the SIGNED payload, so an attacker cannot
@@ -334,7 +331,7 @@ function bootstrap() {
       const productId = item.product && item.product.id;
       if (productId == null) return;
       Object.entries(item.locations || {}).forEach(([locName, qty]) => {
-        if (Number(qty) >= 80) return;
+        if (Number(qty) >= LOW_STOCK_THRESHOLD) return;
         const locationId = locations.indexOf(locName) + 1;
         if (alerts.some(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.status === 'active')) {
           return;
@@ -346,7 +343,7 @@ function bootstrap() {
           product_name: (item.product && item.product.name) || `Product ${productId}`,
           location_name: locations[Number(locationId) - 1] || 'All',
           alert_type: 'low_stock',
-          threshold: 80,
+          threshold: LOW_STOCK_THRESHOLD,
           current_qty: Number(qty),
           status: 'active',
           created_at: new Date().toISOString(),
@@ -457,7 +454,7 @@ function getInventory() {
 // until resolved. (Declared at the top so bootstrap() can hydrate them.)
 
 function upsertLowStockAlert(productId, locationId, qty) {
-  if (qty >= 80) return;
+  if (qty >= LOW_STOCK_THRESHOLD) return;
   const existing = alerts.find(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.status === 'active');
   if (existing) {
     existing.current_qty = qty;
@@ -473,7 +470,7 @@ function upsertLowStockAlert(productId, locationId, qty) {
     product_name: (item && item.product && item.product.name) || `Product ${productId}`,
     location_name: inv.locations[Number(locationId) - 1] || 'All',
     alert_type: 'low_stock',
-    threshold: 80,
+    threshold: LOW_STOCK_THRESHOLD,
     current_qty: qty,
     status: 'active',
     created_at: new Date().toISOString(),
@@ -488,7 +485,7 @@ function computeAlerts() {
 
 // Mirror Express/body-parser: cap request bodies at 100 KB so a client cannot
 // exhaust memory with a giant payload (the SQLite backend rejects these too).
-const MAX_BODY_BYTES = 100 * 1024;
+// MAX_BODY_BYTES is imported from config.js
 
 function bodyError(res, err) {
   if (err && err.status === 413) return sendJson(res, 413, { error: 'Payload Too Large' });
@@ -503,7 +500,7 @@ function parseBody(req, callback) {
 // reach several MB). Deliberately separate from parseBody so the 100 KB cap
 // on every other JSON endpoint stays intact.
 function parseBodyLarge(req, callback) {
-  return parseBodyWithLimit(req, 12 * 1024 * 1024, callback);
+  return parseBodyWithLimit(req, MAX_OCR_BODY_BYTES, callback);
 }
 
 function parseBodyWithLimit(req, limitBytes, callback) {
@@ -548,7 +545,7 @@ function sendJson(res, status, payload, cacheControl) {
 // The dashboard fetches these on every mount; a stale-while-revalidate
 // pattern prevents the free-tier Render instance from re-serializing the
 // same 204-product JSON on every request.
-const READ_CACHE_TTL = 'public, max-age=300, stale-while-revalidate=60';
+// READ_CACHE_TTL is imported from config.js
 
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 function setCorsHeaders(req, res) {
@@ -1414,7 +1411,7 @@ const server = http.createServer((req, res) => {
 
     if (page !== null || limit !== null) {
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+      const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
       const offset = (pageNum - 1) * limitNum;
       return sendJson(res, 200, {
         data: formatted.slice(offset, offset + limitNum),
@@ -1482,8 +1479,8 @@ const server = http.createServer((req, res) => {
         if (obj.prices.length === 0) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['prices must not be empty'] });
         }
-        if (obj.prices.length > 2000) {
-          return sendJson(res, 400, { error: 'Validation failed', details: ['prices must not exceed 2000 entries'] });
+        if (obj.prices.length > BULK_PRICES_MAX_ENTRIES) {
+          return sendJson(res, 400, { error: 'Validation failed', details: [`prices must not exceed ${BULK_PRICES_MAX_ENTRIES} entries`] });
         }
         const products = readJSON(productsFile) || [];
         const skipped = [];
@@ -1500,7 +1497,7 @@ const server = http.createServer((req, res) => {
           // Mirrors the single-product validate() cap (name maxLength 200) and
           // the SQLite bulk handler: over-long names can never match, so they
           // are reported instead of silently dropped.
-          if (name && name.length > 200) {
+          if (name && name.length > PRODUCT_NAME_MAX_LENGTH) {
             skipped.push({ name: name.slice(0, 60) + '…', reason: 'name too long' });
             continue;
           }
@@ -1615,7 +1612,7 @@ const server = http.createServer((req, res) => {
         total: item.locations[locName] || 0
       }));
     }
-    if (lowStock) items = items.filter(item => item.total < 80);
+    if (lowStock) items = items.filter(item => item.total < LOW_STOCK_THRESHOLD);
     const locations = inv.locations.map((name, index) => ({ id: index + 1, name }));
     return sendJson(res, 200, { locations, items }, READ_CACHE_TTL);
   }
@@ -1690,7 +1687,7 @@ const server = http.createServer((req, res) => {
     if (productId) movements = movements.filter(m => Number(m.product_id) === Number(productId));
     if (page !== null || limit !== null) {
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+      const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
       const offset = (pageNum - 1) * limitNum;
       return sendJson(res, 200, {
         data: movements.slice(offset, offset + limitNum),
@@ -2130,7 +2127,7 @@ const server = http.createServer((req, res) => {
 
       const products = readJSON(productsFile) || [];
       const lowStock = (inv.items || [])
-        .filter(it => it.total < 80)
+        .filter(it => it.total < LOW_STOCK_THRESHOLD)
         .map(it => ({ id: it.product.id, name: it.product.name, total: it.total }))
         .sort((a, b) => a.total - b.total);
 
@@ -2222,7 +2219,7 @@ const server = http.createServer((req, res) => {
     }));
     if (page !== null || limit !== null) {
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+      const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
       const offset = (pageNum - 1) * limitNum;
       return sendJson(res, 200, {
         data: orders.slice(offset, offset + limitNum),
@@ -2542,7 +2539,7 @@ const server = http.createServer((req, res) => {
         const totalStock = inv.items.reduce((sum, i) => sum + i.total, 0);
       // Per-PRODUCT total below the 80-unit threshold — matches the
       // SQLite backend so the contract test passes.
-      const lowStockItems = inv.items.filter((i) => i.total < 80).length;
+      const lowStockItems = inv.items.filter((i) => i.total < LOW_STOCK_THRESHOLD).length;
       const totalLocations = inv.locations.length;
       const pendingInquiries = orders.filter(o => o.status === 'pending').length;
       const totalSales = salesTransactions.reduce((sum, s) => sum + s.total_amount, 0);
@@ -2573,7 +2570,7 @@ const server = http.createServer((req, res) => {
       // 1. Low-stock items: name + total, sorted ascending.
       const lowStockList = inv.items
         .map(i => ({ id: i.product.id, name: i.product.name, total: i.total }))
-        .filter(i => i.total < 80)
+        .filter(i => i.total < LOW_STOCK_THRESHOLD)
         .sort((a, b) => a.total - b.total)
         .slice(0, 20);
 
@@ -2699,7 +2696,7 @@ const server = http.createServer((req, res) => {
       }));
       if (page !== null || limit !== null) {
         const pageNum = Math.max(1, parseInt(page, 10) || 1);
-        const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+        const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
         const offset = (pageNum - 1) * limitNum;
         return sendJson(res, 200, {
           data: enriched.slice(offset, offset + limitNum),
