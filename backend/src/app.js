@@ -31,6 +31,7 @@ const {
   googleUsername,
 } = require('./google-auth');
 const { audit } = require('./audit');
+const { sanitizeObject } = require('./sanitize');
 // Attach a parsed, normalized `products_detail` array to every inquiry row so
 // clients (admin + mobile) can render per-line prices without re-parsing the
 // products JSON themselves. Resilient to legacy/malformed payloads.
@@ -538,10 +539,10 @@ app.post(
     const result = db.prepare(
       'INSERT INTO users (username, password, role, email, phone, email_verified) VALUES (?, ?, ?, ?, ?, 0)'
     ).run(
-      username,
+      sanitizeObject(username),
       hashedPw,
       'customer',
-      email,
+      sanitizeObject(email),
       phone || null
     );
 
@@ -1472,12 +1473,12 @@ app.post(
     const info = db.prepare(
       'INSERT INTO products (name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
-      name,
-      category,
-      brand || '',
-      description || '',
-      size || '',
-      unit || 'pcs',
+      sanitizeObject(name),
+      sanitizeObject(category),
+      sanitizeObject(brand || ''),
+      sanitizeObject(description || ''),
+      sanitizeObject(size || ''),
+      sanitizeObject(unit || 'pcs'),
       price,
       status || 'active',
       image || null
@@ -1519,12 +1520,12 @@ app.put(
     db.prepare(
       "UPDATE products SET name=?, category=?, brand=?, description=?, size=?, unit=?, price=?, status=?, image=?, updated_at=datetime('now') WHERE id=?"
     ).run(
-      name,
-      category,
-      brand,
-      description,
-      size,
-      unit,
+      sanitizeObject(name),
+      sanitizeObject(category),
+      sanitizeObject(brand),
+      sanitizeObject(description),
+      sanitizeObject(size),
+      sanitizeObject(unit),
       price,
       status,
       image || null,

@@ -13,6 +13,7 @@ const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
 const { generateSecret, verifyTOTP, otpauthUrl, generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode } = require('./totp');
 const { audit } = require('./audit');
+const { sanitizeObject, isValidName, isValidEmail, isValidPhone } = require('./sanitize');
 const cache = require('./cache');
 const { isDemoAccountBlocked } = require('./demo-accounts');
 const {
@@ -1000,8 +1001,11 @@ const server = http.createServer((req, res) => {
       if (pwError) {
         return sendJson(res, 400, { error: 'Validation failed', details: [pwError] });
       }
-      if (users.some(u => u.username === obj.username)) return sendJson(res, 409, { error: 'Username already exists' });
-      const user = { id: nextUserId++, username: obj.username, password: hashPassword(obj.password), role: 'customer', email: obj.email, phone: obj.phone, email_verified: false, created_at: new Date().toISOString() };
+      // Sanitize user input to prevent XSS in stored data
+      const cleanUsername = sanitizeObject(obj.username);
+      const cleanEmail = sanitizeObject(obj.email);
+      if (users.some(u => u.username === cleanUsername)) return sendJson(res, 409, { error: 'Username already exists' });
+      const user = { id: nextUserId++, username: cleanUsername, password: hashPassword(obj.password), role: 'customer', email: cleanEmail, phone: obj.phone, email_verified: false, created_at: new Date().toISOString() };
       users.push(user);
       if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.register', { userId: user.id, username: obj.username });
@@ -1409,13 +1413,14 @@ const server = http.createServer((req, res) => {
           return sendJson(res, 400, { error: 'Validation failed', details: ['price is required and must be a number >= 0'] });
         }
         const products = readJSON(productsFile) || [];
+        // Sanitize user-supplied text fields to prevent XSS in stored data
         const newProduct = {
-          'Product Name': obj.name,
-          'Category': obj.category,
-          'Brand': obj.brand || '',
-          'Description': obj.description || '',
-          'Size': obj.size || '',
-          'Unit': obj.unit || 'pcs',
+          'Product Name': sanitizeObject(obj.name),
+          'Category': sanitizeObject(obj.category),
+          'Brand': sanitizeObject(obj.brand || ''),
+          'Description': sanitizeObject(obj.description || ''),
+          'Size': sanitizeObject(obj.size || ''),
+          'Unit': sanitizeObject(obj.unit || 'pcs'),
           'Price': priceNum,
           'status': 'active',
           'Image': obj.image || ''
@@ -1501,12 +1506,13 @@ const server = http.createServer((req, res) => {
         if (!products[id - 1]) return sendJson(res, 404, { error: 'Product not found' });
         const p = products[id - 1];
         // Mirror the SQLite backend: a partial PUT nulls the unspecified columns.
-        p['Product Name'] = obj.name ?? null;
-        p['Category'] = obj.category ?? null;
-        p['Brand'] = obj.brand ?? null;
-        p['Description'] = obj.description ?? null;
-        p['Size'] = obj.size ?? null;
-        p['Unit'] = obj.unit ?? null;
+        // Sanitize text fields to prevent XSS in stored data.
+        p['Product Name'] = obj.name != null ? sanitizeObject(obj.name) : null;
+        p['Category'] = obj.category != null ? sanitizeObject(obj.category) : null;
+        p['Brand'] = obj.brand != null ? sanitizeObject(obj.brand) : null;
+        p['Description'] = obj.description != null ? sanitizeObject(obj.description) : null;
+        p['Size'] = obj.size != null ? sanitizeObject(obj.size) : null;
+        p['Unit'] = obj.unit != null ? sanitizeObject(obj.unit) : null;
         p['Price'] = obj.price !== undefined ? Number(obj.price) : null;
         p['status'] = obj.status ?? null;
         p['Image'] = obj.image ?? null;

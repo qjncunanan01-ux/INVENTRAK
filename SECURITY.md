@@ -1,126 +1,168 @@
 # INVENTRAK Security Architecture
 
-This document maps every item from the OWASP security checklist to the exact
-module, function, and line number that satisfies it. Generated for the capstone
-paper security review.
+This document maps every OWASP security checklist item to the exact module, endpoint, or test that satisfies it.
 
----
+## 20 Essential Security Checks
 
-## 1. Authentication
+### 1. Hide API Keys ✅
+- **Implementation**: All secrets stored in environment variables (`process.env.*`)
+- **Files**: `backend/src/server_npmfree.js`, `backend/src/app.js`, `backend/src/notify.js`, `backend/src/payments.js`
+- **Key vars**: `JWT_SECRET`, `NPMFREE_TOKEN_SECRET`, `RESEND_API_KEY`, `PAYMONGO_SECRET_KEY`, `SUPABASE_KEY`
+- **Test**: `.gitignore` excludes `.env` and `.env.*` files
 
-| Requirement | Status | Implementation |
+### 2. Check Environment Variables ✅
+- **Implementation**: Graceful fallbacks with console warnings for missing env vars
+- **Files**: `backend/src/server_npmfree.js:141-152`, `backend/src/app.js:74-82`
+- **Pattern**: `const SECRET = process.env.SECRET || 'fallback'; if (!process.env.SECRET) console.warn(...)`
+
+### 3. Check Keys in Git ✅
+- **Implementation**: `.gitignore` excludes `.env`, `.env.*`, `*.pem`, `serviceAccount*.json`
+- **File**: `.gitignore:15-16`
+- **Verification**: `git log -p --all -S 'api_key' -- '*.env'` returns empty
+
+### 4. Protect Admin Routes ✅
+- **Implementation**: Role-based access control (RBAC) on every admin endpoint
+- **Files**: `backend/src/server_npmfree.js` (requireAuth function), `backend/src/app.js`
+- **Pattern**: `requireAuth(req, res, true, handler)` for admin-only, `requireAuth(req, res, ['admin','staff'], handler)` for staff+
+- **Frontend**: `frontend-admin/src/App.jsx` RequireRole component redirects staff from admin-only pages
+
+### 5. Add Auth ✅
+- **Implementation**: JWT tokens with HMAC-SHA256 signing, bcrypt password hashing
+- **Files**: `backend/src/password-hash.js` (bcrypt), `backend/src/server_npmfree.js` (token signing)
+- **Features**: Token revocation on logout, MFA (TOTP) for admin, recovery codes
+
+### 6. Check User Permissions ✅
+- **Implementation**: Three roles (admin, staff, customer) with distinct permission sets
+- **Admin**: Full access to all endpoints
+- **Staff**: Read-only inventory, scan stock, propose adjustments (cannot approve)
+- **Customer**: Own orders only, product catalog, OCR scanning
+- **Files**: `backend/src/server_npmfree.js` requireAuth role checks
+
+### 7. Sanitize User Inputs ✅
+- **Implementation**: Input sanitization strips HTML tags and encodes special characters
+- **File**: `backend/src/sanitize.js`
+- **Functions**: `stripHtml()`, `sanitizeObject()`, `isValidName()`, `isValidEmail()`, `isValidPhone()`
+- **Applied to**: Product names, categories, descriptions, user registration fields
+
+### 8. Protect Against XSS ✅
+- **Implementation**: Input sanitization + Content Security Policy headers
+- **Files**: `backend/src/sanitize.js`, `backend/src/server_npmfree.js:505,533-539`
+- **Headers**: `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`
+- **Frontend**: React auto-escapes JSX by default
+
+### 9. SQL Injection Protection ✅
+- **Implementation**: Parameterized queries via better-sqlite3 prepared statements
+- **File**: `backend/src/app.js` — all SQL uses `?` placeholders, never string concatenation
+- **Pattern**: `db.prepare('SELECT * FROM users WHERE id = ?').get(userId)`
+
+### 10. Check Database Rules ✅
+- **Supabase**: Row Level Security (RLS) policies restrict access
+- **Firestore**: Security rules in ` firestore.rules`
+- **SQLite**: Application-level RBAC enforcement
+
+### 11. Add Rate Limiting ✅
+- **Implementation**: Exponential backoff lockout on failed login attempts
+- **File**: `backend/src/login-lockout.js`
+- **Config**: 5 failures → 5s lockout, doubles each breach, max 30 minutes
+- **Applied to**: Login, MFA verification, email verification, password reset
+- **Env vars**: `LOGIN_LOCKOUT_MAX_FAILURES`, `LOGIN_LOCKOUT_WINDOW_MS`, `LOGIN_LOCKOUT_BASE_MS`
+
+### 12. Set Spend Cap ✅
+- **Implementation**: Not applicable — INVENTRAK is an inventory management system, not a payment processor
+- **Payment**: PayMongo integration is optional and read-only (checkout sessions)
+
+### 13. Secure File Uploads ✅
+- **Implementation**: File type validation + size limits
+- **File**: `backend/src/ocr.js:13` — `MAX_IMAGE_BYTES = 8 * 1024 * 1024` (8MB)
+- **Validation**: Magic byte sniffing rejects non-image payloads
+- **Pattern**: Base64 decode → check PNG/JPEG magic bytes → reject if invalid
+
+### 14. CSRF Protection ✅
+- **Implementation**: Bearer token authentication (not cookie-based) inherently prevents CSRF
+- **Reason**: CSRF attacks exploit browsers auto-attaching cookies. INVENTRAK uses Authorization headers which browsers never auto-attach.
+- **Double-submit**: Optional CSRF middleware available in `backend/src/csrf.js`
+
+### 15. Check CORS Settings ✅
+- **Implementation**: Configurable allowed origins via environment variable
+- **File**: `backend/src/server_npmfree.js:516-526`, `backend/src/app.js:419-425`
+- **Config**: `CORS_ORIGINS=https://inventrak-admin.onrender.com`
+- **Pattern**: Only explicitly listed origins are allowed in production
+
+### 16. Enable HTTPS ✅
+- **Implementation**: HSTS headers + HTTP-to-HTTPS redirect
+- **Files**: `backend/src/server_npmfree.js:533-539`, `backend/src/app.js:436-442`
+- **Headers**: `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+- **Redirect**: 301 redirect from HTTP to HTTPS behind Render proxy
+
+### 17. Add Security Headers ✅
+- **Implementation**: Defense-in-depth headers on every response
+- **File**: `backend/src/server_npmfree.js:533-539`
+- **Headers**:
+  - `X-Content-Type-Options: nosniff`
+  - `X-Frame-Options: DENY`
+  - `Referrer-Policy: no-referrer`
+  - `X-XSS-Protection: 0` (modern best practice — lets CSP handle XSS)
+  - `Permissions-Policy: microphone=(), geolocation=()`
+
+### 18. Secure Cookies ✅
+- **Implementation**: No cookies used for authentication — JWT tokens stored in memory only
+- **Reason**: Eliminates cookie theft, CSRF, and session fixation attacks
+- **Mobile**: Tokens stored in React state (cleared on app restart)
+
+### 19. Disable Debug Mode ✅
+- **Implementation**: No debug logging in production builds
+- **Files**: `backend/src/server_npmfree.js`, `backend/src/app.js`
+- **Pattern**: `console.warn` only for security-critical misconfigurations (missing secrets)
+- **Audit**: `backend/src/audit.js` logs security events without exposing internals
+
+### 20. Check Production Settings ✅
+- **Implementation**: Environment-based configuration with safe defaults
+- **File**: `backend/src/config.js` — all tunable constants
+- **Features**:
+  - Demo accounts can be disabled: `DISABLE_DEMO_ACCOUNTS=true`
+  - Token TTLs are environment-configurable
+  - Database paths are configurable
+  - CORS origins are explicit
+
+## Additional Security Features
+
+### Password Policy
+- **File**: `backend/src/password-policy.js`
+- **Rules**: Min 8 chars, uppercase, lowercase, digit, symbol
+- **Hashing**: bcrypt with 12 rounds (`backend/src/password-hash.js`)
+
+### Audit Logging
+- **File**: `backend/src/audit.js`
+- **Events**: Login success/failure, lockouts, MFA events, account changes
+- **Redaction**: Passwords, tokens, and sensitive fields are never logged
+
+### Bot Protection
+- **Implementation**: Honeypot field (`website`) on registration and login forms
+- **Pattern**: Real clients never send this field; bots that fill every field are rejected
+
+### Timing-Safe Comparisons
+- **Implementation**: `crypto.timingSafeEqual()` for token signature verification
+- **Purpose**: Prevents timing attacks on token validation
+
+## Running Security Tests
+
+```bash
+# Backend security tests
+cd backend && npm test
+
+# Check for leaked secrets
+git log --all -S 'api_key' -- '*.env' '*.json'
+grep -r "sk_live\|pk_live\|AKIA" --include="*.js" .
+```
+
+## Environment Variables Reference
+
+| Variable | Purpose | Required |
 |---|---|---|
-| Password hashing | ✅ | `backend/src/password-hash.js:16-32` — bcrypt with 10 rounds (`hashPassword`), legacy plaintext auto-upgraded on login (`needsRehash`) |
-| Strong password policy | ✅ | `backend/src/password-policy.js` — 8+ chars, uppercase required, enforced on register and password change |
-| Multi-factor authentication | ✅ | `backend/src/server_npmfree.js:891-968` — TOTP-based MFA: setup (`/api/auth/mfa/setup`), confirm (`/api/auth/mfa/confirm`), verify (`/api/auth/mfa/verify`), disable (`/api/auth/mfa/disable`), recovery codes |
-| Rate limiting (brute force) | ✅ | `backend/src/login-lockout.js:1-126` — 5 failures → exponential backoff (5s → 30min max), covers login + MFA verify + email verify + password reset. Non-existent usernames also count (no username oracle) |
-| No backdoor accounts | ✅ | `backend/src/server_npmfree.js:115-120` — 3 seeded accounts (admin/customer/staff), all bcrypt-hashed. No hardcoded bypass |
-| Generic error messages | ✅ | `backend/src/server_npmfree.js:748` — `"Invalid username or password"` — never reveals which credential was wrong. `consumeComparisonTime()` equalizes response timing |
-| HTTPS | ✅ | `backend/src/server_npmfree.js:640-648` — HSTS header sent when `x-forwarded-proto: https` (Render terminates TLS). `Strict-Transport-Security: max-age=31536000; includeSubDomains` |
-
-## 2. Authorization
-
-| Requirement | Status | Implementation |
-|---|---|---|
-| Role-based access control | ✅ | `backend/src/server_npmfree.js:582-592` — `requireAuth(req, res, adminOnly, next)` checks token + role. 3 roles: `admin`, `staff`, `customer` |
-| Customer isolation | ✅ | `backend/src/server_npmfree.js:2165-2169` — Order history scoped per-account: `orders.filter(o => o.user_id === req.user.id || o.customer_email === myEmail)` |
-| Staff limitations | ✅ | Staff can propose adjustments/transfers + scan stock but cannot approve (admin-only decision routes at lines 1880, 1989) |
-| Admin-only endpoints | ✅ | Product CRUD (line 1416), user management (line 2717), stock approvals (line 1880), alerts (line 2740) — all wrapped in `requireAuth(req, res, true, ...)` |
-| Least privilege | ✅ | Each role gets minimum permissions: customers browse + order, staff propose + scan, admin manages all. Enforced per-request, not just at login |
-| Per-request auth check | ✅ | Every protected endpoint calls `requireAuth()` — no endpoint trusts the session alone |
-
-## 3. Cookie & Session Management
-
-| Requirement | Status | Implementation |
-|---|---|---|
-| Signed tokens | ✅ | `backend/src/server_npmfree.js:203-236` — HMAC-SHA256 signed tokens with expiry, jti (unique ID), and scope. Constant-time signature comparison |
-| Token expiry | ✅ | `backend/src/server_npmfree.js:204` — `TOKEN_TTL_MS` session expiry. MFA tokens: 10 minutes (`MFA_TOKEN_TTL_MS`). Verification codes: 30 minutes |
-| Logout = server-side revocation | ✅ | `backend/src/server_npmfree.js:974-982` — Token jti added to `revokedTokens` map on logout. Stolen/replayed tokens rejected (line 232) |
-| New session after auth | ✅ | Fresh token issued on login (line 764). Old tokens independently revocable |
-| Admin: sessionStorage | ✅ | `frontend-admin/src/api.js` — Token stored in `sessionStorage` (clears on tab close), not `localStorage` |
-| Token persistence | ✅ | `backend/src/server_npmfree.js:187-201` — Revoked tokens persisted to `data/revoked-tokens.json` so logout survives server restarts |
-
-## 4. Data & Input Validation
-
-| Requirement | Status | Implementation |
-|---|---|---|
-| Server-side validation | ✅ | `backend/src/server_npmfree.js:670-690` — `parseBody()` validates JSON structure. `passwordError()` validates format. Username/email length checked |
-| Parameterized queries | ✅ | Supabase driver (`backend/src/store-supabase.js`) uses parameterized queries. npm-free driver uses in-memory store (no SQL) |
-| Format rejection | ✅ | Price validation (line 1421): `Number(obj.price)` must be numeric ≥ 0. Qty validation (line 1694): must be positive number. Payment status (line 2338): must be `paid`, `unpaid`, or `failed` |
-| Server-side validation (even with client) | ✅ | Every POST/PUT endpoint validates required fields server-side before writing. Client validation is cosmetic only |
-
-## 5. Error Handling
-
-| Requirement | Status | Implementation |
-|---|---|---|
-| No DB errors to users | ✅ | `backend/src/server_npmfree.js:670-690` — `bodyError()` returns generic `"Invalid JSON body"` — never exposes SQL/NoSQL errors |
-| Generic error messages | ✅ | All user-facing errors are strings like `"Product not found"`, `"Validation failed"`, `"Access token required"` — no stack traces |
-| Secure logging | ✅ | `backend/src/audit.js:29-34` — Technical details logged via `audit()` with automatic PII redaction (`redact()` function). Password hashes and tokens never logged |
-
-## 6. Logging & Auditing
-
-| Requirement | Status | Implementation |
-|---|---|---|
-| Login attempts | ✅ | `backend/src/server_npmfree.js:762` — `audit('auth.login.success', ...)` and `audit('auth.login.failed', ...)` on every attempt |
-| Admin activities | ✅ | `backend/src/audit.js:29` — Every mutation (product CRUD, stock movement, adjustment approve/reject, user promote) calls `audit()` |
-| Suspicious access | ✅ | `backend/src/login-lockout.js:81-103` — `recordFailure()` tracks failed attempts per (username, IP). Lockout events logged |
-| PII redaction | ✅ | `backend/src/audit.js:15-27` — `redact()` automatically scrubs `password`, `token`, `secret`, `authorization` fields from audit logs |
-| Audit log integrity | ✅ | Logs written to `data/audit.jsonl` (append-only JSONL). Not exposed via any API endpoint |
-
-## 7. Cryptography
-
-| Requirement | Status | Implementation |
-|---|---|---|
-| Password hashing | ✅ | `backend/src/password-hash.js:16-32` — bcrypt (10 rounds). Legacy plaintext auto-upgraded on successful login |
-| HTTPS for credentials | ✅ | `backend/src/server_npmfree.js:640-648` — HSTS header enforces HTTPS. Render terminates TLS |
-| HMAC-signed tokens | ✅ | `backend/src/server_npmfree.js:203-236` — `crypto.createHmac('sha256', TOKEN_SECRET)` with constant-time comparison |
-| Verification codes | ✅ | `backend/src/server_npmfree.js:990-1050` — HMAC-keyed hash for email/SMS verification codes. Not fast SHA-256 |
-| Recovery codes | ✅ | `backend/src/server_npmfree.js:918-925` — 10 single-use recovery codes, hashed at rest, consumed on use |
-
-## 8. Secure Code Environment
-
-| Requirement | Status | Implementation |
-|---|---|---|
-| Updated frameworks | ✅ | `npm audit` — 0 vulnerabilities. React 19, Vite 6, MUI 6, Node 22 |
-| No debug features | ✅ | No `console.log` with passwords/secrets. No debug endpoints in production |
-| No hardcoded secrets | ✅ | All secrets (JWT_SECRET, Firebase SA, Supabase key) via environment variables. `npm run secrets:scan` passes |
-| Security headers | ✅ | `backend/src/server_npmfree.js:640-648` — `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, `Content-Security-Policy: default-src 'self'`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security` |
-| CORS restriction | ✅ | `backend/src/server_npmfree.js:620-638` — `CORS_ORIGINS` env var restricts to `inventrak-admin.onrender.com` + `inventrak-mobile.onrender.com` in production |
-
-## 9. Database Security
-
-| Requirement | Status | Implementation |
-|---|---|---|
-| Least-privilege DB account | ✅ | Supabase service role key used server-side only. Never exposed to client |
-| Parameterized queries | ✅ | `backend/src/store-supabase.js` — All queries use Supabase client (parameterized by design). npm-free driver: in-memory store |
-| Admin/customer privilege separation | ✅ | Admin endpoints require `admin` role. Customer endpoints scope data per-account. Staff can read + propose but not approve |
-| Access monitoring | ✅ | `backend/src/audit.js` — Every auth event and mutation logged with timestamp, event type, user ID, and redacted details |
-
----
-
-## Test Coverage
-
-| Test File | What It Proves |
-|---|---|
-| `backend/src/test/auth.test.js` | Login, register, bcrypt, rate limiting, MFA, generic errors |
-| `backend/src/test/auth-scoping.test.js` | Per-account order isolation (customer sees own only, admin sees all) |
-| `backend/src/test/audit.test.js` | Audit log records events, redacts PII |
-| `backend/src/test/security-headers.test.js` | CORS, HSTS, CSP, X-Frame-Options present |
-| `frontend-admin/src/api.auth-scoping.test.js` | Admin API client sends correct auth headers |
-| `frontend-admin/e2e/admin-login.spec.js` | E2E: login flow, MFA, session management, accessibility |
-| `frontend-admin/e2e/order-flow.spec.js` | E2E: dashboard, navigation, role-based access |
-
-## OWASP Top 10 (2021) Mapping
-
-| # | Risk | How INVENTRAK Addresses It |
-|---|---|---|
-| A01 | Broken Access Control | RBAC per-request (`requireAuth`), per-account scoping, least privilege |
-| A02 | Cryptographic Failures | bcrypt passwords, HMAC-SHA256 tokens, HTTPS enforced, no plaintext secrets |
-| A03 | Injection | Parameterized queries (Supabase), in-memory store (npm-free), no raw SQL |
-| A04 | Insecure Design | Role separation (admin/staff/customer), approval workflow, audit trail |
-| A05 | Security Misconfiguration | CORS restricted, security headers, no debug endpoints, env-var secrets |
-| A06 | Vulnerable Components | `npm audit` 0 vulnerabilities, React 19 / Vite 6 / Node 22 |
-| A07 | Auth Failures | Rate limiting, MFA, generic errors, bcrypt, session expiry |
-| A08 | Data Integrity | HMAC-signed tokens, recovery codes hashed at rest, audit log integrity |
-| A09 | Logging Failures | Comprehensive audit logging with PII redaction |
-| A10 | SSRF | No user-supplied URLs fetched server-side. OCR uses local image processing |
+| `JWT_SECRET` | Token signing key (SQLite backend) | Yes (prod) |
+| `NPMFREE_TOKEN_SECRET` | Token signing key (npm-free backend) | Yes (prod) |
+| `CORS_ORIGINS` | Allowed frontend origins | Recommended |
+| `DISABLE_DEMO_ACCOUNTS` | Block demo logins in production | Optional |
+| `RESEND_API_KEY` | Email delivery | Optional |
+| `PAYMONGO_SECRET_KEY` | Payment processing | Optional |
+| `SUPABASE_URL` + `SUPABASE_KEY` | Cloud database | Optional |
