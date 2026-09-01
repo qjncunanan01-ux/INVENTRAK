@@ -1004,6 +1004,13 @@ const server = http.createServer((req, res) => {
       // Sanitize user input to prevent XSS in stored data
       const cleanUsername = sanitizeObject(obj.username);
       const cleanEmail = sanitizeObject(obj.email);
+      // Reject if sanitization stripped everything (e.g. pure HTML tags)
+      if (!cleanUsername || cleanUsername.length === 0) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['username must contain valid characters'] });
+      }
+      if (!cleanEmail || cleanEmail.length === 0) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['email must contain valid characters'] });
+      }
       if (users.some(u => u.username === cleanUsername)) return sendJson(res, 409, { error: 'Username already exists' });
       const user = { id: nextUserId++, username: cleanUsername, password: hashPassword(obj.password), role: 'customer', email: cleanEmail, phone: obj.phone, email_verified: false, created_at: new Date().toISOString() };
       users.push(user);
@@ -1407,6 +1414,7 @@ const server = http.createServer((req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         if (!obj.name || !obj.category) return sendJson(res, 400, { error: 'Validation failed', details: ['name and category are required'] });
+        if (String(obj.name).length > PRODUCT_NAME_MAX_LENGTH) return sendJson(res, 400, { error: 'Validation failed', details: [`name must be at most ${PRODUCT_NAME_MAX_LENGTH} characters`] });
         // Mirror the SQLite validate() schema: price is required and numeric >= 0.
         const priceNum = Number(obj.price);
         if (obj.price === undefined || obj.price === null || obj.price === '' || !Number.isFinite(priceNum) || priceNum < 0) {
@@ -2244,6 +2252,18 @@ const server = http.createServer((req, res) => {
       if (err) return bodyError(res, err);
       if (!obj.customer_name || !obj.customer_email) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['customer_name and customer_email are required'] });
+      }
+      // Sanitize user input to prevent XSS in stored data
+      obj.customer_name = sanitizeObject(obj.customer_name);
+      if (obj.delivery_address) obj.delivery_address = sanitizeObject(obj.delivery_address);
+      if (obj.notes) obj.notes = sanitizeObject(obj.notes);
+      // Validate quantities in line items (must be positive integers, max 10000)
+      if (Array.isArray(obj.products)) {
+        for (const item of obj.products) {
+          const qty = Number(item.quantity || item.qty);
+          if (qty < 0) return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not be negative'] });
+          if (qty > 10000) return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not exceed 10000'] });
+        }
       }
       // Checkout fields (optional but validated when present) — mirrors the
       // SQLite backend: delivery_address <= 500 chars, payment_method enum.

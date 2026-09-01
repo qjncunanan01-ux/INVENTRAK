@@ -520,9 +520,25 @@ app.post(
       });
     }
 
+    // Sanitize and validate after sanitization (prevents empty username from HTML tags)
+    const cleanUsername = sanitizeObject(username);
+    const cleanEmail = sanitizeObject(email);
+    if (!cleanUsername || cleanUsername.length === 0) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: ['username must contain valid characters'],
+      });
+    }
+    if (!cleanEmail || cleanEmail.length === 0) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: ['email must contain valid characters'],
+      });
+    }
+
     const existing = db
       .prepare('SELECT id FROM users WHERE username = ?')
-      .get(username);
+      .get(cleanUsername);
 
     if (existing) {
       return res.status(409).json({
@@ -539,7 +555,7 @@ app.post(
     const result = db.prepare(
       'INSERT INTO users (username, password, role, email, phone, email_verified) VALUES (?, ?, ?, ?, ?, 0)'
     ).run(
-      sanitizeObject(username),
+      cleanUsername,
       hashedPw,
       'customer',
       sanitizeObject(email),
@@ -3078,6 +3094,21 @@ app.post(
       payment_method,
     } = req.body;
 
+    // Sanitize user input to prevent XSS in stored data
+    const cleanName = sanitizeObject(customer_name);
+    const cleanEmail = sanitizeObject(customer_email);
+    const cleanAddress = delivery_address ? sanitizeObject(delivery_address) : delivery_address;
+    const cleanNotes = notes ? sanitizeObject(notes) : notes;
+
+    // Validate quantities in line items (must be positive integers, max 10000)
+    if (Array.isArray(products)) {
+      for (const item of products) {
+        const qty = Number(item.quantity || item.qty);
+        if (qty < 0) return res.status(400).json({ error: 'Validation failed', details: ['quantity must not be negative'] });
+        if (qty > 10000) return res.status(400).json({ error: 'Validation failed', details: ['quantity must not exceed 10000'] });
+      }
+    }
+
     // Checkout fields (optional, but validated when present): the delivery
     // address the customer typed and the payment method they picked
     // (cod | gcash | card | other). Mirrors the npm-free fallback exactly.
@@ -3122,13 +3153,13 @@ app.post(
     const inquiryId = db.prepare(
       'INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, user_id, status_history, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(
-      customer_name,
-      customer_email,
+      cleanName,
+      cleanEmail,
       customer_phone || null,
       JSON.stringify(lines),
       storedCost,
-      notes || '',
-      delivery_address || null,
+      cleanNotes || '',
+      cleanAddress || null,
       payment_method || 'cod',
       userId,
       JSON.stringify([{ status: 'pending', at: now }]),
