@@ -3,8 +3,10 @@ import AdminPanelSettingsOutlined from '@mui/icons-material/AdminPanelSettingsOu
 import BadgeOutlined from '@mui/icons-material/BadgeOutlined';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../api';
+import HaikeiBackground from '../components/HaikeiBackground';
 import { brandSidebar, colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -141,18 +143,27 @@ export default function LoginPage({ onLogin }) {
   };
 
   return (
-    <Container
-      maxWidth="sm"
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.background,
-        py: 8,
-      }}
-    >
-      <Paper sx={{ width: '100%', p: { xs: 3, md: 5 }, borderRadius: 4, boxShadow: '0 30px 90px rgba(15, 60, 18, 0.12)' }}>
+    <>
+      <HaikeiBackground />
+      <Container
+        maxWidth="sm"
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          py: 8,
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          style={{ width: '100%' }}
+        >
+      <Paper sx={{ width: '100%', p: { xs: 3, md: 5 }, borderRadius: 4, boxShadow: '0 30px 90px rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', backgroundColor: 'rgba(255, 255, 255, 0.95)' }}>
         <Box sx={{ mb: 3, p: 3, borderRadius: 3, backgroundColor: brandSidebar, color: '#fff' }}>
           <Typography variant="h5" component="div" gutterBottom>
             INVENTRAK Admin
@@ -168,50 +179,54 @@ export default function LoginPage({ onLogin }) {
 
         {/* Demo quick-fill: one tap populates the account, then press Login. */}
         <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={() => fillDemo('owner')}
-            startIcon={<AdminPanelSettingsOutlined />}
-            disabled={loading}
-            aria-label="Fill owner demo account"
-            sx={{
-              py: 1.25,
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: 0.25,
-              backgroundColor: colors.brandPrimary,
-              '&:hover': { backgroundColor: '#19570c' },
-              textTransform: 'none',
-            }}
-          >
-            <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Owner</Box>
-            <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
-              {showDemo ? 'admin / admin123' : 'Tap to fill'} · full access
-            </Box>
-          </Button>
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={() => fillDemo('staff')}
-            startIcon={<BadgeOutlined />}
-            disabled={loading}
-            aria-label="Fill staff demo account"
-            sx={{
-              py: 1.25,
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: 0.25,
-              backgroundColor: '#e66a0d',
-              '&:hover': { backgroundColor: '#cf5c09' },
-              textTransform: 'none',
-            }}
-          >
-            <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Staff</Box>
-            <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
-              {showDemo ? 'staff / staff123' : 'Tap to fill'} · requests &amp; scanning
-            </Box>
-          </Button>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1 }}>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={() => fillDemo('owner')}
+              startIcon={<AdminPanelSettingsOutlined />}
+              disabled={loading}
+              aria-label="Fill owner demo account"
+              sx={{
+                py: 1.25,
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 0.25,
+                backgroundColor: colors.brandPrimary,
+                '&:hover': { backgroundColor: '#19570c' },
+                textTransform: 'none',
+              }}
+            >
+              <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Owner</Box>
+              <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
+                {showDemo ? 'admin / admin123' : 'Tap to fill'} · full access
+              </Box>
+            </Button>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1 }}>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={() => fillDemo('staff')}
+              startIcon={<BadgeOutlined />}
+              disabled={loading}
+              aria-label="Fill staff demo account"
+              sx={{
+                py: 1.25,
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                gap: 0.25,
+                backgroundColor: '#e66a0d',
+                '&:hover': { backgroundColor: '#cf5c09' },
+                textTransform: 'none',
+              }}
+            >
+              <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Staff</Box>
+              <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
+                {showDemo ? 'staff / staff123' : 'Tap to fill'} · requests &amp; scanning
+              </Box>
+            </Button>
+          </motion.div>
         </Stack>
         <Typography
           variant="caption"
@@ -290,22 +305,26 @@ export default function LoginPage({ onLogin }) {
                 Caps Lock is on — your password will not match.
               </Typography>
             )}
-            <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large" sx={{ mt: 2 }}>
-              {loading
-                ? 'Signing in…'
-                : lockoutLeft > 0
-                  ? `Locked — try again in ${lockoutLeft}s`
-                  : 'Login'}
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large" sx={{ mt: 2 }}>
+                {loading
+                  ? 'Signing in…'
+                  : lockoutLeft > 0
+                    ? `Locked — try again in ${lockoutLeft}s`
+                    : 'Login'}
+              </Button>
+            </motion.div>
           </>
         )}
       </Paper>
+      </motion.div>
+      </Container>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         message={snackbar.message}
       />
-    </Container>
+    </>
   );
 }

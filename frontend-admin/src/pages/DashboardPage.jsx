@@ -19,6 +19,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import FactCheckIcon from '@mui/icons-material/FactCheck'; //Added as of August 27, 2026.
+import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -595,27 +596,27 @@ export default function DashboardPage({ user, onLogout }) {
       {/* ─── Summary Cards ─── */}
       <SectionLabel>Inventory Overview</SectionLabel>
       <Grid container spacing={2}>
-        {panels.slice(0, 4).map((panel) => (
+        {panels.slice(0, 4).map((panel, index) => (
           <Grid item xs={12} sm={6} md={3} key={panel.label}>
-            <StatCard panel={panel} loading={loading} onClick={handleCardClick} />
+            <StatCard panel={panel} loading={loading} onClick={handleCardClick} index={index} />
           </Grid>
         ))}
       </Grid>
 
       <SectionLabel>Sales & Orders</SectionLabel>
       <Grid container spacing={2}>
-        {panels.slice(4, 8).map((panel) => (
+        {panels.slice(4, 8).map((panel, index) => (
           <Grid item xs={12} sm={6} md={3} key={panel.label}>
-            <StatCard panel={panel} loading={loading} onClick={handleCardClick} />
+            <StatCard panel={panel} loading={loading} onClick={handleCardClick} index={index + 4} />
           </Grid>
         ))}
       </Grid>
 
       <SectionLabel>Activity</SectionLabel>
       <Grid container spacing={2}>
-        {panels.slice(8, 12).map((panel) => (
+        {panels.slice(8, 12).map((panel, index) => (
           <Grid item xs={12} sm={6} md={3} key={panel.label}>
-            <StatCard panel={panel} loading={loading} onClick={handleCardClick} />
+            <StatCard panel={panel} loading={loading} onClick={handleCardClick} index={index + 8} />
           </Grid>
         ))}
       </Grid>
@@ -1069,50 +1070,55 @@ export default function DashboardPage({ user, onLogout }) {
   );
 }
 
-// ─── Reusable stat card component ───
-function StatCard({ panel, loading, onClick }) {
+// ─── Reusable stat card component with Motion Primitives-style animation ───
+function StatCard({ panel, loading, onClick, index = 0 }) {
   return (
-    <Tooltip title="Click to view detailed item list" arrow placement="top">
-      <Paper
-        onClick={() => onClick(panel)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(panel); } }}
-        tabIndex={0}
-        role="button"
-        aria-label={`${panel.label}: ${loading ? 'loading' : panel.value}. Click to inspect.`}
-        sx={{
-          p: 2.5,
-          backgroundColor: 'white',
-          borderRadius: 3,
-          borderLeft: `4px solid ${panel.color}`,
-          cursor: 'pointer',
-          transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-          '&:hover': {
-            transform: 'translateY(-3px)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.13)',
-          },
-          '&:focus-visible': {
-            outline: '2px solid #1f640e',
-            outlineOffset: '2px',
-          },
-          // Taste Skill tactile feedback: scale down on active
-          '&:active': {
-            transform: 'scale(0.98)',
-          },
-        }}
-      >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, fontSize: '0.72rem' }}>
-            {panel.label}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.05, ease: 'easeOut' }}
+      whileHover={{ y: -4, boxShadow: '0 12px 32px rgba(0,0,0,0.15)' }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <Tooltip title="Click to view detailed item list" arrow placement="top">
+        <Paper
+          onClick={() => onClick(panel)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(panel); } }}
+          tabIndex={0}
+          role="button"
+          aria-label={`${panel.label}: ${loading ? 'loading' : panel.value}. Click to inspect.`}
+          sx={{
+            p: 2.5,
+            backgroundColor: 'white',
+            borderRadius: 3,
+            borderLeft: `4px solid ${panel.color}`,
+            cursor: 'pointer',
+            transition: 'box-shadow 0.2s ease-in-out',
+            '&:focus-visible': {
+              outline: '2px solid #1f640e',
+              outlineOffset: '2px',
+            },
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, fontSize: '0.72rem' }}>
+              {panel.label}
+            </Typography>
+            <motion.div
+              whileHover={{ rotate: 10, scale: 1.2 }}
+              transition={{ type: 'spring', stiffness: 300 }}
+            >
+              <Box sx={{ color: 'text.secondary', opacity: 0.5 }} aria-hidden="true">{panel.icon}</Box>
+            </motion.div>
+          </Box>
+          <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+            {loading ? '…' : panel.value}
           </Typography>
-          <Box sx={{ color: 'text.secondary', opacity: 0.5 }} aria-hidden="true">{panel.icon}</Box>
-        </Box>
-        <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-          {loading ? '…' : panel.value}
-        </Typography>
-        <Typography variant="caption" color="primary" sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>
-          Click to inspect →
-        </Typography>
-      </Paper>
-    </Tooltip>
+          <Typography variant="caption" color="primary" sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>
+            Click to inspect →
+          </Typography>
+        </Paper>
+      </Tooltip>
+    </motion.div>
   );
 }
