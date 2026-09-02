@@ -14,6 +14,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import PressableScale from '../PressableScale';
 import WaveHeader from '../WaveHeader';
 import AnimatedEntry from '../AnimatedEntry';
+import MotiCard from '../MotiCard';
 
 const HOME_CATEGORY_GROUPS = [
   {
@@ -186,17 +187,11 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
 </WaveHeader>
 
         {/* Promo banner — animated entrance (Watermelon/Motion-Primitives style) */}
-        <AnimatedEntry delay={100} preset="slide">
-        <PressableScale
-          style={styles.banner}
-          pressableStyle={styles.cardContent}
-          onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
-        >
+        <MotiCard delay={100} entrance="slide" onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })} style={styles.banner}>
           <Text style={styles.bannerTag}>WHOLESALE SUPPLIES</Text>
           <Text style={styles.bannerTitle}>Send an order inquiry today</Text>
           <Text style={styles.bannerSub}>Get pricing for your café or store</Text>
-        </PressableScale>
-        </AnimatedEntry>
+        </MotiCard>
 
 {/* Quick Actions section — animated entrance */}
         <AnimatedEntry delay={200} preset="fade">
@@ -207,13 +202,13 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
             public trio plus a Log In tile so the grid stays balanced and the
             account value is obvious (Shopee/Lazada pattern). */}
         <View style={styles.quickRow}>
-          {quickActions(isLoggedIn, navigation).map((a) => (
-            <PressableScale
+          {quickActions(isLoggedIn, navigation).map((a, idx) => (
+            <MotiCard
               key={a.key}
-              style={[styles.quickItem, a.primary && styles.quickItemPrimary]}
+              delay={250 + idx * 60}
+              entrance="pop"
               onPress={a.onPress}
-              accessibilityLabel={a.label}
-              accessibilityRole="button"
+              style={[styles.quickItem, a.primary && styles.quickItemPrimary]}
             >
               {/* Shopee-style colored icon disc: each action gets a tinted
                   circular badge behind its vector icon; the primary CTA
@@ -233,7 +228,7 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
                 />
               </View>
               <Text style={[styles.quickLabel, a.primary && styles.quickLabelPrimary]}>{a.label}</Text>
-            </PressableScale>
+            </MotiCard>
           ))}
         </View>
         {!isLoggedIn ? (
@@ -262,10 +257,10 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
 
 <View style={styles.groupCategoryGrid}>
   {HOME_CATEGORY_GROUPS.map((item) => (
-    <PressableScale
+    <MotiCard
       key={item.label}
-      style={styles.groupCategoryCard}
-      pressableStyle={styles.groupCategoryCardInner}
+      delay={350}
+      entrance="fade"
       onPress={() =>
         navigation.navigate('CatalogTab', {
           screen: 'Products',
@@ -276,6 +271,8 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
           },
         })
       }
+      style={styles.groupCategoryCard}
+      contentStyle={styles.groupCategoryCardInner}
       accessibilityLabel={`Browse ${item.label} products`}
       accessibilityRole="button"
     >
@@ -293,7 +290,7 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
       >
         {item.label}
       </Text>
-    </PressableScale>
+    </MotiCard>
   ))}
 </View>
         </AnimatedEntry>
