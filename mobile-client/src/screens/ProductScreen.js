@@ -556,7 +556,7 @@ export default function ProductScreen({ route, navigation }) {
         contentContainerStyle={styles.listContent}          renderItem={({ item, index }) => {
           const cardDeal = pickIds.has(Number(item.id)) ? dealPricing(item) : null;
           return (
-            <AnimatedEntry delay={Math.min(index * 50, 400)}>
+            <AnimatedEntry delay={Math.min(index * 60, 480)} preset="pop" duration={350}>
             <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} accessibilityLabel={`${item.name}, ${item.category}, P${item.price}`} accessibilityRole="button">
               <View style={styles.cardTop}>
                 {item.image ? (

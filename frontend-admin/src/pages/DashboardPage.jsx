@@ -21,6 +21,7 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import FactCheckIcon from '@mui/icons-material/FactCheck'; //Added as of August 27, 2026.
 import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
+import AnimatedCounter from '../components/AnimatedCounter';
 import { useNavigate } from 'react-router-dom';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
@@ -512,20 +513,20 @@ export default function DashboardPage({ user, onLogout }) {
 
   const panels = [
     // Row 1 — Inventory
-    { key: 'products', label: 'Total Products', value: summary.totalProducts, color: colors.brandPrimary, icon: <Inventory2Icon color="primary" />, navigateTo: '/products' },
-    { key: 'inventory', label: 'Total Inventory', value: summary.totalStock.toLocaleString(), color: colors.info, icon: <Inventory2Icon color="info" />, navigateTo: '/inventory' },
-    { key: 'lowStock', label: 'Low Stock Items', value: summary.lowStockItems, color: summary.lowStockItems > 0 ? colors.warning : colors.success, icon: <WarningAmberIcon color="warning" />, navigateTo: '/inventory' },
-    { key: 'locationStock', label: 'Locations', value: summary.totalLocations, color: colors.brandSecondary, icon: <LocationOnIcon color="secondary" />, navigateTo: '/locations' },
+    { key: 'products', label: 'Total Products', value: summary.totalProducts, numericValue: summary.totalProducts, color: colors.brandPrimary, icon: <Inventory2Icon color="primary" />, navigateTo: '/products' },
+    { key: 'inventory', label: 'Total Inventory', value: summary.totalStock, numericValue: summary.totalStock, color: colors.info, icon: <Inventory2Icon color="info" />, navigateTo: '/inventory' },
+    { key: 'lowStock', label: 'Low Stock Items', value: summary.lowStockItems, numericValue: summary.lowStockItems, color: summary.lowStockItems > 0 ? colors.warning : colors.success, icon: <WarningAmberIcon color="warning" />, navigateTo: '/inventory' },
+    { key: 'locationStock', label: 'Locations', value: summary.totalLocations, numericValue: summary.totalLocations, color: colors.brandSecondary, icon: <LocationOnIcon color="secondary" />, navigateTo: '/locations' },
     // Row 2 — Sales & Operations
-    { key: 'monthlySales', label: 'Sales This Month', value: `P${summary.monthlySalesValue.toLocaleString()}`, color: colors.success, icon: <AttachMoneyIcon color="success" />, navigateTo: '/stock-movement' },
-    { key: 'sales', label: 'Total Sales (All-time)', value: `P${summary.totalSales.toLocaleString()}`, color: colors.brandPrimary, icon: <AttachMoneyIcon color="primary" />, navigateTo: '/stock-movement' },
-    { key: 'customers', label: 'Customers Served', value: summary.customersServed, color: colors.info, icon: <PeopleIcon color="info" />, navigateTo: '/order-inquiries' },
-    { key: 'orderStatus', label: 'Order Status', value: `${summary.orderStatusCounts.pending} Pending`, color: summary.orderStatusCounts.pending > 0 ? colors.warning : colors.success, icon: <ReceiptIcon color="warning" />, navigateTo: '/order-inquiries' },
+    { key: 'monthlySales', label: 'Sales This Month', value: summary.monthlySalesValue, numericValue: summary.monthlySalesValue, prefix: 'P', color: colors.success, icon: <AttachMoneyIcon color="success" />, navigateTo: '/stock-movement' },
+    { key: 'sales', label: 'Total Sales (All-time)', value: summary.totalSales, numericValue: summary.totalSales, prefix: 'P', color: colors.brandPrimary, icon: <AttachMoneyIcon color="primary" />, navigateTo: '/stock-movement' },
+    { key: 'customers', label: 'Customers Served', value: summary.customersServed, numericValue: summary.customersServed, color: colors.info, icon: <PeopleIcon color="info" />, navigateTo: '/order-inquiries' },
+    { key: 'orderStatus', label: 'Order Status', value: summary.orderStatusCounts.pending, numericValue: summary.orderStatusCounts.pending, suffix: ' Pending', color: summary.orderStatusCounts.pending > 0 ? colors.warning : colors.success, icon: <ReceiptIcon color="warning" />, navigateTo: '/order-inquiries' },
     // Row 3 — Activity
-    { key: 'monthlySales', label: 'Transactions This Month', value: summary.monthlyTransactions, color: colors.brandSecondary, icon: <ReceiptIcon />, navigateTo: '/stock-movement' },
-    { key: 'inquiries', label: 'Pending Inquiries', value: summary.pendingInquiries, color: summary.pendingInquiries > 0 ? '#f9a825' : colors.success, icon: <ShoppingCartIcon color="warning" />, navigateTo: '/order-inquiries' },
-    { key: 'movements', label: 'Stock Movements', value: summary.totalMovements, color: colors.info, icon: <HistoryIcon color="info" />, navigateTo: '/stock-movement' },
-    { key: 'alerts', label: 'Active Alerts', value: summary.activeAlerts, color: summary.activeAlerts > 0 ? colors.error : colors.success, icon: <NotificationsActiveIcon color="error" />, navigateTo: '/optimization' },
+    { key: 'monthlySalesTx', label: 'Transactions This Month', value: summary.monthlyTransactions, numericValue: summary.monthlyTransactions, color: colors.brandSecondary, icon: <ReceiptIcon />, navigateTo: '/stock-movement' },
+    { key: 'inquiries', label: 'Pending Inquiries', value: summary.pendingInquiries, numericValue: summary.pendingInquiries, color: summary.pendingInquiries > 0 ? '#f9a825' : colors.success, icon: <ShoppingCartIcon color="warning" />, navigateTo: '/order-inquiries' },
+    { key: 'movements', label: 'Stock Movements', value: summary.totalMovements, numericValue: summary.totalMovements, color: colors.info, icon: <HistoryIcon color="info" />, navigateTo: '/stock-movement' },
+    { key: 'alerts', label: 'Active Alerts', value: summary.activeAlerts, numericValue: summary.activeAlerts, color: summary.activeAlerts > 0 ? colors.error : colors.success, icon: <NotificationsActiveIcon color="error" />, navigateTo: '/optimization' },
   ];
 
   const filteredModalData = modalData.filter(item => {
@@ -1111,8 +1112,15 @@ function StatCard({ panel, loading, onClick, index = 0 }) {
               <Box sx={{ color: 'text.secondary', opacity: 0.5 }} aria-hidden="true">{panel.icon}</Box>
             </motion.div>
           </Box>
-          <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-            {loading ? '…' : panel.value}
+          <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700 }}>
+            {loading ? '…' : (
+              <AnimatedCounter
+                target={panel.numericValue ?? 0}
+                prefix={panel.prefix || ''}
+                suffix={panel.suffix || ''}
+                duration={1000}
+              />
+            )}
           </Typography>
           <Typography variant="caption" color="primary" sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>
             Click to inspect →

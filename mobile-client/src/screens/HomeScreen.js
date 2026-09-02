@@ -186,7 +186,7 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
 </WaveHeader>
 
         {/* Promo banner — animated entrance (Watermelon/Motion-Primitives style) */}
-        <AnimatedEntry delay={100}>
+        <AnimatedEntry delay={100} preset="slide">
         <PressableScale
           style={styles.banner}
           pressableStyle={styles.cardContent}
@@ -199,7 +199,7 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
         </AnimatedEntry>
 
 {/* Quick Actions section — animated entrance */}
-        <AnimatedEntry delay={200}>
+        <AnimatedEntry delay={200} preset="fade">
         <Text style={styles.sectionTitle}>Quick Actions</Text>
 
         {/* Quick actions. Personal features (Order History, Notifications,
@@ -244,7 +244,7 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
         </AnimatedEntry>
 
         {/* Grouped Home categories — animated entrance */}
-<AnimatedEntry delay={300}>
+<AnimatedEntry delay={300} preset="slide">
 <View style={styles.sectionRow}>
   <Text style={styles.sectionTitle}>Categories</Text>
 
