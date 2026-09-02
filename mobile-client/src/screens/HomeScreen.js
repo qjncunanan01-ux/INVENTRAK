@@ -12,6 +12,8 @@ import { useThemeColors } from '../theme-context';
 import { categoryIcon } from '../category-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import PressableScale from '../PressableScale';
+import WaveHeader from '../WaveHeader';
+import AnimatedEntry from '../AnimatedEntry';
 
 const HOME_CATEGORY_GROUPS = [
   {
@@ -125,11 +127,8 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
   <View style={styles.container}>
     <ScrollView
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0]}
-    >
-
-      {/* Entire top header stays sticky */}
-<View style={styles.fullStickyHeader}>
+    >        {/* Haikei-style gradient header with wave bottom */}
+<WaveHeader height={180}>
   <View style={styles.topRow}>
     <Text style={styles.brand}>INVENTRAK</Text>
 
@@ -177,16 +176,17 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
     <MaterialCommunityIcons
       name="magnify"
       size={18}
-      color={colors.textSecondary}
+      color="rgba(255,255,255,0.7)"
     />
 
     <Text style={styles.searchPlaceholder}>
       Search supplies, brands…
     </Text>
   </TouchableOpacity>
-</View>
+</WaveHeader>
 
-        {/* Promo banner (scales on press like every card on Home) */}
+        {/* Promo banner — animated entrance (Watermelon/Motion-Primitives style) */}
+        <AnimatedEntry delay={100}>
         <PressableScale
           style={styles.banner}
           pressableStyle={styles.cardContent}
@@ -196,8 +196,10 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
           <Text style={styles.bannerTitle}>Send an order inquiry today</Text>
           <Text style={styles.bannerSub}>Get pricing for your café or store</Text>
         </PressableScale>
+        </AnimatedEntry>
 
-{/* Quick Actions section */}
+{/* Quick Actions section — animated entrance */}
+        <AnimatedEntry delay={200}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
 
         {/* Quick actions. Personal features (Order History, Notifications,
@@ -239,8 +241,10 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
     🔒 Sign in to access order history, notifications, and product scanning.
   </Text>
 ) : null}
+        </AnimatedEntry>
 
-        {/* Grouped Home categories */}
+        {/* Grouped Home categories — animated entrance */}
+<AnimatedEntry delay={300}>
 <View style={styles.sectionRow}>
   <Text style={styles.sectionTitle}>Categories</Text>
 
@@ -292,6 +296,7 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
     </PressableScale>
   ))}
 </View>
+        </AnimatedEntry>
 
         {/* Flash Sale — Shopee-style urgency: a live countdown to the daily
             midnight refresh, after which the featured picks rotate to a

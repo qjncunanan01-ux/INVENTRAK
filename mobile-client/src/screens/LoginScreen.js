@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { API_BASE_URL, login, setSessionDetails, setSessionUsername, setToken } from '../api';
 import BackButton from '../BackButton';
 import { useThemeColors } from '../theme-context';
+import AnimatedEntry from '../AnimatedEntry';
 
 // Demo account the quick-fill button populates (matches the seeded
 // customer/customer123 account on both backends). Kept in one place so the
@@ -184,7 +186,13 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={[colors.brandPrimary, colors.brandSecondary || colors.brandPrimary, colors.background]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+      style={styles.container}
+    >
+      <AnimatedEntry delay={0}>
       {/* Top-left back pill — escaping the login screen is one obvious tap
           (the old bottom link was easy to miss). */}
       <BackButton navigation={navigation} label="Back to store" />
@@ -256,14 +264,15 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.linkForgot}>Forgot password?</Text>
       </TouchableOpacity>
 
-    </View>
+      </AnimatedEntry>
+    </LinearGradient>
   );
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.background },
-  title: { fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center', color: colors.brandPrimary },
-  subtitle: { fontSize: 16, marginBottom: 8, textAlign: 'center', color: colors.textSecondary },
+  container: { flex: 1, justifyContent: 'center', padding: 24 },
+  title: { fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center', color: '#fff' },
+  subtitle: { fontSize: 16, marginBottom: 8, textAlign: 'center', color: 'rgba(255,255,255,0.85)' },
   input: { backgroundColor: colors.surface, padding: 14, marginBottom: 16, borderRadius: 10, color: colors.textPrimary, fontSize: 16 },
   demoBtn: {
     flexDirection: 'row',

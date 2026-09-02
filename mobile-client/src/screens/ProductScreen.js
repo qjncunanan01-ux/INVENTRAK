@@ -28,6 +28,7 @@ import {
   stockStatus,
 } from '../product-enrichment';
 import { useThemeColors } from '../theme-context';
+import AnimatedEntry from '../AnimatedEntry';
 
 const SORT_OPTIONS = [
   { key: 'default', label: 'Featured' },
@@ -552,10 +553,10 @@ export default function ProductScreen({ route, navigation }) {
         keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         columnWrapperStyle={styles.rowWrap}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => {
+        contentContainerStyle={styles.listContent}          renderItem={({ item, index }) => {
           const cardDeal = pickIds.has(Number(item.id)) ? dealPricing(item) : null;
           return (
+            <AnimatedEntry delay={Math.min(index * 50, 400)}>
             <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} accessibilityLabel={`${item.name}, ${item.category}, P${item.price}`} accessibilityRole="button">
               <View style={styles.cardTop}>
                 {item.image ? (
@@ -592,6 +593,7 @@ export default function ProductScreen({ route, navigation }) {
               )}
               <Text style={styles.cardRating}>★ {productRating(item).rating}</Text>
             </TouchableOpacity>
+            </AnimatedEntry>
           );
         }}
         ListEmptyComponent={<Text style={styles.empty}>No products found.</Text>}
