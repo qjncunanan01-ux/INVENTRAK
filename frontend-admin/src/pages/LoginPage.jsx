@@ -6,7 +6,7 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../api';
-import HaikeiBackground from '../components/HaikeiBackground';
+import ShaderGradientBg from '../components/ShaderGradientBg';
 import { brandSidebar, colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 
@@ -144,7 +144,7 @@ export default function LoginPage({ onLogin }) {
 
   return (
     <>
-      <HaikeiBackground />
+      <ShaderGradientBg />
       <Container
         maxWidth="sm"
         sx={{

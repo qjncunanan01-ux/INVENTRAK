@@ -51,6 +51,16 @@ export default defineConfig({
             return 'charts';
           }
           if (
+            norm.includes('/node_modules/three/') ||
+            norm.includes('/node_modules/@react-three/') ||
+            norm.includes('/node_modules/@shadergradient/') ||
+            norm.includes('/node_modules/liquid-glass') ||
+            norm.includes('/node_modules/camera-controls') ||
+            norm.includes('/node_modules/three-stdlib/')
+          ) {
+            return 'threejs';
+          }
+          if (
             norm.includes('/node_modules/react/') ||
             norm.includes('/node_modules/react-dom/') ||
             norm.includes('/node_modules/scheduler/') ||

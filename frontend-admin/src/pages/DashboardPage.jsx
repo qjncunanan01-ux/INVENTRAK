@@ -22,6 +22,7 @@ import FactCheckIcon from '@mui/icons-material/FactCheck'; //Added as of August 
 import { motion } from 'framer-motion';
 import { useEffect, useState, useCallback } from 'react';
 import AnimatedCounter from '../components/AnimatedCounter';
+import LiquidGlassCard from '../components/LiquidGlassCard';
 import { useNavigate } from 'react-router-dom';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
@@ -1082,6 +1083,7 @@ function StatCard({ panel, loading, onClick, index = 0 }) {
       whileTap={{ scale: 0.98 }}
     >
       <Tooltip title="Click to view detailed item list" arrow placement="top">
+        <LiquidGlassCard intensity="low" color="rgba(255, 255, 255, 0.05)">
         <Paper
           onClick={() => onClick(panel)}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(panel); } }}
@@ -1090,11 +1092,12 @@ function StatCard({ panel, loading, onClick, index = 0 }) {
           aria-label={`${panel.label}: ${loading ? 'loading' : panel.value}. Click to inspect.`}
           sx={{
             p: 2.5,
-            backgroundColor: 'white',
+            backgroundColor: 'rgba(255, 255, 255, 0.85)',
             borderRadius: 3,
             borderLeft: `4px solid ${panel.color}`,
             cursor: 'pointer',
             transition: 'box-shadow 0.2s ease-in-out',
+            backdropFilter: 'blur(8px)',
             '&:focus-visible': {
               outline: '2px solid #1f640e',
               outlineOffset: '2px',
@@ -1126,6 +1129,7 @@ function StatCard({ panel, loading, onClick, index = 0 }) {
             Click to inspect →
           </Typography>
         </Paper>
+        </LiquidGlassCard>
       </Tooltip>
     </motion.div>
   );
