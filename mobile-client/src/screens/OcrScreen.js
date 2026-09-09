@@ -206,6 +206,16 @@ export default function OcrScreen({ navigation }) {
           <Text style={styles.btnGhostText}>🖼 Upload photo</Text>
         </TouchableOpacity>
       </View>
+      {/* QR/barcode tag scanner (location tags + product tags) — a second
+          camera flow that reads the system's printed tags instead of OCR-ing
+          a label. */}
+      <TouchableOpacity
+        style={styles.qrBtn}
+        onPress={() => navigation.navigate('QrScan')}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.qrBtnText}>▦ Scan a QR / barcode tag</Text>
+      </TouchableOpacity>
 
       {busy && (
         <View style={styles.busy}>
@@ -261,6 +271,16 @@ const createStyles = (colors) => StyleSheet.create({
   btnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   btnGhost: { borderWidth: 1.5, borderColor: colors.brandPrimary },
   btnGhostText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
+  qrBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.brandSecondary,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    marginBottom: 16,
+    backgroundColor: colors.surface,
+  },
+  qrBtnText: { color: colors.brandSecondary, fontSize: 14, fontWeight: '700' },
   busy: { alignItems: 'center', paddingVertical: 24 },
   busyText: { marginTop: 10, color: colors.textSecondary, fontSize: 14 },
   preview: { width: '100%', height: 200, borderRadius: 12, marginBottom: 12, backgroundColor: colors.surface },

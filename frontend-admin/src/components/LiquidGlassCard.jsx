@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Box } from '@mui/material';
 
 /**
@@ -22,24 +22,30 @@ function GlassFallback({ children }) {
   return <Box>{children}</Box>;
 }
 
+// Detect WebGL support ONCE, synchronously, before the first render (a lazy
+// useState initializer, not a post-mount effect). Liquid glass needs a
+// WebGL2/WebGL context; browsers/headless environments without one (jsdom,
+// low-power devices, some embedded webviews) get a plain card and never even
+// start the three.js/liquid-glass import — which also keeps the stat-card
+// content from being remounted when the lazy chunk resolves.
+function detectWebglSupport() {
+  try {
+    if (typeof document === 'undefined') return false;
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
 export default function LiquidGlassCard({
   children,
   intensity = 'medium',
   color = 'rgba(255, 255, 255, 0.08)',
 }) {
-  const [supported, setSupported] = useState(true);
-
-  useEffect(() => {
-    // Liquid glass uses displacement shaders — fall back gracefully on
-    // browsers without WebGL2 or on low-power devices.
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-      if (!gl) setSupported(false);
-    } catch {
-      setSupported(false);
-    }
-  }, []);
+  // Evaluate once per mount: jsdom has no WebGL, so tests render the plain
+  // card on the very first paint and the lazy shader path never mounts.
+  const [supported] = useState(detectWebglSupport);
 
   if (!supported) return <Box>{children}</Box>;
 

@@ -14,7 +14,7 @@ import { animate, createScope, spring } from 'animejs';
  */
 export default function AnimatedCounter({
   target,
-  duration = 1200,
+  duration = 700,
   prefix = '',
   suffix = '',
   decimals = 0,
@@ -24,6 +24,7 @@ export default function AnimatedCounter({
   const root = useRef(null);
   const scope = useRef(null);
   const prevTarget = useRef(0);
+  const settleTimer = useRef(null);
 
   useEffect(() => {
     if (!root.current || target === prevTarget.current) return;
@@ -36,10 +37,26 @@ export default function AnimatedCounter({
         ease: spring({ bounce: 0.15 }),
         duration,
         onUpdate: () => setDisplay(Number(obj.val.toFixed(decimals))),
+        // Snap to the EXACT final value when the animation completes — a
+        // spring can land a fraction off, and the KPI card must always show
+        // the true number, never 12,339.9.
+        onComplete: () => setDisplay(Number(Number(target).toFixed(decimals))),
       });
     });
 
-    return () => scope.current?.revert();
+    // rAF-independent guarantee: browsers throttle requestAnimationFrame in
+    // background tabs and jsdom may not tick it at all, which would leave the
+    // card stuck at 0. Force the settled value once the animation window has
+    // passed no matter what (cleared on unmount / retarget).
+    settleTimer.current = setTimeout(() => {
+      setDisplay(Number(Number(target).toFixed(decimals)));
+    }, duration + 50);
+
+    return () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = null;
+      scope.current?.revert();
+    };
   }, [target, duration, decimals]);
 
   return (

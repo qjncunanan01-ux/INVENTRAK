@@ -13,6 +13,7 @@ import { getInventory, getOptimizationAbc, imageUrl, listAllProducts } from '../
 import { useCart } from '../cart-context';
 import { useLoginGate } from '../login-gate';
 import { buildFlashPicks, dealPricing, stockMapFromInventory } from '../flash-sale';
+import { stockStatus } from '../product-enrichment';
 import FlashCarousel from '../FlashCarousel';
 import FlashSaleHeader from '../FlashSaleHeader';
 import { showToast } from '../toast';
@@ -99,6 +100,18 @@ export default function RecommendationScreen({ navigation }) {
     if (classification === 'A') return { bg: '#d32f2f', label: 'High Priority' };
     if (classification === 'B') return { bg: '#f9a825', label: 'Medium' };
     return { bg: '#2e7d32', label: 'Low' };
+  };
+
+  // Stock-status meta for a recommendation row (In stock / Low stock / Out of
+  // stock from the live inventory map — same threshold as the catalog).
+  const getStock = (id) => {
+    const total = stockMap[Number(id)];
+    if (total === undefined || total === null) return null;
+    const s = stockStatus(total);
+    return {
+      label: s.label,
+      color: s.tone === 'out' ? '#d32f2f' : s.tone === 'low' ? '#f9a825' : '#2e7d32',
+    };
   };
 
   if (loading) {
@@ -204,6 +217,17 @@ export default function RecommendationScreen({ navigation }) {
                   Value: {item.value} | {badge.label}
                   {p.price ? ` | P${p.price}` : ''}
                 </Text>
+                {/* Customer Stock Status Display: a small In stock / Low stock /
+                    Out of stock chip on every ranked recommendation. */}
+                {(() => {
+                  const st = getStock(item.id);
+                  if (!st) return null;
+                  return (
+                    <View style={[styles.stockChip, { borderColor: st.color }]}>
+                      <Text style={[styles.stockChipText, { color: st.color }]}>{st.label}</Text>
+                    </View>
+                  );
+                })()}
               </View>
             </TouchableOpacity>
           );
@@ -267,5 +291,14 @@ const createStyles = (colors) => StyleSheet.create({
   productName: { fontWeight: '700', fontSize: 15, color: colors.textPrimary, flex: 1 },
   meta: { color: colors.textSecondary, fontSize: 13, marginTop: 4 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 8 },
+  stockChip: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  stockChipText: { fontSize: 10, fontWeight: '800' },
   empty: { marginTop: 20, textAlign: 'center', color: colors.textSecondary },
 });

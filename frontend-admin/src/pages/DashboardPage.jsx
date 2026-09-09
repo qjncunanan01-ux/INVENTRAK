@@ -1121,7 +1121,7 @@ function StatCard({ panel, loading, onClick, index = 0 }) {
                 target={panel.numericValue ?? 0}
                 prefix={panel.prefix || ''}
                 suffix={panel.suffix || ''}
-                duration={1000}
+                duration={700}
               />
             )}
           </Typography>

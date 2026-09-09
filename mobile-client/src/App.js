@@ -18,6 +18,7 @@ import AccountScreen from './screens/AccountScreen';
 import CategoriesScreen from './screens/CategoriesScreen';
 import SearchScreen from './screens/SearchScreen';
 import OcrScreen from './screens/OcrScreen';
+import QrScanScreen from './screens/QrScanScreen';
 import StockAvailabilityScreen from './screens/StockAvailabilityScreen';
 import PaymentScreen from './screens/PaymentScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
@@ -55,6 +56,7 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Categories' }} />
       <CatalogStack.Screen name="Search" component={SearchScreen} options={{ title: 'Search', headerShown: false }} />
       <CatalogStack.Screen name="OCR" component={OcrScreen} options={{ title: 'Scan a Product' }} />
+      <CatalogStack.Screen name="QrScan" component={QrScanScreen} options={{ title: 'Scan a Tag' }} />
       <CatalogStack.Screen name="StockAvailability" component={StockAvailabilityScreen} options={{ title: 'Stock Availability' }} />
     </CatalogStack.Navigator>
   );

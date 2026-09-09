@@ -16,13 +16,16 @@ import { useThemeColors } from '../theme-context';
 // Multi-Location Inventory Management Module (reviewer requirement): customers
 // can see available supply stock broken down per location (store, warehouse,
 // etc.) before ordering — same data the admin dashboard tracks.
-export default function StockAvailabilityScreen() {
+export default function StockAvailabilityScreen({ route }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [data, setData] = useState({ locations: [], items: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  // Optional QR-scan scope: when the user scans a location tag, this screen
+  // opens focused on that one storage area (single-column view).
+  const scopedLocation = route?.params?.location || '';
 
   const fetchData = useCallback(async () => {
     try {
@@ -44,7 +47,11 @@ export default function StockAvailabilityScreen() {
     fetchData();
   }, [fetchData]);
 
-  const locations = (data.locations || []).map((l) => (typeof l === 'object' ? l.name : l));
+  const allLocations = (data.locations || []).map((l) => (typeof l === 'object' ? l.name : l));
+  // When opened from a scanned location tag, show only that storage area.
+  const locations = scopedLocation && allLocations.includes(scopedLocation)
+    ? [scopedLocation]
+    : allLocations;
   // Live search: filter products by name or category.
   const items = (data.items || []).filter((i) => {
     const q = search.trim().toLowerCase();
@@ -66,7 +73,11 @@ export default function StockAvailabilityScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Available Supplies</Text>
-        <Text style={styles.subtitle}>Stock levels across all {locations.length} location(s)</Text>
+        <Text style={styles.subtitle}>
+          {scopedLocation
+            ? `Stock levels at ${scopedLocation} (scanned tag)`
+            : `Stock levels across all ${locations.length} location(s)`}
+        </Text>
         <TextInput
           style={styles.searchInput}
           placeholder="Search products..."

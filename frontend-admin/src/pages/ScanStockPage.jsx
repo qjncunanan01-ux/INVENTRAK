@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { imageUrl, ocrStockCheck } from '../api';
+import { apiGet, createStockAdjustment, imageUrl, ocrStockCheck } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
@@ -208,6 +208,15 @@ export default function ScanStockPage({ onLogout }) {
   const [result, setResult] = useState(null);
   const [fileName, setFileName] = useState('');
   const [liveCam, setLiveCam] = useState(false);
+  // Verify-and-confirm state: the scanned product's physical count per
+  // location, a reason, and submission feedback. Corrections are NOT applied
+  // directly — they become pending adjustments the owner approves, so a scan
+  // can never silently overwrite stock.
+  const [counts, setCounts] = useState({});
+  const [reason, setReason] = useState('');
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmMsg, setConfirmMsg] = useState('');
+  const [confirmErr, setConfirmErr] = useState('');
 
   // Shared result handling: show the match card when there are matches, and
   // a clear "no product detected" message when the label read text but nothing
@@ -288,6 +297,10 @@ export default function ScanStockPage({ onLogout }) {
     setResult(null);
     setError('');
     setFileName('');
+    setCounts({});
+    setReason('');
+    setConfirmMsg('');
+    setConfirmErr('');
   };
 
   const top = result && result.matches && result.matches[0];
@@ -295,6 +308,80 @@ export default function ScanStockPage({ onLogout }) {
   const locs = top
     ? Object.keys(top.stock?.locations || {})
     : [];
+  // Location name -> id map (the adjustment endpoint needs location_id).
+  const [locIdByName, setLocIdByName] = useState({});
+
+  // Load the location list once so corrections can address the right
+  // storage area by id.
+  useEffect(() => {
+    apiGet('/api/locations')
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data && data.data) || [];
+        const map = {};
+        list.forEach((l) => { if (l && l.id && l.name) map[l.name] = l.id; });
+        setLocIdByName(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Reset the verify-and-confirm form whenever a new scan lands.
+  useEffect(() => {
+    if (!top) return;
+    const next = {};
+    (Object.keys(top.stock?.locations || {})).forEach((k) => { next[k] = top.stock.locations[k]; });
+    setCounts(next);
+    setReason('');
+    setConfirmMsg('');
+    setConfirmErr('');
+  }, [result && top && top.id]);
+
+  // Submit the physically-counted quantities as pending stock adjustments.
+  // Each changed location becomes its own adjustment request (the existing
+  // maker-approver queue: staff proposes, owner approves). Nothing is applied
+  // to stock until the owner approves.
+  const submitCorrection = async () => {
+    if (!top) return;
+    const changes = locs.filter((loc) => {
+      const current = Number(top.stock?.locations?.[loc]) || 0;
+      const next = Number(counts[loc]);
+      return Number.isFinite(next) && next >= 0 && next !== current;
+    });
+    if (changes.length === 0) {
+      setConfirmErr('No changes — enter a corrected quantity that differs from the current count.');
+      setConfirmMsg('');
+      return;
+    }
+    setConfirmBusy(true);
+    setConfirmMsg('');
+    setConfirmErr('');
+    const failures = [];
+    let done = 0;
+    for (const loc of changes) {
+      const locationId = locIdByName[loc];
+      if (!locationId) { failures.push(loc); continue; }
+      try {
+        await createStockAdjustment({
+          product_id: Number(top.id),
+          location_id: Number(locationId),
+          new_qty: Number(counts[loc]),
+          reason: reason.trim() || `Physical count from scan of ${top.name}`,
+        });
+        done += 1;
+      } catch (err) {
+        failures.push(loc);
+      }
+    }
+    setConfirmBusy(false);
+    if (done > 0) {
+      setConfirmMsg(
+        `${done} correction(s) submitted for approval — stock updates after the owner approves.`
+        + (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : '')
+      );
+      setReason('');
+    } else {
+      setConfirmErr('Could not submit corrections. Check the product/locations and try again.');
+    }
+  };
 
   return (
     <AdminLayout title="Scan & Stock" onLogout={onLogout}>
@@ -430,6 +517,55 @@ export default function ScanStockPage({ onLogout }) {
               )}
             </TableBody>
           </Table>
+
+          {/* Verify & confirm — the reviewer requirement: scanned text is shown
+              next to the suggested match and the staff member reviews/confirms
+              the physical count BEFORE any stock update is saved. Corrections
+              become pending adjustments (owner-approval queue), so a scan can
+              never silently overwrite live stock. */}
+          <Box sx={{ mt: 3, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.15)' }}>
+            <Typography variant="h6" sx={{ mb: 0.5 }}>Verify & record physical count</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Compare the recognized label to the suggested product, enter the
+              actual counted quantity per location, and submit. Each change
+              becomes a pending adjustment that the owner approves before it
+              applies to stock.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', mb: 1.5 }}>
+              {locs.map((loc) => (
+                <TextField
+                  key={loc}
+                  size="small"
+                  label={`${loc} (current ${top.stock?.locations?.[loc] ?? 0})`}
+                  type="text"
+                  inputMode="decimal"
+                  value={counts[loc] ?? ''}
+                  onChange={(e) => setCounts({ ...counts, [loc]: e.target.value.replace(/[^0-9.]/g, '') })}
+                  sx={{ minWidth: 170, backgroundColor: colors.surface }}
+                />
+              ))}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <TextField
+                size="small"
+                label="Reason (optional)"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                sx={{ minWidth: 260, flex: 1, backgroundColor: colors.surface }}
+              />
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={submitCorrection}
+                disabled={confirmBusy || !top}
+                sx={{ backgroundColor: colors.brandSecondary }}
+              >
+                {confirmBusy ? 'Submitting…' : 'Submit corrections for approval'}
+              </Button>
+            </Box>
+            {confirmMsg ? <Alert severity="success" sx={{ mt: 1.5 }}>{confirmMsg}</Alert> : null}
+            {confirmErr ? <Alert severity="error" sx={{ mt: 1.5 }}>{confirmErr}</Alert> : null}
+          </Box>
 
           {others.length > 0 && (
             <Box sx={{ mt: 3 }}>

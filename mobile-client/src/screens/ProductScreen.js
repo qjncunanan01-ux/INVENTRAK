@@ -37,6 +37,22 @@ const SORT_OPTIONS = [
   { key: 'priceDesc', label: 'Price ↓' },
 ];
 
+// Tiny stock-status pill for the catalog grid cards: green In stock, amber
+// Low stock, red Out of stock (same <25 threshold as the PDP + carousel).
+// Missing stock data shows nothing (stock feed not loaded yet) rather than a
+// misleading badge.
+function StockPill({ total, styles }) {
+  if (total === undefined || total === null) return null;
+  const status = stockStatus(total);
+  const color =
+    status.tone === 'out' ? '#d32f2f' : status.tone === 'low' ? '#f9a825' : '#2e7d32';
+  return (
+    <View style={[styles.stockPillSm, { borderColor: color }]} accessibilityLabel={`${status.label}`}>
+      <Text style={[styles.stockPillSmText, { color }]}>{status.label}</Text>
+    </View>
+  );
+}
+
 // Small deal-price row shared by the PDP and the cross-sell cards: the day's
 // fake sale price (red) + struck original + -% tag (Shopee flash look).
 function DealPrice({ deal, size = 'md', styles }) {
@@ -72,6 +88,9 @@ export default function ProductScreen({ route, navigation }) {
   // ONLY for items that are actually in today's rotation, so the detail page
   // matches the Home/Recommendations carousels exactly (same helper + inputs).
   const [pickIds, setPickIds] = useState(new Set());
+  // Live per-product total stock (productId -> units) from /api/inventory —
+  // powers the In stock / Low stock / Out of stock pills on the grid cards.
+  const [stockMap, setStockMap] = useState({});
   // Scroll the PDP back to the top whenever the open product changes (a
   // cross-sell tap would otherwise keep the old scroll offset mid-detail).
   const scrollRef = useRef(null);
@@ -94,6 +113,7 @@ export default function ProductScreen({ route, navigation }) {
       setProducts(items);
       const abc = abcData && abcData.data ? abcData.data : (Array.isArray(abcData) ? abcData : []);
       const stock = stockMapFromInventory(inv);
+      setStockMap(stock);
       setPickIds(new Set(buildFlashPicks(abc, items, stock).map((p) => Number(p.id))));
     } catch (err) {
       // Toast (not Alert.alert) so the failure is visible on react-native-web
@@ -591,7 +611,12 @@ export default function ProductScreen({ route, navigation }) {
               ) : (
                 <Text style={styles.cardPrice}>P{item.price}</Text>
               )}
-              <Text style={styles.cardRating}>★ {productRating(item).rating}</Text>
+              <View style={styles.cardBottom}>
+                {/* Stock-status pill: customer Stock Status Display requirement
+                    (In stock / Low stock / Out of stock) on the catalog grid. */}
+                <StockPill total={stockMap[Number(item.id)]} styles={styles} />
+                <Text style={styles.cardRating}>★ {productRating(item).rating}</Text>
+              </View>
             </TouchableOpacity>
             </AnimatedEntry>
           );
@@ -652,6 +677,9 @@ const createStyles = (colors) => StyleSheet.create({
   cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
   cardPrice: { color: colors.brandPrimary, fontWeight: '800', fontSize: 15, marginTop: 8 },
   empty: { marginTop: 24, textAlign: 'center', color: colors.textSecondary },
+  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  stockPillSm: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  stockPillSmText: { fontSize: 10, fontWeight: '800' },
   cardRating: { color: '#f5a623', fontSize: 12, fontWeight: '700', marginTop: 2 },
   // ---- Deal-of-the-day price row (shared PDP / PLP / cross-sell) ----
   dealRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8, flexWrap: 'wrap' },
