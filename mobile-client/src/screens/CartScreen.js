@@ -247,7 +247,9 @@ const createStyles = (colors) => StyleSheet.create({
   continue: { color: colors.brandPrimary, fontWeight: '600', fontSize: 13, textAlign: 'center', marginTop: 12 },
   clearWrap: { alignItems: 'center', marginTop: 6 },
   clear: { color: colors.error, fontSize: 12 },
-  lockWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
+  // Background is required: without it the browser's white page shows
+  // through in dark mode and textPrimary (white) becomes unreadable.
+  lockWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, backgroundColor: colors.background },
   lockGlyph: { fontSize: 44, marginBottom: 12 },
   lockTitle: { fontSize: 19, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
   lockBody: {

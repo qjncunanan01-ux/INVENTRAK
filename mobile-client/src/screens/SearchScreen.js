@@ -102,7 +102,7 @@ export default function SearchScreen({ navigation }) {
             <TouchableOpacity style={styles.card} onPress={() => openProduct(item.id)}>
               <View style={styles.cardTop}>
                 {item.image ? (
-                  <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="cover" />
+                  <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="contain" />
                 ) : null}
                 {/* Quick-add (+), Shopee-style: adds without leaving results.
                     Guests get the login gate instead. */}
@@ -158,17 +158,19 @@ const createStyles = (colors) => StyleSheet.create({
   searchInput: { flex: 1, paddingVertical: 9, fontSize: 15, color: colors.textPrimary },
   clearText: { fontSize: 16, color: colors.textSecondary, fontWeight: '700', paddingLeft: 8 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  rowWrap: { justifyContent: 'space-between' },
+  // Full-width row + gap + flex:1 cards — see ProductScreen.rowWrap note.
+  rowWrap: { width: '100%', gap: 12 },
   listContent: { padding: 16 },
   card: {
-    width: '48%',
+    flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
   },
   cardTop: { minHeight: 42 },
-  cardImage: { width: '100%', height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: colors.background },
+  // White tile + 'contain' — see ProductScreen.cardImage note.
+  cardImage: { width: '100%', height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: '#ffffff' },
   cardName: { fontWeight: '700', fontSize: 14, color: colors.textPrimary, minHeight: 36 },
   cardMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
   cardPrice: { fontSize: 15, fontWeight: '800', color: colors.brandPrimary, marginTop: 8 },

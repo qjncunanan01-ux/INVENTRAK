@@ -266,7 +266,7 @@ export default function ProductScreen({ route, navigation }) {
 
           <View style={styles.detailCard}>
             {selected.image ? (
-              <Image source={{ uri: imageUrl(selected.image) }} style={styles.detailImage} resizeMode="cover" />
+              <Image source={{ uri: imageUrl(selected.image) }} style={styles.detailImage} resizeMode="contain" />
             ) : null}
             <Text style={styles.detailTitle}>{selected.name}</Text>
             <View style={styles.ratingRow}>
@@ -365,7 +365,7 @@ export default function ProductScreen({ route, navigation }) {
                     return (
                       <TouchableOpacity style={styles.simCard} onPress={() => setSelected(item)}>
                         {item.image ? (
-                          <Image source={{ uri: imageUrl(item.image) }} style={styles.simImage} resizeMode="cover" />
+                          <Image source={{ uri: imageUrl(item.image) }} style={styles.simImage} resizeMode="contain" />
                         ) : null}
                         <Text style={styles.simName} numberOfLines={2}>{item.name}</Text>
                         {simDeal ? (
@@ -397,7 +397,8 @@ export default function ProductScreen({ route, navigation }) {
           </View>
         </ScrollView>
 
-        <View style={styles.stickyBar}>              <TouchableOpacity
+        <View style={styles.stickyBar}>
+          <TouchableOpacity
                 style={styles.addCartBtn}
                 onPress={() =>
                   requireLogin(() => {
@@ -409,7 +410,8 @@ export default function ProductScreen({ route, navigation }) {
                 accessibilityRole="button"
               >
             <Text style={styles.addCartBtnText}>Add to Cart</Text>
-          </TouchableOpacity>              <TouchableOpacity
+          </TouchableOpacity>
+          <TouchableOpacity
                 style={styles.stickyBtn}
                 onPress={() =>
                   requireLogin(() => {
@@ -573,14 +575,15 @@ export default function ProductScreen({ route, navigation }) {
         keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         columnWrapperStyle={styles.rowWrap}
-        contentContainerStyle={styles.listContent}          renderItem={({ item, index }) => {
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item, index }) => {
           const cardDeal = pickIds.has(Number(item.id)) ? dealPricing(item) : null;
           return (
-            <AnimatedEntry delay={Math.min(index * 60, 480)} preset="pop" duration={350}>
+            <AnimatedEntry delay={Math.min(index * 60, 480)} preset="pop" duration={350} style={styles.gridCell}>
             <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} accessibilityLabel={`${item.name}, ${item.category}, P${item.price}`} accessibilityRole="button">
               <View style={styles.cardTop}>
                 {item.image ? (
-                  <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="cover" />
+                  <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="contain" />
                 ) : null}
                 {/* Quick-add (+) corner button, Shopee-style: adds without
                     leaving the grid. Guests get the login gate instead. */}
@@ -657,10 +660,14 @@ const createStyles = (colors) => StyleSheet.create({
   sortChipTextActive: { color: '#fff' },
   resultCount: { fontSize: 12, color: colors.textSecondary, marginBottom: 10 },
   gridList: { flex: 1 },
-  rowWrap: { justifyContent: 'space-between' },
+  // New-arch (Fabric) FlatList rows don't give children a definite width, so
+  // percentage card widths collapse to content size. Full-width row + gap +
+  // flex:1 cells renders two equal columns on both old and new architecture.
+  rowWrap: { width: '100%', gap: 12 },
+  gridCell: { flex: 1 },
   listContent: { paddingBottom: 24 },
   card: {
-    width: '48%',
+    alignSelf: 'stretch',
     backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 12,
@@ -672,7 +679,11 @@ const createStyles = (colors) => StyleSheet.create({
     elevation: 2,
   },
   cardTop: { minHeight: 42 },
-  cardImage: { width: '100%', height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: colors.background },
+  // White tile + 'contain' (Shopee/Lazada pattern): product photos are shot
+  // on white, so letterboxing blends invisibly and every product renders at
+  // the same visual size. 'cover' zoom-crops each photo differently, which
+  // read as misaligned/overlapping images in the grid.
+  cardImage: { width: '100%', height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: '#ffffff' },
   cardName: { fontWeight: '700', color: colors.textPrimary, fontSize: 14 },
   cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
   cardPrice: { color: colors.brandPrimary, fontWeight: '800', fontSize: 15, marginTop: 8 },
@@ -773,7 +784,7 @@ const createStyles = (colors) => StyleSheet.create({
     padding: 8,
     marginRight: 10,
   },
-  simImage: { width: '100%', height: 84, borderRadius: 8, backgroundColor: colors.surface },
+  simImage: { width: '100%', height: 84, borderRadius: 8, backgroundColor: '#ffffff' },
   simName: { color: colors.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 },
   simPrice: { color: colors.brandPrimary, fontSize: 13, fontWeight: '800', marginTop: 4 },
   simAdd: {
@@ -791,7 +802,7 @@ const createStyles = (colors) => StyleSheet.create({
   backLink: { paddingVertical: 10 },
   backText: { color: colors.info, fontSize: 15, fontWeight: '600' },
   detailCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 20 },
-  detailImage: { width: '100%', height: 180, borderRadius: 12, marginBottom: 12, backgroundColor: colors.background },
+  detailImage: { width: '100%', height: 180, borderRadius: 12, marginBottom: 12, backgroundColor: '#ffffff' },
   detailTitle: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
   detailCategory: { color: colors.textSecondary, marginTop: 4 },
   detailPrice: { fontSize: 24, fontWeight: '800', color: colors.brandPrimary, marginTop: 10, marginBottom: 12 },

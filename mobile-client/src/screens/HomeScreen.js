@@ -126,11 +126,10 @@ const [guestPopupVisible, setGuestPopupVisible] = useState(false);
 
   return (
   <View style={styles.container}>
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-    >        {/* Haikei-style gradient header with wave bottom */}
-<WaveHeader height={180}>
-  <View style={styles.topRow}>
+    <ScrollView showsVerticalScrollIndicator={false}>
+      {/* Haikei-style gradient header with wave bottom */}
+      <WaveHeader height={180}>
+        <View style={styles.topRow}>
     <Text style={styles.brand}>INVENTRAK</Text>
 
     <TouchableOpacity

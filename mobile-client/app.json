@@ -34,7 +34,8 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-status-bar"
     ],
     "ios": {
       "supportsTablet": true,

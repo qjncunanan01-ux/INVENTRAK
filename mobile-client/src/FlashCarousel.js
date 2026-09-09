@@ -57,7 +57,7 @@ export default function FlashCarousel({ items, stockMap = {}, onPressItem, onAdd
           >
             <View style={styles.imgWrap}>
               {item.image ? (
-                <Image source={{ uri: imageUrl(item.image) }} style={styles.img} resizeMode="cover" />
+                <Image source={{ uri: imageUrl(item.image) }} style={styles.img} resizeMode="contain" />
               ) : (
                 <View style={[styles.img, styles.imgPlaceholder]} />
               )}
@@ -129,7 +129,8 @@ const createStyles = (colors) => StyleSheet.create({
   // name/price text left-aligned instead of PressableScale's default center.
   cardPressable: { padding: 10, alignItems: 'stretch' },
   imgWrap: { position: 'relative' },
-  img: { width: '100%', height: 110, borderRadius: 10, backgroundColor: colors.background },
+  // White tile + 'contain' — see ProductScreen.cardImage note.
+  img: { width: '100%', height: 110, borderRadius: 10, backgroundColor: '#ffffff' },
   imgPlaceholder: { backgroundColor: '#e3eeda' },
   ribbon: {
     position: 'absolute',

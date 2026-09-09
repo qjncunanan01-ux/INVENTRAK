@@ -132,10 +132,11 @@ const createStyles = (colors) => StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   title: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
   subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 16 },
-  rowWrap: { justifyContent: 'space-between' },
+  // Full-width row + gap + flex:1 tiles — see ProductScreen.rowWrap note.
+  rowWrap: { width: '100%', gap: 12 },
   listContent: { paddingBottom: 24 },
   tile: {
-    width: '48%',
+    flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 14,
     padding: 18,
