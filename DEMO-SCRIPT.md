@@ -17,7 +17,7 @@ talks to the live backend from any network.
 | 1 | Backend up | Open `https://inventrak-api.onrender.com/api/openapi.json` — JSON renders |
 | 2 | Admin up | Open `https://inventrak-admin.onrender.com` — login page loads. **Hard-refresh (Ctrl+Shift+R)** once to drop any cached bundle |
 | 3 | Mobile web up | Open `https://inventrak-mobile.onrender.com` — app loads |
-| 4 | APK installed on phone | The **final pre-demo build (Aug 15, evening)** — see the latest link in APK-INSTALL.md. Same signing key → updates in place |
+| 4 | APK installed on phone | The **latest production build** (contains the QR scanner, stock badges, and staff scan-and-count flow) — see the newest link in APK-INSTALL.md. Same signing key → updates in place |
 | 5 | Internet on the demo machine + phone | Backend is hosted — no Wi-Fi pairing needed |
 | 6 | Google sign-in works (optional) | Gmail button appears on the mobile login screen; test users approved in the Google Cloud console |
 
@@ -150,6 +150,60 @@ step 6 completes the flow, so the demo ends with consistent data. If you'd
 rather not change stock, reject the request instead — stock stays untouched
 and the audit trail still shows the decision.*
 
+### Part E — QR location tags, OCR verify-and-confirm & the mobile scanner (2–3 min)
+
+The "digitise the warehouse floor" story: printed QR tags on the storage
+areas, label OCR with a confirm-before-save step, and a camera scanner on
+the phone. Together they answer *"how does the count get from the shelf into
+the system without retyping?"*.
+
+1. **Print the location tags (admin)** → **Branch Locations** → **QR tags**
+   button. Show the dialog: one QR per storage area (Showroom, Stockroom 1,
+   Stockroom 2), each encoding `INVENTRAK:LOC:<id>:<name>`, with a
+   **Print tags** button. Say: *"These stick on the physical shelves — the
+   scanner below reads them."* (Close the dialog; no need to print on stage.)
+2. **Scan & Stock — verify & confirm** (admin, the reviewer's "staff must
+   review before stock updates are saved" answer) → **Scan & Stock** →
+   **Upload image** a product label photo. The OCR engine (Tesseract) reads
+   the label and matches the catalog.
+   - Under the match, show the **"Verify & record physical count"** panel:
+     the recognized text + suggested product are shown side by side, and
+     every location has a quantity field pre-filled with the current count.
+   - Change one quantity, add a reason, **Submit corrections for approval**
+     → a green message confirms each change became a **pending adjustment**.
+   - Say: *"Nothing is written to stock yet — the scan only proposes. The
+     owner approves from the Approvals page, so a mistyped count can never
+     silently corrupt inventory."* (Optionally approve it in Approvals to
+     close the loop, or leave it pending — either is fine to demo.)
+3. **Mobile scanner** (phone) → open the app logged in as **`staff` /
+   `staff123`** (any account works for browsing; the count flow needs
+   staff/admin):
+   - **Account tab** → the header shows **"Staff Account · staff tools
+     unlocked"** and a **Staff Tools** section with **Scan & Count Stock**.
+   - Tap it → **Scan a product** → **Take photo** of a label → the match
+     stays on screen (no auto-redirect for staff) with the same
+     **verify & record physical count** panel: enter the counted qty per
+     location, submit → corrections become pending adjustments.
+   - Tap **▦ Scan a QR / barcode tag** → point at a printed location tag
+     → it opens **Available Supplies filtered to that storage area**
+     ("Stock levels at Showroom (scanned tag)"). Scanning a product tag
+     would open that product instead.
+4. **Stock badges on the catalog** (phone, any account) → the product grid
+   cards and the Recommendations rows now carry small **In stock / Low
+   stock / Out of stock** pills derived from live inventory — customers see
+   availability before they order, and the flash-sale carousel shows the
+   same signals.
+
+*Where these features live in the code:*
+- QR tags: `frontend-admin/src/pages/LocationsPage.jsx` (payload + print dialog)
+- Admin verify-and-confirm: `frontend-admin/src/pages/ScanStockPage.jsx`
+- Mobile scanner + count flow: `mobile-client/src/screens/QrScanScreen.js`,
+  `mobile-client/src/screens/OcrScreen.js`, `mobile-client/src/screens/AccountScreen.js`
+- Stock badges: `mobile-client/src/screens/ProductScreen.js`,
+  `mobile-client/src/screens/RecommendationScreen.js`
+- Backend OCR + matching: `backend/src/ocr.js` (Tesseract, fuzzy match,
+  stock snapshots); adjustments queue: `/api/stock-adjustments`
+
 ---
 
 ## 3. If something fails mid-demo
@@ -161,6 +215,9 @@ and the audit trail still shows the decision.*
 | Phone order doesn't appear in admin | Check the phone shows a success screen (order #), then refresh the admin Order Inquiries page |
 | Google button errors | It needs the backend env (`GOOGLE_CLIENT_IDS` + `GOOGLE_CLIENT_SECRET`) and the test user approved in Google Cloud. Password login always works as fallback |
 | Camera black on Scan & Stock | Use **Upload image** instead — OCR runs on the photo the same way |
+| Scan & Stock shows "No SYLVER product detected" | The label isn't in the catalog (or the photo is blurry). Only SYLVER catalog products can be scanned — try a clearer, well-lit photo of a known product |
+| Phone scanner camera stays black | Allow camera permission when prompted, or use **Take photo / Upload photo** on the Scan screen instead |
+| Staff count submit says "Could not submit" | The phone needs a **staff/admin** account (customers get 403). Log in as `staff`/`staff123` and confirm the backend is up |
 | Verification code never arrives | You likely signed up with an address other than `qjncunanan01@tip.edu.ph` — Resend's free sender only delivers to the owner inbox. Re-register with that email, or log in with the demo customer |
 | No SMS received | Semaphore is still **Pending / 0 credits** — not demo-ready. Demo the email leg instead; SMS works once approved + funded and a real number is used |
 
@@ -174,5 +231,7 @@ and the audit trail still shows the decision.*
 - **API docs (Swagger):** https://inventrak-api.onrender.com/api/docs
 - **GitHub repo:** https://github.com/qjncunanan01-ux/INVENTRAK
 
-_Last verified: Aug 18, 2026 — backend 330/330 tests, admin 27/27, all live
-endpoints green (incl. staff-role split + role badge), APK link downloadable._
+_Last verified: Sep 8, 2026 — backend 330/330 tests, admin 28/28, all live
+endpoints green (incl. staff-role split + role badge), APK link downloadable.
+New in this build: QR location tags, OCR verify-and-confirm on admin + phone,
+QR/barcode mobile scanner, stock badges on the catalog._
