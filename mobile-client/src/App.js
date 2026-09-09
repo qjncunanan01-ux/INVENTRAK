@@ -180,6 +180,7 @@ function AppShell() {
       setSessionDetails({
         email: params.email || params.username || 'customer',
         verified: params.email_verified !== '0',
+        role: params.role,
       });
     }
     window.history.replaceState(null, '', window.location.pathname);

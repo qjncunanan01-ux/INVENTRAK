@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -6,12 +6,21 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { imageUrl, scanProductPhoto, useSessionUsername } from '../api';
+import {
+  createStockAdjustment,
+  imageUrl,
+  listLocations,
+  ocrStockCheck,
+  scanProductPhoto,
+  useSessionRole,
+  useSessionUsername,
+} from '../api';
 import { useThemeColors } from '../theme-context';
 
 // OCR module (reviewer requirement): snap or pick a product photo, the
@@ -34,6 +43,10 @@ export default function OcrScreen({ navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const isLoggedIn = !!useSessionUsername(null);
+  // Staff/admin accounts get the verify-and-count flow after a scan: the
+  // physical count is submitted as a PENDING adjustment the owner approves.
+  const role = useSessionRole();
+  const isStaff = role === 'staff' || role === 'admin';
 
   // NOTE: all hooks must stay above the login gate (Rules of Hooks) — the
   // gate below is a render decision, not a hook-count decision.
@@ -42,6 +55,89 @@ export default function OcrScreen({ navigation }) {
   const [text, setText] = useState('');
   const [matches, setMatches] = useState([]);
   const [error, setError] = useState('');
+  // Staff count form: corrected physical quantity per location + a reason,
+  // submitted as one pending adjustment per changed location.
+  const [counts, setCounts] = useState({});
+  const [reason, setReason] = useState('');
+  const [submitBusy, setSubmitBusy] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState('');
+  const [submitErr, setSubmitErr] = useState('');
+  // Location name -> id map (the adjustment endpoint needs location_id).
+  const [locIdByName, setLocIdByName] = useState({});
+
+  // Load the location list so staff corrections address the right storage
+  // area by id (same map the admin Scan & Stock page builds).
+  useEffect(() => {
+    if (!isStaff) return;
+    listLocations()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data && data.data) || [];
+        const map = {};
+        list.forEach((l) => { if (l && l.id && l.name) map[l.name] = l.id; });
+        setLocIdByName(map);
+      })
+      .catch(() => {});
+  }, [isStaff]);
+
+  // Reset the count form whenever a new scan lands.
+  const topMatch = matches[0] || null;
+  useEffect(() => {
+    if (!isStaff || !topMatch) return;
+    const next = {};
+    Object.keys(topMatch.stock?.locations || {}).forEach((k) => {
+      next[k] = topMatch.stock.locations[k];
+    });
+    setCounts(next);
+    setReason('');
+    setSubmitMsg('');
+    setSubmitErr('');
+  }, [isStaff, topMatch && topMatch.id]);
+
+  // Staff submit: for every location whose counted qty differs from the
+  // current stock, create a pending adjustment (owner approves later).
+  const submitCount = useCallback(async () => {
+    if (!isStaff || !topMatch) return;
+    const changes = Object.keys(topMatch.stock?.locations || {}).filter((loc) => {
+      const current = Number(topMatch.stock.locations[loc]) || 0;
+      const next = Number(counts[loc]);
+      return Number.isFinite(next) && next >= 0 && next !== current;
+    });
+    if (changes.length === 0) {
+      setSubmitErr('No changes — enter a counted quantity that differs from the current stock.');
+      setSubmitMsg('');
+      return;
+    }
+    setSubmitBusy(true);
+    setSubmitMsg('');
+    setSubmitErr('');
+    const failures = [];
+    let done = 0;
+    for (const loc of changes) {
+      const locationId = locIdByName[loc];
+      if (!locationId) { failures.push(loc); continue; }
+      try {
+        await createStockAdjustment({
+          product_id: Number(topMatch.id),
+          location_id: Number(locationId),
+          new_qty: Number(counts[loc]),
+          reason: reason.trim() || `Physical count from scan of ${topMatch.name}`,
+        });
+        done += 1;
+      } catch (err) {
+        failures.push(loc);
+      }
+    }
+    setSubmitBusy(false);
+    if (done > 0) {
+      setSubmitMsg(
+        `${done} correction(s) submitted — the owner will approve them before stock updates.`
+        + (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : '')
+      );
+      setReason('');
+    } else {
+      setSubmitErr('Could not submit corrections. Check the product/locations and try again.');
+    }
+  }, [isStaff, topMatch, counts, reason, locIdByName]);
 
   // Locked state for guests: the feature exists but needs an account.
   if (!isLoggedIn) {
@@ -156,9 +252,12 @@ export default function OcrScreen({ navigation }) {
     setBusy(true);
     setError('');
     try {
-      const data = await scanProductPhoto(
-        filename ? { image: base64, filename } : { image: base64 }
-      );
+      // Staff/admin scans use the stock-aware endpoint so each match carries
+      // live per-location quantities for the verify-and-count form; customer
+      // scans use the public OCR (no stock attached).
+      const data = isStaff
+        ? await ocrStockCheck(filename ? { image: base64, filename } : { image: base64 })
+        : await scanProductPhoto(filename ? { image: base64, filename } : { image: base64 });
       const list = Array.isArray(data.matches) ? data.matches : [];
       setText(data.text || '');
       setMatches(list);
@@ -175,9 +274,11 @@ export default function OcrScreen({ navigation }) {
           );
         }
       }
-      // Confident single pick -> jump straight to the product detail.
+      // Confident single pick -> jump straight to the product detail — but
+      // NOT for staff, who stay on the scan screen to verify the match and
+      // record the physical count (the whole point of their flow).
       const top = list[0];
-      if (top) {
+      if (top && !isStaff) {
         const second = list[1];
         if (top.score >= STRONG_SCORE && (!second || top.score - second.score >= STRONG_GAP)) {
           openProduct(top);
@@ -257,6 +358,58 @@ export default function OcrScreen({ navigation }) {
           ))}
         </View>
       ) : null}
+
+      {/* Staff flow (reviewer requirement: verify & matching interface on
+          the phone too): the scanned text + suggested match are shown side
+          by side, and staff confirm the physical count per location BEFORE
+          anything is saved — corrections become pending adjustments the
+          owner approves. Customers never see this section. */}
+      {isStaff && topMatch && topMatch.stock ? (
+        <View style={styles.countCard}>
+          <Text style={styles.countTitle}>Verify & record physical count</Text>
+          <Text style={styles.countSub}>
+            Confirm the scan matches <Text style={styles.countStrong}>{topMatch.name}</Text>,
+            enter the actual counted quantity per location, and submit. Each
+            change becomes a pending adjustment the owner approves before it
+            applies to stock.
+          </Text>
+          <View style={styles.countRows}>
+            {Object.keys(topMatch.stock.locations || {}).map((loc) => (
+              <View key={loc} style={styles.countRow}>
+                <Text style={styles.countLoc} numberOfLines={1}>{loc}</Text>
+                <TextInput
+                  style={styles.countInput}
+                  keyboardType="decimal-pad"
+                  value={counts[loc] !== undefined ? String(counts[loc]) : ''}
+                  onChangeText={(v) => setCounts({ ...counts, [loc]: v.replace(/[^0-9.]/g, '') })}
+                  placeholder="Qty"
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <Text style={styles.countCurrent}>cur: {topMatch.stock.locations[loc] ?? 0}</Text>
+              </View>
+            ))}
+          </View>
+          <TextInput
+            style={styles.reasonInput}
+            value={reason}
+            onChangeText={setReason}
+            placeholder="Reason (optional)"
+            placeholderTextColor={colors.textSecondary}
+          />
+          <TouchableOpacity
+            style={styles.countBtn}
+            onPress={submitCount}
+            disabled={submitBusy}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.countBtnText}>
+              {submitBusy ? 'Submitting…' : 'Submit corrections for approval'}
+            </Text>
+          </TouchableOpacity>
+          {submitMsg ? <Text style={styles.countOk}>{submitMsg}</Text> : null}
+          {submitErr ? <Text style={styles.countErr}>{submitErr}</Text> : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -302,6 +455,55 @@ const createStyles = (colors) => StyleSheet.create({
   matchName: { fontWeight: '700', color: colors.textPrimary, fontSize: 15 },
   matchMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
   matchCta: { color: colors.brandPrimary, fontWeight: '800', fontSize: 15 },
+  // ---- Staff verify-and-count panel ----
+  countCard: {
+    marginTop: 8,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: colors.brandSecondary,
+  },
+  countTitle: { fontSize: 15, fontWeight: '800', color: colors.textPrimary },
+  countSub: { fontSize: 12, color: colors.textSecondary, lineHeight: 18, marginTop: 4 },
+  countStrong: { fontWeight: '800', color: colors.textPrimary },
+  countRows: { marginTop: 10 },
+  countRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  countLoc: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.textPrimary, paddingRight: 8 },
+  countInput: {
+    width: 74,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  countCurrent: { fontSize: 11, color: colors.textSecondary, marginLeft: 8, width: 52 },
+  reasonInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: colors.textPrimary,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    marginBottom: 10,
+  },
+  countBtn: {
+    backgroundColor: colors.brandSecondary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  countBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  countOk: { color: colors.success, fontSize: 12, marginTop: 8, lineHeight: 17 },
+  countErr: { color: colors.error, fontSize: 12, marginTop: 8, lineHeight: 17 },
   lockWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
   lockGlyph: { fontSize: 44, marginBottom: 12 },
   lockTitle: { fontSize: 19, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },

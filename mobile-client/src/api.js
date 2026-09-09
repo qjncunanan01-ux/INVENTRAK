@@ -103,6 +103,7 @@ function persistWebSession() {
         username: sessionUsername,
         email: sessionEmail,
         verified: sessionVerified,
+        role: sessionRole,
       })
     );
   } catch {}
@@ -143,6 +144,10 @@ export function clearToken() {
 let sessionUsername = null;
 let sessionEmail = null;
 let sessionVerified = false;
+// Account role ('customer' | 'staff' | 'admin') — lets the app show
+// role-gated tools (e.g. the staff scan-and-count flow). Defaults to
+// 'customer' so guest/customer sessions never expose staff features.
+let sessionRole = 'customer';
 const sessionListeners = new Set();
 
 // Restore a persisted web session (after a browser refresh) so the customer
@@ -158,6 +163,7 @@ if (isWeb()) {
         sessionUsername = s.username || null;
         sessionEmail = s.email || null;
         sessionVerified = !!s.verified;
+        sessionRole = ['staff', 'admin'].includes(s.role) ? s.role : 'customer';
       }
     }
   } catch {}
@@ -172,9 +178,11 @@ export function setSessionUsername(name) {
 // Sets the profile fields that ride along with the session (the email the
 // account was registered with, and whether it has passed verification).
 // Kept separate from setSessionUsername so the guest-first flow stays intact.
-export function setSessionDetails({ email, verified }) {
+export function setSessionDetails({ email, verified, role }) {
   sessionEmail = email || null;
   sessionVerified = !!verified;
+  // Role-gate staff tools: only 'staff'/'admin' accounts unlock them.
+  if (role === 'staff' || role === 'admin') sessionRole = role;
   persistWebSession();
   sessionListeners.forEach((fn) => fn(sessionUsername));
 }
@@ -189,6 +197,12 @@ export function getSessionEmail() {
 
 export function getSessionVerified() {
   return sessionVerified;
+}
+
+// The signed-in account's role ('customer' | 'staff' | 'admin'). Guests and
+// customers default to 'customer' — staff features never leak to them.
+export function getSessionRole() {
+  return sessionRole;
 }
 
 export function clearSession() {
@@ -226,6 +240,14 @@ export function useSessionEmail() {
   const [email, setEmail] = useState(getSessionEmail());
   useEffect(() => subscribeSession(() => setEmail(getSessionEmail())), []);
   return email;
+}
+
+// React hook: the signed-in account's role (re-renders on login/logout so
+// role-gated UI appears/disappears without a manual refresh).
+export function useSessionRole() {
+  const [role, setRole] = useState(getSessionRole());
+  useEffect(() => subscribeSession(() => setRole(getSessionRole())), []);
+  return role;
 }
 
 // Shared client instance wired to this app's base URL + token store.
@@ -340,6 +362,14 @@ export const listOrderInquiries = client.listOrderInquiries;
 export const createOrderInquiry = client.createOrderInquiry;
 export const updateInquiryPayment = client.updateInquiryPayment;
 export const scanProductPhoto = client.scanProductPhoto;
+// Staff/admin scan with live per-location stock snapshots (POST /api/ocr/stock
+// is staff+admin only; customers get a 403 from the server).
+export const ocrStockCheck = client.ocrStockCheck;
+// Staff-scoped operations for the on-phone count flow: proposing a corrected
+// physical quantity creates a PENDING adjustment the owner approves — the
+// same maker-approver queue as the admin dashboard.
+export const createStockAdjustment = client.createStockAdjustment;
+export const listStockAdjustments = client.listStockAdjustments;
 export const getOptimizationBulk = client.getOptimizationBulk;
 export const getOptimizationAbc = client.getOptimizationAbc;
 export const getOptimization = client.getOptimization;

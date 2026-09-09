@@ -83,6 +83,8 @@ export default function LoginScreen({ navigation }) {
     setSessionDetails({
       email: response.user?.email || loggedInAs,
       verified: response.user?.email_verified !== false,
+      // Role unlocks staff tools on the phone (staff/admin only).
+      role: response.user?.role,
     });
     const state = navigation.getState();
     if (state && state.routes && state.routes.length >= 2) {
