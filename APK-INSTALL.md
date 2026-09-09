@@ -4,7 +4,7 @@ This guide covers putting the **EAS-built APK** (built with
 `npx eas-cli build --platform android --profile production`) onto an Android
 phone for the presentation. The APK is a real app — **no Expo Go, no
 internet-to-PC needed** — and it talks to the **live backend**
-(`https://inventrak-api.onrender.com`, Firebase Firestore) from any network.
+(`https://inventrak-api.onrender.com`, Supabase PostgreSQL) from any network.
 
 > For the Expo Go / dev-server way instead (scan-a-QR), see the README
 > "Mobile App (Expo)" section. This guide is for the standalone APK.

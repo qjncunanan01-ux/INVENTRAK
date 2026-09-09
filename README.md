@@ -164,6 +164,27 @@ npm run` prefix.) Same API, same Swagger UI, same contract tests — the only
 difference is where the data lives. This is also the fastest way to try the
 deployed architecture end-to-end before going to the cloud.
 
+#### Option 4: Supabase (PostgreSQL) — the live deployment
+
+The production backend on Render persists to **Supabase** (free tier, no
+daily quota ceilings). The driver auto-selects whenever `SUPABASE_URL` and
+`SUPABASE_KEY` are present, and takes precedence over Firestore when both
+are configured (full precedence: CLI flag > `DB_DRIVER` env > Supabase >
+Firestore > JSON files).
+
+```bash
+# 1. Create the tables (once per Supabase project — SQL Editor):
+#    paste backend/src/supabase-schema.sql and run it
+# 2. Point the backend at it:
+cd backend
+SUPABASE_URL=https://<project-ref>.supabase.co \
+SUPABASE_KEY=<service-role-key> \
+npm run start:npmfree
+```
+
+The driver caches tables in memory at boot and flushes writes through, so
+behavior is identical to the JSON/Firestore drivers — same API, same tests.
+
 The emulator runs in **single-project mode**, and everything shares ONE
 namespace: `firebase.json` pins the top-level `"project"` field, and the
 Firestore driver requests that same project (env overrides
@@ -580,9 +601,9 @@ This project includes GitHub Actions for automated testing and docs:
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express, SQLite (better-sqlite3), JWT, bcryptjs, Firebase Admin (optional Firestore driver), Resend/Semaphore/Twilio (optional notifications)
-- **Admin**: React 18, Material UI 5, Recharts, React Router 6
-- **Mobile**: React Native (Expo SDK 54), React Navigation 7, Axios
+- **Backend**: Node.js, Express, SQLite (better-sqlite3), JWT, bcryptjs, pluggable storage drivers (JSON files, Firestore, **Supabase — the live deployment**), Resend/Semaphore/Twilio (optional notifications)
+- **Admin**: React 18, Material UI 5, Recharts, React Router 7, Vite
+- **Mobile**: React Native 0.86 (Expo SDK 57), React Navigation 7, Axios
 - **Infrastructure**: Docker, Docker Compose, GitHub Actions
 
 ## Repository

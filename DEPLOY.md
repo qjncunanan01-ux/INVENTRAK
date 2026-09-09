@@ -176,9 +176,20 @@ live: public login/register/products all return 200 through the tunnel.
    the included `render.yaml` and creates two services:
    - `inventrak-api` — the backend (Node, `node src/server_npmfree.js`)
    - `inventrak-admin` — the admin dashboard (static build)
-3. **Wire in Firebase (the "everything runs on Firestore" part)** — in the
-   Render dashboard open **inventrak-api → Environment → Environment
-   Variables** and add the two keys:
+3. **Wire in the database driver** — in the Render dashboard open
+   **inventrak-api → Environment → Environment Variables** and add the keys
+   for the driver you're using (precedence when multiple are set:
+   Supabase > Firestore > JSON files):
+
+   **Supabase (the current live setup):**
+   - `SUPABASE_URL` = `https://<project-ref>.supabase.co` (Project Settings → API)
+   - `SUPABASE_KEY` = the **service_role** secret (Project Settings → API;
+     server-side only, never ship it to a client)
+   - Tables come from `backend/src/supabase-schema.sql` — paste it into the
+     Supabase **SQL Editor** and run once, then seed with
+     `node scripts/seed-supabase.cjs` from `backend/`.
+
+   **Firestore (alternative):**
    - `FIREBASE_PROJECT_ID` = `your-project-id` (or edit the blueprint value)
    - `FIREBASE_SERVICE_ACCOUNT_JSON` = the **entire** service-account JSON
      from Step 0, braces included.
