@@ -81,11 +81,21 @@ function seedDatabase({ db, productsFile = DEFAULT_PRODUCTS_FILE } = {}) {
         }
       }
 
-      // Draws 4-9: sales history (2 draws per customer).
+      // Draws 4-9: sales history (2 draws per customer). Draw 4 doubles as
+      // the FSN frequency draw:
+      //   rare (~15%) — "dead stock": sales only OUTSIDE the 90-day FSN
+      //     window, so the classifier reports them Non-moving (N);
+      //   active — sales across the last 45 days, so Fast (F) and Slow (S)
+      //     both occur on the deterministic seed data.
       const price = p['Price'] || p.price || 1;
+      const fsnRoll = rand();
+      const isFsnRare = fsnRoll >= 0.85;
+
       for (const cust of customers) {
-        const saleQty = Math.floor(rand() * 15) + 1;
-        const daysAgo = Math.floor(rand() * 90);
+        const saleQty = isFsnRare ? (Math.floor(rand() * 2) + 1) : (Math.floor(rand() * 15) + 1);
+        const daysAgo = isFsnRare
+          ? 90 + Math.floor(rand() * 90)
+          : Math.floor(rand() * 45);
         const date = new Date(SEED_EPOCH - daysAgo * 86400000).toISOString();
         insertSales.run(pid, saleQty, price, saleQty * price, date, cust);
       }

@@ -5,6 +5,13 @@ import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 
+// Movement-health colors for the FSN chips: Fast is healthy (green),
+// Slow needs attention (amber), Non-moving is dead stock (red).
+const FSN_CHIP_COLOR = { F: 'success', S: 'warning', N: 'error' };
+const FSN_LABEL = { F: 'Fast-moving', S: 'Slow-moving', N: 'Non-moving' };
+
+const fmtNum = (n) => (typeof n === 'number' ? n.toLocaleString() : '—');
+
 export default function OptimizationPage({ onLogout }) {
   usePageTitle('/optimization');
   const [abc, setAbc] = useState([]);
@@ -13,6 +20,12 @@ export default function OptimizationPage({ onLogout }) {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  // FSN analysis state: rows come pre-sorted Non-moving first, so the dead
+  // stock an owner must act on is at the top of the table.
+  const [fsn, setFsn] = useState([]);
+  const [fsnWindow, setFsnWindow] = useState('90');
+  const [fsnLoading, setFsnLoading] = useState(true);
 
   const loadData = async () => {
     setLoading(true);
@@ -33,7 +46,21 @@ export default function OptimizationPage({ onLogout }) {
     }
   };
 
+  const loadFsn = async (windowDays) => {
+    setFsnLoading(true);
+    try {
+      const res = await apiGet(`/api/optimization/fsn?window=${windowDays}`);
+      setFsn(Array.isArray(res.data || res) ? (res.data || res) : []);
+    } catch (err) {
+      console.error(err);
+      setFsn([]);
+    } finally {
+      setFsnLoading(false);
+    }
+  };
+
   useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadFsn(fsnWindow); }, [fsnWindow]);
 
   useEffect(() => {
     if (!selectedProductId) return;
@@ -47,6 +74,16 @@ export default function OptimizationPage({ onLogout }) {
     return !q || (item.name || '').toLowerCase().includes(q) || (item.classification || '').toLowerCase().includes(q);
   });
   const prodList = Array.isArray(products) ? products : [];
+
+  const fsnList = (Array.isArray(fsn) ? fsn : []).filter(item => {
+    const q = search.trim().toLowerCase();
+    return !q || (item.name || '').toLowerCase().includes(q) || (item.classification || '').toLowerCase() === q;
+  });
+  const fsnCounts = fsnList.reduce((acc, item) => {
+    acc[item.classification] = (acc[item.classification] || 0) + 1;
+    return acc;
+  }, { F: 0, S: 0, N: 0 });
+  const fsnTotal = fsnList.length;
 
   const getClassificationColor = (cls) => {
     if (cls === 'A') return 'error';
@@ -96,6 +133,80 @@ export default function OptimizationPage({ onLogout }) {
             ))}
           </TableBody>
         </Table>
+      </Paper>
+
+      <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+          <div>
+            <Typography variant="h6">FSN Analysis (Fast / Slow / Non-moving)</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Movement-based classification: how often each product sells and how recently. Non-moving items are surfaced first — they are dead stock candidates.
+            </Typography>
+          </div>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            {(['F', 'S', 'N']).map(cls => (
+              <Chip
+                key={cls}
+                label={`${FSN_LABEL[cls]}: ${fsnCounts[cls] || 0}`}
+                color={FSN_CHIP_COLOR[cls]}
+                size="small"
+                variant={cls === 'N' ? 'filled' : 'outlined'}
+                sx={{ fontWeight: 600 }}
+              />
+            ))}
+            <FormControl size="small" sx={{ minWidth: 150, backgroundColor: colors.surface }}>
+              <InputLabel id="fsn-window-label">Analysis window</InputLabel>
+              <Select
+                labelId="fsn-window-label"
+                value={fsnWindow}
+                label="Analysis window"
+                onChange={e => setFsnWindow(e.target.value)}
+              >
+                <MenuItem value="30">Last 30 days</MenuItem>
+                <MenuItem value="60">Last 60 days</MenuItem>
+                <MenuItem value="90">Last 90 days</MenuItem>
+                <MenuItem value="180">Last 180 days</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Product</TableCell>
+              <TableCell>Class</TableCell>
+              <TableCell align="right">Sales (txns)</TableCell>
+              <TableCell align="right">Avg days between sales</TableCell>
+              <TableCell align="right">Last sold (days ago)</TableCell>
+              <TableCell align="right">Units sold</TableCell>
+              <TableCell align="right">Revenue</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {fsnLoading ? (
+              <TableRow><TableCell colSpan={7}>Analyzing movement…</TableCell></TableRow>
+            ) : fsnList.length === 0 ? (
+              <TableRow><TableCell colSpan={7}>No FSN data available</TableCell></TableRow>
+            ) : fsnList.map(item => (
+              <TableRow key={`${item.classification}-${item.id}`} sx={item.classification === 'N' ? { backgroundColor: 'rgba(211, 47, 47, 0.04)' } : undefined}>
+                <TableCell>{item.name}</TableCell>
+                <TableCell>
+                  <Chip label={item.classification} color={FSN_CHIP_COLOR[item.classification]} size="small" />
+                </TableCell>
+                <TableCell align="right">{fmtNum(item.transactions)}</TableCell>
+                <TableCell align="right">{item.frequencyDays === null ? '—' : fmtNum(item.frequencyDays)}</TableCell>
+                <TableCell align="right">{item.recencyDays === null ? '—' : fmtNum(item.recencyDays)}</TableCell>
+                <TableCell align="right">{fmtNum(item.totalQty)}</TableCell>
+                <TableCell align="right">₱{fmtNum(item.valueSold)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {fsnTotal > 0 && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            {fsnTotal} active products over the last {fsnWindow} days · F {fsnCounts.F} / S {fsnCounts.S} / N {fsnCounts.N} — non-moving items first.
+          </Typography>
+        )}
       </Paper>
 
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>

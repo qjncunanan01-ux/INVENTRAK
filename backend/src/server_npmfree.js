@@ -8,6 +8,7 @@ const { LOW_STOCK_THRESHOLD, TOKEN_TTL_MS, MFA_TOKEN_TTL_MS, RESET_CODE_TTL_MS, 
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
+const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
@@ -262,6 +263,13 @@ function bootstrap() {
       alerts = persistedAlerts;
       nextAlertId = Math.max(...persistedAlerts.map(a => a.id)) + 1;
     }
+    // FEFO lot ledger: hydrate across restarts so expiry-based consumption
+    // order survives a redeploy (same as users/sales/alerts above).
+    const persistedLots = readJSON('@lots');
+    if (Array.isArray(persistedLots) && persistedLots.length) {
+      stockLots = persistedLots;
+      nextLotId = Math.max(...persistedLots.map(l => l.id)) + 1;
+    }
     // Hydrated users may predate verification (or come from a plaintext-era
     // migration) — treat any row that isn't explicitly false as verified, so
     // existing accounts are never locked out by the new signup gate.
@@ -284,9 +292,11 @@ function bootstrap() {
       let total = 0;
       // Draws 1-3: location stock (same formula as the SQLite seeder).
       DEMO_LOCATIONS.forEach(l => { const q = Math.floor(rand() * 160) + 20; stocks[l] = q; total += q; });
-      // Draws 4-9 belong to the sales stream; consume them so the next
-      // product's stock draws line up with the SQLite seeder's stream.
-      for (let i = 0; i < 6; i++) rand();
+      // The remaining draws belong to the sales stream; consume them so the
+      // next product's stock draws line up with the SQLite seeder's stream.
+      // Must match seedSales() exactly: 1 FSN frequency draw + 2 draws
+      // (qty, daysAgo) per customer.
+      for (let i = 0; i < DEMO_CUSTOMERS.length * 2 + 1; i++) rand();
       return {
         product: formatProduct(p, idx),
         locations: stocks,
@@ -358,9 +368,16 @@ function seedSales() {
     // aligned with the SQLite seeder's per-product draw order.
     DEMO_LOCATIONS.forEach(() => rand());
     const price = p['Price'] || p.price || 1;
+    // Same FSN frequency draw as the SQLite seeders (app.js / seed.js):
+    // rare (~15%) sells only outside the 90-day window (Non-moving),
+    // active products sell across the last 45 days (Fast/Slow mix).
+    const fsnRoll = rand();
+    const isFsnRare = fsnRoll >= 0.85;
     DEMO_CUSTOMERS.forEach(cust => {
-      const saleQty = Math.floor(rand() * 15) + 1;
-      const daysAgo = Math.floor(rand() * 90);
+      const saleQty = isFsnRare ? (Math.floor(rand() * 2) + 1) : (Math.floor(rand() * 15) + 1);
+      const daysAgo = isFsnRare
+        ? 90 + Math.floor(rand() * 90)
+        : Math.floor(rand() * 45);
       salesTransactions.push({
         id: nextSaleId++,
         product_id: idx + 1,
@@ -417,6 +434,78 @@ function computeDemand(productId, fallback = 100) {
     .filter(s => Number(s.product_id) === Number(productId))
     .reduce((sum, s) => sum + (Number(s.qty) || 0), 0);
   return qty > 0 ? qty : fallback;
+}
+
+// Lot ledger for the npm-free backend. The SQLite backend persists real lots
+// in the stock_lots table; here we keep the equivalent ledger in memory (and
+// in the cloud store via '@lots' when Firestore/Supabase drivers are active)
+// so FEFO ordering behaves identically on every driver. Lots are appended on
+// stock-in (or approved transfer/adjustment) and decremented on stock-out.
+let stockLots = [];
+let nextLotId = 1;
+
+function persistLots() {
+  if (useFirestore || useSupabase) writeJSON('@lots', stockLots);
+}
+
+function recordLot(productId, locationId, qty, now, expiryDate) {
+  stockLots.push({
+    id: nextLotId++,
+    product_id: productId,
+    location_id: locationId,
+    qty,
+    received_at: now,
+    expiry_date: expiryDate || null,
+  });
+  persistLots();
+}
+
+// FEFO + FIFO fallback — identical ordering to the SQLite backend's
+// consumeStockLots: expiring lots first (soonest expiry wins), non-expiring
+// lots last, arrival order as the tiebreaker within each group.
+function consumeLots(productId, locationId, qty) {
+  let remaining = qty;
+  // Consumption manifest (mirrors the SQLite consumeStockLots): what was
+  // actually taken, grouped per lot by expiry_date, so a transfer can
+  // recreate matching destination lots — expiry travels with the goods.
+  const manifest = [];
+  const candidates = stockLots
+    .filter(l => Number(l.product_id) === Number(productId) && Number(l.location_id) === Number(locationId) && l.qty > 0)
+    .sort((a, b) => {
+      const aHas = a.expiry_date != null;
+      const bHas = b.expiry_date != null;
+      if (aHas !== bHas) return aHas ? -1 : 1;
+      if (aHas && a.expiry_date !== b.expiry_date) return a.expiry_date < b.expiry_date ? -1 : 1;
+      if (a.received_at !== b.received_at) return a.received_at < b.received_at ? -1 : 1;
+      return a.id - b.id;
+    });
+  for (const lot of candidates) {
+    if (remaining <= 0) break;
+    const take = Math.min(lot.qty, remaining);
+    lot.qty -= take;
+    remaining -= take;
+    manifest.push({ expiry_date: lot.expiry_date == null ? null : lot.expiry_date, qty: take });
+  }
+  if (remaining > 0) {
+    // Stock existed without a matching lot (legacy/overflow path) — treat it
+    // as non-expiring in the manifest so the destination still balances.
+    manifest.push({ expiry_date: null, qty: remaining });
+  }
+  if (candidates.length || manifest.length) persistLots();
+  return manifest;
+}
+
+// Collapse a consumption manifest into one group per distinct expiry_date,
+// preserving consumption order (mirrors the SQLite backend).
+function groupManifestByExpiry(manifest) {
+  const groups = [];
+  for (const entry of manifest) {
+    const expiry = entry.expiry_date == null ? null : entry.expiry_date;
+    const existing = groups.find(g => g.expiry_date === expiry);
+    if (existing) existing.qty += entry.qty;
+    else groups.push({ expiry_date: expiry, qty: entry.qty });
+  }
+  return groups;
 }
 
 function getInventory() {
@@ -632,6 +721,31 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.split('?')[0] === '/api/cache/stats') {
     return requireAuth(req, res, true, (req, res) => {
       return sendJson(res, 200, cache.stats());
+    });
+  }
+
+  // ================= AUDIT TRAIL (admin) =================
+  // Mirrors the SQLite backend's /api/audit-trail (same response shape):
+  // structured audit log entries, newest first.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/audit-trail') {
+    return requireAuth(req, res, true, (req, res) => {
+      try {
+        const auditFile = process.env.AUDIT_LOG_FILE || 'audit.log';
+        if (!fs.existsSync(auditFile)) {
+          return sendJson(res, 200, { data: [], pagination: { total: 0 } });
+        }
+        const logs = fs.readFileSync(auditFile, 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => {
+            try { return JSON.parse(line); } catch { return null; }
+          })
+          .filter(Boolean)
+          .reverse();
+        return sendJson(res, 200, { data: logs, pagination: { total: logs.length } });
+      } catch (err) {
+        return sendJson(res, 500, { error: 'Failed to load audit trail' });
+      }
     });
   }
 
@@ -1684,19 +1798,60 @@ const server = http.createServer((req, res) => {
     const parsed = new URL(url, 'http://localhost');
     const productId = parsed.searchParams.get('product_id');
     const locationId = parsed.searchParams.get('location_id');
+    const expiringWithin = parsed.searchParams.get('expiring_within');
+    if (expiringWithin !== null) {
+      const days = Number(expiringWithin);
+      if (!Number.isFinite(days) || days < 0 || days > 3650) {
+        return sendJson(res, 400, { error: 'expiring_within must be a number of days (0-3650)' });
+      }
+    }
     const inv = getInventory();
-    const lots = [];
-    inv.items.forEach(item => {
-      inv.locations.forEach(loc => {
-        const qty = item.locations[loc] || 0;
-        if (qty > 0) {
-          const lot = { id: lots.length + 1, product_id: item.product.id, product_name: item.product.name, location_id: inv.locations.indexOf(loc) + 1, location_name: loc, qty, received_at: new Date().toISOString() };
-          if (productId && Number(lot.product_id) !== Number(productId)) return;
-          if (locationId && Number(lot.location_id) !== Number(locationId)) return;
-          lots.push(lot);
-        }
+    const products = readJSON(productsFile) || [];
+    // Legacy fallback: lots predating the FEFO ledger (or a fresh boot where
+    // nothing has moved yet) synthesize one lot per location from the current
+    // stock snapshot, matching the SQLite backend's seeded single-lot shape.
+    if (stockLots.length === 0) {
+      inv.items.forEach(item => {
+        inv.locations.forEach(loc => {
+          const qty = item.locations[loc] || 0;
+          if (qty > 0) {
+            stockLots.push({ id: nextLotId++, product_id: item.product.id, product_name: item.product.name, location_id: inv.locations.indexOf(loc) + 1, location_name: loc, qty, received_at: new Date().toISOString(), expiry_date: null });
+          }
+        });
       });
-    });
+    }
+    const locName = (id) => inv.locations[Number(id) - 1] || `Location ${id}`;
+    const lots = stockLots
+      .filter(l => l.qty > 0)
+      .map(l => ({
+        id: l.id,
+        product_id: l.product_id,
+        product_name: (products[Number(l.product_id) - 1] && (products[Number(l.product_id) - 1]['Product Name'] || products[Number(l.product_id) - 1].name)) || `Product ${l.product_id}`,
+        location_id: l.location_id,
+        location_name: locName(l.location_id),
+        qty: l.qty,
+        received_at: l.received_at,
+        expiry_date: l.expiry_date === undefined ? null : l.expiry_date,
+      }))
+      .filter(l => {
+        if (productId && Number(l.product_id) !== Number(productId)) return false;
+        if (locationId && Number(l.location_id) !== Number(locationId)) return false;
+        if (expiringWithin !== null) {
+          if (l.expiry_date == null) return false;
+          const cutoff = new Date(Date.now() + Number(expiringWithin) * 86400000).toISOString().slice(0, 10);
+          if (l.expiry_date > cutoff) return false;
+        }
+        return true;
+      })
+      // FEFO order for the lot view too (mirrors the SQLite backend).
+      .sort((a, b) => {
+        const aHas = a.expiry_date != null;
+        const bHas = b.expiry_date != null;
+        if (aHas !== bHas) return aHas ? -1 : 1;
+        if (aHas && a.expiry_date !== b.expiry_date) return a.expiry_date < b.expiry_date ? -1 : 1;
+        if (a.received_at !== b.received_at) return a.received_at < b.received_at ? -1 : 1;
+        return a.id - b.id;
+      });
     return sendJson(res, 200, lots);
   }
 
@@ -1706,6 +1861,18 @@ const server = http.createServer((req, res) => {
         if (err) return bodyError(res, err);
         if (!obj.product_id || !obj.qty || !obj.type) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['product_id, qty and type are required'] });
+        }
+        // Optional FEFO expiry — mirrors the SQLite backend's normalization:
+        // accept YYYY-MM-DD (or a full ISO timestamp, trimmed to its date
+        // part), reject anything else.
+        let expiryDate = null;
+        if (obj.expiry_date !== undefined && obj.expiry_date !== null && obj.expiry_date !== '') {
+          const raw = String(obj.expiry_date).trim();
+          const normalized = raw.slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Number.isNaN(new Date(`${normalized}T00:00:00Z`).getTime())) {
+            return sendJson(res, 400, { error: 'expiry_date must be a valid date (YYYY-MM-DD)' });
+          }
+          expiryDate = normalized;
         }
         if (!['stock-in', 'stock-out', 'transfer', 'adjustment'].includes(obj.type)) {
           return sendJson(res, 400, { error: 'Invalid type. Must be one of: stock-in, stock-out, transfer, adjustment' });
@@ -1724,6 +1891,15 @@ const server = http.createServer((req, res) => {
         // exactly like SQLite's `WHERE id = ?` with no matching row).
         if (Number.isNaN(pid) || pid < 1) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
+        }
+        // Additional lot guards so the ledger can never be corrupted by a
+        // malformed movement: stock-in needs a destination, and a stock-out
+        // without a source would silently skip FEFO consumption.
+        if (obj.type === 'stock-in' && !obj.dst_location) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['dst_location is required for stock-in'] });
+        }
+        if (obj.type === 'stock-out' && !obj.src_location) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['src_location is required for stock-out'] });
         }
         const products = readJSON(productsFile) || [];
         if (!products[pid - 1] || !isProductActive(products[pid - 1])) {
@@ -1755,20 +1931,47 @@ const server = http.createServer((req, res) => {
         cache.invalidate('inventory');
 
         if (item) {
+          // Resolve numeric location ids once so the lot ledger can be kept
+          // in sync with the stock change below (same rows the SQLite
+          // backend's stock_lots table would hold).
+          const locIdFor = (loc) => {
+            const name = locFor(loc);
+            const idx = inv.locations.indexOf(name);
+            return idx >= 0 ? idx + 1 : null;
+          };
           if (obj.type === 'stock-in' && obj.dst_location) {
             const loc = locFor(obj.dst_location);
             item.locations[loc] = (item.locations[loc] || 0) + qty;
+            recordLot(pid, locIdFor(obj.dst_location), qty, new Date().toISOString(), expiryDate);
           } else if (obj.type === 'stock-out' && obj.src_location) {
             const loc = locFor(obj.src_location);
             item.locations[loc] = item.locations[loc] - qty;
+            consumeLots(pid, locIdFor(obj.src_location), qty);
           } else if (obj.type === 'transfer' && obj.src_location && obj.dst_location) {
             const src = locFor(obj.src_location);
             const dst = locFor(obj.dst_location);
             item.locations[src] = item.locations[src] - qty;
             item.locations[dst] = (item.locations[dst] || 0) + qty;
+            // FEFO: destination lots mirror the consumed source lots (grouped
+            // by expiry). A request-supplied expiry_date only applies when the
+            // source had no dated lots (non-perishable goods).
+            const transferManifest = groupManifestByExpiry(consumeLots(pid, locIdFor(obj.src_location), qty));
+            const dstGroups = transferManifest.some(g => g.expiry_date != null)
+              ? transferManifest
+              : expiryDate
+                ? [{ expiry_date: expiryDate, qty }]
+                : transferManifest;
+            for (const g of dstGroups) {
+              recordLot(pid, locIdFor(obj.dst_location), g.qty, new Date().toISOString(), g.expiry_date);
+            }
           } else if (obj.type === 'adjustment' && (obj.dst_location || obj.src_location)) {
             const loc = locFor(obj.dst_location || obj.src_location);
             item.locations[loc] = qty;
+            // Mirror the SQLite adjustment behavior: the location's lot
+            // history is replaced by a single lot of the corrected qty.
+            const locId = locIdFor(obj.dst_location || obj.src_location);
+            stockLots = stockLots.filter(l => !(Number(l.product_id) === pid && Number(l.location_id) === locId));
+            if (qty > 0) recordLot(pid, locId, qty, new Date().toISOString(), null);
           }
           item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
           writeJSON(inventoryFile, inv);
@@ -1920,6 +2123,10 @@ const server = http.createServer((req, res) => {
           item.locations[locName] = Number(row.new_qty);
           item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
           writeJSON(inventoryFile, inv);
+          // Keep the FEFO lot ledger consistent (mirrors SQLite: an approved
+          // adjustment replaces the location's lots with one lot of new_qty).
+          stockLots = stockLots.filter(l => !(Number(l.product_id) === Number(row.product_id) && Number(l.location_id) === Number(row.location_id)));
+          if (Number(row.new_qty) > 0) recordLot(Number(row.product_id), Number(row.location_id), Number(row.new_qty), now, null);
         }
         // Record the movement in the ledger (mirrors SQLite).
         const movements = readJSON(movementsFile) || [];
@@ -2032,7 +2239,15 @@ const server = http.createServer((req, res) => {
           item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
           writeJSON(inventoryFile, inv);
           upsertLowStockAlert(item.product.id, Number(row.src_location), item.locations[srcName] || 0);
-        }
+          // Keep the FEFO lot ledger consistent (mirrors SQLite: an approved
+          // transfer consumes at the source and appends one lot at the
+          // destination).
+          // FEFO: destination lots mirror the consumed source lots (grouped
+          // by expiry) — mirrors the SQLite approval applier.
+          const approvalManifest = groupManifestByExpiry(consumeLots(Number(row.product_id), Number(row.src_location), Number(row.qty)));
+          for (const g of approvalManifest) {
+            recordLot(Number(row.product_id), Number(row.dst_location), g.qty, now, g.expiry_date);
+          }        }
         const movements = readJSON(movementsFile) || [];
         movements.unshift({
           id: movements.length + 1,
@@ -2459,6 +2674,23 @@ const server = http.createServer((req, res) => {
         else if (pct <= 90) classification = 'B';
         return { ...item, classification };
       });
+      return sendJson(res, 200, result);
+    }
+
+    if (pid === 'fsn') {
+      // Same shared classifier as the SQLite backend (fsn.js), fed from the
+      // in-memory sales ledger (identical deterministic seed draw) — this is
+      // the dual-backend parity the contract tests assert.
+      const windowDays = parseFsnWindow(new URL(url, 'http://localhost').searchParams.get('window'));
+      const now = new Date();
+      const catalog = products.map((p, idx) => ({
+        id: idx + 1,
+        name: p['Product Name'] || p.name,
+        price: p['Price'] || p.price || 0,
+      }));
+      const sales = (salesTransactions.length ? salesTransactions : (readJSON('@sales') || []))
+        .filter(s => new Date(s.transaction_date).getTime() >= now.getTime() - windowDays * 86400000);
+      const result = classifyFsnCatalog(catalog, sales, { windowDays, now });
       return sendJson(res, 200, result);
     }
 

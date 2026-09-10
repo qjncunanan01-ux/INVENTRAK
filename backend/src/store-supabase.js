@@ -29,6 +29,7 @@ const TABLES = {
   '@verificationCodes':     'verification_codes',
   '@inventoryMeta':         'inventory_meta',
   '@resetTokens':           'reset_tokens',
+  '@lots':                  'stock_lots',
 };
 
 let client = null;  // supabase client

@@ -147,10 +147,12 @@ describe('DashboardPage data wiring', () => {
     });
     // SALES THIS MONTH card derives 12,340 from this month's daily rows
     // (labels are CSS-uppercased, so query the title-case DOM text).
+    // Generous timeout: under parallel vitest runs the async fetch chain
+    // sometimes exceeds the 1s default, flaking the suite.
     await waitFor(() => {
       expect(screen.getByText('Sales This Month')).toBeInTheDocument();
       expect(screen.getByText('P12,340')).toBeInTheDocument();
-    });
+    }, { timeout: 4000 });
     // Fast/slow movers fall back to the public summary's ranked lists (the
     // raw ledger is role-blocked for staff). recharts labels don't render in
     // jsdom's 0x0 ResponsiveContainer, so assert the empty-state placeholder

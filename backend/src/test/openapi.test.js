@@ -428,6 +428,12 @@ test('openapi: optimization bulk, abc, per-product, 404', async () => {
   await bothConform('optimization 404', 'GET', '/api/optimization/99999');
 });
 
+test('openapi: optimization fsn conforms (default + clamped window)', async () => {
+  await bothConform('optimization fsn', 'GET', '/api/optimization/fsn');
+  await bothConform('optimization fsn window=7', 'GET', '/api/optimization/fsn?window=7');
+  await bothConform('optimization fsn window clamped', 'GET', '/api/optimization/fsn?window=3');
+});
+
 // ===== Analytics =====
 
 test('openapi: analytics summary + exports', async () => {

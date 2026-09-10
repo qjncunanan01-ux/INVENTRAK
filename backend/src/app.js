@@ -13,6 +13,7 @@ const { generateSecret, verifyTOTP, otpauthUrl, generateRecoveryCodes, normalize
 const { isDemoAccountBlocked } = require('./demo-accounts');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
+const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines, summarizeLines } = require('./product-lines');
@@ -391,12 +392,21 @@ function seedDatabase() {
         }
       }
 
-      // Draws 4-9: sales history (2 draws per customer).
       const price = p['Price'] || p.price || 1;
+      // Draws 4-9: sales history (2 draws per customer). Draw 4 doubles as
+      // the FSN frequency draw:
+      //   rare (~15%) — "dead stock": sales only OUTSIDE the 90-day FSN
+      //     window, so the classifier reports them Non-moving (N);
+      //   active — sales across the last 45 days, so Fast (F) and Slow (S)
+      //     both occur on the deterministic seed data.
+      const fsnRoll = rand();
+      const isFsnRare = fsnRoll >= 0.85;
 
       for (const cust of customers) {
-        const saleQty = Math.floor(rand() * 15) + 1;
-        const daysAgo = Math.floor(rand() * 90);
+        const saleQty = isFsnRare ? (Math.floor(rand() * 2) + 1) : (Math.floor(rand() * 15) + 1);
+        const daysAgo = isFsnRare
+          ? 90 + Math.floor(rand() * 90)
+          : Math.floor(rand() * 45);
 
         const date = new Date(
           SEED_EPOCH - daysAgo * 86400000
@@ -1775,11 +1785,11 @@ function resolveLocation(value) {
   return row ? row.id : null;
 }
 
-// Applies a movement's stock effect (stock rows, FIFO lots, low-stock alert)
-// to the database. Shared by the approval endpoints: approving a pending
-// stock adjustment or transfer performs exactly the same stock math as the
-// immediate POST /api/stock-movement handler, so an approved transaction
-// moves stock identically to a manually recorded one.
+// Applies a movement's stock effect (stock rows, FIFO/FEFO lots, low-stock
+// alert) to the database. Shared by the approval endpoints: approving a
+// pending stock adjustment or transfer performs exactly the same stock math
+// as the immediate POST /api/stock-movement handler, so an approved
+// transaction moves stock identically to a manually recorded one.
 function applyMovementEffect({
   product_id,
   qty,
@@ -1787,6 +1797,7 @@ function applyMovementEffect({
   srcId,
   dstId,
   now,
+  expiryDate = null,
 }) {
   const ensureStockRow = db.prepare(
     'INSERT OR IGNORE INTO stock (product_id, location_id, quantity) VALUES (?, ?, 0)'
@@ -1800,24 +1811,34 @@ function applyMovementEffect({
       'UPDATE stock SET quantity = quantity + ? WHERE product_id = ? AND location_id = ?'
     ).run(qty, product_id, dstId);
     db.prepare(
-      'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
-    ).run(product_id, dstId, qty, now);
+      'INSERT INTO stock_lots (product_id, location_id, qty, received_at, expiry_date) VALUES (?, ?, ?, ?, ?)'
+    ).run(product_id, dstId, qty, now, expiryDate);
   } else if (type === 'stock-out' && srcId) {
     consumeStockLots(product_id, srcId, qty);
     db.prepare(
       'UPDATE stock SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?'
     ).run(qty, product_id, srcId);
   } else if (type === 'transfer' && srcId && dstId) {
-    consumeStockLots(product_id, srcId, qty);
+    // FEFO: the destination lots mirror the consumed source lots (grouped by
+    // expiry) so expiry travels with the goods. A request-supplied expiry_date
+    // overrides only when the source had no dated lots (non-perishable goods).
+    const manifest = groupManifestByExpiry(consumeStockLots(product_id, srcId, qty));
+    const dstGroups = manifest.some((g) => g.expiry_date != null)
+      ? manifest
+      : expiryDate
+        ? [{ expiry_date: expiryDate, qty }]
+        : manifest;
     db.prepare(
       'UPDATE stock SET quantity = quantity - ? WHERE product_id = ? AND location_id = ?'
     ).run(qty, product_id, srcId);
     db.prepare(
       'UPDATE stock SET quantity = quantity + ? WHERE product_id = ? AND location_id = ?'
     ).run(qty, product_id, dstId);
-    db.prepare(
-      'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
-    ).run(product_id, dstId, qty, now);
+    for (const g of dstGroups) {
+      db.prepare(
+        'INSERT INTO stock_lots (product_id, location_id, qty, received_at, expiry_date) VALUES (?, ?, ?, ?, ?)'
+      ).run(product_id, dstId, g.qty, now, g.expiry_date);
+    }
   } else if (type === 'adjustment' && (srcId || dstId)) {
     const loc = dstId || srcId;
     db.prepare(
@@ -1853,16 +1874,27 @@ function applyMovementEffect({
   }
 }
 
+// Consumes stock for a stock-out/transfer using FEFO (First-Expired,
+// First-Out) with FIFO as the fallback: lots carrying an expiry_date are
+// consumed first — soonest expiry wins — and non-expiring lots (expiry IS
+// NULL) are consumed last, each group ordered by arrival (received_at, then
+// lot id as the final tiebreaker). Perishable stock therefore never sits
+// behind a newer, longer-lived batch, and non-perishable goods keep the
+// classic FIFO behavior.
 function consumeStockLots(
   productId,
   locationId,
   quantity
 ) {
   let remaining = quantity;
+  // Consumption manifest: what was actually taken, grouped by expiry_date so
+  // a transfer can recreate matching destination lots (expiry travels with
+  // the goods under FEFO).
+  const manifest = [];
 
   const lots = db
     .prepare(
-      'SELECT id, qty FROM stock_lots WHERE product_id = ? AND location_id = ? AND qty > 0 ORDER BY received_at ASC'
+      'SELECT id, qty, expiry_date FROM stock_lots WHERE product_id = ? AND location_id = ? AND qty > 0 ORDER BY (expiry_date IS NULL) ASC, expiry_date ASC, received_at ASC, id ASC'
     )
     .all(
       productId,
@@ -1887,6 +1919,7 @@ function consumeStockLots(
     );
 
     remaining -= consume;
+    manifest.push({ expiry_date: lot.expiry_date == null ? null : lot.expiry_date, qty: consume });
   }
 
   if (remaining > 0) {
@@ -1897,7 +1930,29 @@ function consumeStockLots(
       productId,
       locationId
     );
+    // Stock existed without a matching lot (legacy/overflow path) — treat it
+    // as non-expiring in the manifest so the destination still balances.
+    manifest.push({ expiry_date: null, qty: remaining });
   }
+
+  return manifest;
+}
+
+// Collapse a consumption manifest into one group per distinct expiry_date,
+// preserving consumption order. Used to mirror source lots onto a transfer
+// destination.
+function groupManifestByExpiry(manifest) {
+  const groups = [];
+  for (const entry of manifest) {
+    const expiry = entry.expiry_date == null ? null : entry.expiry_date;
+    const existing = groups.find((g) => g.expiry_date === expiry);
+    if (existing) {
+      existing.qty += entry.qty;
+    } else {
+      groups.push({ expiry_date: expiry, qty: entry.qty });
+    }
+  }
+  return groups;
 }
 
 app.post(
@@ -1929,6 +1984,7 @@ app.post(
       dst_location,
       notes,
       user,
+      expiry_date,
     } = req.body;
 
     const validTypes = [
@@ -1943,6 +1999,21 @@ app.post(
         error:
           `Invalid type. Must be one of: ${validTypes.join(', ')}`,
       });
+    }
+
+    // Optional FEFO expiry (perishables). Accepts YYYY-MM-DD (or a full ISO
+    // timestamp, normalized to its date part); anything else is rejected so
+    // lot ordering can never be poisoned by an unparseable value.
+    let expiryDate = null;
+    if (expiry_date !== undefined && expiry_date !== null && expiry_date !== '') {
+      const raw = String(expiry_date).trim();
+      const normalized = raw.slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Number.isNaN(new Date(`${normalized}T00:00:00Z`).getTime())) {
+        return res.status(400).json({
+          error: 'expiry_date must be a valid date (YYYY-MM-DD)',
+        });
+      }
+      expiryDate = normalized;
     }
 
     const product = db
@@ -2026,12 +2097,13 @@ app.post(
       );
 
       db.prepare(
-        'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
+        'INSERT INTO stock_lots (product_id, location_id, qty, received_at, expiry_date) VALUES (?, ?, ?, ?, ?)'
       ).run(
         product_id,
         dstId,
         qty,
-        now
+        now,
+        expiryDate
       );
     } else if (
       type === 'stock-out' &&
@@ -2055,10 +2127,12 @@ app.post(
       srcId &&
       dstId
     ) {
-      consumeStockLots(
-        product_id,
-        srcId,
-        qty
+      const transferManifest = groupManifestByExpiry(
+        consumeStockLots(
+          product_id,
+          srcId,
+          qty
+        )
       );
 
       db.prepare(
@@ -2077,14 +2151,17 @@ app.post(
         dstId
       );
 
-      db.prepare(
-        'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
-      ).run(
-        product_id,
-        dstId,
-        qty,
-        now
-      );
+      for (const g of transferManifest) {
+        db.prepare(
+          'INSERT INTO stock_lots (product_id, location_id, qty, received_at, expiry_date) VALUES (?, ?, ?, ?, ?)'
+        ).run(
+          product_id,
+          dstId,
+          g.qty,
+          now,
+          g.expiry_date
+        );
+      }
     } else if (
       type === 'adjustment' &&
       (srcId || dstId)
@@ -2255,10 +2332,11 @@ app.get('/api/stock-lots', (req, res) => {
   const {
     product_id,
     location_id,
+    expiring_within,
   } = req.query;
 
   let query =
-    'SELECT sl.id, sl.product_id, sl.location_id, sl.qty, sl.received_at, p.name as product_name, l.name as location_name FROM stock_lots sl JOIN products p ON sl.product_id = p.id JOIN locations l ON sl.location_id = l.id WHERE sl.qty > 0';
+    'SELECT sl.id, sl.product_id, sl.location_id, sl.qty, sl.received_at, sl.expiry_date, p.name as product_name, l.name as location_name FROM stock_lots sl JOIN products p ON sl.product_id = p.id JOIN locations l ON sl.location_id = l.id WHERE sl.qty > 0';
 
   const params = [];
 
@@ -2272,7 +2350,21 @@ app.get('/api/stock-lots', (req, res) => {
     params.push(location_id);
   }
 
-  query += ' ORDER BY sl.received_at ASC';
+  // FEFO helper: only lots that carry an expiry date falling within the next
+  // N days (or already expired — those are the most urgent to move). Used by
+  // the admin "expiring soon" view; e.g. /api/stock-lots?expiring_within=30.
+  if (expiring_within !== undefined) {
+    const days = Number(expiring_within);
+    if (!Number.isFinite(days) || days < 0 || days > 3650) {
+      return res.status(400).json({ error: 'expiring_within must be a number of days (0-3650)' });
+    }
+    const cutoff = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+    query += ' AND sl.expiry_date IS NOT NULL AND sl.expiry_date <= ?';
+    params.push(cutoff);
+  }
+
+  // FEFO order for the lot view too: expiring lots first, then FIFO.
+  query += ' ORDER BY (sl.expiry_date IS NULL) ASC, sl.expiry_date ASC, sl.received_at ASC, sl.id ASC';
 
   const rows = db
     .prepare(query)
@@ -2705,6 +2797,35 @@ app.delete(
 );
 
 // ================= OPTIMIZATION ROUTES =================
+
+app.get(
+  '/api/optimization/fsn',
+  (req, res) => {
+    const windowDays = parseFsnWindow(req.query.window);
+    const now = new Date();
+
+    const products = db
+      .prepare(
+        'SELECT id, name, price FROM products WHERE status = ?'
+      )
+      .all('active');
+
+    const cutoff = new Date(
+      now.getTime() - windowDays * 86400000
+    ).toISOString();
+
+    // One pass over the ledger; per-product rows filtered in fsn.js.
+    const sales = db
+      .prepare(
+        'SELECT product_id, qty, transaction_date FROM sales_transactions WHERE transaction_date >= ?'
+      )
+      .all(cutoff);
+
+    const result = classifyFsnCatalog(products, sales, { windowDays, now });
+
+    return res.json(result);
+  }
+);
 
 app.get(
   '/api/optimization/:productId',
@@ -3747,6 +3868,19 @@ app.get('/api/audit-trail', authenticateToken, adminOnly, (req, res) => {
 });
 
 // ================= USER MANAGEMENT =================
+
+// Cache statistics (admin) — mirrors the npm-free backend's /api/cache/stats
+// so both backends expose the identical contract (spec audit requires it).
+// The Express server does not prime the in-memory cache today, so this
+// honestly reports zeroed counters.
+app.get('/api/cache/stats', authenticateToken, adminOnly, (req, res) => {
+  try {
+    const cache = require('./cache');
+    res.json(cache.stats());
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load cache stats' });
+  }
+});
 
 app.get(
   '/api/users',

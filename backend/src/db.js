@@ -101,6 +101,15 @@ if (!productColumns.some((c) => c.name === 'image')) {
   db.exec('ALTER TABLE products ADD COLUMN image TEXT');
 }
 
+// FEFO (First-Expired, First-Out): stock_lots gains a nullable expiry_date.
+// NULL expiry keeps pure FIFO ordering; lots WITH an expiry are always
+// consumed before non-expiring ones, soonest expiry first (arrival order as
+// the tiebreaker). Additive — existing databases are untouched.
+const stockLotColumns = db.prepare('PRAGMA table_info(stock_lots)').all();
+if (!stockLotColumns.some((c) => c.name === 'expiry_date')) {
+  db.exec('ALTER TABLE stock_lots ADD COLUMN expiry_date TEXT');
+}
+
 // Migration: users gained email verification + an optional phone number for
 // SMS codes (signup verification). Existing rows default to VERIFIED (1) so
 // accounts created before verification existed are never locked out; only new

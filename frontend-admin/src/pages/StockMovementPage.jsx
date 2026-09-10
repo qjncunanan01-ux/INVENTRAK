@@ -1,4 +1,4 @@
-import { Box, Button, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, Snackbar, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost, getCurrentUser } from '../api';
 import { colors } from '../theme';
@@ -19,7 +19,8 @@ export default function StockMovementPage({ onLogout }) {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [totalMovements, setTotalMovements] = useState(0);
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ type: 'stock-in', product_id: '', qty: '', src_location: '', dst_location: '', notes: '' });
+  const [expiringOnly, setExpiringOnly] = useState(false);
+  const [form, setForm] = useState({ type: 'stock-in', product_id: '', qty: '', src_location: '', dst_location: '', notes: '', expiry_date: '' });
 
   const loadData = async () => {
     setLoading(true);
@@ -28,7 +29,9 @@ export default function StockMovementPage({ onLogout }) {
         apiGet('/api/stock-movements'),
         apiGet('/api/products'),
         apiGet('/api/locations'),
-        apiGet('/api/stock-lots')
+        // FEFO early-warning: when the "expiring soon" toggle is on, only ask
+        // for lots expiring within the next 30 days.
+        apiGet(expiringOnly ? '/api/stock-lots?expiring_within=30' : '/api/stock-lots')
       ]);
       setMovements(movRes.data || movRes);
       setTotalMovements(movRes.pagination?.total || (movRes.data || movRes).length);
@@ -42,7 +45,7 @@ export default function StockMovementPage({ onLogout }) {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [expiringOnly]);
 
   const handleSubmit = async () => {
     if (!form.product_id || !form.qty) {
@@ -51,6 +54,10 @@ export default function StockMovementPage({ onLogout }) {
     }
     if (Number(form.qty) <= 0) {
       setSnackbar({ open: true, message: 'Quantity must be greater than 0', severity: 'warning' });
+      return;
+    }
+    if (form.expiry_date && form.type !== 'stock-in' && form.type !== 'transfer') {
+      setSnackbar({ open: true, message: 'Expiry date only applies to Stock In and Transfers', severity: 'warning' });
       return;
     }
     setSaving(true);
@@ -62,10 +69,11 @@ export default function StockMovementPage({ onLogout }) {
         src_location: form.src_location,
         dst_location: form.dst_location,
         notes: form.notes,
+        expiry_date: form.expiry_date || null,
         user: 'admin'
       });
       setSnackbar({ open: true, message: result.message || 'Movement recorded', severity: 'success' });
-      setForm({ type: 'stock-in', product_id: '', qty: '', src_location: '', dst_location: '', notes: '' });
+      setForm({ type: 'stock-in', product_id: '', qty: '', src_location: '', dst_location: '', notes: '', expiry_date: '' });
       await loadData();
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
@@ -89,6 +97,20 @@ export default function StockMovementPage({ onLogout }) {
   }) : [];
   const showSrc = form.type === 'stock-out' || form.type === 'transfer' || form.type === 'adjustment';
   const showDst = form.type === 'stock-in' || form.type === 'transfer' || form.type === 'adjustment';
+  const showExpiry = form.type === 'stock-in' || form.type === 'transfer';
+
+  // Days until a lot expires (negative = already expired).
+  const daysTo = (date) => Math.ceil((new Date(`${date}T00:00:00`).getTime() - Date.now()) / 86400000);
+  const expiryChip = (date) => {
+    if (date == null) return <Typography variant="body2" color="text.secondary">—</Typography>;
+    const d = daysTo(date);
+    const label = `${date} (${d < 0 ? 'expired' : `${d}d`})`;
+    return d <= 0
+      ? <Chip size="small" color="error" label={label} />
+      : d <= 30
+        ? <Chip size="small" color="warning" label={label} />
+        : <Chip size="small" variant="outlined" label={label} />;
+  };
 
   return (
     <AdminLayout title="Stock Movement" onLogout={onLogout}>
@@ -96,7 +118,7 @@ export default function StockMovementPage({ onLogout }) {
       <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
         <Typography variant="h6" mb={1}>New stock movement</Typography>
         <Typography variant="body2" color="text.secondary" mb={2}>
-          Record stock in, stock out, transfers, and adjustments with FIFO tracking.
+          Record stock in, stock out, transfers, and adjustments with FEFO tracking — perishable lots (with an expiry date) are always consumed before non-expiring stock.
         </Typography>
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
           <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
@@ -134,6 +156,18 @@ export default function StockMovementPage({ onLogout }) {
                 {locList.map(loc => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
               </Select>
             </FormControl>
+          )}
+          {showExpiry && (
+            <TextField
+              label="Expiry date (optional)"
+              type="date"
+              value={form.expiry_date}
+              onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+              fullWidth
+              sx={{ backgroundColor: colors.surface }}
+              InputLabelProps={{ shrink: true }}
+              helperText="FEFO: this lot is consumed before non-expiring stock"
+            />
           )}
           <TextField label="Notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} multiline rows={2} fullWidth sx={{ backgroundColor: colors.surface }} />
           <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.qty}>              {saving ? 'Saving…' : 'Submit movement'}
@@ -186,7 +220,13 @@ export default function StockMovementPage({ onLogout }) {
         </Table>
       </Paper>
       <Paper sx={{ p: 3, mt: 3, backgroundColor: colors.surfaceAlt }}>
-        <Typography variant="h6" mb={2}>Stock lots (FIFO view)</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+          <Typography variant="h6">Stock lots (FEFO view)</Typography>
+          <FormControlLabel
+            control={<Switch checked={expiringOnly} onChange={e => setExpiringOnly(e.target.checked)} />}
+            label="Expiring within 30 days"
+          />
+        </Box>
         <Table>
           <TableHead>
             <TableRow>
@@ -194,19 +234,21 @@ export default function StockMovementPage({ onLogout }) {
               <TableCell>Location</TableCell>
               <TableCell>Qty</TableCell>
               <TableCell>Received</TableCell>
+              <TableCell>Expiry</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={4}>Loading lots…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5}>Loading lots…</TableCell></TableRow>
             ) : lotList.length === 0 ? (
-              <TableRow><TableCell colSpan={4}>No lot data available.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5}>{expiringOnly ? 'No lots expiring within 30 days.' : 'No lot data available.'}</TableCell></TableRow>
             ) : lotList.map(lot => (
               <TableRow key={lot.id}>
                 <TableCell>{lot.product_name}</TableCell>
                 <TableCell>{lot.location_name}</TableCell>
                 <TableCell>{lot.qty}</TableCell>
                 <TableCell>{new Date(lot.received_at).toLocaleDateString()}</TableCell>
+                <TableCell>{expiryChip(lot.expiry_date)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

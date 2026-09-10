@@ -103,3 +103,12 @@ CREATE TABLE IF NOT EXISTS reset_tokens (
   id        TEXT PRIMARY KEY,
   data      JSONB NOT NULL DEFAULT '{}'
 );
+
+-- ============================================================
+-- Stock lots (FEFO ledger for the npm-free backend)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS stock_lots (
+  id        INTEGER PRIMARY KEY,
+  idx       INTEGER NOT NULL DEFAULT 0,
+  data      JSONB NOT NULL DEFAULT '{}'
+);

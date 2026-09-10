@@ -166,6 +166,12 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   mfaVerify: (body) => request('POST', '/api/auth/mfa/verify', { body }),
   // POST /api/auth/mfa/recovery-codes — Regenerate one-time recovery codes (invalidates the previous set)
   mfaRecoveryCodes: (_) => request('POST', '/api/auth/mfa/recovery-codes', {  }),
+  // GET /api/optimization/fsn — FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency
+  getOptimizationFsn: (params) => request('GET', '/api/optimization/fsn', { query: params }),
+  // GET /api/audit-trail — Security audit log entries (admin only) — newest first
+  listAuditTrail: (_) => request('GET', '/api/audit-trail', {  }),
+  // GET /api/cache/stats — In-memory cache statistics (admin only)
+  getCacheStats: (_) => request('GET', '/api/cache/stats', {  }),
   };
 }
 

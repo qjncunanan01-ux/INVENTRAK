@@ -79,6 +79,7 @@ export const createOrderInquiry = client.createOrderInquiry;
 export const updateOrderInquiry = client.updateOrderInquiry;
 export const getOptimizationBulk = client.getOptimizationBulk;
 export const getOptimizationAbc = client.getOptimizationAbc;
+export const getOptimizationFsn = client.getOptimizationFsn;
 export const getOptimization = client.getOptimization;
 export const getAnalyticsSummary = client.getAnalyticsSummary;
 export const exportAnalytics = client.exportAnalytics;

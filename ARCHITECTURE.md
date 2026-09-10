@@ -49,6 +49,7 @@ INVENTRAK/
 │   │   ├── audit.js            # Security audit logging
 │   │   ├── google-auth.js      # Google OAuth relay
 │   │   ├── ocr.js              # Product OCR scanning
+│   │   ├── fsn.js              # FSN (Fast/Slow/Non-moving) inventory classifier
 │   │   ├── notify.js           # Email + SMS notifications
 │   │   ├── payments.js         # GCash/card payment integration
 │   │   ├── prng.js             # Deterministic PRNG for demo data
@@ -176,6 +177,8 @@ INVENTRAK/
 - `GET /api/users` — User management
 - `GET /api/alerts` — Low-stock alerts
 - `GET /api/analytics/summary` — Dashboard metrics
+- `GET /api/audit-trail` — Security audit log entries
+- `GET /api/cache/stats` — In-memory cache statistics (npm-free backend serves live data; Express twin reports zeroed counters)
 - `POST /api/auth/mfa/*` — MFA enrollment
 
 ## Security Architecture

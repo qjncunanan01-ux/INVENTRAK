@@ -43,11 +43,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 50,
-        "Stockroom 1": 44,
-        "Stockroom 2": 69
+        "Showroom": 44,
+        "Stockroom 1": 69,
+        "Stockroom 2": 77
       },
-      "total": 163
+      "total": 190
     },
     {
       "product": {
@@ -65,11 +65,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 147,
-        "Stockroom 1": 90,
-        "Stockroom 2": 170
+        "Showroom": 170,
+        "Stockroom 1": 111,
+        "Stockroom 2": 177
       },
-      "total": 407
+      "total": 458
     },
     {
       "product": {
@@ -87,11 +87,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 46,
-        "Stockroom 1": 151,
-        "Stockroom 2": 67
+        "Showroom": 139,
+        "Stockroom 1": 111,
+        "Stockroom 2": 172
       },
-      "total": 264
+      "total": 422
     },
     {
       "product": {
@@ -109,11 +109,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 46,
-        "Stockroom 1": 73,
-        "Stockroom 2": 79
+        "Showroom": 36,
+        "Stockroom 1": 175,
+        "Stockroom 2": 82
       },
-      "total": 198
+      "total": 293
     },
     {
       "product": {
@@ -131,11 +131,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 128,
-        "Stockroom 1": 88,
-        "Stockroom 2": 26
+        "Showroom": 154,
+        "Stockroom 1": 65,
+        "Stockroom 2": 62
       },
-      "total": 242
+      "total": 281
     },
     {
       "product": {
@@ -153,11 +153,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 146,
-        "Stockroom 1": 144,
-        "Stockroom 2": 143
+        "Showroom": 122,
+        "Stockroom 1": 23,
+        "Stockroom 2": 100
       },
-      "total": 433
+      "total": 245
     },
     {
       "product": {
@@ -175,11 +175,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 120,
-        "Stockroom 1": 20,
-        "Stockroom 2": 47
+        "Showroom": 27,
+        "Stockroom 1": 133,
+        "Stockroom 2": 77
       },
-      "total": 187
+      "total": 237
     },
     {
       "product": {
@@ -197,11 +197,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 77,
-        "Stockroom 1": 177,
-        "Stockroom 2": 117
+        "Showroom": 83,
+        "Stockroom 1": 72,
+        "Stockroom 2": 178
       },
-      "total": 371
+      "total": 333
     },
     {
       "product": {
@@ -219,11 +219,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 72,
-        "Stockroom 1": 178,
-        "Stockroom 2": 179
+        "Showroom": 113,
+        "Stockroom 1": 62,
+        "Stockroom 2": 147
       },
-      "total": 429
+      "total": 322
     },
     {
       "product": {
@@ -241,11 +241,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 113,
-        "Stockroom 1": 62,
-        "Stockroom 2": 147
+        "Showroom": 174,
+        "Stockroom 1": 176,
+        "Stockroom 2": 85
       },
-      "total": 322
+      "total": 435
     },
     {
       "product": {
@@ -263,11 +263,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 139,
-        "Stockroom 1": 174,
-        "Stockroom 2": 176
+        "Showroom": 108,
+        "Stockroom 1": 91,
+        "Stockroom 2": 79
       },
-      "total": 489
+      "total": 278
     },
     {
       "product": {
@@ -285,11 +285,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 47,
-        "Stockroom 1": 24,
-        "Stockroom 2": 108
+        "Showroom": 90,
+        "Stockroom 1": 112,
+        "Stockroom 2": 85
       },
-      "total": 179
+      "total": 287
     },
     {
       "product": {
@@ -307,11 +307,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 152,
-        "Stockroom 1": 124,
-        "Stockroom 2": 78
+        "Showroom": 72,
+        "Stockroom 1": 69,
+        "Stockroom 2": 92
       },
-      "total": 354
+      "total": 233
     },
     {
       "product": {
@@ -329,11 +329,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 165,
-        "Stockroom 1": 80,
-        "Stockroom 2": 46
+        "Showroom": 86,
+        "Stockroom 1": 40,
+        "Stockroom 2": 112
       },
-      "total": 291
+      "total": 238
     },
     {
       "product": {
@@ -351,11 +351,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 155,
-        "Stockroom 1": 130,
-        "Stockroom 2": 77
+        "Showroom": 125,
+        "Stockroom 1": 65,
+        "Stockroom 2": 139
       },
-      "total": 362
+      "total": 329
     },
     {
       "product": {
@@ -373,11 +373,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 147,
-        "Stockroom 1": 174,
-        "Stockroom 2": 176
+        "Showroom": 109,
+        "Stockroom 1": 55,
+        "Stockroom 2": 25
       },
-      "total": 497
+      "total": 189
     },
     {
       "product": {
@@ -395,11 +395,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 157,
-        "Stockroom 1": 99,
-        "Stockroom 2": 162
+        "Showroom": 79,
+        "Stockroom 1": 108,
+        "Stockroom 2": 31
       },
-      "total": 418
+      "total": 218
     },
     {
       "product": {
@@ -417,11 +417,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 25,
-        "Stockroom 1": 42,
-        "Stockroom 2": 60
+        "Showroom": 162,
+        "Stockroom 1": 162,
+        "Stockroom 2": 64
       },
-      "total": 127
+      "total": 388
     },
     {
       "product": {
@@ -439,11 +439,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 108,
-        "Stockroom 1": 31,
-        "Stockroom 2": 124
+        "Showroom": 103,
+        "Stockroom 1": 23,
+        "Stockroom 2": 149
       },
-      "total": 263
+      "total": 275
     },
     {
       "product": {
@@ -461,11 +461,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 162,
+        "Showroom": 94,
         "Stockroom 1": 162,
-        "Stockroom 2": 64
+        "Stockroom 2": 61
       },
-      "total": 388
+      "total": 317
     },
     {
       "product": {
@@ -483,11 +483,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 27,
-        "Stockroom 1": 103,
-        "Stockroom 2": 23
+        "Showroom": 162,
+        "Stockroom 1": 148,
+        "Stockroom 2": 106
       },
-      "total": 153
+      "total": 416
     },
     {
       "product": {
@@ -505,11 +505,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 97,
-        "Stockroom 1": 53,
-        "Stockroom 2": 94
+        "Showroom": 159,
+        "Stockroom 1": 179,
+        "Stockroom 2": 148
       },
-      "total": 244
+      "total": 486
     },
     {
       "product": {
@@ -527,11 +527,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 59,
-        "Stockroom 1": 66,
-        "Stockroom 2": 131
+        "Showroom": 157,
+        "Stockroom 1": 40,
+        "Stockroom 2": 160
       },
-      "total": 256
+      "total": 357
     },
     {
       "product": {
@@ -549,11 +549,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 158,
-        "Stockroom 1": 123,
-        "Stockroom 2": 46
+        "Showroom": 52,
+        "Stockroom 1": 46,
+        "Stockroom 2": 29
       },
-      "total": 327
+      "total": 127
     },
     {
       "product": {
@@ -571,11 +571,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 46,
-        "Stockroom 1": 105,
-        "Stockroom 2": 141
+        "Showroom": 89,
+        "Stockroom 1": 21,
+        "Stockroom 2": 68
       },
-      "total": 292
+      "total": 178
     },
     {
       "product": {
@@ -593,11 +593,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 127,
-        "Stockroom 1": 134,
-        "Stockroom 2": 43
+        "Showroom": 72,
+        "Stockroom 1": 166,
+        "Stockroom 2": 82
       },
-      "total": 304
+      "total": 320
     },
     {
       "product": {
@@ -615,11 +615,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 26,
-        "Stockroom 1": 165,
-        "Stockroom 2": 31
+        "Showroom": 126,
+        "Stockroom 1": 51,
+        "Stockroom 2": 99
       },
-      "total": 222
+      "total": 276
     },
     {
       "product": {
@@ -637,11 +637,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 68,
-        "Stockroom 1": 132,
-        "Stockroom 2": 25
+        "Showroom": 113,
+        "Stockroom 1": 137,
+        "Stockroom 2": 47
       },
-      "total": 225
+      "total": 297
     },
     {
       "product": {
@@ -659,11 +659,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 166,
-        "Stockroom 1": 82,
-        "Stockroom 2": 45
+        "Showroom": 99,
+        "Stockroom 1": 136,
+        "Stockroom 2": 29
       },
-      "total": 293
+      "total": 264
     },
     {
       "product": {
@@ -681,11 +681,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 126,
-        "Stockroom 1": 51,
-        "Stockroom 2": 99
+        "Showroom": 135,
+        "Stockroom 1": 53,
+        "Stockroom 2": 169
       },
-      "total": 276
+      "total": 357
     },
     {
       "product": {
@@ -703,11 +703,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 32,
-        "Stockroom 1": 113,
-        "Stockroom 2": 137
+        "Showroom": 116,
+        "Stockroom 1": 44,
+        "Stockroom 2": 171
       },
-      "total": 282
+      "total": 331
     },
     {
       "product": {
@@ -725,11 +725,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 104,
-        "Stockroom 1": 139,
-        "Stockroom 2": 99
+        "Showroom": 94,
+        "Stockroom 1": 79,
+        "Stockroom 2": 27
       },
-      "total": 342
+      "total": 200
     },
     {
       "product": {
@@ -747,11 +747,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 150,
-        "Stockroom 1": 77,
-        "Stockroom 2": 102
+        "Showroom": 140,
+        "Stockroom 1": 166,
+        "Stockroom 2": 77
       },
-      "total": 329
+      "total": 383
     },
     {
       "product": {
@@ -769,11 +769,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 123,
-        "Stockroom 1": 170,
-        "Stockroom 2": 60
+        "Showroom": 116,
+        "Stockroom 1": 112,
+        "Stockroom 2": 68
       },
-      "total": 353
+      "total": 296
     },
     {
       "product": {
@@ -791,11 +791,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 159,
-        "Stockroom 1": 28,
-        "Stockroom 2": 171
+        "Showroom": 30,
+        "Stockroom 1": 39,
+        "Stockroom 2": 55
       },
-      "total": 358
+      "total": 124
     },
     {
       "product": {
@@ -813,11 +813,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 95,
-        "Stockroom 1": 65,
-        "Stockroom 2": 42
+        "Showroom": 145,
+        "Stockroom 1": 52,
+        "Stockroom 2": 63
       },
-      "total": 202
+      "total": 260
     },
     {
       "product": {
@@ -835,11 +835,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 163,
-        "Stockroom 1": 140,
-        "Stockroom 2": 32
+        "Showroom": 70,
+        "Stockroom 1": 126,
+        "Stockroom 2": 134
       },
-      "total": 335
+      "total": 330
     },
     {
       "product": {
@@ -857,11 +857,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 68,
-        "Stockroom 1": 27,
-        "Stockroom 2": 61
+        "Showroom": 167,
+        "Stockroom 1": 125,
+        "Stockroom 2": 102
       },
-      "total": 156
+      "total": 394
     },
     {
       "product": {
@@ -879,11 +879,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 39,
-        "Stockroom 1": 55,
-        "Stockroom 2": 25
+        "Showroom": 61,
+        "Stockroom 1": 139,
+        "Stockroom 2": 23
       },
-      "total": 119
+      "total": 223
     },
     {
       "product": {
@@ -901,11 +901,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 145,
-        "Stockroom 1": 52,
-        "Stockroom 2": 63
+        "Showroom": 30,
+        "Stockroom 1": 123,
+        "Stockroom 2": 174
       },
-      "total": 260
+      "total": 327
     },
     {
       "product": {
@@ -923,11 +923,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 148,
-        "Stockroom 1": 70,
-        "Stockroom 2": 126
+        "Showroom": 69,
+        "Stockroom 1": 40,
+        "Stockroom 2": 166
       },
-      "total": 344
+      "total": 275
     },
     {
       "product": {
@@ -945,11 +945,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 56,
-        "Stockroom 1": 100,
-        "Stockroom 2": 167
+        "Showroom": 162,
+        "Stockroom 1": 148,
+        "Stockroom 2": 156
       },
-      "total": 323
+      "total": 466
     },
     {
       "product": {
@@ -967,11 +967,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 23,
-        "Stockroom 1": 118,
-        "Stockroom 2": 168
+        "Showroom": 162,
+        "Stockroom 1": 41,
+        "Stockroom 2": 105
       },
-      "total": 309
+      "total": 308
     },
     {
       "product": {
@@ -989,11 +989,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 148,
-        "Stockroom 1": 88,
-        "Stockroom 2": 60
+        "Showroom": 47,
+        "Stockroom 1": 102,
+        "Stockroom 2": 70
       },
-      "total": 296
+      "total": 219
     },
     {
       "product": {
@@ -1011,11 +1011,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 103,
-        "Stockroom 1": 127,
-        "Stockroom 2": 56
+        "Showroom": 78,
+        "Stockroom 1": 128,
+        "Stockroom 2": 54
       },
-      "total": 286
+      "total": 260
     },
     {
       "product": {
@@ -1033,11 +1033,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 102,
-        "Stockroom 1": 113,
-        "Stockroom 2": 47
+        "Showroom": 23,
+        "Stockroom 1": 58,
+        "Stockroom 2": 133
       },
-      "total": 262
+      "total": 214
     },
     {
       "product": {
@@ -1055,11 +1055,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 139,
-        "Stockroom 1": 70,
-        "Stockroom 2": 137
+        "Showroom": 65,
+        "Stockroom 1": 175,
+        "Stockroom 2": 49
       },
-      "total": 346
+      "total": 289
     },
     {
       "product": {
@@ -1077,11 +1077,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 105,
-        "Stockroom 1": 111,
-        "Stockroom 2": 44
+        "Showroom": 102,
+        "Stockroom 1": 101,
+        "Stockroom 2": 99
       },
-      "total": 260
+      "total": 302
     },
     {
       "product": {
@@ -1099,11 +1099,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 102,
-        "Stockroom 1": 70,
-        "Stockroom 2": 119
+        "Showroom": 131,
+        "Stockroom 1": 110,
+        "Stockroom 2": 35
       },
-      "total": 291
+      "total": 276
     },
     {
       "product": {
@@ -1121,11 +1121,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 78,
-        "Stockroom 1": 128,
-        "Stockroom 2": 54
+        "Showroom": 22,
+        "Stockroom 1": 54,
+        "Stockroom 2": 40
       },
-      "total": 260
+      "total": 116
     },
     {
       "product": {
@@ -1143,11 +1143,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 165,
-        "Stockroom 1": 23,
-        "Stockroom 2": 58
+        "Showroom": 20,
+        "Stockroom 1": 150,
+        "Stockroom 2": 179
       },
-      "total": 246
+      "total": 349
     },
     {
       "product": {
@@ -1165,11 +1165,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 148,
-        "Stockroom 1": 40,
-        "Stockroom 2": 65
+        "Showroom": 90,
+        "Stockroom 1": 94,
+        "Stockroom 2": 86
       },
-      "total": 253
+      "total": 270
     },
     {
       "product": {
@@ -1187,11 +1187,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 124,
-        "Stockroom 1": 114,
-        "Stockroom 2": 73
+        "Showroom": 63,
+        "Stockroom 1": 99,
+        "Stockroom 2": 75
       },
-      "total": 311
+      "total": 237
     },
     {
       "product": {
@@ -1209,11 +1209,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 149,
-        "Stockroom 1": 61,
-        "Stockroom 2": 71
+        "Showroom": 59,
+        "Stockroom 1": 24,
+        "Stockroom 2": 126
       },
-      "total": 281
+      "total": 209
     },
     {
       "product": {
@@ -1231,11 +1231,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 42,
-        "Stockroom 1": 125,
-        "Stockroom 2": 178
+        "Showroom": 131,
+        "Stockroom 1": 69,
+        "Stockroom 2": 179
       },
-      "total": 345
+      "total": 379
     },
     {
       "product": {
@@ -1253,11 +1253,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 141,
-        "Stockroom 1": 150,
-        "Stockroom 2": 116
+        "Showroom": 97,
+        "Stockroom 1": 94,
+        "Stockroom 2": 61
       },
-      "total": 407
+      "total": 252
     },
     {
       "product": {
@@ -1275,11 +1275,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 175,
-        "Stockroom 1": 168,
-        "Stockroom 2": 129
+        "Showroom": 76,
+        "Stockroom 1": 47,
+        "Stockroom 2": 48
       },
-      "total": 472
+      "total": 171
     },
     {
       "product": {
@@ -1297,11 +1297,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 86,
-        "Stockroom 1": 143,
-        "Stockroom 2": 30
+        "Showroom": 177,
+        "Stockroom 1": 176,
+        "Stockroom 2": 150
       },
-      "total": 259
+      "total": 503
     },
     {
       "product": {
@@ -1319,11 +1319,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 99,
-        "Stockroom 1": 75,
-        "Stockroom 2": 166
+        "Showroom": 167,
+        "Stockroom 1": 47,
+        "Stockroom 2": 100
       },
-      "total": 340
+      "total": 314
     },
     {
       "product": {
@@ -1341,11 +1341,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 59,
-        "Stockroom 1": 24,
-        "Stockroom 2": 126
+        "Showroom": 109,
+        "Stockroom 1": 118,
+        "Stockroom 2": 49
       },
-      "total": 209
+      "total": 276
     },
     {
       "product": {
@@ -1363,11 +1363,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 96,
-        "Stockroom 1": 131,
-        "Stockroom 2": 69
+        "Showroom": 35,
+        "Stockroom 1": 72,
+        "Stockroom 2": 65
       },
-      "total": 296
+      "total": 172
     },
     {
       "product": {
@@ -1385,11 +1385,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 141,
-        "Stockroom 1": 77,
-        "Stockroom 2": 97
+        "Showroom": 88,
+        "Stockroom 1": 121,
+        "Stockroom 2": 41
       },
-      "total": 315
+      "total": 250
     },
     {
       "product": {
@@ -1407,11 +1407,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 35,
-        "Stockroom 1": 121,
-        "Stockroom 2": 47
+        "Showroom": 166,
+        "Stockroom 1": 28,
+        "Stockroom 2": 135
       },
-      "total": 203
+      "total": 329
     },
     {
       "product": {
@@ -1429,11 +1429,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 119,
-        "Stockroom 1": 157,
-        "Stockroom 2": 43
+        "Showroom": 175,
+        "Stockroom 1": 139,
+        "Stockroom 2": 60
       },
-      "total": 319
+      "total": 374
     },
     {
       "product": {
@@ -1451,11 +1451,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 146,
-        "Stockroom 1": 147,
-        "Stockroom 2": 148
+        "Showroom": 63,
+        "Stockroom 1": 68,
+        "Stockroom 2": 73
       },
-      "total": 441
+      "total": 204
     },
     {
       "product": {
@@ -1473,11 +1473,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 31,
-        "Stockroom 1": 43,
-        "Stockroom 2": 93
+        "Showroom": 137,
+        "Stockroom 1": 161,
+        "Stockroom 2": 27
       },
-      "total": 167
+      "total": 325
     },
     {
       "product": {
@@ -1495,11 +1495,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 104,
-        "Stockroom 1": 138,
-        "Stockroom 2": 67
+        "Showroom": 86,
+        "Stockroom 1": 146,
+        "Stockroom 2": 50
       },
-      "total": 309
+      "total": 282
     },
     {
       "product": {
@@ -1517,11 +1517,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 65,
-        "Stockroom 1": 49,
-        "Stockroom 2": 127
+        "Showroom": 113,
+        "Stockroom 1": 133,
+        "Stockroom 2": 178
       },
-      "total": 241
+      "total": 424
     },
     {
       "product": {
@@ -1539,11 +1539,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 121,
-        "Stockroom 1": 41,
-        "Stockroom 2": 172
+        "Showroom": 76,
+        "Stockroom 1": 115,
+        "Stockroom 2": 58
       },
-      "total": 334
+      "total": 249
     },
     {
       "product": {
@@ -1561,11 +1561,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 166,
-        "Stockroom 1": 28,
-        "Stockroom 2": 135
+        "Showroom": 99,
+        "Stockroom 1": 70,
+        "Stockroom 2": 91
       },
-      "total": 329
+      "total": 260
     },
     {
       "product": {
@@ -1583,11 +1583,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 42,
-        "Stockroom 1": 175,
-        "Stockroom 2": 139
+        "Showroom": 132,
+        "Stockroom 1": 73,
+        "Stockroom 2": 117
       },
-      "total": 356
+      "total": 322
     },
     {
       "product": {
@@ -1605,11 +1605,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 32,
-        "Stockroom 1": 67,
-        "Stockroom 2": 63
+        "Showroom": 105,
+        "Stockroom 1": 175,
+        "Stockroom 2": 58
       },
-      "total": 162
+      "total": 338
     },
     {
       "product": {
@@ -1627,11 +1627,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 66,
-        "Stockroom 1": 146,
-        "Stockroom 2": 136
+        "Showroom": 102,
+        "Stockroom 1": 111,
+        "Stockroom 2": 31
       },
-      "total": 348
+      "total": 244
     },
     {
       "product": {
@@ -1649,11 +1649,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 89,
-        "Stockroom 1": 36,
-        "Stockroom 2": 148
+        "Showroom": 122,
+        "Stockroom 1": 150,
+        "Stockroom 2": 107
       },
-      "total": 273
+      "total": 379
     },
     {
       "product": {
@@ -1671,11 +1671,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 63,
-        "Stockroom 1": 123,
-        "Stockroom 2": 121
+        "Showroom": 56,
+        "Stockroom 1": 43,
+        "Stockroom 2": 79
       },
-      "total": 307
+      "total": 178
     },
     {
       "product": {
@@ -1693,11 +1693,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 124,
-        "Stockroom 1": 115,
-        "Stockroom 2": 149
+        "Showroom": 117,
+        "Stockroom 1": 95,
+        "Stockroom 2": 63
       },
-      "total": 388
+      "total": 275
     },
     {
       "product": {
@@ -1715,11 +1715,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 146,
-        "Stockroom 1": 36,
-        "Stockroom 2": 156
+        "Showroom": 30,
+        "Stockroom 1": 118,
+        "Stockroom 2": 44
       },
-      "total": 338
+      "total": 192
     },
     {
       "product": {
@@ -1737,11 +1737,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 91,
-        "Stockroom 1": 150,
-        "Stockroom 2": 75
+        "Showroom": 124,
+        "Stockroom 1": 144,
+        "Stockroom 2": 77
       },
-      "total": 316
+      "total": 345
     },
     {
       "product": {
@@ -1759,11 +1759,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 73,
-        "Stockroom 1": 117,
-        "Stockroom 2": 80
+        "Showroom": 24,
+        "Stockroom 1": 145,
+        "Stockroom 2": 81
       },
-      "total": 270
+      "total": 250
     },
     {
       "product": {
@@ -1781,11 +1781,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 105,
-        "Stockroom 1": 175,
-        "Stockroom 2": 58
+        "Showroom": 96,
+        "Stockroom 1": 125,
+        "Stockroom 2": 113
       },
-      "total": 338
+      "total": 334
     },
     {
       "product": {
@@ -1803,11 +1803,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 149,
-        "Stockroom 1": 102,
-        "Stockroom 2": 111
+        "Showroom": 66,
+        "Stockroom 1": 178,
+        "Stockroom 2": 152
       },
-      "total": 362
+      "total": 396
     },
     {
       "product": {
@@ -1825,11 +1825,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 33,
-        "Stockroom 1": 49,
-        "Stockroom 2": 122
+        "Showroom": 83,
+        "Stockroom 1": 169,
+        "Stockroom 2": 45
       },
-      "total": 204
+      "total": 297
     },
     {
       "product": {
@@ -1847,11 +1847,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 169,
-        "Stockroom 1": 74,
-        "Stockroom 2": 142
+        "Showroom": 164,
+        "Stockroom 1": 81,
+        "Stockroom 2": 165
       },
-      "total": 385
+      "total": 410
     },
     {
       "product": {
@@ -1869,11 +1869,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 113,
+        "Showroom": 173,
         "Stockroom 1": 64,
-        "Stockroom 2": 149
+        "Stockroom 2": 27
       },
-      "total": 326
+      "total": 264
     },
     {
       "product": {
@@ -1891,11 +1891,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 119,
-        "Stockroom 1": 133,
-        "Stockroom 2": 84
+        "Showroom": 127,
+        "Stockroom 1": 150,
+        "Stockroom 2": 31
       },
-      "total": 336
+      "total": 308
     },
     {
       "product": {
@@ -1913,11 +1913,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 89,
-        "Stockroom 1": 166,
-        "Stockroom 2": 20
+        "Showroom": 144,
+        "Stockroom 1": 149,
+        "Stockroom 2": 157
       },
-      "total": 275
+      "total": 450
     },
     {
       "product": {
@@ -1935,11 +1935,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 120,
-        "Stockroom 1": 116,
-        "Stockroom 2": 176
+        "Showroom": 108,
+        "Stockroom 1": 127,
+        "Stockroom 2": 134
       },
-      "total": 412
+      "total": 369
     },
     {
       "product": {
@@ -1957,11 +1957,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 81,
-        "Stockroom 1": 74,
-        "Stockroom 2": 80
+        "Showroom": 52,
+        "Stockroom 1": 137,
+        "Stockroom 2": 135
       },
-      "total": 235
+      "total": 324
     },
     {
       "product": {
@@ -1979,11 +1979,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 125,
-        "Stockroom 1": 113,
-        "Stockroom 2": 155
+        "Showroom": 108,
+        "Stockroom 1": 137,
+        "Stockroom 2": 52
       },
-      "total": 393
+      "total": 297
     },
     {
       "product": {
@@ -2001,11 +2001,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 66,
-        "Stockroom 1": 178,
-        "Stockroom 2": 152
+        "Showroom": 31,
+        "Stockroom 1": 48,
+        "Stockroom 2": 24
       },
-      "total": 396
+      "total": 103
     },
     {
       "product": {
@@ -2023,11 +2023,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 126,
-        "Stockroom 1": 83,
-        "Stockroom 2": 169
+        "Showroom": 142,
+        "Stockroom 1": 55,
+        "Stockroom 2": 90
       },
-      "total": 378
+      "total": 287
     },
     {
       "product": {
@@ -2045,11 +2045,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 65,
-        "Stockroom 1": 70,
-        "Stockroom 2": 164
+        "Showroom": 172,
+        "Stockroom 1": 77,
+        "Stockroom 2": 82
       },
-      "total": 299
+      "total": 331
     },
     {
       "product": {
@@ -2067,11 +2067,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 79,
-        "Stockroom 1": 148,
-        "Stockroom 2": 96
+        "Showroom": 141,
+        "Stockroom 1": 126,
+        "Stockroom 2": 179
       },
-      "total": 323
+      "total": 446
     },
     {
       "product": {
@@ -2089,11 +2089,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 49,
-        "Stockroom 1": 162,
-        "Stockroom 2": 106
+        "Showroom": 150,
+        "Stockroom 1": 123,
+        "Stockroom 2": 113
       },
-      "total": 317
+      "total": 386
     },
     {
       "product": {
@@ -2111,11 +2111,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 27,
-        "Stockroom 1": 103,
-        "Stockroom 2": 157
+        "Showroom": 155,
+        "Stockroom 1": 59,
+        "Stockroom 2": 95
       },
-      "total": 287
+      "total": 309
     },
     {
       "product": {
@@ -2133,11 +2133,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 164,
-        "Stockroom 1": 178,
-        "Stockroom 2": 86
+        "Showroom": 117,
+        "Stockroom 1": 171,
+        "Stockroom 2": 33
       },
-      "total": 428
+      "total": 321
     },
     {
       "product": {
@@ -2155,11 +2155,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 81,
-        "Stockroom 1": 169,
-        "Stockroom 2": 145
+        "Showroom": 168,
+        "Stockroom 1": 48,
+        "Stockroom 2": 107
       },
-      "total": 395
+      "total": 323
     },
     {
       "product": {
@@ -2177,11 +2177,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 135,
-        "Stockroom 1": 136,
-        "Stockroom 2": 132
+        "Showroom": 38,
+        "Stockroom 1": 30,
+        "Stockroom 2": 31
       },
-      "total": 403
+      "total": 99
     },
     {
       "product": {
@@ -2199,11 +2199,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 137,
-        "Stockroom 1": 52,
-        "Stockroom 2": 93
+        "Showroom": 80,
+        "Stockroom 1": 60,
+        "Stockroom 2": 20
       },
-      "total": 282
+      "total": 160
     },
     {
       "product": {
@@ -2221,11 +2221,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 31,
-        "Stockroom 1": 48,
-        "Stockroom 2": 24
+        "Showroom": 154,
+        "Stockroom 1": 55,
+        "Stockroom 2": 119
       },
-      "total": 103
+      "total": 328
     },
     {
       "product": {
@@ -2243,11 +2243,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 40,
-        "Stockroom 1": 142,
-        "Stockroom 2": 55
+        "Showroom": 90,
+        "Stockroom 1": 85,
+        "Stockroom 2": 120
       },
-      "total": 237
+      "total": 295
     },
     {
       "product": {
@@ -2265,11 +2265,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 122,
-        "Stockroom 1": 90,
-        "Stockroom 2": 172
+        "Showroom": 75,
+        "Stockroom 1": 55,
+        "Stockroom 2": 78
       },
-      "total": 384
+      "total": 208
     },
     {
       "product": {
@@ -2287,11 +2287,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 25,
-        "Stockroom 1": 27,
-        "Stockroom 2": 150
+        "Showroom": 129,
+        "Stockroom 1": 148,
+        "Stockroom 2": 22
       },
-      "total": 202
+      "total": 299
     },
     {
       "product": {
@@ -2309,11 +2309,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 141,
-        "Stockroom 1": 116,
-        "Stockroom 2": 108
+        "Showroom": 166,
+        "Stockroom 1": 85,
+        "Stockroom 2": 23
       },
-      "total": 365
+      "total": 274
     },
     {
       "product": {
@@ -2331,11 +2331,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 27,
-        "Stockroom 1": 175,
-        "Stockroom 2": 67
+        "Showroom": 22,
+        "Stockroom 1": 69,
+        "Stockroom 2": 30
       },
-      "total": 269
+      "total": 121
     },
     {
       "product": {
@@ -2353,11 +2353,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 25,
-        "Stockroom 1": 142,
-        "Stockroom 2": 43
+        "Showroom": 48,
+        "Stockroom 1": 93,
+        "Stockroom 2": 79
       },
-      "total": 210
+      "total": 220
     },
     {
       "product": {
@@ -2375,11 +2375,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 24,
-        "Stockroom 1": 55,
-        "Stockroom 2": 47
+        "Showroom": 93,
+        "Stockroom 1": 127,
+        "Stockroom 2": 136
       },
-      "total": 126
+      "total": 356
     },
     {
       "product": {
@@ -2397,11 +2397,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 107,
-        "Stockroom 1": 97,
-        "Stockroom 2": 127
+        "Showroom": 161,
+        "Stockroom 1": 99,
+        "Stockroom 2": 132
       },
-      "total": 331
+      "total": 392
     },
     {
       "product": {
@@ -2419,11 +2419,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 30,
-        "Stockroom 1": 31,
-        "Stockroom 2": 132
+        "Showroom": 111,
+        "Stockroom 1": 162,
+        "Stockroom 2": 103
       },
-      "total": 193
+      "total": 376
     },
     {
       "product": {
@@ -2441,11 +2441,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 80,
-        "Stockroom 1": 60,
-        "Stockroom 2": 20
+        "Showroom": 162,
+        "Stockroom 1": 169,
+        "Stockroom 2": 26
       },
-      "total": 160
+      "total": 357
     },
     {
       "product": {
@@ -2463,11 +2463,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 89,
-        "Stockroom 1": 154,
-        "Stockroom 2": 55
+        "Showroom": 168,
+        "Stockroom 1": 88,
+        "Stockroom 2": 134
       },
-      "total": 298
+      "total": 390
     },
     {
       "product": {
@@ -2485,11 +2485,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 157,
-        "Stockroom 1": 36,
-        "Stockroom 2": 90
+        "Showroom": 148,
+        "Stockroom 1": 153,
+        "Stockroom 2": 41
       },
-      "total": 283
+      "total": 342
     },
     {
       "product": {
@@ -2507,11 +2507,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 171,
-        "Stockroom 1": 121,
-        "Stockroom 2": 91
+        "Showroom": 74,
+        "Stockroom 1": 168,
+        "Stockroom 2": 47
       },
-      "total": 383
+      "total": 289
     },
     {
       "product": {
@@ -2529,11 +2529,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 58,
-        "Stockroom 1": 116,
-        "Stockroom 2": 85
+        "Showroom": 114,
+        "Stockroom 1": 143,
+        "Stockroom 2": 87
       },
-      "total": 259
+      "total": 344
     },
     {
       "product": {
@@ -2551,11 +2551,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 129,
-        "Stockroom 1": 140,
-        "Stockroom 2": 176
+        "Showroom": 166,
+        "Stockroom 1": 130,
+        "Stockroom 2": 36
       },
-      "total": 445
+      "total": 332
     },
     {
       "product": {
@@ -2573,11 +2573,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 91,
-        "Stockroom 1": 38,
-        "Stockroom 2": 170
+        "Showroom": 159,
+        "Stockroom 1": 91,
+        "Stockroom 2": 51
       },
-      "total": 299
+      "total": 301
     },
     {
       "product": {
@@ -2595,11 +2595,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 97,
-        "Stockroom 1": 101,
-        "Stockroom 2": 29
+        "Showroom": 94,
+        "Stockroom 1": 140,
+        "Stockroom 2": 69
       },
-      "total": 227
+      "total": 303
     },
     {
       "product": {
@@ -2617,11 +2617,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 79,
-        "Stockroom 1": 144,
-        "Stockroom 2": 141
+        "Showroom": 164,
+        "Stockroom 1": 76,
+        "Stockroom 2": 117
       },
-      "total": 364
+      "total": 357
     },
     {
       "product": {
@@ -2639,11 +2639,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 127,
-        "Stockroom 1": 136,
-        "Stockroom 2": 96
+        "Showroom": 32,
+        "Stockroom 1": 132,
+        "Stockroom 2": 48
       },
-      "total": 359
+      "total": 212
     },
     {
       "product": {
@@ -2661,11 +2661,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 161,
-        "Stockroom 1": 99,
-        "Stockroom 2": 132
+        "Showroom": 131,
+        "Stockroom 1": 172,
+        "Stockroom 2": 165
       },
-      "total": 392
+      "total": 468
     },
     {
       "product": {
@@ -2683,11 +2683,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 72,
-        "Stockroom 1": 111,
-        "Stockroom 2": 162
+        "Showroom": 94,
+        "Stockroom 1": 122,
+        "Stockroom 2": 169
       },
-      "total": 345
+      "total": 385
     },
     {
       "product": {
@@ -2705,11 +2705,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 125,
-        "Stockroom 1": 170,
-        "Stockroom 2": 162
+        "Showroom": 99,
+        "Stockroom 1": 105,
+        "Stockroom 2": 74
       },
-      "total": 457
+      "total": 278
     },
     {
       "product": {
@@ -2727,11 +2727,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 44,
-        "Stockroom 1": 37,
-        "Stockroom 2": 68
+        "Showroom": 141,
+        "Stockroom 1": 153,
+        "Stockroom 2": 36
       },
-      "total": 149
+      "total": 330
     },
     {
       "product": {
@@ -2749,11 +2749,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 120,
-        "Stockroom 1": 22,
-        "Stockroom 2": 137
+        "Showroom": 57,
+        "Stockroom 1": 101,
+        "Stockroom 2": 178
       },
-      "total": 279
+      "total": 336
     },
     {
       "product": {
@@ -2771,11 +2771,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 52,
-        "Stockroom 1": 110,
-        "Stockroom 2": 171
+        "Showroom": 124,
+        "Stockroom 1": 55,
+        "Stockroom 2": 61
       },
-      "total": 333
+      "total": 240
     },
     {
       "product": {
@@ -2793,11 +2793,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 84,
-        "Stockroom 1": 85,
-        "Stockroom 2": 156
+        "Showroom": 168,
+        "Stockroom 1": 148,
+        "Stockroom 2": 102
       },
-      "total": 325
+      "total": 418
     },
     {
       "product": {
@@ -2815,11 +2815,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 90,
-        "Stockroom 1": 125,
-        "Stockroom 2": 23
+        "Showroom": 134,
+        "Stockroom 1": 71,
+        "Stockroom 2": 43
       },
-      "total": 238
+      "total": 248
     },
     {
       "product": {
@@ -2837,11 +2837,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 36,
-        "Stockroom 1": 120,
-        "Stockroom 2": 52
+        "Showroom": 45,
+        "Stockroom 1": 32,
+        "Stockroom 2": 60
       },
-      "total": 208
+      "total": 137
     },
     {
       "product": {
@@ -2859,11 +2859,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 91,
-        "Stockroom 1": 51,
-        "Stockroom 2": 152
+        "Showroom": 102,
+        "Stockroom 1": 129,
+        "Stockroom 2": 169
       },
-      "total": 294
+      "total": 400
     },
     {
       "product": {
@@ -2881,11 +2881,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 94,
-        "Stockroom 1": 140,
-        "Stockroom 2": 69
+        "Showroom": 116,
+        "Stockroom 1": 75,
+        "Stockroom 2": 165
       },
-      "total": 303
+      "total": 356
     },
     {
       "product": {
@@ -2903,11 +2903,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 157,
-        "Stockroom 1": 164,
-        "Stockroom 2": 76
+        "Showroom": 40,
+        "Stockroom 1": 152,
+        "Stockroom 2": 123
       },
-      "total": 397
+      "total": 315
     },
     {
       "product": {
@@ -2925,11 +2925,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 176,
-        "Stockroom 1": 33,
-        "Stockroom 2": 32
+        "Showroom": 135,
+        "Stockroom 1": 179,
+        "Stockroom 2": 108
       },
-      "total": 241
+      "total": 422
     },
     {
       "product": {
@@ -2947,11 +2947,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 72,
-        "Stockroom 1": 129,
-        "Stockroom 2": 115
+        "Showroom": 24,
+        "Stockroom 1": 96,
+        "Stockroom 2": 120
       },
-      "total": 316
+      "total": 240
     },
     {
       "product": {
@@ -2969,11 +2969,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 122,
-        "Stockroom 1": 173,
-        "Stockroom 2": 66
+        "Showroom": 55,
+        "Stockroom 1": 171,
+        "Stockroom 2": 36
       },
-      "total": 361
+      "total": 262
     },
     {
       "product": {
@@ -2991,11 +2991,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 64,
-        "Stockroom 1": 130,
-        "Stockroom 2": 143
+        "Showroom": 155,
+        "Stockroom 1": 102,
+        "Stockroom 2": 45
       },
-      "total": 337
+      "total": 302
     },
     {
       "product": {
@@ -3013,11 +3013,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 125,
-        "Stockroom 1": 65,
-        "Stockroom 2": 159
+        "Showroom": 40,
+        "Stockroom 1": 78,
+        "Stockroom 2": 133
       },
-      "total": 349
+      "total": 251
     },
     {
       "product": {
@@ -3035,11 +3035,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 177,
-        "Stockroom 1": 54,
-        "Stockroom 2": 62
+        "Showroom": 122,
+        "Stockroom 1": 38,
+        "Stockroom 2": 93
       },
-      "total": 293
+      "total": 253
     },
     {
       "product": {
@@ -3057,11 +3057,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 178,
-        "Stockroom 1": 103,
-        "Stockroom 2": 57
+        "Showroom": 97,
+        "Stockroom 1": 120,
+        "Stockroom 2": 144
       },
-      "total": 338
+      "total": 361
     },
     {
       "product": {
@@ -3079,11 +3079,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 55,
-        "Stockroom 1": 61,
-        "Stockroom 2": 170
+        "Showroom": 92,
+        "Stockroom 1": 111,
+        "Stockroom 2": 151
       },
-      "total": 286
+      "total": 354
     },
     {
       "product": {
@@ -3101,11 +3101,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 168,
-        "Stockroom 1": 148,
-        "Stockroom 2": 102
+        "Showroom": 145,
+        "Stockroom 1": 96,
+        "Stockroom 2": 138
       },
-      "total": 418
+      "total": 379
     },
     {
       "product": {
@@ -3123,11 +3123,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 74,
-        "Stockroom 1": 134,
-        "Stockroom 2": 71
+        "Showroom": 105,
+        "Stockroom 1": 33,
+        "Stockroom 2": 23
       },
-      "total": 279
+      "total": 161
     },
     {
       "product": {
@@ -3145,11 +3145,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 155,
-        "Stockroom 1": 35,
-        "Stockroom 2": 45
+        "Showroom": 88,
+        "Stockroom 1": 167,
+        "Stockroom 2": 22
       },
-      "total": 235
+      "total": 277
     },
     {
       "product": {
@@ -3167,11 +3167,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 53,
-        "Stockroom 1": 86,
-        "Stockroom 2": 53
+        "Showroom": 149,
+        "Stockroom 1": 89,
+        "Stockroom 2": 137
       },
-      "total": 192
+      "total": 375
     },
     {
       "product": {
@@ -3189,11 +3189,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 50,
-        "Stockroom 1": 160,
-        "Stockroom 2": 109
+        "Showroom": 108,
+        "Stockroom 1": 69,
+        "Stockroom 2": 125
       },
-      "total": 319
+      "total": 302
     },
     {
       "product": {
@@ -3211,11 +3211,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 81,
-        "Stockroom 1": 68,
-        "Stockroom 2": 162
+        "Showroom": 24,
+        "Stockroom 1": 90,
+        "Stockroom 2": 50
       },
-      "total": 311
+      "total": 164
     },
     {
       "product": {
@@ -3233,11 +3233,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 106,
-        "Stockroom 1": 80,
-        "Stockroom 2": 143
+        "Showroom": 43,
+        "Stockroom 1": 176,
+        "Stockroom 2": 32
       },
-      "total": 329
+      "total": 251
     },
     {
       "product": {
@@ -3255,11 +3255,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 108,
-        "Stockroom 1": 67,
-        "Stockroom 2": 115
+        "Showroom": 69,
+        "Stockroom 1": 65,
+        "Stockroom 2": 89
       },
-      "total": 290
+      "total": 223
     },
     {
       "product": {
@@ -3277,11 +3277,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 120,
-        "Stockroom 1": 61,
-        "Stockroom 2": 136
+        "Showroom": 20,
+        "Stockroom 1": 173,
+        "Stockroom 2": 99
       },
-      "total": 317
+      "total": 292
     },
     {
       "product": {
@@ -3299,11 +3299,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 171,
-        "Stockroom 1": 36,
-        "Stockroom 2": 158
+        "Showroom": 175,
+        "Stockroom 1": 27,
+        "Stockroom 2": 119
       },
-      "total": 365
+      "total": 321
     },
     {
       "product": {
@@ -3321,11 +3321,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 155,
-        "Stockroom 1": 102,
-        "Stockroom 2": 45
+        "Showroom": 128,
+        "Stockroom 1": 77,
+        "Stockroom 2": 150
       },
-      "total": 302
+      "total": 355
     },
     {
       "product": {
@@ -3343,11 +3343,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 56,
-        "Stockroom 1": 40,
-        "Stockroom 2": 78
+        "Showroom": 170,
+        "Stockroom 1": 32,
+        "Stockroom 2": 44
       },
-      "total": 174
+      "total": 246
     },
     {
       "product": {
@@ -3365,11 +3365,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 37,
-        "Stockroom 1": 165,
-        "Stockroom 2": 122
+        "Showroom": 148,
+        "Stockroom 1": 119,
+        "Stockroom 2": 94
       },
-      "total": 324
+      "total": 361
     },
     {
       "product": {
@@ -3387,11 +3387,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 156,
-        "Stockroom 1": 150,
-        "Stockroom 2": 40
+        "Showroom": 172,
+        "Stockroom 1": 152,
+        "Stockroom 2": 29
       },
-      "total": 346
+      "total": 353
     },
     {
       "product": {
@@ -3410,10 +3410,10 @@
       },
       "locations": {
         "Showroom": 64,
-        "Stockroom 1": 101,
-        "Stockroom 2": 92
+        "Stockroom 1": 85,
+        "Stockroom 2": 53
       },
-      "total": 257
+      "total": 202
     },
     {
       "product": {
@@ -3431,11 +3431,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 171,
-        "Stockroom 1": 172,
-        "Stockroom 2": 100
+        "Showroom": 124,
+        "Stockroom 1": 63,
+        "Stockroom 2": 59
       },
-      "total": 443
+      "total": 246
     },
     {
       "product": {
@@ -3453,11 +3453,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 140,
-        "Stockroom 1": 140,
-        "Stockroom 2": 72
+        "Showroom": 53,
+        "Stockroom 1": 42,
+        "Stockroom 2": 156
       },
-      "total": 352
+      "total": 251
     },
     {
       "product": {
@@ -3475,11 +3475,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 146,
-        "Stockroom 1": 160,
-        "Stockroom 2": 132
+        "Showroom": 178,
+        "Stockroom 1": 72,
+        "Stockroom 2": 158
       },
-      "total": 438
+      "total": 408
     },
     {
       "product": {
@@ -3497,11 +3497,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 22,
-        "Stockroom 1": 99,
-        "Stockroom 2": 140
+        "Showroom": 45,
+        "Stockroom 1": 81,
+        "Stockroom 2": 79
       },
-      "total": 261
+      "total": 205
     },
     {
       "product": {
@@ -3519,11 +3519,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 89,
-        "Stockroom 1": 137,
-        "Stockroom 2": 118
+        "Showroom": 177,
+        "Stockroom 1": 36,
+        "Stockroom 2": 88
       },
-      "total": 344
+      "total": 301
     },
     {
       "product": {
@@ -3541,11 +3541,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 108,
-        "Stockroom 1": 69,
-        "Stockroom 2": 125
+        "Showroom": 79,
+        "Stockroom 1": 83,
+        "Stockroom 2": 63
       },
-      "total": 302
+      "total": 225
     },
     {
       "product": {
@@ -3563,11 +3563,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 49,
-        "Stockroom 1": 24,
-        "Stockroom 2": 90
+        "Showroom": 62,
+        "Stockroom 1": 92,
+        "Stockroom 2": 147
       },
-      "total": 163
+      "total": 301
     },
     {
       "product": {
@@ -3585,11 +3585,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 133,
-        "Stockroom 1": 94,
-        "Stockroom 2": 43
+        "Showroom": 28,
+        "Stockroom 1": 103,
+        "Stockroom 2": 92
       },
-      "total": 270
+      "total": 223
     },
     {
       "product": {
@@ -3607,11 +3607,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 171,
-        "Stockroom 1": 61,
-        "Stockroom 2": 72
+        "Showroom": 79,
+        "Stockroom 1": 46,
+        "Stockroom 2": 147
       },
-      "total": 304
+      "total": 272
     },
     {
       "product": {
@@ -3629,11 +3629,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 98,
-        "Stockroom 1": 104,
-        "Stockroom 2": 66
+        "Showroom": 56,
+        "Stockroom 1": 38,
+        "Stockroom 2": 51
       },
-      "total": 268
+      "total": 145
     },
     {
       "product": {
@@ -3651,11 +3651,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 77,
-        "Stockroom 1": 117,
-        "Stockroom 2": 102
+        "Showroom": 167,
+        "Stockroom 1": 58,
+        "Stockroom 2": 86
       },
-      "total": 296
+      "total": 311
     },
     {
       "product": {
@@ -3673,11 +3673,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 179,
-        "Stockroom 1": 28,
-        "Stockroom 2": 92
+        "Showroom": 162,
+        "Stockroom 1": 35,
+        "Stockroom 2": 50
       },
-      "total": 299
+      "total": 247
     },
     {
       "product": {
@@ -3695,11 +3695,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 62,
-        "Stockroom 1": 77,
-        "Stockroom 2": 103
+        "Showroom": 52,
+        "Stockroom 1": 98,
+        "Stockroom 2": 73
       },
-      "total": 242
+      "total": 223
     },
     {
       "product": {
@@ -3717,11 +3717,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 44,
-        "Stockroom 1": 120,
-        "Stockroom 2": 61
+        "Showroom": 149,
+        "Stockroom 1": 37,
+        "Stockroom 2": 140
       },
-      "total": 225
+      "total": 326
     },
     {
       "product": {
@@ -3739,11 +3739,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 119,
-        "Stockroom 1": 94,
-        "Stockroom 2": 39
+        "Showroom": 123,
+        "Stockroom 1": 146,
+        "Stockroom 2": 26
       },
-      "total": 252
+      "total": 295
     },
     {
       "product": {
@@ -3761,11 +3761,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 172,
-        "Stockroom 1": 152,
-        "Stockroom 2": 29
+        "Showroom": 71,
+        "Stockroom 1": 52,
+        "Stockroom 2": 170
       },
-      "total": 353
+      "total": 293
     },
     {
       "product": {
@@ -3783,11 +3783,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 179,
-        "Stockroom 1": 64,
-        "Stockroom 2": 85
+        "Showroom": 112,
+        "Stockroom 1": 162,
+        "Stockroom 2": 172
       },
-      "total": 328
+      "total": 446
     },
     {
       "product": {
@@ -3805,11 +3805,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 26,
-        "Stockroom 1": 28,
-        "Stockroom 2": 124
+        "Showroom": 74,
+        "Stockroom 1": 74,
+        "Stockroom 2": 158
       },
-      "total": 178
+      "total": 306
     },
     {
       "product": {
@@ -3827,11 +3827,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 172,
-        "Stockroom 1": 157,
-        "Stockroom 2": 21
+        "Showroom": 178,
+        "Stockroom 1": 177,
+        "Stockroom 2": 76
       },
-      "total": 350
+      "total": 431
     },
     {
       "product": {
@@ -3849,11 +3849,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 96,
-        "Stockroom 1": 59,
-        "Stockroom 2": 63
+        "Showroom": 76,
+        "Stockroom 1": 169,
+        "Stockroom 2": 33
       },
-      "total": 218
+      "total": 278
     },
     {
       "product": {
@@ -3871,11 +3871,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 128,
-        "Stockroom 1": 49,
-        "Stockroom 2": 69
+        "Showroom": 112,
+        "Stockroom 1": 87,
+        "Stockroom 2": 123
       },
-      "total": 246
+      "total": 322
     },
     {
       "product": {
@@ -3893,11 +3893,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 63,
-        "Stockroom 1": 38,
-        "Stockroom 2": 36
+        "Showroom": 57,
+        "Stockroom 1": 59,
+        "Stockroom 2": 149
       },
-      "total": 137
+      "total": 265
     },
     {
       "product": {
@@ -3915,11 +3915,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 57,
-        "Stockroom 1": 107,
-        "Stockroom 2": 24
+        "Showroom": 112,
+        "Stockroom 1": 72,
+        "Stockroom 2": 51
       },
-      "total": 188
+      "total": 235
     },
     {
       "product": {
@@ -3937,11 +3937,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 63,
-        "Stockroom 1": 54,
-        "Stockroom 2": 42
+        "Showroom": 158,
+        "Stockroom 1": 31,
+        "Stockroom 2": 169
       },
-      "total": 159
+      "total": 358
     },
     {
       "product": {
@@ -3959,11 +3959,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 92,
-        "Stockroom 1": 147,
-        "Stockroom 2": 56
+        "Showroom": 107,
+        "Stockroom 1": 92,
+        "Stockroom 2": 45
       },
-      "total": 295
+      "total": 244
     },
     {
       "product": {
@@ -3981,11 +3981,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 28,
-        "Stockroom 1": 103,
-        "Stockroom 2": 92
+        "Showroom": 175,
+        "Stockroom 1": 175,
+        "Stockroom 2": 99
       },
-      "total": 223
+      "total": 449
     },
     {
       "product": {
@@ -4003,11 +4003,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 165,
-        "Stockroom 1": 79,
-        "Stockroom 2": 46
+        "Showroom": 142,
+        "Stockroom 1": 112,
+        "Stockroom 2": 150
       },
-      "total": 290
+      "total": 404
     },
     {
       "product": {
@@ -4025,11 +4025,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 161,
-        "Stockroom 1": 113,
-        "Stockroom 2": 56
+        "Showroom": 117,
+        "Stockroom 1": 45,
+        "Stockroom 2": 69
       },
-      "total": 330
+      "total": 231
     },
     {
       "product": {
@@ -4047,11 +4047,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 77,
-        "Stockroom 1": 42,
-        "Stockroom 2": 32
+        "Showroom": 133,
+        "Stockroom 1": 113,
+        "Stockroom 2": 34
       },
-      "total": 151
+      "total": 280
     },
     {
       "product": {
@@ -4069,11 +4069,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 171,
-        "Stockroom 1": 165,
-        "Stockroom 2": 142
+        "Showroom": 75,
+        "Stockroom 1": 54,
+        "Stockroom 2": 98
       },
-      "total": 478
+      "total": 227
     },
     {
       "product": {
@@ -4091,11 +4091,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 171,
-        "Stockroom 1": 160,
-        "Stockroom 2": 109
+        "Showroom": 98,
+        "Stockroom 1": 158,
+        "Stockroom 2": 146
       },
-      "total": 440
+      "total": 402
     },
     {
       "product": {
@@ -4113,11 +4113,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 44,
-        "Stockroom 1": 80,
-        "Stockroom 2": 42
+        "Showroom": 53,
+        "Stockroom 1": 158,
+        "Stockroom 2": 75
       },
-      "total": 166
+      "total": 286
     },
     {
       "product": {
@@ -4135,11 +4135,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 159,
-        "Stockroom 1": 150,
-        "Stockroom 2": 37
+        "Showroom": 21,
+        "Stockroom 1": 159,
+        "Stockroom 2": 172
       },
-      "total": 346
+      "total": 352
     },
     {
       "product": {
@@ -4157,11 +4157,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 26,
-        "Stockroom 1": 54,
-        "Stockroom 2": 156
+        "Showroom": 151,
+        "Stockroom 1": 63,
+        "Stockroom 2": 135
       },
-      "total": 236
+      "total": 349
     },
     {
       "product": {
@@ -4179,11 +4179,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 52,
-        "Stockroom 1": 170,
-        "Stockroom 2": 132
+        "Showroom": 33,
+        "Stockroom 1": 153,
+        "Stockroom 2": 106
       },
-      "total": 354
+      "total": 292
     },
     {
       "product": {
@@ -4201,11 +4201,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 112,
-        "Stockroom 1": 162,
-        "Stockroom 2": 172
+        "Showroom": 153,
+        "Stockroom 1": 121,
+        "Stockroom 2": 56
       },
-      "total": 446
+      "total": 330
     },
     {
       "product": {
@@ -4223,11 +4223,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 125,
-        "Stockroom 1": 74,
-        "Stockroom 2": 74
+        "Showroom": 147,
+        "Stockroom 1": 70,
+        "Stockroom 2": 130
       },
-      "total": 273
+      "total": 347
     },
     {
       "product": {
@@ -4245,11 +4245,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 121,
-        "Stockroom 1": 170,
-        "Stockroom 2": 178
+        "Showroom": 22,
+        "Stockroom 1": 164,
+        "Stockroom 2": 50
       },
-      "total": 469
+      "total": 236
     },
     {
       "product": {
@@ -4267,11 +4267,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 115,
-        "Stockroom 1": 20,
-        "Stockroom 2": 24
+        "Showroom": 152,
+        "Stockroom 1": 59,
+        "Stockroom 2": 147
       },
-      "total": 159
+      "total": 358
     },
     {
       "product": {
@@ -4289,11 +4289,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 92,
-        "Stockroom 1": 106,
-        "Stockroom 2": 82
+        "Showroom": 62,
+        "Stockroom 1": 60,
+        "Stockroom 2": 29
       },
-      "total": 280
+      "total": 151
     },
     {
       "product": {
@@ -4311,11 +4311,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 65,
-        "Stockroom 1": 49,
-        "Stockroom 2": 28
+        "Showroom": 121,
+        "Stockroom 1": 179,
+        "Stockroom 2": 160
       },
-      "total": 142
+      "total": 460
     },
     {
       "product": {
@@ -4333,11 +4333,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 66,
-        "Stockroom 1": 133,
-        "Stockroom 2": 105
+        "Showroom": 143,
+        "Stockroom 1": 34,
+        "Stockroom 2": 76
       },
-      "total": 304
+      "total": 253
     },
     {
       "product": {
@@ -4355,11 +4355,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 63,
-        "Stockroom 1": 107,
-        "Stockroom 2": 56
+        "Showroom": 142,
+        "Stockroom 1": 142,
+        "Stockroom 2": 169
       },
-      "total": 226
+      "total": 453
     },
     {
       "product": {
@@ -4377,11 +4377,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 169,
-        "Stockroom 1": 117,
-        "Stockroom 2": 34
+        "Showroom": 91,
+        "Stockroom 1": 55,
+        "Stockroom 2": 131
       },
-      "total": 320
+      "total": 277
     },
     {
       "product": {
@@ -4399,11 +4399,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 92,
-        "Stockroom 1": 45,
-        "Stockroom 2": 80
+        "Showroom": 146,
+        "Stockroom 1": 53,
+        "Stockroom 2": 174
       },
-      "total": 217
+      "total": 373
     },
     {
       "product": {
@@ -4421,11 +4421,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 175,
-        "Stockroom 1": 175,
-        "Stockroom 2": 99
+        "Showroom": 109,
+        "Stockroom 1": 99,
+        "Stockroom 2": 57
       },
-      "total": 449
+      "total": 265
     },
     {
       "product": {
@@ -4443,11 +4443,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 127,
-        "Stockroom 1": 142,
-        "Stockroom 2": 112
+        "Showroom": 32,
+        "Stockroom 1": 57,
+        "Stockroom 2": 154
       },
-      "total": 381
+      "total": 243
     },
     {
       "product": {
@@ -4465,11 +4465,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 144,
-        "Stockroom 1": 136,
-        "Stockroom 2": 117
+        "Showroom": 152,
+        "Stockroom 1": 124,
+        "Stockroom 2": 179
       },
-      "total": 397
+      "total": 455
     },
     {
       "product": {
@@ -4487,11 +4487,11 @@
         "updated_at": "2026-08-19 05:40:50"
       },
       "locations": {
-        "Showroom": 39,
-        "Stockroom 1": 50,
-        "Stockroom 2": 72
+        "Showroom": 63,
+        "Stockroom 1": 96,
+        "Stockroom 2": 130
       },
-      "total": 161
+      "total": 289
     }
   ]
 }

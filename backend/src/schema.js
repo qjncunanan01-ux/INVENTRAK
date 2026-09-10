@@ -68,7 +68,8 @@ CREATE TABLE IF NOT EXISTS stock_lots (
   product_id INTEGER,
   location_id INTEGER,
   qty REAL,
-  received_at TEXT DEFAULT (datetime('now'))
+  received_at TEXT DEFAULT (datetime('now')),
+  expiry_date TEXT
 );
 
 CREATE TABLE IF NOT EXISTS order_inquiries (

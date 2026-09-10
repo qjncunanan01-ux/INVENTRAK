@@ -188,6 +188,10 @@ live: public login/register/products all return 200 through the tunnel.
    - Tables come from `backend/src/supabase-schema.sql` — paste it into the
      Supabase **SQL Editor** and run once, then seed with
      `node scripts/seed-supabase.cjs` from `backend/`.
+     - Already using an older schema? The FEFO feature stores lot expiry
+       inside the JSONB `data` blob, so **no ALTER TABLE is needed** — just
+       redeploy the backend. (SQLite installs get the `expiry_date` column
+       via an automatic migration on boot.)
 
    **Firestore (alternative):**
    - `FIREBASE_PROJECT_ID` = `your-project-id` (or edit the blueprint value)

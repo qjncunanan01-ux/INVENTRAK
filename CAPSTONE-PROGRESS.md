@@ -1,6 +1,6 @@
 # INVENTRAK — Capstone Progress Tracker
 
-**Overall status: ~60% of the capstone complete** (30 of 50 tracked milestones done, as of September 9, 2026).
+**Overall status: ~62% of the capstone complete** (31 of 50 tracked milestones done, as of September 10, 2026).
 
 > How to read this: the checklist below is the full project plan split into 50 concrete
 > milestones. Checked items are **shipped and verified** in the live system (not just
@@ -14,12 +14,12 @@
 | 3. Role-Based Access & Approvals | 4 / 4 | 100% |
 | 4. Inventory & Multi-Location | 4 / 6 | 67% |
 | 5. OCR & QR Scanning | 5 / 6 | 83% |
-| 6. Decision Support (EOQ/ROP/ABC) | 3 / 4 | 75% |
+| 6. Decision Support (EOQ/ROP/ABC/FSN) | 4 / 4 | 100% |
 | 7. Customer Mobile App | 5 / 8 | 63% |
 | 8. Notifications | 3 / 4 | 75% |
 | 9. Payments | 1 / 4 | 25% |
 | **10. Paper, Testing & Presentation** | **0 / 8** | **0%** |
-| **TOTAL** | **30 / 50** | **60%** |
+| **TOTAL** | **31 / 50** | **62%** |
 
 ---
 
@@ -55,6 +55,7 @@
 - [x] Product catalog (204 items) synced to the real Sylver price list
 - [x] Per-location stock: Showroom, Stockroom 1, Stockroom 2 (tags + consolidated totals)
 - [x] FIFO stock movements ledger + full stock adjustment/transfer workflows
+- [x] FEFO (First-Expired, First-Out) lot consumption — optional expiry_date per lot; expiring lots are consumed before non-expiring stock, transfers carry expiry to the destination, and an "expiring soon" admin view surfaces lots within 30 days
 - [x] Low-stock alerts (auto-created, resolvable, dashboard badges)
 - [ ] Barcode-based stock-in/stock-out receiving (QR scan exists; barcode import pending)
 - [ ] Physical inventory count reconciliation report (variance report)
@@ -68,12 +69,13 @@
 - [x] QR location tags (printable) + in-app QR/barcode scanner routing
 - [ ] OCR accuracy evaluation write-up (sample-size testing for the paper)
 
-## 6. Decision Support — 3/4
+## 6. Decision Support — 4/4
 
 - [x] EOQ, Reorder Point, and Safety Stock computed per product (backend)
 - [x] ABC classification (drives Flash Sale picks and Recommendations)
+- [x] FSN (Fast/Slow/Non-moving) movement classification — `GET /api/optimization/fsn`, admin Optimization page section, 15 backend tests
 - [x] Automated low-stock alerts against computed ROP
-- [ ] Forecasting comparison (e.g., moving average vs. EOQ results) for the paper's analysis chapter
+- [ ] Forecasting comparison (e.g., moving average vs. EOQ results) for the paper's analysis chapter (optional stretch — tracked under Paper workstream)
 
 ## 7. Customer Mobile App — 5/8
 

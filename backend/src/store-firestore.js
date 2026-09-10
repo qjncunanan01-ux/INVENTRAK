@@ -43,6 +43,10 @@ const COLLECTIONS = {
   '@users': 'users',
   '@sales': 'sales',
   '@alerts': 'alerts',
+  // FEFO lot ledger: persists so expiry-based consumption order survives a
+  // redeploy (same reasoning as sales/alerts above — without the mapping
+  // write() early-returns and lots live only in the in-memory cache).
+  '@lots': 'stockLots',
   // Ephemeral code datasets: verification + password-reset codes persist so an
   // issued code survives a redeploy. (Without the mapping write() early-returns
   // and the codes live only in the in-memory cache — silently lost on restart,
