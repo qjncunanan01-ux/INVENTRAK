@@ -54,3 +54,10 @@ backend/data/*.tmp
 mobile-client/android-release.keystore
 mobile-client/android/keystore.properties
 frontend-admin/test-results/
+
+# Playwright visual-regression snapshots (per-machine platform suffixes,
+# regenerated on every run)
+frontend-admin/e2e/*-snapshots/
+
+# Freebuff runtime artifacts
+.c/freebuff/*.pid
