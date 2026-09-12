@@ -17,6 +17,15 @@ const { audit } = require('./audit');
 const { sanitizeObject, isValidName, isValidEmail, isValidPhone } = require('./sanitize');
 const cache = require('./cache');
 const { isDemoAccountBlocked } = require('./demo-accounts');
+const { parseDateRange, rangeDays } = require('./date-range');
+const {
+  ADMIN_TIER,
+  STAFF_TIER,
+  MANAGEMENT_TIER,
+  ASSIGNABLE_BY_ADMIN,
+  ASSIGNABLE_BY_MANAGEMENT,
+  isKnownRole,
+} = require('./roles');
 const {
   verifyGoogleIdToken,
   isConfigured: googleAuthConfigured,
@@ -107,8 +116,12 @@ let users = [
   // Demo staff account: proposes adjustments/transfers + scans stock, but
   // cannot approve anything (admin-only decision routes).
   { id: 3, username: 'staff', password: hashPassword('staff123'), role: 'staff', email: 'staff@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
+  // Management tier (roles.js): Super Admin manages accounts/roles; the Owner
+  // has full business oversight and authorizes access decisions.
+  { id: 4, username: 'owner', password: hashPassword('owner123'), role: 'owner', email: 'owner@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
+  { id: 5, username: 'superadmin', password: hashPassword('super123'), role: 'super_admin', email: 'superadmin@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
 ];
-let nextUserId = 4;
+let nextUserId = 6;
 let salesTransactions = [];
 let nextSaleId = 1;
 let alerts = [];
@@ -648,10 +661,10 @@ function requireAuth(req, res, adminOnly = false, next) {
   const result = authUser(req);
   if (result.missing) return sendJson(res, 401, { error: 'Access token required' });
   if (result.invalid) return sendJson(res, 403, { error: 'Invalid or expired token' });
-  // `adminOnly` may be a boolean (true = admin only, false = any authed user)
-  // or an array of allowed roles (e.g. ['admin','staff']) for the staff
-  // role-based access control split.
-  const allowed = Array.isArray(adminOnly) ? adminOnly : adminOnly ? ['admin'] : null;
+  // `adminOnly` may be a boolean (true = the admin tier, false = any authed
+  // user) or an explicit array of allowed roles for the staff split. The tier
+  // membership comes from roles.js so this mirrors the SQLite backend exactly.
+  const allowed = Array.isArray(adminOnly) ? adminOnly : adminOnly ? ADMIN_TIER : null;
   if (allowed && !allowed.includes(result.user.role)) return sendJson(res, 403, { error: 'Admin access required' });
   req.user = result.user;
   return next(req, res);
@@ -851,7 +864,7 @@ const server = http.createServer((req, res) => {
       }
       // Admin MFA: when the administrator has enrolled, the password alone
       // yields only a short-lived challenge token, never a session.
-      if (user.role === 'admin' && user.mfa_enabled) {
+      if (ADMIN_TIER.includes(user.role) && user.mfa_enabled) {
         audit('auth.login.mfa_required', { userId: user.id, username: user.username });
         return sendJson(res, 200, {
           mfa_required: true,
@@ -917,7 +930,7 @@ const server = http.createServer((req, res) => {
       }
       // Admin MFA applies to Google sign-in too: an admin who enrolled MFA
       // must complete the second factor regardless of the first factor.
-      if (user.role === 'admin' && user.mfa_enabled) {
+      if (ADMIN_TIER.includes(user.role) && user.mfa_enabled) {
         audit('auth.login.mfa_required', { userId: user.id, username: user.username });
         return sendJson(res, 200, {
           mfa_required: true,
@@ -956,7 +969,7 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 401, { error: 'Invalid or expired MFA session' });
       }
       const user = result.user;
-      if (user.role !== 'admin' || !user.mfa_secret) {
+      if (!ADMIN_TIER.includes(user.role) || !user.mfa_secret) {
         return sendJson(res, 401, { error: 'Invalid or expired MFA session' });
       }
       // Second factor = TOTP code OR one of the single-use recovery codes
@@ -2050,14 +2063,14 @@ const server = http.createServer((req, res) => {
   const pathPart = url.split('?')[0];
 
   if (req.method === 'GET' && pathPart === '/api/stock-adjustments') {
-    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
+    return requireAuth(req, res, STAFF_TIER, (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       return sendJson(res, 200, loadRows('adjustment', parsed.searchParams.get('status')));
     });
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/stock-adjustments') {
-    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
+    return requireAuth(req, res, STAFF_TIER, (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         const productId = Number(obj.product_id);
@@ -2158,14 +2171,14 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'GET' && pathPart === '/api/stock-transfers') {
-    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
+    return requireAuth(req, res, STAFF_TIER, (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       return sendJson(res, 200, loadRows('transfer', parsed.searchParams.get('status')));
     });
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/stock-transfers') {
-    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
+    return requireAuth(req, res, STAFF_TIER, (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         const productId = Number(obj.product_id);
@@ -2287,18 +2300,31 @@ const server = http.createServer((req, res) => {
   }
 
   // Printable report data (Report Viewing module).
+  // Reports carry revenue, so this is ADMIN TIER only — Inventory Staff is
+  // excluded by the role spec (no sales, prices, customers, orders, reports or
+  // business analytics). Mirrors the SQLite backend.
   if (req.method === 'GET' && url.split('?')[0] === '/api/reports') {
-    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
+    return requireAuth(req, res, true, (req, res) => {
       const parsed = new URL(url, 'http://localhost');
-      const days = Math.min(90, Math.max(1, parseInt(parsed.searchParams.get('days'), 10) || 14));
+      const { from, to } = parseDateRange(
+        {
+          from: parsed.searchParams.get('from'),
+          to: parsed.searchParams.get('to'),
+          days: parsed.searchParams.get('days'),
+        },
+        { defaultDays: 14 }
+      );
+      const days = rangeDays({ from, to });
       const generated_at = new Date().toISOString();
-      const cutoff = Date.now() - days * 86400000;
+      const cutoff = Date.parse(`${from}T00:00:00Z`);
+      const until = Date.parse(`${to}T23:59:59.999Z`);
       const sales = salesTransactions.length ? salesTransactions : (readJSON('@sales') || []);
 
       const dateKey = (iso) => (iso || '').slice(0, 10);
       const dailyMap = {};
       sales.forEach(s => {
-        if (new Date(s.transaction_date).getTime() < cutoff) return;
+        const at = new Date(s.transaction_date).getTime();
+        if (!Number.isFinite(at) || at < cutoff || at > until) return;
         const d = dateKey(s.transaction_date);
         dailyMap[d] = dailyMap[d] || { date: d, transactions: 0, value: 0 };
         dailyMap[d].transactions += 1;
@@ -2351,7 +2377,18 @@ const server = http.createServer((req, res) => {
         pending_approvals: loadRows('adjustment', 'pending').length + loadRows('transfer', 'pending').length,
       };
 
-      return sendJson(res, 200, { generated_at, days, dailySales, stockByLocation, orderStatusSummary, lowStock, fastMovers, slowMovers, summary });
+      return sendJson(res, 200, {
+        generated_at,
+        days,
+        range: { from, to },
+        dailySales,
+        stockByLocation,
+        orderStatusSummary,
+        lowStock,
+        fastMovers,
+        slowMovers,
+        summary,
+      });
     });
   }
 
@@ -2390,7 +2427,7 @@ const server = http.createServer((req, res) => {
     // Per-account scoping: admins see every inquiry; customers only their own
     // (user_id match, with a legacy fallback to the account's email so orders
     // placed before ownership was stamped still appear in history).
-    if (req.user.role !== 'admin') {
+    if (!ADMIN_TIER.includes(req.user.role)) {
       const owner = users.find(u => u.id === req.user.id);
       const myEmail = (owner && owner.email || '').toLowerCase();
       orders = orders.filter(o => Number(o.user_id) === req.user.id || (o.customer_email || '').toLowerCase() === myEmail);
@@ -2581,7 +2618,7 @@ const server = http.createServer((req, res) => {
         const orders = readJSON(orderFile) || [];
         const order = orders.find(o => o.id === id);
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
-        if (req.user.role !== 'admin') {
+        if (!ADMIN_TIER.includes(req.user.role)) {
           const owner = users.find(u => u.id === req.user.id);
           const myEmail = (owner && owner.email || '').toLowerCase();
           const mine = Number(order.user_id) === Number(req.user.id) ||
@@ -2617,11 +2654,44 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  // Record a QR/barcode scan into the audit trail (who scanned what, where and
+  // when). Mirrors the SQLite backend exactly — nothing here mutates stock.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/scan-events') {
+    return requireAuth(req, res, STAFF_TIER, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const payload = obj.payload;
+        if (typeof payload !== 'string' || payload.trim() === '') {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['payload is required'] });
+        }
+        if (payload.length > 300) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['payload must be at most 300 characters'] });
+        }
+        const scanKinds = ['location', 'product', 'barcode', 'unknown'];
+        const event = {
+          at: new Date().toISOString(),
+          actor: req.user.username,
+          actorRole: req.user.role,
+          kind: scanKinds.includes(obj.kind) ? obj.kind : 'unknown',
+          target_id: obj.target_id === undefined || obj.target_id === null || !Number.isFinite(Number(obj.target_id))
+            ? null
+            : Number(obj.target_id),
+          location: typeof obj.location === 'string' && obj.location.trim() !== ''
+            ? obj.location.trim().slice(0, 100)
+            : null,
+          payload: payload.trim(),
+        };
+        audit('scan.qr', event);
+        return sendJson(res, 201, { ok: true, event });
+      });
+    });
+  }
+
   // Stock check: scan a label and get per-location stock — the daily manual-
   // inventory answer. Staff-or-admin (staff do the daily counting); shares the
   // OCR pipeline with the public /api/ocr but attaches a live stock snapshot.
   if (req.method === 'POST' && url.split('?')[0] === '/api/ocr/stock') {
-    return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
+    return requireAuth(req, res, STAFF_TIER, (req, res) => {
       return parseBodyLarge(req, async (err, obj) => {
         if (err) {
           return err.status === 413
@@ -2752,124 +2822,129 @@ const server = http.createServer((req, res) => {
     }
 
     if (parts[2] === 'summary') {
-      const products = readJSON(productsFile) || [];
-      const inv = getInventory();
-      const movements = readJSON(movementsFile) || [];
-      const orders = readJSON(orderFile) || [];        const totalProducts = products.filter(isProductActive).length;
-        const totalStock = inv.items.reduce((sum, i) => sum + i.total, 0);
-      // Per-PRODUCT total below the 80-unit threshold — matches the
-      // SQLite backend so the contract test passes.
-      const lowStockItems = inv.items.filter((i) => i.total < LOW_STOCK_THRESHOLD).length;
-      const totalLocations = inv.locations.length;
-      const pendingInquiries = orders.filter(o => o.status === 'pending').length;
-      const totalSales = salesTransactions.reduce((sum, s) => sum + s.total_amount, 0);
-      const totalMovements = movements.length;
-      const activeAlerts = computeAlerts().length;
+      // Revenue-bearing aggregate: ADMIN TIER only (see roles.js). Mirrors the
+      // SQLite backend — Inventory Staff must not read sales/revenue.
+      return requireAuth(req, res, true, (req, res) => {
+        const products = readJSON(productsFile) || [];
+        const inv = getInventory();
+        const movements = readJSON(movementsFile) || [];
+        const orders = readJSON(orderFile) || [];        const totalProducts = products.filter(isProductActive).length;
+          const totalStock = inv.items.reduce((sum, i) => sum + i.total, 0);
+        // Per-PRODUCT total below the 80-unit threshold — matches the
+        // SQLite backend so the contract test passes.
+        const lowStockItems = inv.items.filter((i) => i.total < LOW_STOCK_THRESHOLD).length;
+        const totalLocations = inv.locations.length;
+        const pendingInquiries = orders.filter(o => o.status === 'pending').length;
+        const totalSales = salesTransactions.reduce((sum, s) => sum + s.total_amount, 0);
+        const totalMovements = movements.length;
+        const activeAlerts = computeAlerts().length;
 
-      const topProducts = inv.items
-        .map(i => ({ id: i.product.id, name: i.product.name, stock_value: i.total * (i.product.price || 0) }))
-        .sort((a, b) => b.stock_value - a.stock_value)
-        .slice(0, 5);
+        const topProducts = inv.items
+          .map(i => ({ id: i.product.id, name: i.product.name, stock_value: i.total * (i.product.price || 0) }))
+          .sort((a, b) => b.stock_value - a.stock_value)
+          .slice(0, 5);
 
-      // Match the SQLite shape: one row per (month, type) with { month, type, count }.
-      const monthTypeMap = {};
-      movements.forEach(m => {
-        const month = (m.created_at || '').substring(0, 7);
-        if (!month) return;
-        const key = `${month}|${m.type}`;
-        if (!monthTypeMap[key]) monthTypeMap[key] = { month, type: m.type, count: 0 };
-        monthTypeMap[key].count += 1;
-      });
-      const monthlyMovements = Object.values(monthTypeMap)
-        .sort((a, b) => (b.month + b.type).localeCompare(a.month + a.type))
-        .slice(0, 12);
-
-      // ---- Reviewer-required dashboard data (mirrors the SQLite backend
-      // exactly so contract parity holds) ----
-
-      // 1. Low-stock items: name + total, sorted ascending.
-      const lowStockList = inv.items
-        .map(i => ({ id: i.product.id, name: i.product.name, total: i.total }))
-        .filter(i => i.total < LOW_STOCK_THRESHOLD)
-        .sort((a, b) => a.total - b.total)
-        .slice(0, 20);
-
-      // 2. Available stocks per location.
-      const stockByLocation = inv.locations
-        .map(loc => ({
-          location: loc,
-          total: inv.items.reduce((sum, i) => sum + (i.locations[loc] || 0), 0),
-        }))
-        .sort((a, b) => b.total - a.total);
-
-      // 3. Fast-moving products: top by quantity sold.
-      const qtySold = {};
-      const valueSold = {};
-      salesTransactions.forEach(t => {
-        qtySold[t.product_id] = (qtySold[t.product_id] || 0) + t.qty;
-        valueSold[t.product_id] = (valueSold[t.product_id] || 0) + t.total_amount;
-      });
-      const activeProducts = (readJSON(productsFile) || []).filter(isProductActive);
-      // Positional ids (idx + 1) — the JSON file has no id column, and the
-      // SQLite backend numbers products the same way, so parity holds.
-      const fastMovingProducts = activeProducts
-        .map((p, idx) => ({ id: idx + 1, name: p['Product Name'] || p.name, qty_sold: qtySold[idx + 1] || 0, value: valueSold[idx + 1] || 0 }))
-        .sort((a, b) => b.qty_sold - a.qty_sold)
-        .slice(0, 5);
-
-      // 4. Slow-moving products: bottom by quantity sold.
-      const slowMovingProducts = activeProducts
-        .map((p, idx) => ({ id: idx + 1, name: p['Product Name'] || p.name, qty_sold: qtySold[idx + 1] || 0 }))
-        .sort((a, b) => a.qty_sold - b.qty_sold || (a.name || '').localeCompare(b.name || ''))
-        .slice(0, 5);
-
-      // 5. Daily sales value, last 7 days (dedup per date, matches SQLite GROUP BY).
-      const dayMap = {};
-      const sevenDaysAgo = Date.now() - 7 * 86400000;
-      salesTransactions
-        .filter(t => new Date(t.transaction_date).getTime() >= sevenDaysAgo)
-        .forEach(t => {
-          const date = (t.transaction_date || '').substring(0, 10);
-          if (!date) return;
-          if (!dayMap[date]) dayMap[date] = { date, value: 0 };
-          dayMap[date].value += t.total_amount;
+        // Match the SQLite shape: one row per (month, type) with { month, type, count }.
+        const monthTypeMap = {};
+        movements.forEach(m => {
+          const month = (m.created_at || '').substring(0, 7);
+          if (!month) return;
+          const key = `${month}|${m.type}`;
+          if (!monthTypeMap[key]) monthTypeMap[key] = { month, type: m.type, count: 0 };
+          monthTypeMap[key].count += 1;
         });
-      const dailySalesValue = Object.values(dayMap).sort((a, b) => a.date.localeCompare(b.date));
+        const monthlyMovements = Object.values(monthTypeMap)
+          .sort((a, b) => (b.month + b.type).localeCompare(a.month + a.type))
+          .slice(0, 12);
 
-      // 6. Number of transactions + customers served.
-      const transactionCount = salesTransactions.length;
-      const customersServed = new Set(salesTransactions.map(t => t.customer_name).filter(Boolean)).size;
+        // ---- Reviewer-required dashboard data (mirrors the SQLite backend
+        // exactly so contract parity holds) ----
 
-      // 7. Order status summary (incl. the new 'delivered' state).
-      const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
-      orders.forEach(o => { if (orderStatusSummary[o.status] !== undefined) orderStatusSummary[o.status] += 1; });
+        // 1. Low-stock items: name + total, sorted ascending.
+        const lowStockList = inv.items
+          .map(i => ({ id: i.product.id, name: i.product.name, total: i.total }))
+          .filter(i => i.total < LOW_STOCK_THRESHOLD)
+          .sort((a, b) => a.total - b.total)
+          .slice(0, 20);
 
-      // 8. This-month aggregates so the dashboard KPI cards render without
-      // needing the raw /api/sales (which is admin-only).
-      const now = new Date();
-      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const monthlySales = salesTransactions.filter(t => {
-        const d = t.transaction_date || t.created_at || '';
-        return d.startsWith(thisMonth);
-      });
-      const monthlySalesValue = monthlySales.reduce((sum, t) => sum + (t.total_amount || 0), 0);
-      const monthlyTransactions = monthlySales.length;
+        // 2. Available stocks per location.
+        const stockByLocation = inv.locations
+          .map(loc => ({
+            location: loc,
+            total: inv.items.reduce((sum, i) => sum + (i.locations[loc] || 0), 0),
+          }))
+          .sort((a, b) => b.total - a.total);
 
-      // 9. Alias orderStatusCounts so the dashboard can read either key.
-      const orderStatusCounts = { ...orderStatusSummary };
+        // 3. Fast-moving products: top by quantity sold.
+        const qtySold = {};
+        const valueSold = {};
+        salesTransactions.forEach(t => {
+          qtySold[t.product_id] = (qtySold[t.product_id] || 0) + t.qty;
+          valueSold[t.product_id] = (valueSold[t.product_id] || 0) + t.total_amount;
+        });
+        const activeProducts = (readJSON(productsFile) || []).filter(isProductActive);
+        // Positional ids (idx + 1) — the JSON file has no id column, and the
+        // SQLite backend numbers products the same way, so parity holds.
+        const fastMovingProducts = activeProducts
+          .map((p, idx) => ({ id: idx + 1, name: p['Product Name'] || p.name, qty_sold: qtySold[idx + 1] || 0, value: valueSold[idx + 1] || 0 }))
+          .sort((a, b) => b.qty_sold - a.qty_sold)
+          .slice(0, 5);
 
-      return sendJson(res, 200, {
-        totalProducts, totalStock, lowStockItems, totalLocations,
-        pendingInquiries, totalSales, totalMovements, activeAlerts,
-        topProducts, monthlyMovements,
-        lowStockList, stockByLocation, fastMovingProducts, slowMovingProducts,
-        dailySalesValue, transactionCount, customersServed, orderStatusSummary,
-        monthlySalesValue, monthlyTransactions, orderStatusCounts
+        // 4. Slow-moving products: bottom by quantity sold.
+        const slowMovingProducts = activeProducts
+          .map((p, idx) => ({ id: idx + 1, name: p['Product Name'] || p.name, qty_sold: qtySold[idx + 1] || 0 }))
+          .sort((a, b) => a.qty_sold - b.qty_sold || (a.name || '').localeCompare(b.name || ''))
+          .slice(0, 5);
+
+        // 5. Daily sales value, last 7 days (dedup per date, matches SQLite GROUP BY).
+        const dayMap = {};
+        const sevenDaysAgo = Date.now() - 7 * 86400000;
+        salesTransactions
+          .filter(t => new Date(t.transaction_date).getTime() >= sevenDaysAgo)
+          .forEach(t => {
+            const date = (t.transaction_date || '').substring(0, 10);
+            if (!date) return;
+            if (!dayMap[date]) dayMap[date] = { date, value: 0 };
+            dayMap[date].value += t.total_amount;
+          });
+        const dailySalesValue = Object.values(dayMap).sort((a, b) => a.date.localeCompare(b.date));
+
+        // 6. Number of transactions + customers served.
+        const transactionCount = salesTransactions.length;
+        const customersServed = new Set(salesTransactions.map(t => t.customer_name).filter(Boolean)).size;
+
+        // 7. Order status summary (incl. the new 'delivered' state).
+        const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+        orders.forEach(o => { if (orderStatusSummary[o.status] !== undefined) orderStatusSummary[o.status] += 1; });
+
+        // 8. This-month aggregates so the dashboard KPI cards render without
+        // needing the raw /api/sales (which is admin-only).
+        const now = new Date();
+        const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthlySales = salesTransactions.filter(t => {
+          const d = t.transaction_date || t.created_at || '';
+          return d.startsWith(thisMonth);
+        });
+        const monthlySalesValue = monthlySales.reduce((sum, t) => sum + (t.total_amount || 0), 0);
+        const monthlyTransactions = monthlySales.length;
+
+        // 9. Alias orderStatusCounts so the dashboard can read either key.
+        const orderStatusCounts = { ...orderStatusSummary };
+
+        return sendJson(res, 200, {
+          totalProducts, totalStock, lowStockItems, totalLocations,
+          pendingInquiries, totalSales, totalMovements, activeAlerts,
+          topProducts, monthlyMovements,
+          lowStockList, stockByLocation, fastMovingProducts, slowMovingProducts,
+          dailySalesValue, transactionCount, customersServed, orderStatusSummary,
+          monthlySalesValue, monthlyTransactions, orderStatusCounts
+        });
       });
     }
 
     if (parts[2] === 'export') {
-      return requireAuth(req, res, ['admin', 'staff'], (req, res) => {
+      // Exports include product values / revenue → admin tier only.
+      return requireAuth(req, res, true, (req, res) => {
         const type = parts[3];
         const format = new URL(url, 'http://localhost').searchParams.get('format') || 'json';
         let data = [];
@@ -2986,9 +3061,39 @@ const server = http.createServer((req, res) => {
         if (!obj.username) return sendJson(res, 400, { error: 'Validation failed', details: ['username is required'] });
         if (String(obj.username).length > 50) return sendJson(res, 400, { error: 'Validation failed', details: ['username must be at most 50 characters'] });
         const user = users.find(u => u.username === obj.username);
-        if (!user || user.role !== 'customer') return sendJson(res, 404, { error: 'Customer not found or already an admin' });
-        user.role = 'admin';
+
+        // No `role` in the body → legacy behaviour: customer → admin. An
+        // explicit `role` is the role-management path: the admin tier may
+        // grant staff/admin, only owner/super_admin may grant the privileged
+        // roles. Mirrors the SQLite backend exactly.
+        if (obj.role === undefined) {
+          if (!user || user.role !== 'customer') return sendJson(res, 404, { error: 'Customer not found or already an admin' });
+          user.role = 'admin';
+          if (useFirestore || useSupabase) writeJSON('@users', users);
+          audit('auth.role_change', {
+            actor: req.user.username,
+            actorRole: req.user.role,
+            target: user.username,
+            role: 'admin',
+          });
+          return sendJson(res, 200, { ok: true, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
+        }
+
+        const target = String(obj.role);
+        if (!isKnownRole(target)) return sendJson(res, 400, { error: `Unknown role: ${target}` });
+        const allowed = MANAGEMENT_TIER.includes(req.user.role) ? ASSIGNABLE_BY_MANAGEMENT : ASSIGNABLE_BY_ADMIN;
+        if (!allowed.includes(target)) {
+          return sendJson(res, 403, { error: `Only an Owner or Super Admin can assign the ${target} role` });
+        }
+        if (!user) return sendJson(res, 404, { error: 'User not found' });
+        user.role = target;
         if (useFirestore || useSupabase) writeJSON('@users', users);
+        audit('auth.role_change', {
+          actor: req.user.username,
+          actorRole: req.user.role,
+          target: user.username,
+          role: target,
+        });
         return sendJson(res, 200, { ok: true, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
       });
     });

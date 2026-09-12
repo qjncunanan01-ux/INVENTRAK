@@ -28,6 +28,10 @@ function seedDatabase({ db, productsFile = DEFAULT_PRODUCTS_FILE } = {}) {
   // Demo staff account for the role-based access control split (proposes
   // adjustments/transfers + scans stock; cannot approve anything).
   insertUser.run('staff', hashPassword('staff123'), 'staff', 'staff@inventrak.com');
+  // Management tier (see roles.js): Super Admin handles accounts/roles,
+  // the Owner adds full business oversight.
+  insertUser.run('owner', hashPassword('owner123'), 'owner', 'owner@inventrak.com');
+  insertUser.run('superadmin', hashPassword('super123'), 'super_admin', 'superadmin@inventrak.com');
 
   const existingProducts = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
   if (existingProducts > 0) return { seeded: false };

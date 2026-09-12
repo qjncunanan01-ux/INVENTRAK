@@ -1,14 +1,19 @@
-import { Alert, AlertTitle, Autocomplete, Box, Button, Dialog, DialogActions, DialogTitle, Grid, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, createFilterOptions } from '@mui/material';
+import { Alert, AlertTitle, Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography, createFilterOptions } from '@mui/material';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiDelete, apiGet, apiPost, apiPut, bulkUpdatePrices, API_BASE_URL } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
+import QrTagSheet from '../components/QrTagSheet';
+import { parseQrPayload, productQrPayload, qrImageUrl } from '../qr';
 
 const filter = createFilterOptions();
 
 export default function ProductsPage({ onLogout }) {
   usePageTitle('/products');
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -24,6 +29,39 @@ export default function ProductsPage({ onLogout }) {
   const [bulkResult, setBulkResult] = useState(null); // { updated, skipped }
   const [bulkBusy, setBulkBusy] = useState(false);
   const fileInputRef = useRef(null);
+
+  // QR tags: `activeTag` is the single-tag dialog, `showSheet` the batch
+  // printable sheet, `scanValue` the scan-to-stock input box.
+  const [activeTag, setActiveTag] = useState(null);
+  const [showSheet, setShowSheet] = useState(false);
+  const [scanValue, setScanValue] = useState('');
+
+  // Scan-to-stock: decode a pasted/scanned INVENTRAK payload and jump to the
+  // matching screen. A product tag opens Scan & Stock pre-loaded with that
+  // product; a location tag opens the inventory view filtered to that area.
+  const handleScanSubmit = () => {
+    const raw = scanValue.trim();
+    const parsed = parseQrPayload(raw);
+    if (!parsed) {
+      setSnackbar({ open: true, message: 'Not an INVENTRAK QR tag — expected INVENTRAK:PROD:<id> or INVENTRAK:LOC:<id>:<name>.', severity: 'warning' });
+      return;
+    }
+    setScanValue('');
+    // Audit trail: record the scan (who/what/when) without blocking the jump.
+    apiPost('/api/scan-events', {
+      payload: raw,
+      kind: parsed.kind,
+      target_id: parsed.id,
+      location: parsed.kind === 'location' ? parsed.name : null,
+    }).catch(() => {});
+    if (parsed.kind === 'product') {
+      // Product tag → that product's stock across every location.
+      navigate(`/inventory?product=${parsed.id}`);
+    } else {
+      // Location tag → the inventory view filtered to that storage area.
+      navigate(`/inventory?location=${encodeURIComponent(parsed.name || '')}`);
+    }
+  };
 
   const prodArr = Array.isArray(products) ? products : [];
   const categoryOptions = Array.from(new Set(prodArr.map(p => p.category).filter(Boolean))).sort();
@@ -404,6 +442,22 @@ export default function ProductsPage({ onLogout }) {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h6">Active products</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            {/* Scan-to-stock: paste (or type) an INVENTRAK QR payload and jump
+                straight to that product's stock view. Accepts exactly what the
+                phone's scanner emits, so an admin can verify a tag on the
+                spot. */}
+            <TextField
+              size="small"
+              label="Scan / paste QR tag"
+              value={scanValue}
+              onChange={e => setScanValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleScanSubmit(); }}
+              sx={{ minWidth: 240, backgroundColor: colors.surface }}
+              helperText="e.g. INVENTRAK:PROD:12 or a location tag"
+            />
+            <Button size="small" variant="outlined" onClick={handleScanSubmit} disabled={!scanValue.trim()}>
+              Go
+            </Button>
             <TextField
               size="small"
               label="Search products…"
@@ -411,6 +465,15 @@ export default function ProductsPage({ onLogout }) {
               onChange={e => setSearch(e.target.value)}
               sx={{ minWidth: 240, backgroundColor: colors.surface }}
             />
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<QrCode2Icon />}
+              onClick={() => setShowSheet(true)}
+              disabled={prodList.length === 0}
+            >
+              Product QR tags
+            </Button>
             <Typography variant="body2" color="text.secondary">Total {prodList.length}</Typography>
           </Box>
         </Box>
@@ -450,6 +513,15 @@ export default function ProductsPage({ onLogout }) {
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Button size="small" variant="outlined" onClick={() => handleEdit(product)}>Edit</Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<QrCode2Icon />}
+                      aria-label={`Show QR tag for ${product.name}`}
+                      onClick={() => setActiveTag(product)}
+                    >
+                      QR
+                    </Button>
                     <Button size="small" variant="contained" color="error" onClick={() => setConfirmDelete(product.id)}>Delete</Button>
                   </Box>
                 </TableCell>
@@ -466,6 +538,45 @@ export default function ProductsPage({ onLogout }) {
           <Button onClick={handleDelete} variant="contained" color="error">Delete</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Single product tag: printable on its own, and the payload shown so it
+          can be verified/matched against the mobile scanner. */}
+      <Dialog open={Boolean(activeTag)} onClose={() => setActiveTag(null)}>
+        <DialogTitle>{activeTag ? `QR tag — ${activeTag.name}` : 'QR tag'}</DialogTitle>
+        <DialogContent>
+          {activeTag ? (
+            <Box sx={{ textAlign: 'center' }}>
+              <Box
+                component="img"
+                src={qrImageUrl(productQrPayload(activeTag), 240)}
+                alt={`QR tag for ${activeTag.name}`}
+                sx={{ width: 240, height: 240, display: 'block', mx: 'auto' }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+                {productQrPayload(activeTag)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                Scan this tag with the INVENTRAK phone app to jump straight to the
+                product's stock view.
+              </Typography>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActiveTag(null)}>Close</Button>
+          <Button variant="contained" color="secondary" onClick={() => window.print()} disabled={!activeTag}>
+            🖨 Print tag
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Batch sheet: every active product tag on one print-friendly page. */}
+      <QrTagSheet
+        open={showSheet}
+        onClose={() => setShowSheet(false)}
+        locations={[]}
+        products={prodList}
+      />
 
       <Snackbar
         open={snackbar.open}

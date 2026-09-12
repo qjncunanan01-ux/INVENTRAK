@@ -149,28 +149,54 @@ verify-email suites.
 
 ---
 
-## 4. Roles & authorization (maker–approver RBAC)
+## 4. Roles & authorization (four-tier RBAC)
 
-**Roles:** `admin` (owner — full control + approvals), `staff` (maker — Scan &
-Stock, adjustments/transfers, denied user management & approvals), `customer`
-(mobile app only — own data only). Enforced per-endpoint on **both** backends;
-enrollment-free for staff (they authenticate with the normal login).
+**Roles** — one hierarchy, least → most privileged. The tiers live in ONE file
+per side (`backend/src/roles.js`, mirrored by `frontend-admin/src/roles.js`) so
+a new role is a one-line change instead of a hunt through 40 guards.
 
-**Where:** endpoint gates in `app.js` / `server_npmfree.js`
-(`staffOrAdmin`, `requireAuth(req, res, ['admin', 'staff'], …)`), approval
-queue on the admin **Approvals** page, staff tooling on mobile
-(`OcrScreen.js` count panel, `AccountScreen.js` staff tools).
+| Role | Login | May do | May NOT do |
+|---|---|---|---|
+| `owner` | `owner` / `owner123` | Everything: oversight, approvals, access decisions | — |
+| `super_admin` | `superadmin` / `super123` | Everything above **plus** account/role/permission management | — |
+| `admin` | `admin` / `admin123` | Products, prices, inventory, inquiries, approvals, reports, analytics | Grant privileged roles |
+| `staff` | `staff` / `staff123` | Scan & Stock, stock levels, movements, adjustments, transfers | **Sales, prices, customers, orders, reports, analytics** |
+| `customer` | `customer` / `customer123` | Mobile app: browse, inquire, track | Anything admin |
 
-**Demo (the money shot):** log into the admin as **staff** → the Approvals
-page is hidden. Create a stock adjustment (Scan & Stock or Stock Adjustments
-page) → status *pending*. Log out, log in as **admin** → Approvals shows the
-request → approve → the stock count updates in Firestore. On the phone:
-staff account → Account tab → *Staff Tools → Scan & Count Stock* → scan a
-label → enter per-location counts → submit → pending adjustment.
+**Tiers** (used by every guard):
 
-**Test:** `backend/src/test/staff-roles.test.js` (+ customer 403s in the
-scoping suites) — staff can create but not approve; customers are blocked from
-staff endpoints entirely.
+- `ADMIN_TIER` = `admin`, `super_admin`, `owner` — every money/pricing/revenue
+  route. Inventory Staff is deliberately absent.
+- `MANAGEMENT_TIER` = `super_admin`, `owner` — account, role and permission
+  management. `POST /api/admin/promote` accepts an explicit `role`; a plain
+  admin may grant `staff`/`admin`, only management may grant `super_admin`/`owner`.
+- `STAFF_TIER` = `staff` + the admin tiers — the daily inventory modules.
+
+**Where:** `adminOnly` / `managementOnly` / `staffOrAdmin` middleware in
+`app.js`, the `allowed` resolution in `server_npmfree.js`'s `requireAuth`, the
+`roles` arrays in `AdminLayout.jsx`'s `NAV_SECTIONS`, and `RequireRole` in
+`App.jsx`. Money figures render through `components/Money.jsx`, which masks the
+amount for any role without revenue visibility.
+
+**Inventory Staff land on `/inventory`**, not the dashboard — the dashboard is a
+money + analytics surface, so a staff login is redirected there and the nav
+drops Dashboard/Optimization/Reports entirely.
+
+**Demo (the money shot):** log in as **staff** → only the inventory modules are
+in the nav, and the peso figures show `••••`. Create an adjustment → *pending*.
+Log out, log in as **admin** (or **owner**) → Approvals shows the request →
+approve → the stock count updates. On the phone: staff account → Account tab →
+*Staff Tools → Scan & Count Stock*.
+
+**Seeding the live database:** the cloud `users` dataset already exists and is
+never overwritten, so a deployed instance keeps only the accounts it was seeded
+with. After deploying a role change run
+`npm run seed:demo-users` (env: `SUPABASE_URL`, `SUPABASE_KEY`; add `--reset` to
+restore a demo password/role, `--firestore` for the Firestore driver). It
+refuses to run when `DISABLE_DEMO_ACCOUNTS=true`.
+
+**Test:** `backend/src/test/roles.test.js` (tiers, money access, role grants,
+scan audit) + `backend/src/test/staff-roles.test.js` + `frontend-admin/src/roles.test.js`.
 
 ---
 
@@ -332,16 +358,41 @@ downloads traineddata on first run), `staff-roles.test.js` (endpoint gates).
 
 ---
 
-## 12. QR & barcode scanning (`mobile-client/src/screens/QrScanScreen.js`, admin `LocationsPage.jsx`)
+## 12. QR & barcode scanning (the project's focus area)
 
-**Location tags:** the admin Locations page prints a QR per storage area
-(payload `INVENTRAK:LOC:<id>:<name>`). **Product tags:** scanning a product QR
-opens that product.
+**Where:** tag generation in `frontend-admin/src/qr.js` (shared payload
+helpers) + `components/QrTagSheet.jsx`; tags printed from **Locations → Print
+tag sheet** and **Products → Product QR tags**; scanning in
+`mobile-client/src/screens/QrScanScreen.js` and the admin's **Products →
+Scan / paste QR tag** box; audit in `POST /api/scan-events`.
 
-**Demo:** print the tags (Locations → QR tags → Print tags) → open the mobile
-app → Scan tab → **"Scan a QR / barcode tag"** → scan a location tag → the
-scoped stock view for that storage area opens; scan a product tag → the
-product page opens. Unrecognized codes get a friendly alert, never a crash.
+**Payload contract** (must match on both sides — pinned by
+`frontend-admin/src/qr.test.js`):
+
+| Tag | Payload | Scan result |
+|---|---|---|
+| Location | `INVENTRAK:LOC:<id>:<name>` | stock view scoped to that storage area |
+| Product | `INVENTRAK:PROD:<id>` | that product's stock across every location |
+| Foreign QR | — | explicit "not an INVENTRAK tag" alert, never a silent miss |
+
+Product tags carry only the id, so a tag printed last week still resolves
+after a rename. The admin's scan box accepts exactly what the phone emits and
+jumps to `/inventory?product=<id>` (or `?location=<name>`).
+
+**Printing:** both dialogs have a **Print** action; `@media print` rules in
+`index.css` hide the rest of the app so only the tag grid lands on paper
+(3 across, two-line captions so a printed sheet can be filed by eye).
+
+**Scan audit trail:** every scan — recognized or not — is POSTed to
+`/api/scan-events` and appears in **Audit Trail** as a `scan.qr` entry (who,
+role, decoded kind/target, storage area, raw payload). The phone's scanner uses
+synchronous locking + a 1.5s cooldown so one tag cannot fire a dozen scans, and
+logs even when it cannot navigate.
+
+**Demo:** Locations → **Print tag sheet** → print/cut → phone Scan tab → point
+at a location tag (scoped stock opens) → point at a product tag (the product's
+stock opens) → point at any random QR (friendly "not recognized" alert) →
+admin **Audit Trail** now lists every scan with the account that made it.
 
 **Test:** payload parse logic verified in-repo (location / product / bare-id /
 foreign-token cases); camera itself needs a physical device.
@@ -361,9 +412,38 @@ surfaced first in red). Mobile → Recommendations tab (ABC-classified
 suggestions with badges). Low stock auto-creates alerts (below the reorder
 threshold) that appear on the admin dashboard and Inventory page.
 
+**Date-range filter (Days / Weeks / Months / Quarterly / Annually):** the
+**Analysis window** control on the Optimization page is the shared
+`components/RangeFilter.jsx`. It maps a preset to an FSN window
+(Day/Week → 7, Month → 30, Quarter → 90, Year → 365, All → 730) — the endpoint
+accepts any integer in `[7, 730]`, so the four old fixed choices became six
+presets with no backend change.
+
 **Test:** value parity of optimization outputs asserted across both backends
 in `contract.test.js`; FSN unit + parity tests in `fsn.test.js`
-(`GET /api/optimization/fsn?window=30|60|90|180`).
+(`GET /api/optimization/fsn?window=<days>`).
+
+---
+
+## 13b. Date-range filter (Days / Weeks / Months / Quarterly / Annually)
+
+**Where:** presets in `frontend-admin/src/dateRange.js`, control in
+`components/RangeFilter.jsx`; the backend resolves the same window in the
+shared `backend/src/date-range.js`.
+
+| Screen | What the range filters |
+|---|---|
+| Dashboard | sales + movement analytics (totals, this-month KPIs, velocity and monthly charts). Inventory counts/products/locations are point-in-time and stay unfiltered. |
+| Reports | the report window — sent as `?from=&to=` and clamped server-side (`GET /api/reports`) |
+| Optimization | the FSN analysis window (see above) |
+
+`parseDateRange` accepts either `?from=YYYY-MM-DD&to=YYYY-MM-DD` or the legacy
+`?days=N`, ignores malformed values instead of trusting them, and caps the
+window at 5 years so a hostile `from` cannot force an unbounded table scan.
+
+**Test:** `frontend-admin/src/roles.test.js` / `qr.test.js` cover the client
+side; the reports range is exercised through `contract.test.js` and
+`openapi.test.js` (the response echoes `range: { from, to }`).
 
 ---
 

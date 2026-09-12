@@ -64,13 +64,21 @@ test('staff can create and list stock transfers on both backends', async () => {
   }
 });
 
-test('staff can view reports and export analytics; customers cannot', async () => {
-  const r = await both('staff reports', '/api/reports?days=14', { auth: 'staff' });
-  assert.strictEqual(r.a.status, 200, 'staff reports must be 200');
-  const exportRes = await both('staff analytics export', '/api/analytics/export/products?format=csv', { auth: 'staff' });
-  assert.strictEqual(exportRes.a.status, 200, 'staff analytics export must be 200');
-  const denied = await both('customer reports', '/api/reports?days=14', { auth: 'customer' });
-  assert.strictEqual(denied.a.status, 403, 'customer reports must stay 403');
+test('reports and analytics exports are revenue: admin tier only, never staff', async () => {
+  // The role spec forbids Inventory Staff from viewing sales, prices,
+  // customers, orders, reports or business analytics — so every revenue
+  // surface is admin tier (admin, super_admin, owner) and nobody below it.
+  const staffReports = await both('staff reports', '/api/reports?days=14', { auth: 'staff' });
+  assert.strictEqual(staffReports.a.status, 403, 'staff reports must be 403');
+
+  const staffExport = await both('staff analytics export', '/api/analytics/export/products?format=csv', { auth: 'staff' });
+  assert.strictEqual(staffExport.a.status, 403, 'staff analytics export must be 403');
+
+  const customerReports = await both('customer reports', '/api/reports?days=14', { auth: 'customer' });
+  assert.strictEqual(customerReports.a.status, 403, 'customer reports must stay 403');
+
+  const adminReports = await both('admin reports', '/api/reports?days=14', { auth: 'admin' });
+  assert.strictEqual(adminReports.a.status, 200, 'admin reports must be 200');
 });
 
 test('staff can use Scan & Stock; customers cannot', async () => {

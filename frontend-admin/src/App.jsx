@@ -20,15 +20,25 @@ import StockAdjustmentsPage from './pages/StockAdjustmentsPage';
 import StockMovementPage from './pages/StockMovementPage';
 import StockTransfersPage from './pages/StockTransfersPage';
 import { createAppTheme } from './theme';
+import { ADMIN_TIER } from './roles';
 
-// Role-based route guard: admin-only modules (products, approvals, orders,
-// locations, security) redirect staff accounts to the dashboard instead of
-// rendering a page their token can't use. The backend enforces the same
-// split, so this is defense in depth, not the only gate.
+// Where a signed-in role lands when it opens a route it may not use. Inventory
+// Staff have no dashboard (it is a money/analytics surface), so they land on
+// the inventory levels page instead — redirecting them to "/" would loop.
+function homeFor(role) {
+  return role === 'staff' ? '/inventory' : '/';
+}
+
+// Role-based route guard: modules a role may not use redirect that account to
+// its own home instead of rendering a page its token can't use. The backend
+// enforces the same split, so this is defense in depth, not the only gate.
 function RequireRole({ roles, children }) {
   const current = getCurrentUser();
-  if (!current || !roles.includes(current.role)) {
+  if (!current) {
     return <Navigate to="/" replace />;
+  }
+  if (!roles.includes(current.role)) {
+    return <Navigate to={homeFor(current.role)} replace />;
   }
   return children;
 }
@@ -84,20 +94,21 @@ function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<DashboardPage user={user} onLogout={handleLogout} />} />
-        <Route path="/products" element={<RequireRole roles={['admin']}><ProductsPage onLogout={handleLogout} /></RequireRole>} />
+        {/* Money + business analytics: admin tier only (staff land on /inventory). */}
+        <Route path="/" element={<RequireRole roles={ADMIN_TIER}><DashboardPage user={user} onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/products" element={<RequireRole roles={ADMIN_TIER}><ProductsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/inventory" element={<InventoryPage onLogout={handleLogout} />} />
         <Route path="/scan-stock" element={<ScanStockPage onLogout={handleLogout} />} />
         <Route path="/stock-movement" element={<StockMovementPage onLogout={handleLogout} />} />
         <Route path="/stock-adjustments" element={<StockAdjustmentsPage onLogout={handleLogout} />} />
         <Route path="/stock-transfers" element={<StockTransfersPage onLogout={handleLogout} />} />
-        <Route path="/approvals" element={<RequireRole roles={['admin']}><ApprovalsPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="/order-inquiries" element={<RequireRole roles={['admin']}><OrderInquiriesPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="/locations" element={<RequireRole roles={['admin']}><LocationsPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="/optimization" element={<OptimizationPage onLogout={handleLogout} />} />
-        <Route path="/reports" element={<ReportsPage onLogout={handleLogout} />} />
-        <Route path="/security" element={<RequireRole roles={['admin']}><SecurityPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="/audit-trail" element={<RequireRole roles={['admin']}><AuditTrailPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/approvals" element={<RequireRole roles={ADMIN_TIER}><ApprovalsPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/order-inquiries" element={<RequireRole roles={ADMIN_TIER}><OrderInquiriesPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/locations" element={<RequireRole roles={ADMIN_TIER}><LocationsPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/optimization" element={<RequireRole roles={ADMIN_TIER}><OptimizationPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/reports" element={<RequireRole roles={ADMIN_TIER}><ReportsPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/security" element={<RequireRole roles={ADMIN_TIER}><SecurityPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/audit-trail" element={<RequireRole roles={ADMIN_TIER}><AuditTrailPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

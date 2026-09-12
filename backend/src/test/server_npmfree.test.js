@@ -160,8 +160,11 @@ test('CRUD locations', async () => {
   assert.ok(createRes.body.id);
 });
 
-test('GET /api/analytics/summary returns dashboard data', async () => {
-  const { status, body } = await request('/api/analytics/summary');
+test('GET /api/analytics/summary returns dashboard data (admin tier only)', async () => {
+  const unauth = await request('/api/analytics/summary');
+  assert.strictEqual(unauth.status, 401, 'revenue aggregate is not public');
+
+  const { status, body } = await authRequest('/api/analytics/summary');
   assert.strictEqual(status, 200);
   assert.ok(body.totalProducts !== undefined);
   assert.ok(body.totalStock !== undefined);

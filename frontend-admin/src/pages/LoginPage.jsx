@@ -1,21 +1,30 @@
-import { Alert, Box, Button, Container, InputAdornment, IconButton, Paper, Snackbar, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Container, InputAdornment, IconButton, Paper, Snackbar, TextField, Typography } from '@mui/material';
 import AdminPanelSettingsOutlined from '@mui/icons-material/AdminPanelSettingsOutlined';
-import BadgeOutlined from '@mui/icons-material/BadgeOutlined';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../api';
 import ShaderGradientBg from '../components/ShaderGradientBg';
+import { STAFF_TIER, roleMeta } from '../roles';
 import { brandSidebar, colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 
-// Demo accounts the quick-fill buttons populate. Kept in one place so the
-// two buttons and the hints below can never drift apart.
-const DEMO_ACCOUNTS = {
-  owner: { username: 'admin', password: 'admin123', label: 'Owner', note: 'full access' },
-  staff: { username: 'staff', password: 'staff123', label: 'Staff', note: 'requests & scanning' },
-};
+// Demo accounts the quick-fill grid populates — one per sign-in role (see
+// src/roles.js). Kept in one place so the buttons and the credential hints
+// below can never drift apart.
+const DEMO_ACCOUNTS = [
+  { label: 'Owner', username: 'owner', password: 'owner123', note: 'full oversight' },
+  { label: 'Super Admin', username: 'superadmin', password: 'super123', note: 'accounts & roles' },
+  { label: 'Admin', username: 'admin', password: 'admin123', note: 'products & approvals' },
+  { label: 'Staff', username: 'staff', password: 'staff123', note: 'scanning & requests' },
+];
+
+// Landing route per role. Inventory Staff have no dashboard (it is a money and
+// analytics surface), so they land on the inventory levels page instead.
+function homeForRole(role) {
+  return role === 'staff' ? '/inventory' : '/';
+}
 
 export default function LoginPage({ onLogin }) {
   usePageTitle('/');
@@ -42,8 +51,8 @@ export default function LoginPage({ onLogin }) {
 
   // One tap fills the demo account so presenters never type credentials on
   // stage (and the form stays clean for real accounts).
-  const fillDemo = (role) => {
-    const account = DEMO_ACCOUNTS[role];
+  const fillDemo = (username) => {
+    const account = DEMO_ACCOUNTS.find((a) => a.username === username);
     if (!account) return;
     setUsername(account.username);
     setPassword(account.password);
@@ -90,7 +99,7 @@ export default function LoginPage({ onLogin }) {
       // dashboard. Staff see a read/request-only subset; admins see all the
       // store's controls. Register (customer app) hardcodes role 'customer',
       // so this gate keeps the store's controls out of customer accounts.
-      if (!data.user || !['admin', 'staff'].includes(data.user.role)) {
+      if (!data.user || !STAFF_TIER.includes(data.user.role)) {
         setError('This account does not have staff or admin access. Sign in with a staff or admin account.');
         return;
       }
@@ -98,9 +107,9 @@ export default function LoginPage({ onLogin }) {
       setSnackbar({ open: true, message: 'Login successful!', severity: 'success' });
       setTimeout(() => {
         onLogin(data.user);
-        // Always land on the dashboard after login, regardless of which
+        // Always land on this role's home after login, regardless of which
         // page the user was on before (e.g. logged out from Products).
-        window.location.href = '/';
+        window.location.href = homeForRole(data.user.role);
       }, 500);
     } catch (err) {
       setError('Network error — could not reach the server. Check your connection and try again.');
@@ -120,7 +129,7 @@ export default function LoginPage({ onLogin }) {
     setError('');
     try {
       const data = await mfaVerify({ mfaToken, code: mfaCode });
-      if (!data.user || !['admin', 'staff'].includes(data.user.role)) {
+      if (!data.user || !STAFF_TIER.includes(data.user.role)) {
         setError('This account does not have staff or admin access.');
         return;
       }
@@ -129,7 +138,7 @@ export default function LoginPage({ onLogin }) {
       setSnackbar({ open: true, message: 'MFA verified — login successful!', severity: 'success' });
       setTimeout(() => {
         onLogin(data.user);
-        window.location.href = '/';
+        window.location.href = homeForRole(data.user.role);
       }, 500);
     } catch (err) {
       setError(err.status === 429 ? 'Too many attempts. Wait a moment and try again.' : (err.message || 'Invalid code'));
@@ -175,59 +184,54 @@ export default function LoginPage({ onLogin }) {
 
         <Typography variant="subtitle1" sx={{ mb: 2, color: colors.textSecondary }}>
           Sign in with your staff or admin credentials to manage products, inventory, and orders.
+          Roles: Owner, Super Admin, Admin, Inventory Staff.
         </Typography>
 
-        {/* Demo quick-fill: one tap populates the account, then press Login. */}
-        <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1 }}>
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={() => fillDemo('owner')}
-              startIcon={<AdminPanelSettingsOutlined />}
-              disabled={loading}
-              aria-label="Fill owner demo account"
-              sx={{
-                py: 1.25,
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: 0.25,
-                backgroundColor: colors.brandPrimary,
-                '&:hover': { backgroundColor: '#19570c' },
-                textTransform: 'none',
-              }}
-            >
-              <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Owner</Box>
-              <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
-                {showDemo ? 'admin / admin123' : 'Tap to fill'} · full access
-              </Box>
-            </Button>
-          </motion.div>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={{ flex: 1 }}>
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={() => fillDemo('staff')}
-              startIcon={<BadgeOutlined />}
-              disabled={loading}
-              aria-label="Fill staff demo account"
-              sx={{
-                py: 1.25,
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: 0.25,
-                backgroundColor: '#e66a0d',
-                '&:hover': { backgroundColor: '#cf5c09' },
-                textTransform: 'none',
-              }}
-            >
-              <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>Staff</Box>
-              <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2 }}>
-                {showDemo ? 'staff / staff123' : 'Tap to fill'} · requests &amp; scanning
-              </Box>
-            </Button>
-          </motion.div>
-        </Stack>
+        {/* Demo quick-fill: one tap per role populates the account, then press
+            Login. Covers all four sign-in roles so nothing is typed on stage. */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            gap: 1.5,
+            mb: 1,
+          }}
+        >
+          {DEMO_ACCOUNTS.map((account) => {
+            const meta = roleMeta(account.username);
+            return (
+              <motion.div
+                key={account.username}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={() => fillDemo(account.username)}
+                  startIcon={<AdminPanelSettingsOutlined />}
+                  disabled={loading}
+                  aria-label={`Fill ${account.label} demo account`}
+                  sx={{
+                    py: 1.25,
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: 0.25,
+                    backgroundColor: meta.color,
+                    '&:hover': { backgroundColor: meta.color, filter: 'brightness(0.92)' },
+                    textTransform: 'none',
+                  }}
+                >
+                  <Box sx={{ fontWeight: 800, letterSpacing: 0.5 }}>{account.label}</Box>
+                  <Box sx={{ fontSize: '0.7rem', opacity: 0.92, lineHeight: 1.2, textAlign: 'left' }}>
+                    <span>{showDemo ? `${account.username} / ${account.password}` : 'Tap to fill'}</span>
+                    {` · ${account.note}`}
+                  </Box>
+                </Button>
+              </motion.div>
+            );
+          })}
+        </Box>
         <Typography
           variant="caption"
           sx={{ display: 'block', mb: 3, color: colors.textSecondary, cursor: 'pointer', textDecoration: 'underline' }}

@@ -1,9 +1,13 @@
 import { Box, Card, CardContent, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
-import { apiGet } from '../api';
+import { useEffect, useMemo, useState } from 'react';
+import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
+import RangeFilter from '../components/RangeFilter';
+import { MONEY_MASK } from '../components/Money';
+import { RANGE_PRESETS, resolveRange } from '../dateRange';
+import { canSeeMoney } from '../roles';
 
 // Movement-health colors for the FSN chips: Fast is healthy (green),
 // Slow needs attention (amber), Non-moving is dead stock (red).
@@ -11,6 +15,16 @@ const FSN_CHIP_COLOR = { F: 'success', S: 'warning', N: 'error' };
 const FSN_LABEL = { F: 'Fast-moving', S: 'Slow-moving', N: 'Non-moving' };
 
 const fmtNum = (n) => (typeof n === 'number' ? n.toLocaleString() : '—');
+
+// FSN's analysis window floors at 7 days server-side, so short presets map to
+// the smallest supported window and "All" maps to the 730-day ceiling.
+const FSN_MIN_WINDOW = 7;
+const FSN_MAX_WINDOW = 730;
+function fsnWindowFor(presetId) {
+  const days = resolveRange(presetId).days;
+  if (days === null) return FSN_MAX_WINDOW;
+  return Math.min(FSN_MAX_WINDOW, Math.max(FSN_MIN_WINDOW, days));
+}
 
 export default function OptimizationPage({ onLogout }) {
   usePageTitle('/optimization');
@@ -22,10 +36,16 @@ export default function OptimizationPage({ onLogout }) {
   const [search, setSearch] = useState('');
 
   // FSN analysis state: rows come pre-sorted Non-moving first, so the dead
-  // stock an owner must act on is at the top of the table.
+  // stock an owner must act on is at the top of the table. The analysis window
+  // is driven by the shared Days/Weeks/Months/Quarterly/Annually filter.
   const [fsn, setFsn] = useState([]);
-  const [fsnWindow, setFsnWindow] = useState('90');
+  const [rangePreset, setRangePreset] = useState('quarter');
+  const fsnWindow = useMemo(() => fsnWindowFor(rangePreset), [rangePreset]);
+  const rangeCaption = RANGE_PRESETS.find((p) => p.id === rangePreset)?.caption || 'Last 90 days';
   const [fsnLoading, setFsnLoading] = useState(true);
+
+  // Revenue is a money surface — Owner / Super Admin / Admin only.
+  const moneyVisible = canSeeMoney(getCurrentUser()?.role || 'admin');
 
   const loadData = async () => {
     setLoading(true);
@@ -154,20 +174,13 @@ export default function OptimizationPage({ onLogout }) {
                 sx={{ fontWeight: 600 }}
               />
             ))}
-            <FormControl size="small" sx={{ minWidth: 150, backgroundColor: colors.surface }}>
-              <InputLabel id="fsn-window-label">Analysis window</InputLabel>
-              <Select
-                labelId="fsn-window-label"
-                value={fsnWindow}
-                label="Analysis window"
-                onChange={e => setFsnWindow(e.target.value)}
-              >
-                <MenuItem value="30">Last 30 days</MenuItem>
-                <MenuItem value="60">Last 60 days</MenuItem>
-                <MenuItem value="90">Last 90 days</MenuItem>
-                <MenuItem value="180">Last 180 days</MenuItem>
-              </Select>
-            </FormControl>
+            {/* Days / Weeks / Months / Quarterly / Annually filter for the
+                algorithm. Drives the FSN movement window below. */}
+            <RangeFilter
+              value={rangePreset}
+              onChange={setRangePreset}
+              label="Analysis window"
+            />
           </Box>
         </Box>
         <Table size="small">
@@ -197,14 +210,14 @@ export default function OptimizationPage({ onLogout }) {
                 <TableCell align="right">{item.frequencyDays === null ? '—' : fmtNum(item.frequencyDays)}</TableCell>
                 <TableCell align="right">{item.recencyDays === null ? '—' : fmtNum(item.recencyDays)}</TableCell>
                 <TableCell align="right">{fmtNum(item.totalQty)}</TableCell>
-                <TableCell align="right">₱{fmtNum(item.valueSold)}</TableCell>
+                <TableCell align="right">{moneyVisible ? `₱${fmtNum(item.valueSold)}` : MONEY_MASK}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
         {fsnTotal > 0 && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            {fsnTotal} active products over the last {fsnWindow} days · F {fsnCounts.F} / S {fsnCounts.S} / N {fsnCounts.N} — non-moving items first.
+            {fsnTotal} active products — {rangeCaption} ({fsnWindow} days) · F {fsnCounts.F} / S {fsnCounts.S} / N {fsnCounts.N} — non-moving items first.
           </Typography>
         )}
       </Paper>

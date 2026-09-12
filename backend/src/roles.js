@@ -1,0 +1,73 @@
+'use strict';
+
+// INVENTRAK role model — one strict hierarchy, least → most privileged:
+//
+//   customer     end customer / café owner (mobile: browse, inquire, track)
+//   staff        Inventory Staff — physical counts, QR scanning, requests only
+//   admin        Admin — products, prices, inventory, inquiries, approvals, reports
+//   super_admin  Super Admin — adds system account / role / permission management
+//   owner        Business Owner — full oversight + authorizes access decisions
+//
+// Capability tiers say WHICH roles pass a gate. They live in this one module on
+// each backend (mirrored by frontend-admin/src/roles.js) so adding a role or
+// moving a boundary is a one-line change instead of a hunt through 40 guards.
+//
+// Why tiers instead of `role === 'admin'` checks: the OLD code hardcoded
+// 'admin' everywhere, so a new privileged role would silently lose access to
+// every admin route (and skip its own MFA challenge). Tiers make that
+// impossible — every guard reads from this list.
+
+const ROLE_ORDER = ['customer', 'staff', 'admin', 'super_admin', 'owner'];
+
+// Full operations tier. Everything money, pricing or revenue touches, plus
+// approvals, products and orders. Inventory Staff is deliberately absent: the
+// spec forbids them from seeing sales, prices, customers, orders, reports or
+// business analytics.
+const ADMIN_TIER = ['admin', 'super_admin', 'owner'];
+
+// System administration: accounts, roles, permissions, configuration.
+const MANAGEMENT_TIER = ['super_admin', 'owner'];
+
+// Daily inventory work — staff plus everyone above them. This is the tier for
+// read/request routes staff legitimately need (stock levels, movements,
+// adjustments, transfers, scanning, OCR).
+const STAFF_TIER = ['staff', ...ADMIN_TIER];
+
+// Roles an Admin may grant; only management may grant privileged roles.
+const ASSIGNABLE_BY_ADMIN = ['staff', 'admin'];
+const ASSIGNABLE_BY_MANAGEMENT = ROLE_ORDER.concat(['customer']);
+
+// The set of roles permitted to sign into the web admin portal.
+const ADMIN_PORTAL_ROLES = STAFF_TIER;
+
+function isKnownRole(role) {
+  return ROLE_ORDER.includes(role);
+}
+
+function hasRole(user, allowed) {
+  return Boolean(user) && allowed.includes(user.role);
+}
+
+/** Money, pricing and revenue visibility (Total Sales, prices, reports). */
+function canSeeMoney(user) {
+  return hasRole(user, ADMIN_TIER);
+}
+
+/** Account / role / permission management. */
+function isManagement(user) {
+  return hasRole(user, MANAGEMENT_TIER);
+}
+
+module.exports = {
+  ROLE_ORDER,
+  ADMIN_TIER,
+  MANAGEMENT_TIER,
+  STAFF_TIER,
+  ADMIN_PORTAL_ROLES,
+  ASSIGNABLE_BY_ADMIN,
+  ASSIGNABLE_BY_MANAGEMENT,
+  isKnownRole,
+  hasRole,
+  canSeeMoney,
+  isManagement,
+};

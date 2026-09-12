@@ -105,11 +105,12 @@ describe('DashboardPage data wiring', () => {
     });
   });
 
-  // Staff cannot read /api/sales (403 by role design), so the dashboard must
-  // fall back to the staff-allowed /api/reports aggregate — otherwise SALES
-  // THIS MONTH, TRANSACTIONS THIS MONTH, and the movers/chart show zeros.
-  // Regression for the staff-zero bug found during the full-ledger seed.
-  test('staff dashboard derives monthly sales from /api/reports, not zeros', async () => {
+  // Money is role-gated (see src/roles.js): a role WITHOUT revenue visibility
+  // sees the masked placeholder on every peso surface instead of the amount,
+  // and the two money charts collapse to "Hidden for your role". Inventory
+  // Staff cannot reach this page in the app, so this is the last line of
+  // defense — and the regression test for the masking itself.
+  test('money surfaces are masked for a role without revenue visibility', async () => {
     mockRole = 'staff';
     const thisMonth = new Date().toISOString().slice(0, 7);
     const prevMonth = new Date(Date.now() - 32 * 86400000).toISOString().slice(0, 7);
@@ -151,8 +152,12 @@ describe('DashboardPage data wiring', () => {
     // sometimes exceeds the 1s default, flaking the suite.
     await waitFor(() => {
       expect(screen.getByText('Sales This Month')).toBeInTheDocument();
-      expect(screen.getByText('P12,340')).toBeInTheDocument();
+      // Both peso KPI cards show the mask, never the amount.
+      expect(screen.getAllByText('••••').length).toBeGreaterThanOrEqual(2);
     }, { timeout: 4000 });
+    expect(screen.queryByText('P12,340')).not.toBeInTheDocument();
+    // The revenue-bearing charts are replaced by an explicit placeholder.
+    expect(screen.getAllByText('Hidden for your role').length).toBeGreaterThanOrEqual(1);
     // Fast/slow movers fall back to the public summary's ranked lists (the
     // raw ledger is role-blocked for staff). recharts labels don't render in
     // jsdom's 0x0 ResponsiveContainer, so assert the empty-state placeholder

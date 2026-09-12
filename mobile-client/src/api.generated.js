@@ -128,7 +128,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getOptimizationAbc: (_) => request('GET', '/api/optimization/abc', {  }),
   // GET /api/optimization/{productId} — EOQ, ROP, safety stock, and turnover for one product
   getOptimization: ({ productId }) => request('GET', '/api/optimization/{productId}', { params: { productId } }),
-  // GET /api/analytics/summary — Dashboard summary metrics
+  // GET /api/analytics/summary — Dashboard summary metrics (admin tier — contains revenue)
   getAnalyticsSummary: (_) => request('GET', '/api/analytics/summary', {  }),
   // GET /api/analytics/export/{type} — Export data as JSON or CSV (admin only)
   exportAnalytics: ({ type }, params) => request('GET', '/api/analytics/export/{type}', { params: { type }, query: params }),
@@ -148,6 +148,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getHealth: (_) => request('GET', '/api/health', {  }),
   // GET /api/health/integrity — Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
+  // POST /api/scan-events — Record a QR / barcode scan into the audit trail (staff or admin)
+  createScanEvent: (body) => request('POST', '/api/scan-events', { body }),
   // POST /api/ocr/stock — Admin stock check: OCR a product label and return matches with live per-location stock
   ocrStockCheck: (body) => request('POST', '/api/ocr/stock', { body }),
   // GET /api/auth/google/start — Start Google OAuth relay: redirects the browser to Google consent with the backend callback as redirect_uri.

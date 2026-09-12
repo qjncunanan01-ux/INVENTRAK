@@ -124,23 +124,37 @@ describe('OptimizationPage FSN analysis', () => {
     expect(within(table).getAllByText('—').length).toBeGreaterThan(0); // null metrics for N rows
   });
 
-  test('changing the analysis window re-fetches with the new ?window= value', async () => {
+  test('the Days/Weeks/Months/Quarterly/Annually filter re-fetches the algorithm', async () => {
     mockResponses();
     renderPage();
     await waitFor(() => {
       expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=90');
     });
 
-    // The window Select's accessible name comes from its label.
-    const combo = screen.getByRole('combobox', { name: 'Analysis window' });
-    fireEvent.mouseDown(combo);
-    await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'Last 30 days' })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole('option', { name: 'Last 30 days' }));
-
+    // The shared range filter renders as toggle buttons, not a combobox.
+    // "Month" is the 30-day preset; FSN's floor is 7 days for shorter ones.
+    const group = screen.getByRole('group', { name: 'Analysis window filter' });
+    fireEvent.click(within(group).getByRole('button', { name: /Last 30 days/ }));
     await waitFor(() => {
       expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=30');
+    });
+
+    // "Year" is 365 days, well inside the 7..730 the endpoint accepts.
+    fireEvent.click(within(group).getByRole('button', { name: /Last 365 days/ }));
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=365');
+    });
+
+    // "Day" (1 day) clamps up to the endpoint's 7-day minimum.
+    fireEvent.click(within(group).getByRole('button', { name: /Today/ }));
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=7');
+    });
+
+    // "All" uses the 730-day ceiling.
+    fireEvent.click(within(group).getByRole('button', { name: /All time/ }));
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=730');
     });
   });
 

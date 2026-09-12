@@ -1,24 +1,36 @@
-import { Box, Button, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
-import { apiGet } from '../api';
+import { Box, Button, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { useEffect, useMemo, useState } from 'react';
+import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
+import RangeFilter from '../components/RangeFilter';
+import { MONEY_MASK } from '../components/Money';
+import { DEFAULT_RANGE, resolveRange, rangeQuery } from '../dateRange';
+import { canSeeMoney } from '../roles';
+
+const moneyVisible = () => canSeeMoney(getCurrentUser()?.role || 'admin');
 
 const peso = (n) => 'P' + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+// Peso values are hidden entirely for roles without revenue visibility.
+const money = (n) => (moneyVisible() ? peso(n) : MONEY_MASK);
 
 export default function ReportsPage({ onLogout }) {
   usePageTitle('/reports');
   const [report, setReport] = useState(null);
-  const [days, setDays] = useState(14);
+  // Days / Weeks / Months / Quarterly / Annually — resolved to an explicit
+  // from/to window the backend understands (it clamps both ends).
+  const [rangePreset, setRangePreset] = useState(DEFAULT_RANGE);
+  const range = useMemo(() => resolveRange(rangePreset), [rangePreset]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const load = async (d) => {
+  const load = async (q) => {
     setLoading(true);
     setError('');
     try {
-      const res = await apiGet(`/api/reports?days=${d}`);
+      const res = await apiGet(`/api/reports${q}`);
       setReport(res);
     } catch (err) {
       setError('Failed to load report: ' + err.message);
@@ -27,7 +39,7 @@ export default function ReportsPage({ onLogout }) {
     }
   };
 
-  useEffect(() => { load(days); }, [days]);
+  useEffect(() => { load(rangeQuery(range)); }, [range.from, range.to]);
 
   const s = report?.summary || {};
   const statuses = report?.orderStatusSummary || {};
@@ -41,16 +53,8 @@ export default function ReportsPage({ onLogout }) {
             {report ? `Generated ${new Date(report.generated_at).toLocaleString()} · last ${report.days} days` : 'Loading report...'}
           </Typography>
         </div>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <FormControl size="small" sx={{ minWidth: 140, backgroundColor: colors.surface }}>
-            <InputLabel>Period</InputLabel>
-            <Select value={days} label="Period" onChange={e => setDays(Number(e.target.value))}>
-              <MenuItem value={7}>Last 7 days</MenuItem>
-              <MenuItem value={14}>Last 14 days</MenuItem>
-              <MenuItem value={30}>Last 30 days</MenuItem>
-              <MenuItem value={90}>Last 90 days</MenuItem>
-            </Select>
-          </FormControl>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <RangeFilter value={rangePreset} onChange={setRangePreset} />
           <Button variant="contained" color="secondary" onClick={() => window.print()} disabled={loading}>
             🖨 Print / Save PDF
           </Button>
@@ -65,7 +69,7 @@ export default function ReportsPage({ onLogout }) {
             {[
               ['Total products', s.total_products],
               ['Total stock', s.total_stock],
-              ['Total sales', peso(s.total_sales)],
+              ['Total sales', money(s.total_sales)],
               ['Transactions', s.transactions],
               ['Customers served', s.customers_served],
               ['Pending approvals', s.pending_approvals],
@@ -94,7 +98,7 @@ export default function ReportsPage({ onLogout }) {
                   <TableRow key={d.date}>
                     <TableCell>{d.date}</TableCell>
                     <TableCell>{d.transactions}</TableCell>
-                    <TableCell align="right">{peso(d.value)}</TableCell>
+                    <TableCell align="right">{money(d.value)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -146,7 +150,7 @@ export default function ReportsPage({ onLogout }) {
                 <TableHead><TableRow><TableCell>Product</TableCell><TableCell align="right">Units sold</TableCell><TableCell align="right">Value</TableCell></TableRow></TableHead>
                 <TableBody>
                   {report.fastMovers.map(m => (
-                    <TableRow key={m.name}><TableCell>{m.name}</TableCell><TableCell align="right">{m.qty_sold}</TableCell><TableCell align="right">{peso(m.value)}</TableCell></TableRow>
+                    <TableRow key={m.name}><TableCell>{m.name}</TableCell><TableCell align="right">{m.qty_sold}</TableCell><TableCell align="right">{money(m.value)}</TableCell></TableRow>
                   ))}
                 </TableBody>
               </Table>

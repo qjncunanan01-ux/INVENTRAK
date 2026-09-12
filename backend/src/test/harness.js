@@ -19,6 +19,11 @@ const dataDir = path.join(__dirname, '..', '..', 'data');
 
 process.env.INVENTRAK_DB_PATH = path.join(tmpDir, 'test.db');
 process.env.INVENTRAK_DATA_DIR = path.join(tmpDir, 'data');
+// Point the audit log at the temp dir so GET /api/audit-trail is readable in
+// tests (audit.js caches this at load time, so it must be set before the
+// backend modules are required above) and so the repo's own audit.log is
+// never touched by a test run.
+process.env.AUDIT_LOG_FILE = path.join(tmpDir, 'audit.log');
 // Pin the npm-free fallback to its JSON driver: even if Firebase credentials
 // are present in the environment (which now auto-selects Firestore), the
 // suites must run both backends locally against these isolated temp files.
@@ -36,8 +41,10 @@ const { app, seedDatabase } = require('../app');
 const { db } = require('../db');
 const { createServer } = require('../server_npmfree');
 
-let sqlite = { url: '', token: { admin: null, customer: null, invalid: 'not-a-real-token' } };
-let npmfree = { url: '', token: { admin: null, customer: null, invalid: 'not-a-real-token' } };
+// `token.<role>` is populated for every seeded demo account so suites can
+// exercise the four-role RBAC split (see backend/src/roles.js).
+let sqlite = { url: '', token: { admin: null, customer: null, staff: null, owner: null, superadmin: null, invalid: 'not-a-real-token' } };
+let npmfree = { url: '', token: { admin: null, customer: null, staff: null, owner: null, superadmin: null, invalid: 'not-a-real-token' } };
 let sqliteServer;
 let npmfreeServer;
 
@@ -49,26 +56,28 @@ async function bootBoth() {
     npmfreeServer = createServer(0);
     npmfree.url = `http://127.0.0.1:${npmfreeServer.address().port}`;
 
-    for (const side of [sqlite, npmfree]) {
-      const adminRes = await fetch(`${side.url}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'admin', password: 'admin123' }),
-      });
-      if (adminRes.status !== 200) {
-        throw new Error('admin login should succeed on boot');
-      }
-      side.token.admin = (await adminRes.json()).token;
+    // Every seeded demo account, per role (roles.js). Username/key differ for
+    // Super Admin, so the pair is explicit rather than derived.
+    const demoLogins = [
+      ['admin', 'admin', 'admin123'],
+      ['customer', 'customer', 'customer123'],
+      ['staff', 'staff', 'staff123'],
+      ['owner', 'owner', 'owner123'],
+      ['superadmin', 'superadmin', 'super123'],
+    ];
 
-      const customerRes = await fetch(`${side.url}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'customer', password: 'customer123' }),
-      });
-      if (customerRes.status !== 200) {
-        throw new Error('customer login should succeed on boot');
+    for (const side of [sqlite, npmfree]) {
+      for (const [key, username, password] of demoLogins) {
+        const res = await fetch(`${side.url}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        if (res.status !== 200) {
+          throw new Error(`${key} login should succeed on boot`);
+        }
+        side.token[key] = (await res.json()).token;
       }
-      side.token.customer = (await customerRes.json()).token;
     }
   } catch (err) {
     // If boot fails partway (e.g. a login error), don't leak servers / the

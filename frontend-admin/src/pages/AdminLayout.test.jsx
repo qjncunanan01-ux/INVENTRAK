@@ -145,26 +145,46 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     }
   });
 
-  test('staff sees only the read/request modules, never the owner-only ones', () => {
+  test('staff sees only the daily inventory modules, never money or analytics', () => {
     mockUser = { role: 'staff' };
     setViewport(true);
     renderLayout();
-    for (const label of ['Dashboard', 'Inventory Levels', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Scan & Stock', 'Optimization', 'Reports']) {
+    for (const label of ['Inventory Levels', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Scan & Stock']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    for (const label of ['Products', 'Approvals', 'Order Inquiries', 'Branch Locations', 'Security']) {
+    // The role spec forbids Inventory Staff from sales, prices, customers,
+    // orders, reports or business analytics — so the dashboard (money KPIs),
+    // Optimization, Reports and every admin module stay hidden.
+    for (const label of ['Dashboard', 'Products', 'Approvals', 'Order Inquiries', 'Branch Locations', 'Optimization', 'Reports', 'Security']) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
 
-  test('header shows a role badge matching the signed-in account', () => {
-    mockUser = { role: 'admin' };
-    setViewport(true);
-    renderLayout();
-    expect(screen.getByLabelText('Signed in as admin')).toHaveTextContent('ADMIN');
+  test('the management tier sees the same modules as an admin', () => {
+    for (const role of ['super_admin', 'owner']) {
+      mockUser = { role };
+      setViewport(true);
+      const { unmount } = renderLayout();
+      for (const label of ['Dashboard', 'Products', 'Approvals', 'Order Inquiries', 'Optimization', 'Reports', 'Security']) {
+        expect(screen.getByText(label)).toBeInTheDocument();
+      }
+      unmount();
+    }
+  });
 
-    mockUser = { role: 'staff' };
-    renderLayout();
-    expect(screen.getByLabelText('Signed in as staff')).toHaveTextContent('STAFF');
+  test('header shows a role badge matching the signed-in account', () => {
+    const cases = [
+      ['admin', 'ADMIN'],
+      ['super_admin', 'SUPER ADMIN'],
+      ['owner', 'OWNER'],
+      ['staff', 'STAFF'],
+    ];
+    for (const [role, label] of cases) {
+      mockUser = { role };
+      setViewport(true);
+      const { unmount } = renderLayout();
+      expect(screen.getByLabelText(`Signed in as ${label}`)).toHaveTextContent(label);
+      unmount();
+    }
   });
 });

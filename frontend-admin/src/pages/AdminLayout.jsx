@@ -20,59 +20,67 @@ import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { getCurrentUser } from '../api';
+import { ADMIN_TIER, STAFF_TIER, roleMeta } from '../roles';
 import { brandSidebar, colors } from '../theme';
 import Breadcrumbs from '../components/Breadcrumbs';
 
 // Grouped so module items read as a clean collapsible dropdown hierarchy.
-// `roles` on each item drives the role-based nav: staff accounts only see
-// the read/request modules they need (dashboard, inventory levels, movement
-// history, adjustments, transfers, scan & stock, optimization, reports); the
-// owner-only modules (products, approvals, orders, branch locations,
-// security) stay visible to admins only. The backend enforces the same split.
+// `roles` on each item drives the role-based nav. The split follows the role
+// spec (see src/roles.js):
+//
+//   ADMIN_TIER (admin, super_admin, owner) — everything, because every one of
+//     these roles may see money, pricing and business analytics.
+//   STAFF_TIER (staff + the admin tiers) — the daily inventory modules staff
+//     legitimately need: stock levels, movements, counts, requests, scanning.
+//
+// Inventory Staff deliberately do NOT get the dashboard, reports, optimization
+// or any money surface — the spec forbids them from viewing sales, prices,
+// customers, orders, reports or business analytics. The backend enforces the
+// same split, so this is defense in depth rather than the only gate.
 const NAV_SECTIONS = [
   {
     label: 'Overview',
-    items: [{ label: 'Dashboard', path: '/', Icon: DashboardOutlined, roles: ['admin', 'staff'] }],
+    items: [{ label: 'Dashboard', path: '/', Icon: DashboardOutlined, roles: ADMIN_TIER }],
   },
   {
     label: 'Inventory',
     collapsible: true,
     items: [
-      { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined, roles: ['admin', 'staff'] },
-      { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined, roles: ['admin', 'staff'] },
-      { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined, roles: ['admin', 'staff'] },
-      { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined, roles: ['admin', 'staff'] },
-      { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined, roles: ['admin'] },
+      { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined, roles: STAFF_TIER },
+      { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined, roles: STAFF_TIER },
+      { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined, roles: STAFF_TIER },
+      { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined, roles: STAFF_TIER },
+      { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined, roles: ADMIN_TIER },
     ],
   },
   {
     label: 'Catalog & Orders',
     collapsible: true,
     items: [
-      { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ['admin'] },
-      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: ['admin', 'staff'] },
-      { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ['admin'] },
+      { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ADMIN_TIER },
+      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: STAFF_TIER },
+      { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ADMIN_TIER },
     ],
   },
   {
     label: 'Governance',
     collapsible: true,
     items: [
-      { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ['admin'] },
-      { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: ['admin']},
+      { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ADMIN_TIER },
+      { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: ADMIN_TIER },
     ],
   },
   {
     label: 'Insights',
     collapsible: true,
     items: [
-      { label: 'Optimization', path: '/optimization', Icon: InsightsOutlined, roles: ['admin', 'staff'] },
-      { label: 'Reports', path: '/reports', Icon: AssessmentOutlined, roles: ['admin', 'staff'] },
+      { label: 'Optimization', path: '/optimization', Icon: InsightsOutlined, roles: ADMIN_TIER },
+      { label: 'Reports', path: '/reports', Icon: AssessmentOutlined, roles: ADMIN_TIER },
     ],
   },
   {
     label: 'Account',
-    items: [{ label: 'Security', path: '/security', Icon: SecurityOutlined, roles: ['admin'] }],
+    items: [{ label: 'Security', path: '/security', Icon: SecurityOutlined, roles: ADMIN_TIER }],
   },
 ];
 
@@ -260,10 +268,10 @@ export default function AdminLayout({ title, children, onLogout }) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
-  // Signed-in role for the header badge (ADMIN vs STAFF) so the active
-  // account's permission level is obvious at a glance — helpful on stage.
+  // Signed-in role for the header badge so the active account's permission
+  // level is obvious at a glance — helpful on stage and in the demo.
   const role = getCurrentUser()?.role || 'admin';
-  const isStaff = role === 'staff';
+  const meta = roleMeta(role);
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -366,15 +374,15 @@ export default function AdminLayout({ title, children, onLogout }) {
               {title}
             </Typography>
             <Chip
-              label={isStaff ? 'STAFF' : 'ADMIN'}
+              label={meta.label}
               size="small"
-              aria-label={isStaff ? 'Signed in as staff' : 'Signed in as admin'}
+              aria-label={`Signed in as ${meta.label}`}
               sx={{
                 fontWeight: 800,
                 letterSpacing: 1.2,
                 fontSize: '0.68rem',
                 color: '#fff',
-                backgroundColor: isStaff ? '#e66a0d' : colors.brandPrimary,
+                backgroundColor: meta.color,
                 ml: 1,
               }}
             />

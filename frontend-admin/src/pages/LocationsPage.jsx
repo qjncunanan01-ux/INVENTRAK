@@ -6,15 +6,12 @@ import { apiDelete, apiGet, apiPost } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
+import QrTagSheet from '../components/QrTagSheet';
+// QR payload formats live in ../qr (a cross-app contract with the mobile
+// scanner) so the tag generator and the scanner can never drift apart.
+import { locationQrPayload, qrImageUrl } from '../qr';
 
-// QR payload format for a location tag. The mobile scanner parses this exact
-// prefix + location id so a scan opens that storage area's stock view.
-const locationQrPayload = (loc) => `INVENTRAK:LOC:${loc.id}:${encodeURIComponent(loc.name)}`;
-
-// Render the QR tag image via the same public qrserver.com API the MFA page
-// already uses (no new dependency, no server round-trip needed to generate).
-const locationQrUrl = (loc, size = 260) =>
-  `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(locationQrPayload(loc))}`;
+const locationQrUrl = (loc, size = 260) => qrImageUrl(locationQrPayload(loc), size);
 
 export default function LocationsPage({ onLogout }) {
   usePageTitle('/locations');
@@ -27,6 +24,8 @@ export default function LocationsPage({ onLogout }) {
   const [search, setSearch] = useState('');
   // QR-tag dialog state (null = closed; otherwise the location list to show).
   const [showQr, setShowQr] = useState(false);
+  // Batch-print sheet (all location tags on one printable page).
+  const [showSheet, setShowSheet] = useState(false);
 
   const loadLocations = async () => {
     setLoading(true);
@@ -106,6 +105,15 @@ export default function LocationsPage({ onLogout }) {
               sx={{ color: colors.brandPrimary, borderColor: colors.brandPrimary }}
             >
               QR tags
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<PrintIcon />}
+              onClick={() => setShowSheet(true)}
+              disabled={locList.length === 0}
+              sx={{ color: colors.brandPrimary, borderColor: colors.brandPrimary }}
+            >
+              Print tag sheet
             </Button>
             <TextField
               size="small"
@@ -202,13 +210,21 @@ export default function LocationsPage({ onLogout }) {
           <Button
             variant="contained"
             startIcon={<PrintIcon />}
-            onClick={() => window.print()}
+            onClick={() => { setShowQr(false); setShowSheet(true); }}
             sx={{ backgroundColor: colors.brandPrimary }}
           >
-            Print tags
+            Print tag sheet
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Batch-print sheet: every location tag on one print-friendly page. */}
+      <QrTagSheet
+        open={showSheet}
+        onClose={() => setShowSheet(false)}
+        locations={locList}
+        includeProducts={false}
+      />
 
       <Snackbar
         open={snackbar.open}

@@ -20,9 +20,13 @@ import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import FactCheckIcon from '@mui/icons-material/FactCheck'; //Added as of August 27, 2026.
 import { motion } from 'framer-motion';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import AnimatedCounter from '../components/AnimatedCounter';
 import LiquidGlassCard from '../components/LiquidGlassCard';
+import RangeFilter from '../components/RangeFilter';
+import { MONEY_MASK } from '../components/Money';
+import { DEFAULT_RANGE, isWithinRange, resolveRange } from '../dateRange';
+import { canSeeMoney } from '../roles';
 import { useNavigate } from 'react-router-dom';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
@@ -43,6 +47,16 @@ const SLOW_COLOR = '#f9a825';
 export default function DashboardPage({ user, onLogout }) {
   usePageTitle('/');
   const navigate = useNavigate();
+
+  // Days / Weeks / Months / Quarterly / Annually filter. It narrows the SALES
+  // and MOVEMENT analytics on this page; inventory counts, products and
+  // locations are point-in-time facts and stay unfiltered.
+  const [rangePreset, setRangePreset] = useState(DEFAULT_RANGE);
+  const range = useMemo(() => resolveRange(rangePreset), [rangePreset]);
+
+  // Money surfaces exist for Owner / Super Admin / Admin only. Staff can't
+  // reach this page at all (see App.jsx), so this is defense in depth.
+  const moneyVisible = canSeeMoney(getCurrentUser()?.role || 'admin');
   const [summary, setSummary] = useState({
     totalProducts: 0, totalStock: 0, lowStockItems: 0, totalLocations: 0,
     pendingInquiries: 0, totalSales: 0, totalMovements: 0, activeAlerts: 0,
@@ -118,11 +132,21 @@ export default function DashboardPage({ user, onLogout }) {
 
         const items = inventoryData.items || [];
 
+        // Apply the selected date range to the ledger rows. Everything derived
+        // from sales/movements below (totals, this-month KPIs, velocity charts,
+        // monthly charts) inherits the filter automatically.
+        const inRange = (rows) =>
+          (Array.isArray(rows) ? rows : []).filter((r) =>
+            isWithinRange(r.transaction_date || r.created_at || r.date, range)
+          );
+        const rangeSales = inRange(salesData);
+        const rangeMovements = inRange(movementsData);
+
         setRawData({
           inventory: items,
-          sales: Array.isArray(salesData) ? salesData : [],
+          sales: rangeSales,
           inquiries: Array.isArray(inquiriesData) ? inquiriesData : [],
-          movements: Array.isArray(movementsData) ? movementsData : [],
+          movements: rangeMovements,
           products: Array.isArray(productsData) ? productsData : [],
           alerts: rawAlerts,
           // Staff-visible fallbacks the detail modals reuse so a card's value
@@ -169,8 +193,8 @@ export default function DashboardPage({ user, onLogout }) {
               ? inquiriesData.filter(i => i.status === 'pending').length
               : (summaryData.pendingInquiries || 0));
 
-        // 6. Total sales amount
-        const sales = Array.isArray(salesData) ? salesData : [];
+        // 6. Total sales amount (inside the selected range)
+        const sales = rangeSales;
         const totalSales = sales.length > 0
           ? sales.reduce((s, x) => s + (Number(x.total_amount || x.total_price) || 0), 0)
           : (summaryData.totalSales || 0);
@@ -249,7 +273,7 @@ export default function DashboardPage({ user, onLogout }) {
 
         // 13. Monthly movements for chart
         const monthTypeMapLive = {};
-        const movsList = Array.isArray(movementsData) ? movementsData : [];
+        const movsList = rangeMovements;
         movsList.forEach(m => {
           const month = (m.created_at || '').substring(0, 7);
           if (!month) return;
@@ -338,7 +362,8 @@ export default function DashboardPage({ user, onLogout }) {
       }
     };
     load();
-  }, []);
+    // Re-derive the analytics whenever the range preset changes.
+  }, [rangePreset]);
 
   const handleCardClick = (panel) => {
     setActiveModal(panel);
@@ -518,9 +543,10 @@ export default function DashboardPage({ user, onLogout }) {
     { key: 'inventory', label: 'Total Inventory', value: summary.totalStock, numericValue: summary.totalStock, color: colors.info, icon: <Inventory2Icon color="info" />, navigateTo: '/inventory' },
     { key: 'lowStock', label: 'Low Stock Items', value: summary.lowStockItems, numericValue: summary.lowStockItems, color: summary.lowStockItems > 0 ? colors.warning : colors.success, icon: <WarningAmberIcon color="warning" />, navigateTo: '/inventory' },
     { key: 'locationStock', label: 'Locations', value: summary.totalLocations, numericValue: summary.totalLocations, color: colors.brandSecondary, icon: <LocationOnIcon color="secondary" />, navigateTo: '/locations' },
-    // Row 2 — Sales & Operations
-    { key: 'monthlySales', label: 'Sales This Month', value: summary.monthlySalesValue, numericValue: summary.monthlySalesValue, prefix: 'P', color: colors.success, icon: <AttachMoneyIcon color="success" />, navigateTo: '/stock-movement' },
-    { key: 'sales', label: 'Total Sales (All-time)', value: summary.totalSales, numericValue: summary.totalSales, prefix: 'P', color: colors.brandPrimary, icon: <AttachMoneyIcon color="primary" />, navigateTo: '/stock-movement' },
+    // Row 2 — Sales & Operations (`money: true` marks a peso figure that is
+    // hidden for roles without revenue visibility).
+    { key: 'monthlySales', label: 'Sales This Month', value: summary.monthlySalesValue, numericValue: summary.monthlySalesValue, prefix: 'P', money: true, color: colors.success, icon: <AttachMoneyIcon color="success" />, navigateTo: '/stock-movement' },
+    { key: 'sales', label: 'Total Sales (selected range)', value: summary.totalSales, numericValue: summary.totalSales, prefix: 'P', money: true, color: colors.brandPrimary, icon: <AttachMoneyIcon color="primary" />, navigateTo: '/stock-movement' },
     { key: 'customers', label: 'Customers Served', value: summary.customersServed, numericValue: summary.customersServed, color: colors.info, icon: <PeopleIcon color="info" />, navigateTo: '/order-inquiries' },
     { key: 'orderStatus', label: 'Order Status', value: summary.orderStatusCounts.pending, numericValue: summary.orderStatusCounts.pending, suffix: ' Pending', color: summary.orderStatusCounts.pending > 0 ? colors.warning : colors.success, icon: <ReceiptIcon color="warning" />, navigateTo: '/order-inquiries' },
     // Row 3 — Activity
@@ -581,7 +607,10 @@ export default function DashboardPage({ user, onLogout }) {
         {summary.lowStockItems > 0 && (
           <Chip label={`${summary.lowStockItems} low-stock location(s)`} color="warning" size="small" />
         )}
-        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          {/* Shared Days/Weeks/Months/Quarterly/Annually filter. Drives the
+              sales + movement analytics below (not the inventory counts). */}
+          <RangeFilter value={rangePreset} onChange={setRangePreset} compact />
           {lastRefreshed && (
             <Typography variant="caption" color="text.secondary" aria-live="polite">
               Updated {lastRefreshed.toLocaleTimeString()}
@@ -609,7 +638,13 @@ export default function DashboardPage({ user, onLogout }) {
       <Grid container spacing={2}>
         {panels.slice(4, 8).map((panel, index) => (
           <Grid item xs={12} sm={6} md={3} key={panel.label}>
-            <StatCard panel={panel} loading={loading} onClick={handleCardClick} index={index + 4} />
+            <StatCard
+              panel={panel}
+              loading={loading}
+              onClick={handleCardClick}
+              index={index + 4}
+              masked={Boolean(panel.money) && !moneyVisible}
+            />
           </Grid>
         ))}
       </Grid>
@@ -629,7 +664,9 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2} fontWeight={700}>Top Products by Stock Value</Typography>
-            {productValueData.length > 0 ? (
+            {!moneyVisible ? (
+              <NoData msg="Hidden for your role" />
+            ) : productValueData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={productValueData} margin={{ bottom: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
@@ -711,7 +748,9 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={7}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2} fontWeight={700}>Monthly Sales Value</Typography>
-            {summary.monthlySalesChart.length > 0 ? (
+            {!moneyVisible ? (
+              <NoData msg="Hidden for your role" />
+            ) : summary.monthlySalesChart.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={summary.monthlySalesChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
@@ -994,7 +1033,15 @@ export default function DashboardPage({ user, onLogout }) {
                               <TableCell><strong>{item.product_name || `Product #${item.product_id}`}</strong></TableCell>
                               <TableCell>{item.customer_name || '—'}</TableCell>
                               <TableCell align="right">{item.qty ?? item.quantity ?? '—'}</TableCell>
-                              <TableCell align="right">P{item.total_amount != null ? Number(item.total_amount).toLocaleString() : (item.total_price != null ? Number(item.total_price).toLocaleString() : '—')}</TableCell>
+                              <TableCell align="right">
+                                {!moneyVisible
+                                  ? MONEY_MASK
+                                  : item.total_amount != null
+                                    ? `P${Number(item.total_amount).toLocaleString()}`
+                                    : item.total_price != null
+                                      ? `P${Number(item.total_price).toLocaleString()}`
+                                      : '—'}
+                              </TableCell>
                               <TableCell>{item.transaction_date ? new Date(item.transaction_date).toLocaleDateString() : (item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A')}</TableCell>
                             </>
                           )}
@@ -1002,7 +1049,9 @@ export default function DashboardPage({ user, onLogout }) {
                             <>
                               <TableCell><strong>{item.customer_name}</strong></TableCell>
                               <TableCell align="right">{item.transactions}</TableCell>
-                              <TableCell align="right">P{Number(item.total_spent).toLocaleString()}</TableCell>
+                              <TableCell align="right">
+                                {moneyVisible ? `P${Number(item.total_spent).toLocaleString()}` : MONEY_MASK}
+                              </TableCell>
                             </>
                           )}
                           {activeModal.key === 'movements' && (
@@ -1073,7 +1122,11 @@ export default function DashboardPage({ user, onLogout }) {
 }
 
 // ─── Reusable stat card component with Motion Primitives-style animation ───
-function StatCard({ panel, loading, onClick, index = 0 }) {
+function StatCard({ panel, loading, onClick, index = 0, masked = false }) {
+  // `masked` renders the peso placeholder for roles without revenue
+  // visibility. The card stays clickable so the non-monetary detail list is
+  // still reachable.
+  const display = masked ? MONEY_MASK : panel.value;
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -1089,7 +1142,7 @@ function StatCard({ panel, loading, onClick, index = 0 }) {
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(panel); } }}
           tabIndex={0}
           role="button"
-          aria-label={`${panel.label}: ${loading ? 'loading' : panel.value}. Click to inspect.`}
+          aria-label={`${panel.label}: ${loading ? 'loading' : display}. Click to inspect.`}
           sx={{
             p: 2.5,
             backgroundColor: 'rgba(255, 255, 255, 0.85)',
@@ -1116,7 +1169,9 @@ function StatCard({ panel, loading, onClick, index = 0 }) {
             </motion.div>
           </Box>
           <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700 }}>
-            {loading ? '…' : (
+            {loading ? '…' : masked ? (
+              <Box component="span" sx={{ letterSpacing: '0.15em' }}>{MONEY_MASK}</Box>
+            ) : (
               <AnimatedCounter
                 target={panel.numericValue ?? 0}
                 prefix={panel.prefix || ''}

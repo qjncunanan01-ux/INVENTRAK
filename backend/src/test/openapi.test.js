@@ -437,7 +437,7 @@ test('openapi: optimization fsn conforms (default + clamped window)', async () =
 // ===== Analytics =====
 
 test('openapi: analytics summary + exports', async () => {
-  await bothConform('analytics summary', 'GET', '/api/analytics/summary');
+  await bothConform('analytics summary', 'GET', '/api/analytics/summary', { auth: 'admin' });
   await bothConform('export products', 'GET', '/api/analytics/export/products', { auth: 'admin' });
   await bothConform('export inventory', 'GET', '/api/analytics/export/inventory', { auth: 'admin' });
   await bothConform('export movements', 'GET', '/api/analytics/export/movements', { auth: 'admin' });

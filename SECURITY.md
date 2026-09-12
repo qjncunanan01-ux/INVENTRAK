@@ -23,8 +23,8 @@ This document maps every OWASP security checklist item to the exact module, endp
 ### 4. Protect Admin Routes ✅
 - **Implementation**: Role-based access control (RBAC) on every admin endpoint
 - **Files**: `backend/src/server_npmfree.js` (requireAuth function), `backend/src/app.js`
-- **Pattern**: `requireAuth(req, res, true, handler)` for admin-only, `requireAuth(req, res, ['admin','staff'], handler)` for staff+
-- **Frontend**: `frontend-admin/src/App.jsx` RequireRole component redirects staff from admin-only pages
+- **Pattern**: `requireAuth(req, res, true, handler)` for the admin tier, `requireAuth(req, res, STAFF_TIER, handler)` for staff+ — the role lists come from `backend/src/roles.js` rather than being hardcoded per route
+- **Frontend**: `frontend-admin/src/App.jsx` RequireRole component redirects a role away from pages it may not open (staff land on `/inventory`, since the dashboard is a money/analytics surface)
 
 ### 5. Add Auth ✅
 - **Implementation**: JWT tokens with HMAC-SHA256 signing, bcrypt password hashing
@@ -32,11 +32,17 @@ This document maps every OWASP security checklist item to the exact module, endp
 - **Features**: Token revocation on logout, MFA (TOTP) for admin, recovery codes
 
 ### 6. Check User Permissions ✅
-- **Implementation**: Three roles (admin, staff, customer) with distinct permission sets
-- **Admin**: Full access to all endpoints
-- **Staff**: Read-only inventory, scan stock, propose adjustments (cannot approve)
+- **Implementation**: Five roles (owner, super_admin, admin, staff, customer) with distinct permission sets, resolved through explicit capability tiers
+- **Tiers**: `ADMIN_TIER` (admin, super_admin, owner) for every money/pricing/revenue route; `MANAGEMENT_TIER` (super_admin, owner) for account/role/permission management; `STAFF_TIER` (staff + the admin tiers) for daily inventory work
+- **Owner**: Full oversight + access decisions
+- **Super Admin**: Everything above plus system accounts, roles and permissions
+- **Admin**: Products, prices, inventory, inquiries, approvals, reports, analytics — may grant only staff/admin
+- **Staff**: Read-only inventory, scan stock, propose adjustments (cannot approve, and is denied every money surface: `/api/analytics/summary`, exports, `/api/reports`, `/api/sales`, `/api/alerts`, `/api/users`)
 - **Customer**: Own orders only, product catalog, OCR scanning
-- **Files**: `backend/src/server_npmfree.js` requireAuth role checks
+- **Files**: `backend/src/roles.js` (single source of truth for the tiers), `backend/src/app.js` (`adminOnly`, `managementOnly`, `staffOrAdmin`), `backend/src/server_npmfree.js` (`requireAuth` allowed-roles resolution), `frontend-admin/src/roles.js` + `components/Money.jsx`
+- **Money hiding**: the admin UI masks every peso figure (`••••`) for roles without revenue visibility, and the revenue aggregate itself (`/api/analytics/summary`) is now authenticated — an unauthenticated caller gets 401 rather than total sales
+- **Role-change audit**: every grant writes an `auth.role_change` audit entry (actor, actor role, target, granted role)
+- **Scan audit**: `POST /api/scan-events` records every QR/barcode scan — actor, role, decoded kind/target, storage area, raw payload — as a `scan.qr` audit entry (staff-or-admin)
 
 ### 7. Sanitize User Inputs ✅
 - **Implementation**: Input sanitization strips HTML tags and encodes special characters

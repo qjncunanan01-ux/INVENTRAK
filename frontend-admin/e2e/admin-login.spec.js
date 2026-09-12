@@ -15,16 +15,20 @@ test.describe('Admin Login Flow', () => {
     await expect(page.getByText('INVENTRAK Admin')).toBeVisible();
     await expect(page.getByText('Secure inventory controls and analytics.')).toBeVisible();
 
-    // Demo quick-fill buttons
+    // Demo quick-fill buttons — one per sign-in role.
     await expect(page.getByRole('button', { name: /owner/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /super admin/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Fill Admin/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /staff/i })).toBeVisible();
 
     // Credentials hidden by default
+    await expect(page.getByText('owner / owner123')).not.toBeVisible();
     await expect(page.getByText('admin / admin123')).not.toBeVisible();
     await expect(page.getByText('staff / staff123')).not.toBeVisible();
 
     // Toggle reveals them
     await page.getByText('Show demo credentials').click();
+    await expect(page.getByText('owner / owner123')).toBeVisible();
     await expect(page.getByText('admin / admin123')).toBeVisible();
     await expect(page.getByText('staff / staff123')).toBeVisible();
 
@@ -34,33 +38,39 @@ test.describe('Admin Login Flow', () => {
   });
 
   test('owner quick-fill populates form and login lands on dashboard', async ({ page }) => {
-    await page.getByRole('button', { name: /owner/i }).click();
+    await page.getByRole('button', { name: /fill owner/i }).click();
 
     // Fields populated
-    await expect(page.getByLabel('Username')).toHaveValue('admin');
-    await expect(page.getByRole('textbox', { name: 'Password' })).toHaveValue('admin123');
+    await expect(page.getByLabel('Username')).toHaveValue('owner');
+    await expect(page.getByRole('textbox', { name: 'Password' })).toHaveValue('owner123');
 
     // Login
     await page.getByRole('button', { name: /login/i }).click();
     await page.waitForURL('**/', { timeout: 10_000 });
     await expect(page.getByText('Admin Dashboard')).toBeVisible();
-    await expect(page.getByText('ADMIN', { exact: true })).toBeVisible();
+    await expect(page.getByText('OWNER', { exact: true })).toBeVisible();
   });
 
-  test('staff quick-fill populates form and login works', async ({ page }) => {
-    await page.getByRole('button', { name: /staff/i }).click();
+  test('staff quick-fill lands on inventory — staff has no dashboard', async ({ page }) => {
+    await page.getByRole('button', { name: /fill staff/i }).click();
 
     await expect(page.getByLabel('Username')).toHaveValue('staff');
     await expect(page.getByRole('textbox', { name: 'Password' })).toHaveValue('staff123');
 
     await page.getByRole('button', { name: /login/i }).click();
-    await page.waitForURL('**/', { timeout: 10_000 });
-    await expect(page.getByText('Admin Dashboard')).toBeVisible();
+    // Inventory Staff must not see the dashboard (a money/analytics surface),
+    // so the login lands on the inventory levels page and the nav must not
+    // offer Dashboard / Reports / Optimization.
+    await page.waitForURL('**/inventory', { timeout: 10_000 });
+    await expect(page.getByText('Inventory Management')).toBeVisible();
     await expect(page.getByText('STAFF', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Reports' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Optimization' })).toHaveCount(0);
   });
 
   test('wrong password shows generic error (no username oracle)', async ({ page }) => {
-    await page.getByRole('button', { name: /owner/i }).click();
+    await page.getByRole('button', { name: /fill owner/i }).click();
     await page.getByRole('textbox', { name: 'Password' }).fill('wrongpassword');
     await page.getByRole('button', { name: /login/i }).click();
 
@@ -123,7 +133,7 @@ test.describe('Admin Login Flow', () => {
   });
 
   test('Enter key submits the form', async ({ page }) => {
-    await page.getByRole('button', { name: /owner/i }).click();
+    await page.getByRole('button', { name: /fill owner/i }).click();
     await page.getByRole('textbox', { name: 'Password' }).focus();
     await page.keyboard.press('Enter');
 
@@ -133,7 +143,7 @@ test.describe('Admin Login Flow', () => {
   });
 
   test('MFA flow: password accepted → code input → verify', async ({ page }) => {
-    await page.getByRole('button', { name: /owner/i }).click();
+    await page.getByRole('button', { name: /fill owner/i }).click();
     await page.getByRole('button', { name: /login/i }).click();
 
     // Wait for either dashboard or MFA prompt
@@ -155,7 +165,7 @@ test.describe('Admin Login Flow', () => {
 
   test('session clears on tab close (sessionStorage)', async ({ page }) => {
     // Login
-    await page.getByRole('button', { name: /owner/i }).click();
+    await page.getByRole('button', { name: /fill owner/i }).click();
     await page.getByRole('button', { name: /login/i }).click();
     await page.waitForURL('**/', { timeout: 10_000 });
     await page.waitForSelector('text=Admin Dashboard', { timeout: 10_000 });
@@ -190,8 +200,8 @@ test.describe('Login Accessibility', () => {
     await expect(password).toBeVisible();
 
     // Demo buttons have aria-labels
-    await expect(page.getByRole('button', { name: /owner/i })).toHaveAttribute('aria-label');
-    await expect(page.getByRole('button', { name: /staff/i })).toHaveAttribute('aria-label');
+    await expect(page.getByRole('button', { name: /fill owner/i })).toHaveAttribute('aria-label');
+    await expect(page.getByRole('button', { name: /fill staff/i })).toHaveAttribute('aria-label');
   });
 
   test('error messages are announced to screen readers', async ({ page }) => {

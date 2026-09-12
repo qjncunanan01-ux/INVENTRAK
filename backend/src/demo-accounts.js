@@ -6,7 +6,13 @@
 //
 // The check reads the env var at call time so tests can flip it per-run and
 // so both backends share one source of truth.
-const DEMO_USERNAMES = Object.freeze(['admin', 'customer']);
+const DEMO_USERNAMES = Object.freeze([
+  'admin',
+  'customer',
+  'staff',
+  'owner',
+  'superadmin',
+]);
 
 function demoAccountsDisabled() {
   return process.env.DISABLE_DEMO_ACCOUNTS === 'true';

@@ -447,7 +447,10 @@ test('contract: optimization bulk, abc, per-product, 404', async () => {
 // ===== Analytics =====
 
 test('contract: analytics summary + exports', async () => {
-  await both('GET /api/analytics/summary', '/api/analytics/summary');
+  // Revenue aggregate → ADMIN TIER only (see roles.js).
+  await both('GET /api/analytics/summary', '/api/analytics/summary', { auth: 'admin' });
+  await both('GET /api/analytics/summary (no token)', '/api/analytics/summary');
+  await both('GET /api/analytics/summary (staff blocked)', '/api/analytics/summary', { auth: 'staff' });
   await both('GET /api/analytics/export/products', '/api/analytics/export/products', { auth: 'admin' });
   await both('GET /api/analytics/export/inventory', '/api/analytics/export/inventory', { auth: 'admin' });
   await both('GET /api/analytics/export/movements', '/api/analytics/export/movements', { auth: 'admin' });
@@ -583,8 +586,8 @@ test('contract: deterministic seed means VALUES match, not just shapes', async (
   // Both backends seed from the same products.json with the same fixed-seed
   // PRNG and draw order, so fresh boots produce IDENTICAL stock and sales.
   // This guards the documented analytics/optimization divergence.
-  const s = await call(sqlite.url, '/api/analytics/summary');
-  const n = await call(npmfree.url, '/api/analytics/summary');
+  const s = await call(sqlite.url, '/api/analytics/summary', { token: sqlite.token.admin });
+  const n = await call(npmfree.url, '/api/analytics/summary', { token: npmfree.token.admin });
   assert.strictEqual(s.status, n.status);
   for (const k of ['totalProducts', 'totalStock', 'lowStockItems', 'totalLocations', 'totalSales', 'totalMovements', 'pendingInquiries']) {
     assert.strictEqual(s.json[k], n.json[k], `analytics ${k}: sqlite=${s.json[k]} npmfree=${n.json[k]}`);
@@ -1160,7 +1163,7 @@ test('contract: reports endpoint exposes the printable report shape identically'
 // ===== Analytics extensions =====
 
 test('contract: analytics summary exposes the new dashboard data identically', async () => {
-  const res = await both('analytics summary', '/api/analytics/summary', {});
+  const res = await both('analytics summary', '/api/analytics/summary', { auth: 'admin' });
   for (const side of [sqlite, npmfree]) {
     const body = side === sqlite ? res.a.json : res.b.json;
     assert.ok(Array.isArray(body.lowStockList), `${side} lowStockList`);

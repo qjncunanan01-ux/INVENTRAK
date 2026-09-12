@@ -1936,8 +1936,19 @@
           "Analytics"
         ],
         "operationId": "getAnalyticsSummary",
-        "summary": "Dashboard summary metrics",
+        "summary": "Dashboard summary metrics (admin tier — contains revenue)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
           "200": {
             "description": "Dashboard summary",
             "content": {
@@ -2372,6 +2383,80 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/scan-events": {
+      "post": {
+        "tags": [
+          "Scan"
+        ],
+        "operationId": "createScanEvent",
+        "summary": "Record a QR / barcode scan into the audit trail (staff or admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "payload"
+                ],
+                "properties": {
+                  "payload": {
+                    "type": "string",
+                    "maxLength": 300,
+                    "description": "The raw QR/barcode payload, e.g. INVENTRAK:PROD:12 or INVENTRAK:LOC:2:Stockroom%201"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "location",
+                      "product",
+                      "barcode",
+                      "unknown"
+                    ],
+                    "description": "Decoded tag type (defaults to unknown)"
+                  },
+                  "target_id": {
+                    "type": "integer",
+                    "description": "Decoded product or location id, when the tag carries one"
+                  },
+                  "location": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "Storage area the scan happened in, when known"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Scan recorded (audit entry written)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanEventResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -2991,6 +3076,8 @@
           "role": {
             "type": "string",
             "enum": [
+              "owner",
+              "super_admin",
               "admin",
               "staff",
               "customer"
@@ -3426,6 +3513,8 @@
               "role": {
                 "type": "string",
                 "enum": [
+                  "owner",
+                  "super_admin",
                   "admin",
                   "staff",
                   "customer"
@@ -3906,6 +3995,70 @@
           "decided_by": {
             "type": "string",
             "nullable": true
+          }
+        }
+      },
+      "ScanEvent": {
+        "type": "object",
+        "required": [
+          "at",
+          "actor",
+          "actorRole",
+          "kind",
+          "target_id",
+          "location",
+          "payload"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "description": "ISO timestamp of the scan"
+          },
+          "actor": {
+            "type": "string",
+            "description": "Username that performed the scan"
+          },
+          "actorRole": {
+            "type": "string",
+            "description": "Role of the scanning account"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "location",
+              "product",
+              "barcode",
+              "unknown"
+            ]
+          },
+          "target_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Decoded product/location id, or null"
+          },
+          "location": {
+            "type": "string",
+            "nullable": true,
+            "description": "Storage area, or null"
+          },
+          "payload": {
+            "type": "string",
+            "description": "Raw scanned payload"
+          }
+        }
+      },
+      "ScanEventResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "event"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "event": {
+            "$ref": "#/components/schemas/ScanEvent"
           }
         }
       },

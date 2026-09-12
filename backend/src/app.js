@@ -11,6 +11,7 @@ const { hashPassword, verifyPassword, consumeComparisonTime } = require('./passw
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { generateSecret, verifyTOTP, otpauthUrl, generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode } = require('./totp');
 const { isDemoAccountBlocked } = require('./demo-accounts');
+const { parseDateRange, rangeDays } = require('./date-range');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
@@ -33,6 +34,14 @@ const {
 } = require('./google-auth');
 const { audit } = require('./audit');
 const { sanitizeObject } = require('./sanitize');
+const {
+  ADMIN_TIER,
+  STAFF_TIER,
+  MANAGEMENT_TIER,
+  ASSIGNABLE_BY_ADMIN,
+  ASSIGNABLE_BY_MANAGEMENT,
+  isKnownRole,
+} = require('./roles');
 // Attach a parsed, normalized `products_detail` array to every inquiry row so
 // clients (admin + mobile) can render per-line prices without re-parsing the
 // products JSON themselves. Resilient to legacy/malformed payloads.
@@ -151,8 +160,11 @@ function authenticateToken(req, res, next) {
   });
 }
 
+// Admin tier: admin, super_admin, owner. Every money/pricing/revenue route,
+// plus products, orders, approvals and locations. Reads its membership from
+// roles.js so a newly added privileged role can never silently lose access.
 function adminOnly(req, res, next) {
-  if (req.user.role !== 'admin') {
+  if (!ADMIN_TIER.includes(req.user.role)) {
     return res.status(403).json({
       error: 'Admin access required',
     });
@@ -161,13 +173,25 @@ function adminOnly(req, res, next) {
   next();
 }
 
-// Staff-or-admin guard: staff accounts may propose stock adjustments and
-// transfers, scan for stock levels, and view reports — but every write that
-// changes real data (approvals, products, orders, locations, sales) stays
-// admin-only. Role-based access control per OWASP: staff get the minimum
-// permissions their daily inventory work needs, nothing more.
+// Management tier: owner + super_admin only. System accounts, roles and
+// permissions — the boundary the inventory staff and plain admins never cross.
+function managementOnly(req, res, next) {
+  if (!MANAGEMENT_TIER.includes(req.user.role)) {
+    return res.status(403).json({
+      error: 'Owner or Super Admin access required',
+    });
+  }
+
+  next();
+}
+
+// Staff tier: staff plus the admin tiers. Staff may propose stock adjustments
+// and transfers, scan for stock levels and check stock — but every write that
+// changes real data (approvals, products, orders, locations, sales) and every
+// money/report/analytics route stays admin-tier. Role-based access control per
+// OWASP: staff get the minimum permissions their daily inventory work needs.
 function staffOrAdmin(req, res, next) {
-  if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+  if (!STAFF_TIER.includes(req.user.role)) {
     return res.status(403).json({
       error: 'Staff or admin access required',
     });
@@ -294,6 +318,20 @@ function seedDatabase() {
       'staff@inventrak.com'
     );
   }
+
+  // Management tier demo accounts (roles.js): Super Admin manages accounts,
+  // roles and permissions; the Business Owner adds full business oversight.
+  // Insert-or-ignore so a redeploy never clobbers a changed password.
+  const insertDemoUser = db.prepare(
+    'INSERT OR IGNORE INTO users (username, password, role, email) VALUES (?, ?, ?, ?)'
+  );
+  insertDemoUser.run('owner', hashPassword('owner123'), 'owner', 'owner@inventrak.com');
+  insertDemoUser.run(
+    'superadmin',
+    hashPassword('super123'),
+    'super_admin',
+    'superadmin@inventrak.com'
+  );
 
   const existing = db
     .prepare('SELECT COUNT(*) as count FROM products')
@@ -819,7 +857,7 @@ app.post(
 
     // Admin MFA: once the administrator enrolls, the password alone yields
     // only a short-lived challenge token, never a session.
-    if (user.role === 'admin' && user.mfa_enabled) {
+    if (ADMIN_TIER.includes(user.role) && user.mfa_enabled) {
       audit('auth.login.mfa_required', { userId: user.id, username: user.username });
       return res.json({
         mfa_required: true,
@@ -904,7 +942,7 @@ app.post(
 
     // Admin MFA applies to Google sign-in too: an enrolled admin must
     // complete the second factor regardless of the first factor used.
-    if (user.role === 'admin' && user.mfa_enabled) {
+    if (ADMIN_TIER.includes(user.role) && user.mfa_enabled) {
       audit('auth.login.mfa_required', { userId: user.id, username: user.username });
       return res.json({
         mfa_required: true,
@@ -968,7 +1006,7 @@ app.post(
     }
 
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
-    if (!user || user.role !== 'admin' || !user.mfa_secret) {
+    if (!user || !ADMIN_TIER.includes(user.role) || !user.mfa_secret) {
       return res.status(401).json({ error: 'Invalid or expired MFA session' });
     }
     // Second factor = TOTP code OR one of the single-use recovery codes
@@ -2626,17 +2664,27 @@ app.get('/api/approvals', authenticateToken, adminOnly, (req, res) => {
 });
 
 // Printable report data for the Report Viewing module.
-app.get('/api/reports', authenticateToken, staffOrAdmin, (req, res) => {
-  const days = Math.min(90, Math.max(1, parseInt(req.query.days, 10) || 14));
+// Reports carry revenue, so they are ADMIN TIER only. Inventory Staff is
+// deliberately excluded: the role spec forbids them from viewing sales,
+// prices, customers, orders, reports or business analytics. Staff do their
+// daily work through the inventory/movement/scan modules instead.
+app.get('/api/reports', authenticateToken, adminOnly, (req, res) => {
   const generated_at = new Date().toISOString();
+
+  // Date range: either an explicit from/to window (the Days/Weeks/Months/
+  // Quarterly/Annually filter) or the legacy trailing `days` window. Clamped
+  // to 5 years so a hostile `from` cannot force an unbounded table scan.
+  const { from, to } = parseDateRange(req.query, { defaultDays: 14 });
+  const rangeClause = "date(transaction_date) >= date(?) AND date(transaction_date) <= date(?)";
 
   const dailySales = db
     .prepare(
       `SELECT substr(transaction_date, 1, 10) as date, COUNT(*) as transactions, SUM(total_amount) as value
-       FROM sales_transactions WHERE transaction_date >= datetime('now', ?)
+       FROM sales_transactions WHERE ${rangeClause}
        GROUP BY date ORDER BY date ASC`
     )
-    .all(`-${days} days`);
+    .all(from, to);
+  const days = rangeDays({ from, to });
 
   const stockByLocation = db
     .prepare(
@@ -2684,7 +2732,10 @@ app.get('/api/reports', authenticateToken, staffOrAdmin, (req, res) => {
       db.prepare("SELECT COUNT(*) as c FROM stock_transfers WHERE status = 'pending'").get().c,
   };
 
-  res.json({ generated_at, days, dailySales, stockByLocation, orderStatusSummary, lowStock, fastMovers, slowMovers, summary });
+  // `days` echoes the resolved window width so clients can label the range
+  // without re-deriving it; the explicit from/to are echoed as `range` for
+  // the admin range filter UI.
+  res.json({ generated_at, days, range: { from, to }, dailySales, stockByLocation, orderStatusSummary, lowStock, fastMovers, slowMovers, summary });
 });
 
 // ================= LOCATION ROUTES =================
@@ -3070,7 +3121,7 @@ app.get(
     // Per-account scoping: admins see every inquiry; customers only their own
     // (user_id match, with a legacy fallback to the account's email so orders
     // placed before ownership was stamped still appear in history).
-    if (req.user.role !== 'admin') {
+    if (!ADMIN_TIER.includes(req.user.role)) {
       const owner = db
         .prepare('SELECT email FROM users WHERE id = ?')
         .get(req.user.id);
@@ -3336,6 +3387,46 @@ app.post(
   }
 );
 
+// ================= SCAN AUDIT ROUTE =================
+//
+// Record a QR/barcode scan into the audit trail (who scanned what, where and
+// when). Staff-or-admin: staff are the ones doing the physical scanning. The
+// payload is stored as-is plus a decoded kind/target so the audit view and any
+// later forensic query can answer "who confirmed this product/location?".
+// Nothing here mutates stock — the scan itself is the event being logged.
+const SCAN_KINDS = ['location', 'product', 'barcode', 'unknown'];
+app.post('/api/scan-events', authenticateToken, staffOrAdmin, (req, res) => {
+  const { payload, kind, target_id: targetId, location } = req.body || {};
+
+  if (typeof payload !== 'string' || payload.trim() === '') {
+    return res.status(400).json({ error: 'Validation failed', details: ['payload is required'] });
+  }
+  if (payload.length > 300) {
+    return res.status(400).json({ error: 'Validation failed', details: ['payload must be at most 300 characters'] });
+  }
+
+  const scanKind = SCAN_KINDS.includes(kind) ? kind : 'unknown';
+  const scanTarget = targetId === undefined || targetId === null || !Number.isFinite(Number(targetId))
+    ? null
+    : Number(targetId);
+  const scanLocation = typeof location === 'string' && location.trim() !== ''
+    ? location.trim().slice(0, 100)
+    : null;
+
+  const event = {
+    at: new Date().toISOString(),
+    actor: req.user.username,
+    actorRole: req.user.role,
+    kind: scanKind,
+    target_id: scanTarget,
+    location: scanLocation,
+    payload: payload.trim(),
+  };
+  audit('scan.qr', event);
+
+  res.status(201).json({ ok: true, event });
+});
+
 // ================= OCR ROUTE =================
 //
 // Scan a product photo (mobile OCR module): upload a base64 image, get the
@@ -3377,7 +3468,7 @@ app.put('/api/order-inquiries/:id/payment', authenticateToken, (req, res) => {
   const existing = db.prepare('SELECT * FROM order_inquiries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Order inquiry not found' });
   // Customers may only mark their own inquiry paid; admins any.
-  if (req.user.role !== 'admin') {
+  if (!ADMIN_TIER.includes(req.user.role)) {
     const owner = db.prepare('SELECT email FROM users WHERE id = ?').get(req.user.id);
     const mine = Number(existing.user_id) === Number(req.user.id) ||
       (owner && String(existing.customer_email || '').toLowerCase() === String(owner.email || '').toLowerCase());
@@ -3391,6 +3482,10 @@ app.put('/api/order-inquiries/:id/payment', authenticateToken, (req, res) => {
 
 app.get(
   '/api/analytics/summary',
+  // Revenue-bearing aggregate: ADMIN TIER only. Inventory Staff is excluded by
+  // the role spec, and leaving it unauthenticated let anyone read total sales.
+  authenticateToken,
+  adminOnly,
   (req, res) => {
     const totalProducts = db
       .prepare(
@@ -3567,7 +3662,7 @@ app.get(
 app.get(
   '/api/analytics/export/:type',
   authenticateToken,
-  staffOrAdmin,
+  adminOnly,
   (req, res) => {
     const { type } = req.params;
     const format = req.query.format || 'json';
@@ -3882,6 +3977,8 @@ app.get('/api/cache/stats', authenticateToken, adminOnly, (req, res) => {
   }
 });
 
+// The account list is visible to the admin tier (admins need to see who has an
+// account), but only management can CHANGE a role.
 app.get(
   '/api/users',
   authenticateToken,
@@ -3898,9 +3995,14 @@ app.get(
   }
 );
 
-// Promote a customer to admin (admin-only). This is the only way to create
-// admins — the public register endpoint hardcodes role 'customer', so a
-// customer can never self-promote (Firebase-console style role management).
+// Role management. This is the only way an account gains a privileged role —
+// the public register endpoint hardcodes role 'customer', so a customer can
+// never self-promote.
+//
+//  • No `role` in the body  → legacy behaviour: customer → admin.
+//  • `role` provided        → explicit assignment. The admin tier may grant
+//    staff/admin; only the management tier (owner, super_admin) may grant the
+//    privileged super_admin/owner roles. Every change is audited.
 app.post(
   '/api/admin/promote',
   authenticateToken,
@@ -3912,16 +4014,54 @@ app.post(
     },
   }),
   (req, res) => {
-    const { username } = req.body;
+    const { username, role } = req.body;
+    const actorIsManagement = MANAGEMENT_TIER.includes(req.user.role);
+
+    if (role === undefined) {
+      const result = db
+        .prepare('UPDATE users SET role = ? WHERE username = ? AND role = ?')
+        .run('admin', username, 'customer');
+      if (result.changes === 0) {
+        return res.status(404).json({ error: 'Customer not found or already an admin' });
+      }
+      const user = db
+        .prepare('SELECT id, username, role, email FROM users WHERE username = ?')
+        .get(username);
+      audit('auth.role_change', {
+        actor: req.user.username,
+        actorRole: req.user.role,
+        target: username,
+        role: 'admin',
+      });
+      return res.json({ ok: true, user });
+    }
+
+    const target = String(role);
+    if (!isKnownRole(target)) {
+      return res.status(400).json({ error: `Unknown role: ${target}` });
+    }
+    const allowed = actorIsManagement ? ASSIGNABLE_BY_MANAGEMENT : ASSIGNABLE_BY_ADMIN;
+    if (!allowed.includes(target)) {
+      return res.status(403).json({
+        error: `Only an Owner or Super Admin can assign the ${target} role`,
+      });
+    }
+
     const result = db
-      .prepare('UPDATE users SET role = ? WHERE username = ? AND role = ?')
-      .run('admin', username, 'customer');
+      .prepare('UPDATE users SET role = ? WHERE username = ?')
+      .run(target, username);
     if (result.changes === 0) {
-      return res.status(404).json({ error: 'Customer not found or already an admin' });
+      return res.status(404).json({ error: 'User not found' });
     }
     const user = db
       .prepare('SELECT id, username, role, email FROM users WHERE username = ?')
       .get(username);
+    audit('auth.role_change', {
+      actor: req.user.username,
+      actorRole: req.user.role,
+      target: username,
+      role: target,
+    });
     res.json({ ok: true, user });
   }
 );

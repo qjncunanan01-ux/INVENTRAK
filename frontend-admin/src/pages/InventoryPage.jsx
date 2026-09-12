@@ -1,6 +1,6 @@
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api';
 import usePageTitle from '../hooks/usePageTitle';
@@ -14,6 +14,19 @@ export default function InventoryPage({ onLogout }) {
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [search, setSearch] = useState('');
+
+  // Scan-to-stock deep link: a scanned product QR opens /inventory?product=<id>
+  // and a scanned location tag opens /inventory?location=<name>. Both simply
+  // pre-apply the existing filters, so the operator lands on the exact view.
+  const [searchParams] = useSearchParams();
+  const [focusProductId, setFocusProductId] = useState(null);
+
+  useEffect(() => {
+    const loc = searchParams.get('location');
+    const product = searchParams.get('product');
+    if (loc) setSelectedLocation(loc);
+    if (product && Number.isFinite(Number(product))) setFocusProductId(Number(product));
+  }, [searchParams]);
 
   useEffect(() => {
     setLoading(true);
@@ -33,6 +46,7 @@ export default function InventoryPage({ onLogout }) {
 
   const locs = (inventory.locations || []).map(loc => (typeof loc === 'object' ? loc : { id: loc, name: loc }));
   const items = (inventory.items || []).filter(item => {
+    if (focusProductId !== null && Number(item.product?.id ?? item.id) !== focusProductId) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (item.product?.name || '').toLowerCase().includes(q) ||
@@ -79,6 +93,14 @@ export default function InventoryPage({ onLogout }) {
                 <MenuItem value="low">Low stock only</MenuItem>
               </Select>
             </FormControl>
+            {focusProductId !== null ? (
+              <Chip
+                color="primary"
+                label={`Scanned product #${focusProductId} — clear`}
+                onDelete={() => setFocusProductId(null)}
+                aria-label={`Showing only the scanned product ${focusProductId}. Clear filter.`}
+              />
+            ) : null}
             <Typography variant="subtitle2" color="text.secondary">{locs.length} locations</Typography>
           </Box>
         </Box>
