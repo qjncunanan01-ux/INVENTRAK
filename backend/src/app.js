@@ -15,6 +15,7 @@ const { parseDateRange, rangeDays } = require('./date-range');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
+const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./critical-level');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines, summarizeLines } = require('./product-lines');
@@ -261,6 +262,120 @@ function validate(schema) {
   };
 }
 
+// --- Movement-aware critical levels -------------------------------------
+//
+// The per-product reorder threshold (see critical-level.js) replaces the old
+// flat 80-unit rule. Sales history feeds the FSN classifier, so a fast-moving
+// milk gets a much higher bar than a non-moving display piece. The map is
+// memoized for a minute: a stock movement must never re-run the FSN pass per
+// request, and a minute of staleness is invisible at demo or production speed.
+let criticalCache = { at: 0, map: new Map() };
+
+function criticalLevels(now = Date.now()) {
+  if (criticalCache.map.size && now - criticalCache.at < 60000) return criticalCache.map;
+  const products = db.prepare('SELECT id, name, price FROM products').all();
+  const sales = db.prepare('SELECT product_id, transaction_date, qty FROM sales_transactions').all();
+  criticalCache = { at: now, map: criticalLevelMap(products, sales) };
+  return criticalCache.map;
+}
+
+function criticalLevelOf(productId) {
+  return criticalLevelFromMap(criticalLevels(), productId);
+}
+
+// Reconcile the active low-stock alerts against the current critical levels:
+// raise one for every product/location at or under its bar (stamping the bar it
+// used), refresh the quantity on the ones already open, and auto-resolve the
+// ones that came back above the bar. Keeps the alert feed honest without
+// needing a movement to have happened.
+function refreshLowStockAlerts() {
+  const map = criticalLevels();
+  const rows = db.prepare('SELECT product_id, location_id, quantity FROM stock').all();
+  const openFor = db.prepare(
+    "SELECT id, threshold, current_qty FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = 'low_stock' AND status = 'active'"
+  );
+  const insert = db.prepare(
+    "INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status) VALUES (?, ?, 'low_stock', ?, ?, 'active')"
+  );
+  const refresh = db.prepare('UPDATE inventory_alerts SET threshold = ?, current_qty = ? WHERE id = ?');
+  const resolve = db.prepare("UPDATE inventory_alerts SET status = 'resolved', resolved_at = datetime('now') WHERE id = ?");
+
+  for (const row of rows) {
+    const level = criticalLevelFromMap(map, row.product_id);
+    const open = openFor.get(row.product_id, row.location_id);
+    if (row.quantity <= level) {
+      if (!open) insert.run(row.product_id, row.location_id, level, row.quantity);
+      else if (open.threshold !== level || open.current_qty !== row.quantity) {
+        refresh.run(level, row.quantity, open.id);
+      }
+    } else if (open) {
+      resolve.run(open.id);
+    }
+  }
+}
+
+// --- Best-before (shelf-life) alerts -------------------------------------
+//
+// Derived from the FEFO lot ledger rather than stored by hand: every lot still
+// in stock whose expiry falls inside the warning window raises an
+// 'expiring_soon' alert, a past-date lot raises 'expired', and alerts whose lot
+// was consumed, re-dated, or pushed past the window auto-resolve. `threshold`
+// carries the DAYS REMAINING (negative once past) so the UI can sort and
+// colour by urgency, and `expiry_date` carries the date being warned about.
+const EXPIRY_WARNING_DAYS = 30;
+
+function refreshExpiryAlerts(now = new Date()) {
+  const today = new Date(now.getTime());
+  today.setUTCHours(0, 0, 0, 0);
+
+  const lots = db.prepare(
+    'SELECT product_id, location_id, SUM(qty) AS qty, expiry_date FROM stock_lots WHERE expiry_date IS NOT NULL AND qty > 0 GROUP BY product_id, location_id, expiry_date'
+  ).all();
+  const openFor = db.prepare(
+    "SELECT id, threshold, current_qty FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = ? AND status = 'active'"
+  );
+  const insert = db.prepare(
+    "INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?, 'active')"
+  );
+  const refresh = db.prepare('UPDATE inventory_alerts SET threshold = ?, current_qty = ? WHERE id = ?');
+  const resolve = db.prepare("UPDATE inventory_alerts SET status = 'resolved', resolved_at = datetime('now') WHERE id = ?");
+
+  const live = new Set();
+  for (const lot of lots) {
+    const exp = new Date(`${lot.expiry_date}T00:00:00Z`);
+    if (!Number.isFinite(exp.getTime())) continue;
+    const daysLeft = Math.round((exp.getTime() - today.getTime()) / 86400000);
+    if (daysLeft > EXPIRY_WARNING_DAYS) continue;
+
+    const type = daysLeft < 0 ? 'expired' : 'expiring_soon';
+    live.add(`${lot.product_id}:${lot.location_id}:${type}`);
+
+    // A lot that crosses the expiry boundary changes type — close the old one.
+    const flipped = openFor.get(lot.product_id, lot.location_id, type === 'expired' ? 'expiring_soon' : 'expired');
+    if (flipped) resolve.run(flipped.id);
+
+    const open = openFor.get(lot.product_id, lot.location_id, type);
+    if (!open) insert.run(lot.product_id, lot.location_id, type, daysLeft, lot.qty, lot.expiry_date);
+    else if (open.threshold !== daysLeft || open.current_qty !== lot.qty) {
+      refresh.run(daysLeft, lot.qty, open.id);
+    }
+  }
+
+  const stale = db.prepare(
+    "SELECT id, product_id, location_id, alert_type FROM inventory_alerts WHERE status = 'active' AND alert_type IN ('expiring_soon', 'expired')"
+  ).all();
+  for (const row of stale) {
+    if (!live.has(`${row.product_id}:${row.location_id}:${row.alert_type}`)) resolve.run(row.id);
+  }
+}
+
+// The alert feed is derived, so refresh both sources before serving it: the
+// dashboard, the Alerts page and the demo always read the current truth.
+function refreshAlerts() {
+  refreshLowStockAlerts();
+  refreshExpiryAlerts();
+}
+
 // --- Seed Database ---
 
 function seedDatabase() {
@@ -371,13 +486,12 @@ function seedDatabase() {
     'INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?)'
   );
 
-  // Low-stock alerts for seeded locations below the 80-unit threshold, so a
-  // fresh boot has real active alerts (matching the npm-free seeder's alert
-  // set exactly — same PRNG stock, same order). Without this the dashboard
-  // shows 0 active alerts while 200+ location entries sit below threshold.
-  const insertAlert = db.prepare(
-    "INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status, created_at) VALUES (?, ?, ?, ?, ?, 'active', datetime('now'))"
-  );
+  // Note: low-stock alerts are NOT inserted inline any more. The seeding loop
+  // runs before the sales history exists, and the alert bar is derived from
+  // that history (critical-level.js). refreshLowStockAlerts() runs right after
+  // the seed transaction instead, so a fresh boot gets real active alerts keyed
+  // to each product's movement class — matching the npm-free seeder exactly,
+  // since both call the same reconciliation.
 
   // Deterministic demo data: the same fixed-seed PRNG and draw order as the
   // npm-free fallback and seed.js, so fresh boots of either backend produce
@@ -423,11 +537,6 @@ function seedDatabase() {
           new Date().toISOString()
         );
 
-        // Mirror the event-driven upsert rule: any location below the
-        // threshold is an active low-stock alert.
-        if (qty < 80) {
-          insertAlert.run(pid, locId, 'low_stock', 80, qty);
-        }
       }
 
       const price = p['Price'] || p.price || 1;
@@ -461,6 +570,12 @@ function seedDatabase() {
       }
     }
   })();
+
+  // Alerts are derived, not seeded: reconcile them once against the sales
+  // history just written so the dashboard opens with the real low-stock set.
+  // (Best-before alerts stay empty until someone stocks in a dated lot —
+  // the demo shows that capture-to-alert loop live.)
+  refreshAlerts();
 }
 
 const app = express();
@@ -1749,6 +1864,11 @@ app.get('/api/inventory', (req, res) => {
     .prepare('SELECT * FROM locations')
     .all();
 
+  // Movement-aware reorder bar per product (see critical-level.js) — computed
+  // once for the whole list, then stamped on every item like the npm-free
+  // backend does.
+  const levelMap = criticalLevels();
+
   let items = products.map((p) => {
     let stocks;
 
@@ -1779,16 +1899,22 @@ app.get('/api/inventory', (req, res) => {
       detail[stock.name] = stock.quantity;
     });
 
+    const info = criticalLevelFromMap(levelMap, p.id);
+
     return {
       product: p,
       locations: detail,
       total,
+      critical_level: info.criticalLevel,
+      movement_class: info.classification,
+      movement_label: info.movementLabel,
+      stock_status: stockStatus(total, info.criticalLevel),
     };
   });
 
   if (low_stock === 'true') {
     items = items.filter(
-      (item) => item.total < 80
+      (item) => item.total < item.critical_level
     );
   }
 
@@ -1890,7 +2016,8 @@ function applyMovementEffect({
     ).run(product_id, loc, qty, now);
   }
 
-  const threshold = 80;
+  // Movement-aware bar: the product's own critical level, not a flat 80.
+  const threshold = criticalLevelOf(product_id);
   if (srcId) {
     const updated = db
       .prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?')
@@ -2226,7 +2353,8 @@ app.post(
       ).run(product_id, loc, qty, now);
     }
 
-    const threshold = 80;
+    // Movement-aware bar: the product's own critical level, not a flat 80.
+    const threshold = criticalLevelOf(product_id);
 
     if (srcId) {
       const updated = db
@@ -2697,13 +2825,15 @@ app.get('/api/reports', authenticateToken, adminOnly, (req, res) => {
   const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
   statusRows.forEach((r) => { if (orderStatusSummary[r.status] !== undefined) orderStatusSummary[r.status] = r.count; });
 
+  const levelMap = criticalLevels();
   const lowStock = db
     .prepare(
       `SELECT p.id, p.name, SUM(s.quantity) as total
        FROM stock s JOIN products p ON s.product_id = p.id
-       WHERE p.status = ? GROUP BY p.id HAVING SUM(s.quantity) < 80 ORDER BY total ASC`
+       WHERE p.status = ? GROUP BY p.id ORDER BY total ASC`
     )
-    .all('active');
+    .all('active')
+    .filter((r) => r.total < criticalLevelFromMap(levelMap, r.id));
 
   const fastMovers = db
     .prepare(
@@ -3498,13 +3628,16 @@ app.get(
         'SELECT SUM(quantity) as total FROM stock'
       ).get().total || 0;
 
-    // Per-PRODUCT total below the 80-unit threshold — matches the
-    // npm-free backend so the contract test passes.
+    // Per-PRODUCT total under its own movement-aware critical level — the
+    // npm-free backend computes this the identical way, so the contract test
+    // still passes (see critical-level.js).
+    const levelMap = criticalLevels();
     const lowStockItems = db
       .prepare(
-        'SELECT COUNT(*) as count FROM (SELECT p.id FROM stock s JOIN products p ON s.product_id = p.id WHERE p.status = ? GROUP BY p.id HAVING SUM(s.quantity) < 80)'
+        'SELECT p.id as id, SUM(s.quantity) as total FROM stock s JOIN products p ON s.product_id = p.id WHERE p.status = ? GROUP BY p.id'
       )
-      .get('active').count;
+      .all('active')
+      .filter((row) => row.total < criticalLevelFromMap(levelMap, row.id)).length;
 
     const totalLocations = db
       .prepare(
@@ -3551,16 +3684,19 @@ app.get(
     // location, fast/slow movers, daily sales, transactions, customers
     // served, order status summary) ----
 
-    // 1. Low-stock items: name + total, sorted ascending.
+    // 1. Low-stock items: name + total, under each product's own
+    // movement-aware critical level (parity with server_npmfree.js).
+    const dashboardLevelMap = criticalLevels();
     const lowStockList = db
       .prepare(
         `SELECT p.id, p.name, SUM(s.quantity) as total
          FROM stock s JOIN products p ON s.product_id = p.id
          WHERE p.status = ?
-         GROUP BY p.id HAVING SUM(s.quantity) < 80
-         ORDER BY total ASC LIMIT 20`
+         GROUP BY p.id ORDER BY total ASC LIMIT 60`
       )
-      .all('active');
+      .all('active')
+      .filter((r) => r.total < criticalLevelFromMap(dashboardLevelMap, r.id))
+      .slice(0, 20);
 
     // 2. Available stocks per location.
     const stockByLocation = db
@@ -3743,6 +3879,10 @@ app.get(
     const {
       status = 'active',
     } = req.query;
+
+    // Alerts are derived (movement-aware low stock + shelf-life), so reconcile
+    // them before reading — the feed can never go stale between movements.
+    refreshAlerts();
 
     const rows = db
       .prepare(

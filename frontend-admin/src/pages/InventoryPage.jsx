@@ -7,6 +7,28 @@ import usePageTitle from '../hooks/usePageTitle';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
 
+// Status badge per inventory row. The backend stamps each item with its
+// movement-aware critical_level (critical-level.js) + a stock_status badge;
+// older payloads without those fields fall back to the legacy flat 80 bar.
+const STATUS_META = {
+  out_of_stock: { label: 'Out of Stock', color: 'error' },
+  critical: { label: 'Critical', color: 'error' },
+  low_stock: { label: 'Low Stock', color: 'warning' },
+  in_stock: { label: 'In Stock', color: 'success' },
+};
+
+function statusFor(item) {
+  const total = Number(item.total) || 0;
+  const level = Number(item.critical_level);
+  if (Number.isFinite(level) && level > 0) {
+    if (total <= 0) return 'out_of_stock';
+    if (total <= level) return 'critical';
+    if (total <= Math.ceil(level * 1.5)) return 'low_stock';
+    return 'in_stock';
+  }
+  return total < 80 ? 'low_stock' : 'in_stock';
+}
+
 export default function InventoryPage({ onLogout }) {
   usePageTitle('/inventory');
   const [inventory, setInventory] = useState({ locations: [], items: [] });
@@ -110,25 +132,33 @@ export default function InventoryPage({ onLogout }) {
               <TableCell>Product</TableCell>
               {locs.map(loc => <TableCell key={loc.name}>{loc.name}</TableCell>)}
               <TableCell>Total</TableCell>
+              <TableCell>Critical Level</TableCell>
+              <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={locs.length + 2}>Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={locs.length + 4}>Loading…</TableCell></TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={locs.length + 2}>No inventory data</TableCell></TableRow>
-            ) : items.map(item => (
-              <TableRow key={item.product.id} sx={{
-                backgroundColor: item.total < 80 ? 'rgba(249,168,37,0.08)' : 'inherit'
-              }}>
-                <TableCell>
-                  {item.product.name}
-                  {item.total < 80 && <Chip label="Low" size="small" color="warning" sx={{ ml: 1 }} />}
-                </TableCell>
-                {locs.map(loc => <TableCell key={loc.name}>{item.locations[loc.name] ?? 0}</TableCell>)}
-                <TableCell><strong>{item.total}</strong></TableCell>
-              </TableRow>
-            ))}
+              <TableRow><TableCell colSpan={locs.length + 4}>No inventory data</TableCell></TableRow>
+            ) : items.map(item => {
+              const status = statusFor(item);
+              const meta = STATUS_META[status];
+              const below = status === 'critical' || status === 'low_stock';
+              return (
+                <TableRow key={item.product.id} sx={{
+                  backgroundColor: below ? 'rgba(249,168,37,0.08)' : 'inherit'
+                }}>
+                  <TableCell>{item.product.name}</TableCell>
+                  {locs.map(loc => <TableCell key={loc.name}>{item.locations[loc.name] ?? 0}</TableCell>)}
+                  <TableCell><strong>{item.total}</strong></TableCell>
+                  <TableCell>{item.critical_level ?? 80}</TableCell>
+                  <TableCell>
+                    <Chip label={meta.label} size="small" color={meta.color} variant={status === 'in_stock' ? 'outlined' : 'filled'} />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Paper>

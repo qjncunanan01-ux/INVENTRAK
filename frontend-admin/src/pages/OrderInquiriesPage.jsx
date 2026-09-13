@@ -93,6 +93,72 @@ function linesToText(lines) {
   }).join(' ');
 }
 
+// Parse an order's status_history JSON into the [{ status, at }] timeline.
+// Returns [] when the order predates status tracking.
+function parseHistory(order) {
+  try {
+    const parsed = JSON.parse(order.status_history || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+// Steps of the order lifecycle, in the order the admin acts on them.
+const TIMELINE_STEPS = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'fulfilled', label: 'Fulfilled' },
+  { key: 'delivered', label: 'Delivered' },
+];
+
+// Shopee-style progress timeline: a dot per lifecycle step, filled when the
+// order has reached it, with the timestamp of the transition underneath.
+// A rejected order renders its own single red step instead of the ladder.
+function StatusTimeline({ history, currentStatus }) {
+  if (currentStatus === 'rejected') {
+    const rejectedAt = (history[history.length - 1] || {}).at;
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+        <Typography variant="caption" sx={{ color: '#e23744', fontWeight: 700 }}>
+          Rejected{rejectedAt ? ` · ${new Date(rejectedAt).toLocaleString()}` : ''}
+        </Typography>
+      </Box>
+    );
+  }
+  const reached = new Set((history || []).map((h) => h.status));
+  const at = (key) => ((history || []).find((h) => h.status === key) || {}).at;
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0, mt: 1 }}>
+      {TIMELINE_STEPS.map((step, idx) => {
+        const done = reached.has(step.key) || (currentStatus && TIMELINE_STEPS.findIndex((s) => s.key === currentStatus) >= idx && currentStatus !== 'pending') || currentStatus === step.key;
+        return (
+          <Box key={step.key} sx={{ display: 'flex', alignItems: 'flex-start', flex: 1, flexDirection: idx === TIMELINE_STEPS.length - 1 ? 'column' : 'row' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 64 }}>
+              <Box sx={{
+                width: 14, height: 14, borderRadius: '50%', mt: 0.5,
+                backgroundColor: done ? colors.brandPrimary : '#e0e0e0',
+                border: done ? 'none' : '2px solid #bdbdbd',
+              }} />
+              {idx < TIMELINE_STEPS.length - 1 && (
+                <Box sx={{ width: '100%', height: 2, backgroundColor: done ? colors.brandPrimary : '#e0e0e0', mt: '-0.5rem', mb: 0.25 }} />
+              )}
+              <Typography variant="caption" sx={{ fontWeight: done ? 700 : 400, color: done ? colors.textPrimary : '#9aa0a6', whiteSpace: 'nowrap' }}>
+                {step.label}
+              </Typography>
+              {done && at(step.key) && (
+                <Typography variant="caption" sx={{ color: '#9aa0a6', fontSize: '0.6rem', whiteSpace: 'nowrap' }}>
+                  {new Date(at(step.key)).toLocaleDateString()}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 export default function OrderInquiriesPage({ onLogout }) {
   usePageTitle('/order-inquiries');
   const [orders, setOrders] = useState([]);
@@ -265,6 +331,15 @@ export default function OrderInquiriesPage({ onLogout }) {
                   </TableCell>
                   <TableCell>
                     <Chip label={order.status} color={STATUS_COLORS[order.status] || 'default'} size="small" />
+                    {/* Compact progress dots so the timeline is visible at a
+                        glance without opening Details (see StatusTimeline). */}
+                    <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                      {TIMELINE_STEPS.map((step, idx) => {
+                        const currentIdx = TIMELINE_STEPS.findIndex((s) => s.key === order.status);
+                        const reached = order.status === 'rejected' ? false : currentIdx >= idx;
+                        return <Box key={step.key} sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: reached ? colors.brandPrimary : '#e0e0e0' }} />;
+                      })}
+                    </Box>
                   </TableCell>
                   <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>{renderActions(order)}</TableCell>
@@ -309,6 +384,10 @@ export default function OrderInquiriesPage({ onLogout }) {
                   <Typography variant="body2" mb={1}>{details.payment_reference}</Typography>
                 </>
               )}
+              <Typography variant="subtitle2">Status timeline</Typography>
+              <Box mb={1.5}>
+                <StatusTimeline history={parseHistory(details)} currentStatus={details.status} />
+              </Box>
               <Typography variant="subtitle2">Notes</Typography>
               <Typography variant="body2">{details.notes || '—'}</Typography>
             </Box>

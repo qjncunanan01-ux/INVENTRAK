@@ -3671,6 +3671,13 @@
                 },
                 "total": {
                   "type": "number"
+                },
+                "stock_status": {
+                  "type": "string",
+                  "enum": ["out_of_stock", "critical", "low_stock", "in_stock"]
+                },
+                "critical_level": {
+                  "type": "number"
                 }
               }
             }
@@ -5015,6 +5022,11 @@
           },
           "current_qty": {
             "type": "number"
+          },
+          "expiry_date": {
+            "type": "string",
+            "nullable": true,
+            "description": "Best-before date of the affected stock lot (expiry alerts only)."
           },
           "status": {
             "type": "string"

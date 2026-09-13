@@ -112,6 +112,9 @@ CREATE TABLE IF NOT EXISTS inventory_alerts (
   threshold REAL,
   current_qty REAL,
   status TEXT DEFAULT 'active',
+  -- Best-before alerts only: the lot date the alert is warning about.
+  -- NULL for low_stock alerts.
+  expiry_date TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   resolved_at TEXT,
   FOREIGN KEY(product_id) REFERENCES products(id),

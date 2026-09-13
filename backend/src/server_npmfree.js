@@ -9,6 +9,7 @@ const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificat
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
 const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
+const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./critical-level');
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
@@ -126,6 +127,10 @@ let salesTransactions = [];
 let nextSaleId = 1;
 let alerts = [];
 let nextAlertId = 1;
+
+// Memoized movement-aware critical levels (see critical-level.js). Declared up
+// here because bootstrap() derives alerts before the helper block below runs.
+let criticalCache = { at: 0, map: new Map() };
 
 // verificationCodes: HMAC-SHA256 hash -> { user_id, expires_at }
 let verificationCodes = new Map();
@@ -321,40 +326,16 @@ function bootstrap() {
 
   seedSales();
 
-  // Seed low-stock alerts from the seeded inventory (any location below the
-  // 80-unit threshold), mirroring the SQLite seeder's alert inserts exactly —
-  // same PRNG stock, same product/location order, so both backends produce the
-  // identical alert set. Only on a fresh boot (alerts empty) so real event-
-  // driven alerts are never overwritten, and persisted once for Firestore
-  // instead of once per alert.
+  // Low-stock alerts are DERIVED, not seeded: refreshAlerts() reconciles them
+  // against each product's movement-aware critical level once the seeded sales
+  // history exists, so a fresh boot produces the identical alert set the
+  // SQLite backend derives. Only on a fresh boot (alerts empty) so real event-
+  // driven alerts are never overwritten. Deferred to the next tick because
+  // bootstrap() runs before the module's `let stockLots` has been evaluated.
   if (alerts.length === 0) {
-    const inv = getInventory();
-    const locations = inv.locations || [];
-    (inv.items || []).forEach((item) => {
-      const productId = item.product && item.product.id;
-      if (productId == null) return;
-      Object.entries(item.locations || {}).forEach(([locName, qty]) => {
-        if (Number(qty) >= LOW_STOCK_THRESHOLD) return;
-        const locationId = locations.indexOf(locName) + 1;
-        if (alerts.some(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.status === 'active')) {
-          return;
-        }
-        alerts.push({
-          id: nextAlertId++,
-          product_id: Number(productId),
-          location_id: Number(locationId),
-          product_name: (item.product && item.product.name) || `Product ${productId}`,
-          location_name: locations[Number(locationId) - 1] || 'All',
-          alert_type: 'low_stock',
-          threshold: LOW_STOCK_THRESHOLD,
-          current_qty: Number(qty),
-          status: 'active',
-          created_at: new Date().toISOString(),
-          resolved_at: null
-        });
-      });
+    process.nextTick(() => {
+      try { refreshAlerts(); } catch (err) { console.error('[alerts] initial refresh failed:', err.message); }
     });
-    if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
   }
 
   if (!readJSON(movementsFile)) writeJSON(movementsFile, []);
@@ -526,15 +507,35 @@ function getInventory() {
   return inv;
 }
 
-// Alerts mirror the SQLite backend: they are created when a movement drops a
-// location below the threshold (not auto-derived on every read), and persist
-// until resolved. (Declared at the top so bootstrap() can hydrate them.)
+// ===== Derived alerts (mirrors the SQLite backend) =====
+//
+// Alerts are DERIVED rather than stored by hand: low-stock alerts come from
+// each product's movement-aware critical level (critical-level.js) and
+// best-before alerts come from the FEFO lot ledger. Same shared module, same
+// numbers, so the two backends stay byte-identical (contract-tested).
 
+// Memoized for a minute so a stock movement never re-runs the FSN pass
+// (declared with the other module state, above bootstrap()).
+function criticalLevels(now = Date.now()) {
+  if (criticalCache.map.size && now - criticalCache.at < 60000) return criticalCache.map;
+  const products = (readJSON(productsFile) || []).map((p, idx) => ({ id: idx + 1, name: p.name, price: p.price }));
+  const sales = salesTransactions.length ? salesTransactions : (readJSON('@sales') || []);
+  criticalCache = { at: now, map: criticalLevelMap(products, sales) };
+  return criticalCache.map;
+}
+
+function criticalLevelOf(productId) {
+  return criticalLevelFromMap(criticalLevels(), productId);
+}
+
+// Raised by a movement that drops a location to/below its critical level.
 function upsertLowStockAlert(productId, locationId, qty) {
-  if (qty >= LOW_STOCK_THRESHOLD) return;
-  const existing = alerts.find(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.status === 'active');
+  const threshold = criticalLevelOf(productId);
+  if (qty > threshold) return;
+  const existing = alerts.find(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.alert_type === 'low_stock' && a.status === 'active');
   if (existing) {
     existing.current_qty = qty;
+    existing.threshold = threshold;
     if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
     return;
   }
@@ -547,13 +548,140 @@ function upsertLowStockAlert(productId, locationId, qty) {
     product_name: (item && item.product && item.product.name) || `Product ${productId}`,
     location_name: inv.locations[Number(locationId) - 1] || 'All',
     alert_type: 'low_stock',
-    threshold: LOW_STOCK_THRESHOLD,
+    threshold,
     current_qty: qty,
+    expiry_date: null,
     status: 'active',
     created_at: new Date().toISOString(),
     resolved_at: null
   });
   if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
+}
+
+// Reconcile every active low-stock alert against the current critical levels:
+// raise, refresh, and auto-resolve — the same pass the SQLite backend runs.
+function refreshLowStockAlerts() {
+  const inv = getInventory();
+  const map = criticalLevels();
+  const locations = inv.locations || [];
+  const live = new Set();
+
+  (inv.items || []).forEach((item) => {
+    const productId = Number(item.product && item.product.id);
+    if (!Number.isFinite(productId)) return;
+    const level = criticalLevelFromMap(map, productId);
+    Object.entries(item.locations || {}).forEach(([locName, qty]) => {
+      const locationId = locations.indexOf(locName) + 1;
+      if (!locationId) return;
+      const quantity = Number(qty) || 0;
+      if (quantity > level) return;
+      live.add(`${productId}:${locationId}`);
+      const existing = alerts.find(a => a.product_id === productId && a.location_id === locationId && a.alert_type === 'low_stock' && a.status === 'active');
+      if (existing) {
+        existing.current_qty = quantity;
+        existing.threshold = level;
+        return;
+      }
+      alerts.push({
+        id: nextAlertId++,
+        product_id: productId,
+        location_id: locationId,
+        product_name: (item.product && item.product.name) || `Product ${productId}`,
+        location_name: locations[locationId - 1] || 'All',
+        alert_type: 'low_stock',
+        threshold: level,
+        current_qty: quantity,
+        expiry_date: null,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        resolved_at: null
+      });
+    });
+  });
+
+  alerts.forEach(a => {
+    if (a.alert_type !== 'low_stock' || a.status !== 'active') return;
+    if (!live.has(`${a.product_id}:${a.location_id}`)) {
+      a.status = 'resolved';
+      a.resolved_at = new Date().toISOString();
+    }
+  });
+  if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
+}
+
+// Best-before alerts derived from the FEFO lot ledger: a lot still in stock
+// expiring inside the window raises 'expiring_soon', a past-date lot raises
+// 'expired'. threshold carries the DAYS REMAINING (negative once past).
+const EXPIRY_WARNING_DAYS = 30;
+
+function refreshExpiryAlerts(now = new Date()) {
+  const today = new Date(now.getTime());
+  today.setUTCHours(0, 0, 0, 0);
+  const inv = getInventory();
+  const locations = inv.locations || [];
+  const live = new Set();
+
+  // Collapse the lot ledger to one row per (product, location, expiry).
+  const grouped = new Map();
+  for (const lot of stockLots) {
+    if (!lot.expiry_date || Number(lot.qty) <= 0) continue;
+    const key = `${lot.product_id}:${lot.location_id}:${lot.expiry_date}`;
+    grouped.set(key, (grouped.get(key) || 0) + Number(lot.qty));
+  }
+
+  for (const [key, qty] of grouped) {
+    const [rawProduct, rawLocation, expiry] = key.split(':');
+    const productId = Number(rawProduct);
+    const locationId = Number(rawLocation);
+    const exp = new Date(`${expiry}T00:00:00Z`);
+    if (!Number.isFinite(exp.getTime())) continue;
+    const daysLeft = Math.round((exp.getTime() - today.getTime()) / 86400000);
+    if (daysLeft > EXPIRY_WARNING_DAYS) continue;
+
+    const type = daysLeft < 0 ? 'expired' : 'expiring_soon';
+    live.add(`${productId}:${locationId}:${type}`);
+
+    const flipped = alerts.find(a => a.product_id === productId && a.location_id === locationId && a.alert_type === (type === 'expired' ? 'expiring_soon' : 'expired') && a.status === 'active');
+    if (flipped) { flipped.status = 'resolved'; flipped.resolved_at = new Date().toISOString(); }
+
+    const existing = alerts.find(a => a.product_id === productId && a.location_id === locationId && a.alert_type === type && a.status === 'active');
+    if (existing) {
+      existing.threshold = daysLeft;
+      existing.current_qty = qty;
+      existing.expiry_date = expiry;
+      continue;
+    }
+    const item = (inv.items || []).find(i => i.product && Number(i.product.id) === productId);
+    alerts.push({
+      id: nextAlertId++,
+      product_id: productId,
+      location_id: locationId,
+      product_name: (item && item.product && item.product.name) || `Product ${productId}`,
+      location_name: locations[locationId - 1] || 'All',
+      alert_type: type,
+      threshold: daysLeft,
+      current_qty: qty,
+      expiry_date: expiry,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      resolved_at: null
+    });
+  }
+
+  alerts.forEach(a => {
+    if (a.status !== 'active') return;
+    if (a.alert_type !== 'expiring_soon' && a.alert_type !== 'expired') return;
+    if (!live.has(`${a.product_id}:${a.location_id}:${a.alert_type}`)) {
+      a.status = 'resolved';
+      a.resolved_at = new Date().toISOString();
+    }
+  });
+  if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
+}
+
+function refreshAlerts() {
+  refreshLowStockAlerts();
+  refreshExpiryAlerts();
 }
 
 function computeAlerts() {
@@ -1694,13 +1822,22 @@ const server = http.createServer((req, res) => {
     // Always format the product from the LIVE products file (stable ids + live
     // status); reuse only the snapshot's stock so deactivated products drop
     // out exactly like the SQLite `WHERE status='active'` inventory query.
+    const levelMap = criticalLevels();
     let items = products
       .map((p, idx) => {
         const existing = byId.get(idx + 1);
+        const info = criticalLevelFromMap(levelMap, idx + 1);
+        const total = existing ? existing.total : 0;
         return {
           product: formatProduct(p, idx),
           locations: existing ? existing.locations : {},
-          total: existing ? existing.total : 0
+          total,
+          // Movement-aware reorder bar + the resulting badge (critical-level.js).
+          // The SQLite backend returns the same four fields on every item.
+          critical_level: info.criticalLevel,
+          movement_class: info.classification,
+          movement_label: info.movementLabel,
+          stock_status: stockStatus(total, info.criticalLevel)
         };
       })
       .filter(item => item.product && isProductActive(item.product));
@@ -1717,7 +1854,7 @@ const server = http.createServer((req, res) => {
         total: item.locations[locName] || 0
       }));
     }
-    if (lowStock) items = items.filter(item => item.total < LOW_STOCK_THRESHOLD);
+    if (lowStock) items = items.filter(item => item.total < item.critical_level);
     const locations = inv.locations.map((name, index) => ({ id: index + 1, name }));
     return sendJson(res, 200, { locations, items }, READ_CACHE_TTL);
   }
@@ -2343,8 +2480,9 @@ const server = http.createServer((req, res) => {
       orders.forEach(o => { const s = o.status || 'pending'; if (orderStatusSummary[s] !== undefined) orderStatusSummary[s] += 1; });
 
       const products = readJSON(productsFile) || [];
+      const lvlMap = criticalLevels();
       const lowStock = (inv.items || [])
-        .filter(it => it.total < LOW_STOCK_THRESHOLD)
+        .filter(it => it.total < criticalLevelFromMap(lvlMap, it.product.id))
         .map(it => ({ id: it.product.id, name: it.product.name, total: it.total }))
         .sort((a, b) => a.total - b.total);
 
@@ -2828,11 +2966,14 @@ const server = http.createServer((req, res) => {
         const products = readJSON(productsFile) || [];
         const inv = getInventory();
         const movements = readJSON(movementsFile) || [];
-        const orders = readJSON(orderFile) || [];        const totalProducts = products.filter(isProductActive).length;
-          const totalStock = inv.items.reduce((sum, i) => sum + i.total, 0);
-        // Per-PRODUCT total below the 80-unit threshold — matches the
-        // SQLite backend so the contract test passes.
-        const lowStockItems = inv.items.filter((i) => i.total < LOW_STOCK_THRESHOLD).length;
+        const orders = readJSON(orderFile) || [];
+        const totalProducts = products.filter(isProductActive).length;
+        const totalStock = inv.items.reduce((sum, i) => sum + i.total, 0);
+        // Per-PRODUCT total below the movement-aware critical level (see
+        // critical-level.js) — matches the SQLite backend so the contract
+        // test passes.
+        const levelMap = criticalLevels();
+        const lowStockItems = inv.items.filter((i) => i.total < criticalLevelFromMap(levelMap, i.product.id)).length;
         const totalLocations = inv.locations.length;
         const pendingInquiries = orders.filter(o => o.status === 'pending').length;
         const totalSales = salesTransactions.reduce((sum, s) => sum + s.total_amount, 0);
@@ -2861,9 +3002,10 @@ const server = http.createServer((req, res) => {
         // exactly so contract parity holds) ----
 
         // 1. Low-stock items: name + total, sorted ascending.
+        const lvlMap2 = criticalLevels();
         const lowStockList = inv.items
           .map(i => ({ id: i.product.id, name: i.product.name, total: i.total }))
-          .filter(i => i.total < LOW_STOCK_THRESHOLD)
+          .filter(i => i.total < criticalLevelFromMap(lvlMap2, i.id))
           .sort((a, b) => a.total - b.total)
           .slice(0, 20);
 
@@ -3102,11 +3244,19 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.split('?')[0] === '/api/alerts') {
     return requireAuth(req, res, true, (req, res) => {
       const status = new URL(url, 'http://localhost').searchParams.get('status') || 'active';
+      // Derived alerts (movement-aware low stock + shelf life) are reconciled
+      // before reading so the feed can never go stale between movements.
+      refreshAlerts();
       // resolved_at is null for open alerts (SQLite returns null); Firestore
       // maps null → '' in storage, so normalize both back to null for parity.
+      // expiry_date is present on every SQLite row (null for low_stock).
       const list = alerts
         .filter(a => a.status === status)
-        .map(a => ({ ...a, resolved_at: a.resolved_at === undefined || a.resolved_at === '' ? null : a.resolved_at }));
+        .map(a => ({
+          ...a,
+          resolved_at: a.resolved_at === undefined || a.resolved_at === '' ? null : a.resolved_at,
+          expiry_date: a.expiry_date === undefined || a.expiry_date === '' ? null : a.expiry_date
+        }));
       return sendJson(res, 200, list);
     });
   }

@@ -483,12 +483,21 @@ export default function DashboardPage({ user, onLogout }) {
         setModalData(
           alerts
             .filter(a => a.status === 'active' || !a.status)
-            .map(a => ({
-              id: a.id,
-              type: a.alert_type || 'low_stock',
-              message: `${a.product_name || `Product #${a.product_id}`} at ${a.location_name || 'a location'} — ${a.current_qty} units below ${a.threshold ?? 80}`,
-              created_at: a.created_at,
-            }))
+            .map(a => {
+              // Expiry alerts carry the best-before date + days remaining in
+              // `threshold`; low-stock alerts keep the qty-below-level shape.
+              const isExpiry = a.alert_type === 'expiring_soon' || a.alert_type === 'expired';
+              const message = isExpiry
+                ? `${a.product_name || `Product #${a.product_id}`} at ${a.location_name || 'a location'} — ${a.current_qty} units ${a.alert_type === 'expired' ? 'already EXPIRED' : `expire in ${a.threshold} day${a.threshold === 1 ? '' : 's'}`} (best before ${a.expiry_date || 'unknown'})`
+                : `${a.product_name || `Product #${a.product_id}`} at ${a.location_name || 'a location'} — ${a.current_qty} units below ${a.threshold ?? 80}`;
+              return {
+                id: a.id,
+                type: a.alert_type || 'low_stock',
+                expiry_date: a.expiry_date || null,
+                message,
+                created_at: a.created_at,
+              };
+            })
         );
       } else {
         const lowEntries = [];
@@ -969,6 +978,7 @@ export default function DashboardPage({ user, onLogout }) {
                             <TableCell><strong>Alert ID</strong></TableCell>
                             <TableCell><strong>Type</strong></TableCell>
                             <TableCell><strong>Description</strong></TableCell>
+                            <TableCell><strong>Best Before</strong></TableCell>
                             <TableCell><strong>Date</strong></TableCell>
                           </>
                         )}
@@ -1078,8 +1088,15 @@ export default function DashboardPage({ user, onLogout }) {
                           {activeModal.key === 'alerts' && (
                             <>
                               <TableCell>#{item.id}</TableCell>
-                              <TableCell><Chip label={item.type || 'Alert'} size="small" color="error" /></TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={item.type === 'expired' ? 'Expired' : item.type === 'expiring_soon' ? 'Expiring Soon' : item.type || 'Alert'}
+                                  size="small"
+                                  color={item.type === 'expired' ? 'error' : item.type === 'expiring_soon' ? 'warning' : 'error'}
+                                />
+                              </TableCell>
                               <TableCell>{item.message || item.description || 'Inventory threshold breach'}</TableCell>
+                              <TableCell>{item.expiry_date || '—'}</TableCell>
                               <TableCell>{item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}</TableCell>
                             </>
                           )}

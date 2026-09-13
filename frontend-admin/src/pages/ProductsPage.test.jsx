@@ -103,7 +103,9 @@ describe('ProductsPage Comboboxes (Category, Brand, Unit)', () => {
     });
   });
 
-  it('binds new/selected entries correctly to the form payload on submission', async () => {
+  // Generous timeout: under parallel vitest runs this multi-waitFor test can
+  // exceed the 5s default and flake the suite (it passes consistently alone).
+  it('binds new/selected entries correctly to the form payload on submission', { timeout: 20000 }, async () => {
     api.apiPost.mockResolvedValue({ id: 3, name: 'New Product' });
 
     renderProductsPage();

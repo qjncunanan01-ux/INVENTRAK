@@ -110,6 +110,14 @@ if (!stockLotColumns.some((c) => c.name === 'expiry_date')) {
   db.exec('ALTER TABLE stock_lots ADD COLUMN expiry_date TEXT');
 }
 
+// Best-before alerts: inventory_alerts gains a nullable expiry_date so an
+// 'expiring_soon' / 'expired' alert can carry the date it is warning about
+// (low_stock alerts leave it NULL). Additive — existing rows are untouched.
+const alertColumns = db.prepare('PRAGMA table_info(inventory_alerts)').all();
+if (!alertColumns.some((c) => c.name === 'expiry_date')) {
+  db.exec('ALTER TABLE inventory_alerts ADD COLUMN expiry_date TEXT');
+}
+
 // Migration: users gained email verification + an optional phone number for
 // SMS codes (signup verification). Existing rows default to VERIFIED (1) so
 // accounts created before verification existed are never locked out; only new
