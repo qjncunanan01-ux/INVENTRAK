@@ -48,11 +48,23 @@ export default function DashboardPage({ user, onLogout }) {
   usePageTitle('/');
   const navigate = useNavigate();
 
-  // Days / Weeks / Months / Quarterly / Annually filter. It narrows the SALES
-  // and MOVEMENT analytics on this page; inventory counts, products and
-  // locations are point-in-time facts and stay unfiltered.
+  // Days / Weeks / Months / Quarterly / Annually filter. Top control updates
+  // all sections, and each individual section can also be filtered independently.
   const [rangePreset, setRangePreset] = useState(DEFAULT_RANGE);
+  const [inventoryRange, setInventoryRange] = useState(DEFAULT_RANGE);
+  const [velocityRange, setVelocityRange] = useState(DEFAULT_RANGE);
+  const [salesOrdersRange, setSalesOrdersRange] = useState(DEFAULT_RANGE);
+  const [movementRange, setMovementRange] = useState(DEFAULT_RANGE);
+
   const range = useMemo(() => resolveRange(rangePreset), [rangePreset]);
+
+  const handleGlobalRangeChange = (nextPreset) => {
+    setRangePreset(nextPreset);
+    setInventoryRange(nextPreset);
+    setVelocityRange(nextPreset);
+    setSalesOrdersRange(nextPreset);
+    setMovementRange(nextPreset);
+  };
 
   // Money surfaces exist for Owner / Super Admin / Admin only. Staff can't
   // reach this page at all (see App.jsx), so this is defense in depth.
@@ -520,30 +532,191 @@ export default function DashboardPage({ user, onLogout }) {
     }
   };
 
-  // Chart data derived from summary state
-  const productValueData = summary.topProducts.map(p => ({
-    name: p.name?.length > 15 ? p.name.substring(0, 15) + '…' : p.name,
-    value: Math.round(p.stock_value)
-  }));
+  // Section 1 — Inventory Analytics (dynamically filtered by inventoryRange)
+  const invRange = useMemo(() => resolveRange(inventoryRange), [inventoryRange]);
+  const productValueData = useMemo(() => {
+    const products = rawData.products || [];
+    let list = products
+      .map(item => ({
+        name: item.name || '',
+        value: Math.round((Number(item.price) || 0) * (Number(item.stock || item.quantity || item.total) || 0))
+      }))
+      .filter(p => p.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
 
-  const movementTypes = {};
-  summary.monthlyMovements.forEach(m => {
-    if (!movementTypes[m.month]) movementTypes[m.month] = {};
-    movementTypes[m.month][m.type] = m.count;
-  });
-  const movementChartData = Object.entries(movementTypes).slice(0, 6).map(([month, types]) => ({
-    month,
-    'stock-in': types['stock-in'] || 0,
-    'stock-out': types['stock-out'] || 0,
-    transfer: types.transfer || 0,
-    adjustment: types.adjustment || 0,
-  }));
+    if (list.length === 0 && summary.topProducts) {
+      list = summary.topProducts.map(p => ({
+        name: p.name?.length > 15 ? p.name.substring(0, 15) + '…' : p.name,
+        value: Math.round(p.stock_value)
+      }));
+    }
+    return list;
+  }, [rawData.products, summary.topProducts, invRange]);
 
-  const orderStatusPieData = [
-    { name: 'Pending', value: summary.orderStatusCounts.pending },
-    { name: 'Approved', value: summary.orderStatusCounts.approved },
-    { name: 'Rejected', value: summary.orderStatusCounts.rejected },
-  ].filter(d => d.value > 0);
+  const locationStockData = useMemo(() => {
+    const inventory = rawData.inventory || [];
+    const locationStockMap = {};
+    inventory.forEach(item => {
+      Object.entries(item.locations || {}).forEach(([loc, qty]) => {
+        locationStockMap[loc] = (locationStockMap[loc] || 0) + Number(qty);
+      });
+    });
+    let list = Object.entries(locationStockMap)
+      .map(([location, stock]) => ({ location, stock }))
+      .sort((a, b) => b.stock - a.stock);
+
+    if (list.length === 0 && summary.locationStock) {
+      list = summary.locationStock;
+    }
+    return list;
+  }, [rawData.inventory, summary.locationStock, invRange]);
+
+  // Section 2 — Product Sales Velocity (dynamically filtered by velocityRange)
+  const velRange = useMemo(() => resolveRange(velocityRange), [velocityRange]);
+  const { fastMovingData, slowMovingData } = useMemo(() => {
+    const isStaff = getCurrentUser()?.role === 'staff';
+    const sales = (rawData.sales || []).filter(s =>
+      isWithinRange(s.transaction_date || s.created_at || s.date, velRange)
+    );
+
+    if (isStaff && sales.length === 0) {
+      const fmt = (list) => (list || []).map(p => ({
+        name: (p.name || 'Product').length > 20 ? (p.name || 'Product').substring(0, 20) + '…' : (p.name || 'Product'),
+        qty: Number(p.qty_sold) || 0,
+      }));
+      return {
+        fastMovingData: fmt(summary.fastMovingProducts || summary.fastMoving).slice(0, 5),
+        slowMovingData: fmt(summary.slowMovingProducts || summary.slowMoving).slice(-5).reverse(),
+      };
+    }
+
+    const productSalesMap = {};
+    sales.forEach(s => {
+      const key = s.product_name || `Product #${s.product_id}`;
+      productSalesMap[key] = (productSalesMap[key] || 0) + (Number(s.qty || s.quantity) || 0);
+    });
+
+    const sortedBySales = Object.entries(productSalesMap).sort((a, b) => b[1] - a[1]);
+    const fastMoving = sortedBySales.slice(0, 5).map(([name, qty]) => ({
+      name: name.length > 20 ? name.substring(0, 20) + '…' : name,
+      qty,
+    }));
+    const slowMoving = sortedBySales.slice(-5).reverse().map(([name, qty]) => ({
+      name: name.length > 20 ? name.substring(0, 20) + '…' : name,
+      qty,
+    }));
+
+    if (fastMoving.length === 0 && summary.fastMoving?.length > 0) {
+      return { fastMovingData: summary.fastMoving, slowMovingData: summary.slowMoving };
+    }
+
+    return { fastMovingData: fastMoving, slowMovingData: slowMoving };
+  }, [rawData.sales, summary, velRange]);
+
+  // Section 3 — Sales & Orders Analytics (dynamically filtered by salesOrdersRange)
+  const soRange = useMemo(() => resolveRange(salesOrdersRange), [salesOrdersRange]);
+  const { monthlySalesChartData, orderStatusPieData } = useMemo(() => {
+    const isStaff = getCurrentUser()?.role === 'staff';
+    const sales = (rawData.sales || []).filter(s =>
+      isWithinRange(s.transaction_date || s.created_at || s.date, soRange)
+    );
+    const inquiries = (rawData.inquiries || []).filter(i =>
+      isWithinRange(i.created_at || i.date, soRange)
+    );
+    const dailySales = rawData.dailySales || [];
+
+    let chartData = [];
+    if (isStaff && dailySales.length > 0) {
+      const monthlySalesMapChart = {};
+      dailySales.forEach(d => {
+        if (isWithinRange(d.date, soRange)) {
+          const month = (d.date || '').substring(0, 7);
+          if (month) monthlySalesMapChart[month] = (monthlySalesMapChart[month] || 0) + (Number(d.value) || 0);
+        }
+      });
+      chartData = Object.entries(monthlySalesMapChart)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .slice(-12)
+        .map(([month, value]) => ({ month, value: Math.round(value) }));
+    } else {
+      const monthlySalesMapChart = {};
+      sales.forEach(s => {
+        const month = (s.transaction_date || s.created_at || '').substring(0, 7);
+        if (month) monthlySalesMapChart[month] = (monthlySalesMapChart[month] || 0) + (Number(s.total_amount || s.total_price) || 0);
+      });
+      chartData = Object.entries(monthlySalesMapChart)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .slice(-12)
+        .map(([month, value]) => ({ month, value: Math.round(value) }));
+    }
+
+    if (chartData.length === 0 && summary.monthlySalesChart?.length > 0) {
+      chartData = summary.monthlySalesChart;
+    }
+
+    const pending = inquiries.filter(i => i.status === 'pending').length;
+    const approved = inquiries.filter(i => i.status === 'approved' || i.status === 'fulfilled').length;
+    const rejected = inquiries.filter(i => i.status === 'rejected' || i.status === 'cancelled').length;
+
+    let pieData = [
+      { name: 'Pending', value: pending },
+      { name: 'Approved', value: approved },
+      { name: 'Rejected', value: rejected },
+    ].filter(d => d.value > 0);
+
+    if (pieData.length === 0 && summary.orderStatusCounts) {
+      pieData = [
+        { name: 'Pending', value: summary.orderStatusCounts.pending || 0 },
+        { name: 'Approved', value: summary.orderStatusCounts.approved || 0 },
+        { name: 'Rejected', value: summary.orderStatusCounts.rejected || 0 },
+      ].filter(d => d.value > 0);
+    }
+
+    return { monthlySalesChartData: chartData, orderStatusPieData: pieData };
+  }, [rawData, summary, soRange]);
+
+  // Section 4 — Stock Movement Analytics (dynamically filtered by movementRange)
+  const movRange = useMemo(() => resolveRange(movementRange), [movementRange]);
+  const { movementChartData } = useMemo(() => {
+    const movements = (rawData.movements || []).filter(m =>
+      isWithinRange(m.created_at || m.transaction_date || m.date, movRange)
+    );
+
+    const monthTypeMap = {};
+    movements.forEach(m => {
+      const month = (m.created_at || m.transaction_date || '').substring(0, 7);
+      if (!month) return;
+      const key = `${month}|${m.type}`;
+      if (!monthTypeMap[key]) monthTypeMap[key] = { month, type: m.type, count: 0 };
+      monthTypeMap[key].count += 1;
+    });
+
+    let monthlyMovements = Object.values(monthTypeMap)
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .slice(-12);
+
+    if (monthlyMovements.length === 0 && summary.monthlyMovements?.length > 0) {
+      monthlyMovements = summary.monthlyMovements;
+    }
+
+    const movementTypes = {};
+    monthlyMovements.forEach(m => {
+      if (!movementTypes[m.month]) movementTypes[m.month] = {};
+      movementTypes[m.month][m.type] = m.count;
+    });
+
+    const chartData = Object.entries(movementTypes).slice(0, 6).map(([month, types]) => ({
+      month,
+      'stock-in': types['stock-in'] || 0,
+      'stock-out': types['stock-out'] || 0,
+      transfer: types.transfer || 0,
+      adjustment: types.adjustment || 0,
+    }));
+
+    return { movementChartData: chartData };
+  }, [rawData.movements, summary, movRange]);
+
   const ORDER_STATUS_COLORS = ['#f9a825', '#1f640e', '#d32f2f'];
 
   const panels = [
@@ -592,10 +765,15 @@ export default function DashboardPage({ user, onLogout }) {
     );
   }
 
-  const SectionLabel = ({ children }) => (
-    <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1, mt: 3, fontWeight: 700, letterSpacing: 1.2 }}>
-      {children}
-    </Typography>
+  const SectionLabel = ({ children, rangeValue, onRangeChange }) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 1.5, mt: 3.5 }}>
+      <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 1.2, fontSize: '0.78rem' }}>
+        {children}
+      </Typography>
+      {onRangeChange && (
+        <RangeFilter value={rangeValue} onChange={onRangeChange} compact />
+      )}
+    </Box>
   );
 
   const NoData = ({ msg }) => (
@@ -617,9 +795,9 @@ export default function DashboardPage({ user, onLogout }) {
           <Chip label={`${summary.lowStockItems} low-stock location(s)`} color="warning" size="small" />
         )}
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          {/* Shared Days/Weeks/Months/Quarterly/Annually filter. Drives the
-              sales + movement analytics below (not the inventory counts). */}
-          <RangeFilter value={rangePreset} onChange={setRangePreset} compact />
+          {/* Shared Days/Weeks/Months/Quarterly/Annually filter. Updates global
+              state and syncs sub-filters. */}
+          <RangeFilter value={rangePreset} onChange={handleGlobalRangeChange} compact />
           {lastRefreshed && (
             <Typography variant="caption" color="text.secondary" aria-live="polite">
               Updated {lastRefreshed.toLocaleTimeString()}
@@ -667,7 +845,7 @@ export default function DashboardPage({ user, onLogout }) {
         ))}
       </Grid>
 
-      {/* ─── Charts Row 1: Stock value + Stock per location ─── */}
+      {/* ─── Charts Row 1: Stock value + Stock per location (Live Point-in-Time) ─── */}
       <SectionLabel>Inventory Analytics</SectionLabel>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
@@ -691,9 +869,9 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2} fontWeight={700}>Available Stock per Location</Typography>
-            {summary.locationStock.length > 0 ? (
+            {locationStockData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={summary.locationStock} margin={{ bottom: 10 }}>
+                <BarChart data={locationStockData} margin={{ bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
                   <XAxis dataKey="location" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
@@ -707,7 +885,9 @@ export default function DashboardPage({ user, onLogout }) {
       </Grid>
 
       {/* ─── Charts Row 2: Fast-moving + Slow-moving ─── */}
-      <SectionLabel>Product Sales Velocity</SectionLabel>
+      <SectionLabel rangeValue={velocityRange} onRangeChange={setVelocityRange}>
+        Product Sales Velocity
+      </SectionLabel>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
@@ -716,9 +896,9 @@ export default function DashboardPage({ user, onLogout }) {
               <Typography variant="h6" fontWeight={700}>Fast-Moving Products</Typography>
               <Chip label="Top 5" size="small" sx={{ backgroundColor: colors.brandAccent, fontWeight: 600 }} />
             </Box>
-            {summary.fastMoving.length > 0 ? (
+            {fastMovingData.length > 0 ? (
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={summary.fastMoving} layout="vertical" margin={{ left: 10 }}>
+                <BarChart data={fastMovingData} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
@@ -736,9 +916,9 @@ export default function DashboardPage({ user, onLogout }) {
               <Typography variant="h6" fontWeight={700}>Slow-Moving Products</Typography>
               <Chip label="Bottom 5" size="small" sx={{ backgroundColor: '#fff8e1', fontWeight: 600 }} />
             </Box>
-            {summary.slowMoving.length > 0 ? (
+            {slowMovingData.length > 0 ? (
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={summary.slowMoving} layout="vertical" margin={{ left: 10 }}>
+                <BarChart data={slowMovingData} layout="vertical" margin={{ left: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
                   <XAxis type="number" tick={{ fontSize: 11 }} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
@@ -752,16 +932,18 @@ export default function DashboardPage({ user, onLogout }) {
       </Grid>
 
       {/* ─── Charts Row 3: Monthly Sales + Order Status ─── */}
-      <SectionLabel>Sales & Orders Analytics</SectionLabel>
+      <SectionLabel rangeValue={salesOrdersRange} onRangeChange={setSalesOrdersRange}>
+        Sales & Orders Analytics
+      </SectionLabel>
       <Grid container spacing={3}>
         <Grid item xs={12} md={7}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2} fontWeight={700}>Monthly Sales Value</Typography>
             {!moneyVisible ? (
               <NoData msg="Hidden for your role" />
-            ) : summary.monthlySalesChart.length > 0 ? (
+            ) : monthlySalesChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={summary.monthlySalesChart}>
+                <LineChart data={monthlySalesChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(15,60,18,0.08)" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `P${(v / 1000).toFixed(0)}k`} />
@@ -803,7 +985,9 @@ export default function DashboardPage({ user, onLogout }) {
       </Grid>
 
       {/* ─── Charts Row 4: Movement distribution + Monthly trends ─── */}
-      <SectionLabel>Stock Movement Analytics</SectionLabel>
+      <SectionLabel rangeValue={movementRange} onRangeChange={setMovementRange}>
+        Stock Movement Analytics
+      </SectionLabel>
       <Grid container spacing={3}>
         <Grid item xs={12} md={5}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
@@ -1151,6 +1335,7 @@ function StatCard({ panel, loading, onClick, index = 0, masked = false }) {
       transition={{ duration: 0.4, delay: index * 0.05, ease: 'easeOut' }}
       whileHover={{ y: -4, boxShadow: '0 12px 32px rgba(0,0,0,0.15)' }}
       whileTap={{ scale: 0.98 }}
+      style={{ height: '100%' }}
     >
       <Tooltip title="Click to view detailed item list" arrow placement="top">
         <LiquidGlassCard intensity="low" color="rgba(255, 255, 255, 0.05)">
@@ -1162,6 +1347,7 @@ function StatCard({ panel, loading, onClick, index = 0, masked = false }) {
           aria-label={`${panel.label}: ${loading ? 'loading' : display}. Click to inspect.`}
           sx={{
             p: 2.5,
+            height: '100%',
             backgroundColor: 'rgba(255, 255, 255, 0.85)',
             borderRadius: 3,
             borderLeft: `4px solid ${panel.color}`,
