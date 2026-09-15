@@ -26,7 +26,7 @@ import LiquidGlassCard from '../components/LiquidGlassCard';
 import RangeFilter from '../components/RangeFilter';
 import { MONEY_MASK } from '../components/Money';
 import { DEFAULT_RANGE, isWithinRange, resolveRange } from '../dateRange';
-import { canSeeMoney } from '../roles';
+import { canSeeMoney, isManagement } from '../roles';
 import { useNavigate } from 'react-router-dom';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
@@ -66,9 +66,10 @@ export default function DashboardPage({ user, onLogout }) {
     setMovementRange(nextPreset);
   };
 
-  // Money surfaces exist for Owner / Super Admin / Admin only. Staff can't
-  // reach this page at all (see App.jsx), so this is defense in depth.
-  const moneyVisible = canSeeMoney(getCurrentUser()?.role || 'admin');
+  const userRole = getCurrentUser()?.role || user?.role || 'admin';
+  const isExecutive = isManagement(userRole); // owner & super_admin ONLY (full financial oversight)
+  const isStaffRole = userRole === 'staff';
+  const moneyVisible = isExecutive;
   const [summary, setSummary] = useState({
     totalProducts: 0, totalStock: 0, lowStockItems: 0, totalLocations: 0,
     pendingInquiries: 0, totalSales: 0, totalMovements: 0, activeAlerts: 0,
@@ -823,26 +824,40 @@ export default function DashboardPage({ user, onLogout }) {
 
       <SectionLabel>Sales & Orders</SectionLabel>
       <Grid container spacing={2}>
-        {panels.slice(4, 8).map((panel, index) => (
-          <Grid item xs={12} sm={6} md={3} key={panel.label}>
-            <StatCard
-              panel={panel}
-              loading={loading}
-              onClick={handleCardClick}
-              index={index + 4}
-              masked={Boolean(panel.money) && !moneyVisible}
-            />
-          </Grid>
-        ))}
+        {panels.slice(4, 8).map((panel, index) => {
+          const isMasked = panel.key === 'customers' ? !isExecutive : (Boolean(panel.money) && !isExecutive);
+          return (
+            <Grid item xs={12} sm={6} md={3} key={panel.label}>
+              <StatCard
+                panel={panel}
+                loading={loading}
+                onClick={handleCardClick}
+                index={index + 4}
+                masked={isMasked}
+                maskLabel={isMasked ? "Executive Only" : ""}
+              />
+            </Grid>
+          );
+        })}
       </Grid>
 
       <SectionLabel>Activity</SectionLabel>
       <Grid container spacing={2}>
-        {panels.slice(8, 12).map((panel, index) => (
-          <Grid item xs={12} sm={6} md={3} key={panel.label}>
-            <StatCard panel={panel} loading={loading} onClick={handleCardClick} index={index + 8} />
-          </Grid>
-        ))}
+        {panels.slice(8, 12).map((panel, index) => {
+          const isMasked = panel.key === 'monthlySalesTx' ? !isExecutive : (panel.key === 'inquiries' ? isStaffRole : false);
+          return (
+            <Grid item xs={12} sm={6} md={3} key={panel.label}>
+              <StatCard
+                panel={panel}
+                loading={loading}
+                onClick={handleCardClick}
+                index={index + 8}
+                masked={isMasked}
+                maskLabel={isMasked ? (panel.key === 'inquiries' ? 'Admin / Exec Only' : 'Executive Only') : ''}
+              />
+            </Grid>
+          );
+        })}
       </Grid>
 
       {/* ─── Charts Row 1: Stock value + Stock per location (Live Point-in-Time) ─── */}
@@ -851,8 +866,8 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2} fontWeight={700}>Top Products by Stock Value</Typography>
-            {!moneyVisible ? (
-              <NoData msg="Hidden for your role" />
+            {!isExecutive ? (
+              <NoData msg="🔒 Executive Access Required (Owner / Super Admin Only)" />
             ) : productValueData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={productValueData} margin={{ bottom: 30 }}>
@@ -939,8 +954,8 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={7}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2} fontWeight={700}>Monthly Sales Value</Typography>
-            {!moneyVisible ? (
-              <NoData msg="Hidden for your role" />
+            {!isExecutive ? (
+              <NoData msg="🔒 Executive Access Required (Owner / Super Admin Only)" />
             ) : monthlySalesChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={monthlySalesChartData}>
@@ -957,7 +972,9 @@ export default function DashboardPage({ user, onLogout }) {
         <Grid item xs={12} md={5}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2} fontWeight={700}>Order Status Summary</Typography>
-            {orderStatusPieData.length > 0 ? (
+            {isStaffRole ? (
+              <NoData msg="🔒 Admin / Executive Access Required" />
+            ) : orderStatusPieData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
                 <PieChart>
                   <Pie
@@ -1323,10 +1340,9 @@ export default function DashboardPage({ user, onLogout }) {
 }
 
 // ─── Reusable stat card component with Motion Primitives-style animation ───
-function StatCard({ panel, loading, onClick, index = 0, masked = false }) {
-  // `masked` renders the peso placeholder for roles without revenue
-  // visibility. The card stays clickable so the non-monetary detail list is
-  // still reachable.
+function StatCard({ panel, loading, onClick, index = 0, masked = false, maskLabel = 'Executive Access Only' }) {
+  // `masked` renders the placeholder for roles without financial or executive
+  // visibility.
   const display = masked ? MONEY_MASK : panel.value;
   return (
     <motion.div
@@ -1337,21 +1353,21 @@ function StatCard({ panel, loading, onClick, index = 0, masked = false }) {
       whileTap={{ scale: 0.98 }}
       style={{ height: '100%' }}
     >
-      <Tooltip title="Click to view detailed item list" arrow placement="top">
+      <Tooltip title={masked ? `Restricted: ${maskLabel}` : "Click to view detailed item list"} arrow placement="top">
         <LiquidGlassCard intensity="low" color="rgba(255, 255, 255, 0.05)">
         <Paper
-          onClick={() => onClick(panel)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(panel); } }}
-          tabIndex={0}
+          onClick={() => !masked && onClick(panel)}
+          onKeyDown={(e) => { if (!masked && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(panel); } }}
+          tabIndex={masked ? -1 : 0}
           role="button"
-          aria-label={`${panel.label}: ${loading ? 'loading' : display}. Click to inspect.`}
+          aria-label={`${panel.label}: ${loading ? 'loading' : display}.`}
           sx={{
             p: 2.5,
             height: '100%',
-            backgroundColor: 'rgba(255, 255, 255, 0.85)',
+            backgroundColor: masked ? 'rgba(245, 245, 245, 0.85)' : 'rgba(255, 255, 255, 0.85)',
             borderRadius: 3,
-            borderLeft: `4px solid ${panel.color}`,
-            cursor: 'pointer',
+            borderLeft: `4px solid ${masked ? '#9e9e9e' : panel.color}`,
+            cursor: masked ? 'default' : 'pointer',
             transition: 'box-shadow 0.2s ease-in-out',
             backdropFilter: 'blur(8px)',
             '&:focus-visible': {
@@ -1371,9 +1387,9 @@ function StatCard({ panel, loading, onClick, index = 0, masked = false }) {
               <Box sx={{ color: 'text.secondary', opacity: 0.5 }} aria-hidden="true">{panel.icon}</Box>
             </motion.div>
           </Box>
-          <Typography variant="h5" color="text.primary" sx={{ fontWeight: 700 }}>
+          <Typography variant="h5" color={masked ? 'text.secondary' : 'text.primary'} sx={{ fontWeight: 700 }}>
             {loading ? '…' : masked ? (
-              <Box component="span" sx={{ letterSpacing: '0.15em' }}>{MONEY_MASK}</Box>
+              <Box component="span" sx={{ letterSpacing: '0.15em', opacity: 0.65 }}>{panel.prefix ? `${panel.prefix} ***,***` : '***'}</Box>
             ) : (
               <AnimatedCounter
                 target={panel.numericValue ?? 0}
@@ -1383,8 +1399,8 @@ function StatCard({ panel, loading, onClick, index = 0, masked = false }) {
               />
             )}
           </Typography>
-          <Typography variant="caption" color="primary" sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>
-            Click to inspect →
+          <Typography variant="caption" color={masked ? 'text.secondary' : 'primary'} sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>
+            {masked ? `🔒 ${maskLabel || 'Restricted'}` : 'Click to inspect →'}
           </Typography>
         </Paper>
         </LiquidGlassCard>
