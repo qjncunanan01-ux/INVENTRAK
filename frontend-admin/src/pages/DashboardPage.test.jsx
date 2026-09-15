@@ -153,11 +153,11 @@ describe('DashboardPage data wiring', () => {
     await waitFor(() => {
       expect(screen.getByText('Sales This Month')).toBeInTheDocument();
       // Both peso KPI cards show the mask, never the amount.
-      expect(screen.getAllByText('••••').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText(/🔒/i).length).toBeGreaterThanOrEqual(2);
     }, { timeout: 4000 });
     expect(screen.queryByText('P12,340')).not.toBeInTheDocument();
     // The revenue-bearing charts are replaced by an explicit placeholder.
-    expect(screen.getAllByText('Hidden for your role').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Executive Access Required/i).length).toBeGreaterThanOrEqual(1);
     // Fast/slow movers fall back to the public summary's ranked lists (the
     // raw ledger is role-blocked for staff). recharts labels don't render in
     // jsdom's 0x0 ResponsiveContainer, so assert the empty-state placeholder
