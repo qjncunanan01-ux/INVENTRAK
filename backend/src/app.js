@@ -52,7 +52,7 @@ function enrichInquiryRows(rows) {
     try {
       const raw = JSON.parse(row.products || '[]');
       if (Array.isArray(raw)) parsed = raw;
-    } catch {}
+    } catch { }
     return { ...row, products_detail: parsed };
   });
 }
@@ -582,11 +582,13 @@ const app = express();
 
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 app.use(cors({
-  origin: ALLOWED_ORIGINS.length > 0 ? (origin, cb) => {
-    // Allow requests with no origin (curl, server-to-server) or listed origins
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true);
-    else cb(null, false);
-  } : undefined, // undefined = allow all (local dev)
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (ALLOWED_ORIGINS.length === 0) return cb(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return cb(null, true);
+    cb(null, false);
+  },
   credentials: true,
 }));
 app.use(bodyParser.json());
@@ -1128,7 +1130,7 @@ app.post(
     // (backup for a lost authenticator app). Recovery codes are hashed at
     // rest and consumed on use.
     let recoveryHashes = [];
-    try { recoveryHashes = JSON.parse(user.mfa_recovery || '[]'); } catch {}
+    try { recoveryHashes = JSON.parse(user.mfa_recovery || '[]'); } catch { }
     let usedRecovery = false;
     let codeOk = verifyTOTP(user.mfa_secret, req.body.code);
     if (!codeOk && matchRecoveryCode(recoveryHashes, req.body.code, hashCode)) {
@@ -2227,8 +2229,8 @@ app.post(
       notes || '',
       now,
       user ||
-        req.user?.username ||
-        'system'
+      req.user?.username ||
+      'system'
     );
 
     const ensureStockRow = db.prepare(
@@ -2613,7 +2615,7 @@ app.post(
         'INSERT INTO stock_adjustments (product_id, location_id, new_qty, reason, status) VALUES (?, ?, ?, ?, ?)'
       )
       .run(product_id, location_id, new_qty, reason || '', 'pending');
-    
+
     audit('stock.adjustment.created', {
       userId: req.user.id,
       username: req.user.username,
@@ -3343,7 +3345,7 @@ app.put(
     try {
       const parsed = JSON.parse(existing.status_history || '[]');
       if (Array.isArray(parsed)) history = parsed;
-    } catch {}
+    } catch { }
     if (history.length === 0) {
       history.push({ status: existing.status, at: existing.created_at });
     }
@@ -3440,7 +3442,7 @@ app.post(
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
         if (decoded && decoded.id) userId = decoded.id;
-      } catch {}
+      } catch { }
     }
 
     // Line items are normalized to a canonical shape (see product-lines.js):
@@ -3977,8 +3979,8 @@ app.post(
       product.price,
       total,
       customer_name ||
-        req.user?.username ||
-        'anonymous'
+      req.user?.username ||
+      'anonymous'
     );
 
     res.status(201).json({

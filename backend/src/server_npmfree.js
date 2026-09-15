@@ -731,13 +731,12 @@ function sendJson(res, status, payload, cacheControl) {
   const headers = {
     'Content-Type': 'application/json',
     'X-Request-Id': requestId,
-    // JSON API payloads are never documents: default-src 'none' is the
-    // strictest (and correct) posture for them.
+    'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin') || '*',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
     'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
   };
-  // Cache-Control for read-heavy endpoints: public GET responses that
-  // return the same data for the same query benefit from a short TTL.
-  // Mutations (POST/PUT/DELETE) and auth endpoints stay uncacheable.
   if (cacheControl) headers['Cache-Control'] = cacheControl;
   res.writeHead(status, headers);
   res.end(JSON.stringify(payload));
@@ -835,7 +834,13 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'OPTIONS') {
-    res.writeHead(204);
+    const origin = req.headers.origin || '*';
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+    });
     return res.end();
   }
 

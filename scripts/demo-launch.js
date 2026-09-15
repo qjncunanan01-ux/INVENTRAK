@@ -36,9 +36,10 @@ function log(msg) {
 
 function isPortUp(port, host = '127.0.0.1', timeoutMs = 2000) {
   return new Promise((resolve) => {
-    const req = http.get({ host, port, path: '/api/openapi.json', timeout: timeoutMs }, (res) => {
+    const req = http.get({ host, port, path: port === 4001 ? '/api/health' : '/', timeout: timeoutMs }, (res) => {
+      const ok = res.statusCode < 400;
       req.destroy();
-      resolve(true);
+      resolve(ok);
     });
     req.on('error', () => resolve(false));
     req.on('timeout', () => {
@@ -176,9 +177,10 @@ async function startAdmin() {
     return;
   }
   log(`  ▶ starting admin dashboard (first build can take ~30-60s)...`);
-  run('npx react-scripts start', {
+  run(`npx vite --host 0.0.0.0 --port ${ADMIN_PORT}`, {
     cwd: ADMIN,
     env: { PORT: String(ADMIN_PORT), CI: 'false', REACT_APP_API_BASE_URL: `http://localhost:${BACKEND_PORT}` },
+    onStderr: (s) => { if (s.trim()) log(`  [admin] ${s.trim()}`); },
   });
   for (let i = 0; i < 90; i++) {
     await wait(1000);
