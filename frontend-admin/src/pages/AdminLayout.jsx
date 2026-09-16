@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Chip, Collapse, Divider, Drawer, IconButton, Stack, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, Chip, Divider, Drawer, IconButton, Stack, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MenuOutlined from '@mui/icons-material/MenuOutlined';
 import MenuOpenOutlined from '@mui/icons-material/MenuOpenOutlined';
 import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import CompareArrowsOutlined from '@mui/icons-material/CompareArrowsOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
@@ -24,9 +22,11 @@ import { ADMIN_TIER, STAFF_TIER, roleMeta } from '../roles';
 import { brandSidebar, colors } from '../theme';
 import Breadcrumbs from '../components/Breadcrumbs';
 
-// Grouped so module items read as a clean collapsible dropdown hierarchy.
-// `roles` on each item drives the role-based nav. The split follows the role
-// spec (see src/roles.js):
+// One flat, always-expanded module list: every module is its own visible row
+// under a small section header — nothing is buried inside a collapsed
+// accordion. Sections group the modules the way the daily workflow reads
+// (see the stock → catalog → money → governance flow), and `roles` on each
+// item drives the role-based nav per the role spec (see src/roles.js):
 //
 //   ADMIN_TIER (admin, super_admin, owner) — everything, because every one of
 //     these roles may see money, pricing and business analytics.
@@ -44,18 +44,21 @@ const NAV_SECTIONS = [
   },
   {
     label: 'Inventory',
-    collapsible: true,
     items: [
       { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined, roles: STAFF_TIER },
-      { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined, roles: STAFF_TIER },
-      { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined, roles: STAFF_TIER },
-      { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined, roles: STAFF_TIER },
       { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined, roles: ADMIN_TIER },
     ],
   },
   {
+    label: 'Stock Control',
+    items: [
+      { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined, roles: STAFF_TIER },
+      { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined, roles: STAFF_TIER },
+      { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined, roles: STAFF_TIER },
+    ],
+  },
+  {
     label: 'Catalog & Orders',
-    collapsible: true,
     items: [
       { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ADMIN_TIER },
       { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: STAFF_TIER },
@@ -63,19 +66,17 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    label: 'Governance',
-    collapsible: true,
-    items: [
-      { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ADMIN_TIER },
-      { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: ADMIN_TIER },
-    ],
-  },
-  {
     label: 'Insights',
-    collapsible: true,
     items: [
       { label: 'Optimization', path: '/optimization', Icon: InsightsOutlined, roles: ADMIN_TIER },
       { label: 'Reports', path: '/reports', Icon: AssessmentOutlined, roles: ADMIN_TIER },
+    ],
+  },
+  {
+    label: 'Governance',
+    items: [
+      { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ADMIN_TIER },
+      { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: ADMIN_TIER },
     ],
   },
   {
@@ -92,19 +93,6 @@ const EXPANDED_W = 280;
 // mini-variant icon rail (labels hidden, tooltips on hover).
 function NavContent({ collapsed = false, onNavigate }) {
   const location = useLocation();
-  const [expandedGroups, setExpandedGroups] = useState(() => {
-    const initial = {};
-    for (const section of NAV_SECTIONS) {
-      if (section.collapsible) {
-        initial[section.label] = true;
-      }
-    }
-    return initial;
-  });
-
-  const toggleGroup = (label) => {
-    setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
-  };
 
   // Filter the nav to the signed-in account's role. Defaults to admin so a
   // render without a session (tests, pre-login) still shows the full menu.
@@ -136,104 +124,77 @@ function NavContent({ collapsed = false, onNavigate }) {
       </Box>
 
       {sections.map((section) => {
-        const isCollapsible = Boolean(section.collapsible) && !collapsed;
-        const isOpen = expandedGroups[section.label] ?? true;
-
         return (
           <Box key={section.label}>
-            {collapsed ? (
-              <Divider sx={{ borderColor: 'rgba(255,255,255,0.18)', my: 1 }} />
-            ) : isCollapsible ? (
-              <Button
-                fullWidth
-                onClick={() => toggleGroup(section.label)}
-                endIcon={isOpen ? <ExpandLess sx={{ fontSize: 18, color: 'rgba(255,255,255,0.85)' }} /> : <ExpandMore sx={{ fontSize: 18, color: 'rgba(255,255,255,0.85)' }} />}
-                sx={{
-                  justifyContent: 'space-between',
-                  px: 2,
-                  py: 0.75,
-                  mb: 0.5,
-                  color: 'rgba(255,255,255,0.85)',
-                  textTransform: 'uppercase',
-                  letterSpacing: 1.2,
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  borderRadius: 1.5,
-                  '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.12)',
-                  },
-                }}
-              >
-                {section.label}
-              </Button>
-            ) : (
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  textTransform: 'uppercase',
-                  letterSpacing: 1.2,
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  opacity: 0.75,
-                  mb: 1,
-                  px: 2,
-                }}
-              >
-                {section.label}
-              </Typography>
-            )}
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'block',
+                textTransform: 'uppercase',
+                letterSpacing: 1.2,
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                opacity: 0.75,
+                mb: 1,
+                px: 2,
+                // Collapsed rail: just a divider between icon groups.
+                ...(collapsed
+                  ? {
+                      px: 0,
+                      mb: 0.5,
+                      '&::before': {
+                        content: '""',
+                        display: 'block',
+                        margin: '4px auto 8px',
+                        width: '60%',
+                        height: 1,
+                        backgroundColor: 'rgba(255,255,255,0.25)',
+                      },
+                    }
+                  : {}),
+              }}
+            >
+              {collapsed ? '' : section.label}
+            </Typography>
 
-            <Collapse in={collapsed ? true : isOpen} timeout="auto" unmountOnExit={false}>
-              <Stack spacing={0.5} alignItems={collapsed ? 'center' : 'stretch'}>
-                {section.items.map(({ label, path, Icon }) => {
-                  const active = location.pathname === path;
-                  const isSubItem = isCollapsible;
-                  const button = (
-                    <Button
-                      component={RouterLink}
-                      to={path}
-                      fullWidth={!collapsed}
-                      onClick={onNavigate}
-                      startIcon={<Icon sx={{ fontSize: 20 }} />}
-                      aria-label={collapsed ? label : undefined}
-                      sx={{
-                        justifyContent: collapsed ? 'center' : 'flex-start',
-                        minWidth: collapsed ? 44 : 0,
-                        px: collapsed ? 1 : isSubItem ? 2.5 : 2,
-                        py: 1.2,
-                        borderRadius: 2,
-                        color: '#fff',
-                        backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'transparent',
-                        borderLeft: active ? `3px solid ${colors.brandSecondary}` : '3px solid transparent',
-                        fontWeight: active ? 700 : 500,
-                        '&:hover': {
-                          backgroundColor: 'rgba(255,255,255,0.24)',
-                        },
-                      }}
-                    >
-                      {collapsed ? null : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {isSubItem && (
-                            <Typography variant="caption" sx={{ opacity: 0.6, fontSize: '0.9rem', lineHeight: 1 }}>
-                              •
-                            </Typography>
-                          )}
-                          <span>{label}</span>
-                        </Box>
-                      )}
-                    </Button>
-                  );
-                  return collapsed ? (
-                    <Tooltip key={path} title={label} placement="right" arrow>
-                      {button}
-                    </Tooltip>
-                  ) : (
-                    <Box key={path}>{button}</Box>
-                  );
-                })}
-              </Stack>
-            </Collapse>
+            <Stack spacing={0.5} alignItems={collapsed ? 'center' : 'stretch'}>
+              {section.items.map(({ label, path, Icon }) => {
+                const active = location.pathname === path;
+                const button = (
+                  <Button
+                    component={RouterLink}
+                    to={path}
+                    fullWidth={!collapsed}
+                    onClick={onNavigate}
+                    startIcon={<Icon sx={{ fontSize: 20 }} />}
+                    aria-label={collapsed ? label : undefined}
+                    sx={{
+                      justifyContent: collapsed ? 'center' : 'flex-start',
+                      minWidth: collapsed ? 44 : 0,
+                      px: collapsed ? 1 : 2,
+                      py: 1.1,
+                      borderRadius: 2,
+                      color: '#fff',
+                      backgroundColor: active ? 'rgba(255,255,255,0.18)' : 'transparent',
+                      borderLeft: active ? `3px solid ${colors.brandSecondary}` : '3px solid transparent',
+                      fontWeight: active ? 700 : 500,
+                      '&:hover': {
+                        backgroundColor: 'rgba(255,255,255,0.24)',
+                      },
+                    }}
+                  >
+                    {collapsed ? null : <span>{label}</span>}
+                  </Button>
+                );
+                return collapsed ? (
+                  <Tooltip key={path} title={label} placement="right" arrow>
+                    {button}
+                  </Tooltip>
+                ) : (
+                  <Box key={path}>{button}</Box>
+                );
+              })}
+            </Stack>
           </Box>
         );
       })}
