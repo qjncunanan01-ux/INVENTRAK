@@ -93,6 +93,7 @@ const EXPANDED_W = 280;
 // mini-variant icon rail (labels hidden, tooltips on hover).
 function NavContent({ collapsed = false, onNavigate }) {
   const location = useLocation();
+  const theme = useTheme();
 
   // Filter the nav to the signed-in account's role. Defaults to admin so a
   // render without a session (tests, pre-login) still shows the full menu.
@@ -124,20 +125,33 @@ function NavContent({ collapsed = false, onNavigate }) {
       </Box>
 
       {sections.map((section) => {
+        // Active-section highlight: when one of this section's modules is the
+        // current page, the header glows brand-green. On a long flat nav this
+        // is the quick "where am I" cue — and it reads well on a projector
+        // during the demo. Exact-path match, same rule the module rows use.
+        const sectionActive = section.items.some((item) => item.path === location.pathname);
+
         return (
           <Box key={section.label}>
             <Typography
               variant="caption"
+              component="div"
+              aria-current={sectionActive ? 'true' : undefined}
               sx={{
                 display: 'block',
                 textTransform: 'uppercase',
                 letterSpacing: 1.2,
                 fontSize: '0.68rem',
                 fontWeight: 700,
-                opacity: 0.75,
+                // Active: full-strength brand green + soft glow; idle: dimmed white.
+                color: sectionActive ? colors.brandSecondary : '#fff',
+                opacity: sectionActive ? 1 : 0.75,
+                textShadow: sectionActive ? '0 0 14px rgba(168, 210, 43, 0.55)' : 'none',
                 mb: 1,
                 px: 2,
-                // Collapsed rail: just a divider between icon groups.
+                transition: theme.transitions.create(['color', 'opacity']),
+                // Collapsed rail: the divider itself glows when this section
+                // holds the current page (height stays constant so nothing shifts).
                 ...(collapsed
                   ? {
                       px: 0,
@@ -147,8 +161,11 @@ function NavContent({ collapsed = false, onNavigate }) {
                         display: 'block',
                         margin: '4px auto 8px',
                         width: '60%',
-                        height: 1,
-                        backgroundColor: 'rgba(255,255,255,0.25)',
+                        height: 2,
+                        borderRadius: 1,
+                        backgroundColor: sectionActive ? colors.brandSecondary : 'rgba(255,255,255,0.25)',
+                        boxShadow: sectionActive ? '0 0 8px rgba(168, 210, 43, 0.6)' : 'none',
+                        transition: theme.transitions.create(['background-color']),
                       },
                     }
                   : {}),
