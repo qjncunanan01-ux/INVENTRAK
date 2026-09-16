@@ -14,7 +14,7 @@ const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
 const { generateSecret, verifyTOTP, otpauthUrl, generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode } = require('./totp');
-const { audit } = require('./audit');
+const { audit, AUDIT_LOG_FILE } = require('./audit');
 const { sanitizeObject, isValidName, isValidEmail, isValidPhone } = require('./sanitize');
 const cache = require('./cache');
 const { isDemoAccountBlocked } = require('./demo-accounts');
@@ -877,7 +877,8 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.split('?')[0] === '/api/audit-trail') {
     return requireAuth(req, res, true, (req, res) => {
       try {
-        const auditFile = process.env.AUDIT_LOG_FILE || 'audit.log';
+        // Same file audit.js writes to (see audit.js for the default path).
+        const auditFile = AUDIT_LOG_FILE;
         if (!fs.existsSync(auditFile)) {
           return sendJson(res, 200, { data: [], pagination: { total: 0 } });
         }

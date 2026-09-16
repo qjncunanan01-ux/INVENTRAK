@@ -33,7 +33,7 @@ const {
   relayCallbackUrl,
   googleUsername,
 } = require('./google-auth');
-const { audit } = require('./audit');
+const { audit, AUDIT_LOG_FILE } = require('./audit');
 const { sanitizeObject } = require('./sanitize');
 const {
   ADMIN_TIER,
@@ -4078,8 +4078,10 @@ app.get(
 
 app.get('/api/audit-trail', authenticateToken, adminOnly, (req, res) => {
   try {
-    const auditFile =
-      process.env.AUDIT_LOG_FILE || 'audit.log';
+    // Same path audit.js writes to (env override honored) — reading a
+    // different file than the writer produced is how the trail once came
+    // up empty on deploys where no AUDIT_LOG_FILE was configured.
+    const auditFile = AUDIT_LOG_FILE;
 
     if (!fs.existsSync(auditFile)) {
       return res.json({

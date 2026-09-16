@@ -19,12 +19,17 @@ const eventLabel = (event) => {
   const labels = {
     'auth.login.success': 'Login',
     'auth.login.failed': 'Failed Login',
+    'auth.login.mfa_required': 'MFA Challenge',
+    'auth.login.portal_denied': 'Portal Blocked (Staff)',
+    'auth.lockout': 'Login Lockout',
     'auth.logout': 'Logout',
     'auth.register': 'Registration',
     'auth.email_verified': 'Email Verified',
     'auth.mfa.enabled': 'MFA Enabled',
     'auth.mfa.disabled': 'MFA Disabled',
     'auth.mfa.failed': 'MFA Failed',
+    'auth.role_change': 'Role Changed',
+    'auth.demo_account_blocked': 'Demo Account Blocked',
     'stock.create': 'Stock Created',
     'stock.update': 'Stock Updated',
     'stock.delete': 'Stock Deleted',
@@ -34,14 +39,30 @@ const eventLabel = (event) => {
     'stock.adjustment': 'Stock Adjustment',
     'approval.approved': 'Approved',
     'approval.rejected': 'Rejected',
+    'scan.event': 'QR Scan',
   };
 
   return labels[event] || event;
 };
 
+// Coarse module bucket per event — the audit events carry no module field,
+// so derive one from the event prefix instead of showing a constant.
+const eventModule = (event = '') => {
+  if (event.startsWith('auth.')) return 'Authentication';
+  if (event.startsWith('stock.')) return 'Inventory';
+  if (event.startsWith('approval.')) return 'Approvals';
+  if (event.startsWith('scan.')) return 'QR Scanning';
+  if (event.startsWith('product.')) return 'Products';
+  if (event.startsWith('order.')) return 'Order Inquiries';
+  if (event.startsWith('user.')) return 'User Management';
+  return 'System';
+};
+
 const eventColor = (event) => {
   if (event.includes('failed')) return 'error';
   if (event.includes('delete')) return 'error';
+  if (event.includes('lockout')) return 'error';
+  if (event.includes('portal_denied')) return 'warning';
   if (event.includes('success')) return 'success';
   if (event.includes('approved')) return 'success';
   if (event.includes('rejected')) return 'error';
@@ -77,7 +98,8 @@ export default function AuditTrailPage({ onLogout }) {
       String(log.event || '').toLowerCase().includes(query) ||
       String(log.username || '').toLowerCase().includes(query) ||
       String(log.action || '').toLowerCase().includes(query) ||
-      String(log.module || '').toLowerCase().includes(query)
+      String(log.module || '').toLowerCase().includes(query) ||
+      String(log.ip || '').toLowerCase().includes(query)
     );
   });
 
@@ -164,11 +186,14 @@ export default function AuditTrailPage({ onLogout }) {
                   </TableCell>
 
                   <TableCell>
-                    {log.module || 'Authentication'}
+                    {log.module || eventModule(log.event || log.action || '')}
                   </TableCell>
 
                   <TableCell>
                     {log.description ||
+                      log.error ||
+                      log.reason ||
+                      log.action ||
                       log.event ||
                       '-'}
                   </TableCell>
