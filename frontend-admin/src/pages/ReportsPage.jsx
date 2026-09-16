@@ -5,6 +5,7 @@ import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 import RangeFilter from '../components/RangeFilter';
+import FormulaBanner from '../components/FormulaBanner';
 import { MONEY_MASK } from '../components/Money';
 import { DEFAULT_RANGE, resolveRange, rangeQuery } from '../dateRange';
 import { canSeeMoney } from '../roles';
@@ -65,6 +66,18 @@ export default function ReportsPage({ onLogout }) {
 
       {report ? (
         <>
+          {/* Every peso figure in this report is one of these two sums — shown
+              up top so the panel can trace each number to its source. */}
+          <FormulaBanner
+            title="Report math"
+            items={[
+              'Total sales   = Σ total_amount of all sales in the period   ·   Transactions = COUNT(sales)',
+              'Daily sales   = Σ total_amount grouped per day (the "last N days" comes from the date filter)',
+              'Fast movers   = Σ qty per product, ranked DESC   ·   Low-stock = products with total stock below the critical level',
+            ]}
+            note="Peso values stay masked for roles without revenue visibility — the math is public, the amounts are not."
+          />
+          <Box sx={{ height: 16 }} />
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', mb: 3 }}>
             {[
               ['Total products', s.total_products],

@@ -22,6 +22,7 @@ import FactCheckIcon from '@mui/icons-material/FactCheck'; //Added as of August 
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import AnimatedCounter from '../components/AnimatedCounter';
+import FormulaBanner from '../components/FormulaBanner';
 import LiquidGlassCard from '../components/LiquidGlassCard';
 import RangeFilter from '../components/RangeFilter';
 import { MONEY_MASK } from '../components/Money';
@@ -823,7 +824,19 @@ export default function DashboardPage({ user, onLogout }) {
       </Grid>
 
       <SectionLabel>Sales & Orders</SectionLabel>
-      <Grid container spacing={2}>
+      {/* The math every peso figure on this row is derived from — mirrors the
+          analytics/summary aggregation in the backend. */}
+      <FormulaBanner
+        dense
+        title="Sales & Orders card math"
+        items={[
+          'Total Sales   = Σ total_amount of every sale inside the selected date range',
+          'This Month    = Σ total_amount where sale month = current month   ·   Transactions = sale count',
+          'Pending       = inquiries with status "pending"   ·   Alerts = active low-stock / expiry entries',
+        ]}
+        note="Peso values are executive-only (Owner / Super Admin) — other roles see the count, never the amount."
+      />
+      <Grid container spacing={2} sx={{ mt: 0.25 }}>
         {panels.slice(4, 8).map((panel, index) => {
           const isMasked = panel.key === 'customers' ? !isExecutive : (Boolean(panel.money) && !isExecutive);
           return (
@@ -903,7 +916,17 @@ export default function DashboardPage({ user, onLogout }) {
       <SectionLabel rangeValue={velocityRange} onRangeChange={setVelocityRange}>
         Product Sales Velocity
       </SectionLabel>
-      <Grid container spacing={3}>
+      {/* Same FSN ranking logic as Optimization → FSN, summarized for the
+          dashboard's top-5 / bottom-5 charts. */}
+      <FormulaBanner
+        dense
+        title="Velocity ranking (FSN basis)"
+        items={[
+          'units sold = Σ qty per product inside the range   ·   rank DESC → top 5 = Fast   ·   rank ASC → bottom 5 = Slow',
+          'Full F/S/N classification (frequency & recency) lives on the Optimization page.',
+        ]}
+      />
+      <Grid container spacing={3} sx={{ mt: 0.25 }}>
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -950,7 +973,17 @@ export default function DashboardPage({ user, onLogout }) {
       <SectionLabel rangeValue={salesOrdersRange} onRangeChange={setSalesOrdersRange}>
         Sales & Orders Analytics
       </SectionLabel>
-      <Grid container spacing={3}>
+      {/* Monthly chart = the same Σ grouped by YYYY-MM the Reports page's
+          daily table totals; the pie is a straight status count. */}
+      <FormulaBanner
+        dense
+        title="Chart math"
+        items={[
+          'Monthly Sales = Σ total_amount grouped by month (YYYY-MM)   ·   Order Status = COUNT(inquiries) per status',
+          'Both inherit the section Days / Weeks / Months / Quarterly / Annually filter.',
+        ]}
+      />
+      <Grid container spacing={3} sx={{ mt: 0.25 }}>
         <Grid item xs={12} md={7}>
           <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, borderRadius: 3 }}>
             <Typography variant="h6" mb={2} fontWeight={700}>Monthly Sales Value</Typography>
