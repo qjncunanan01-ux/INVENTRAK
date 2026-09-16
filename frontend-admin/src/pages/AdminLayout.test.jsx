@@ -149,6 +149,8 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     mockUser = { role: 'staff' };
     setViewport(true);
     renderLayout();
+    // Flat nav: every allowed module is a visible row — nothing hidden in
+    // collapsed groups.
     for (const label of ['Inventory Levels', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Scan & Stock']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
