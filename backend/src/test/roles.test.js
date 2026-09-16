@@ -89,6 +89,44 @@ test('inventory staff keep the daily inventory + scanning modules', async () => 
   }
 });
 
+test('the web-portal flag refuses staff (mobile-only); the same account signs in on mobile', async () => {
+  for (const side of [sqlite, npmfree]) {
+    // Portal login (portal: 'admin' — what the web admin sends): refused with
+    // a specific, actionable code, never a session.
+    const denied = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: 'staff', password: 'staff123', portal: 'admin' },
+    });
+    assert.strictEqual(denied.status, 403, 'staff + portal must be 403');
+    assert.strictEqual(denied.json.code, 'portal_mobile_only');
+    assert.ok(denied.json.error, 'an explanation ships with the refusal');
+
+    // The SAME account without the flag (the mobile app's login) still gets
+    // a full session — staff tools live on the phone by design.
+    const mobile = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: 'staff', password: 'staff123' },
+    });
+    assert.strictEqual(mobile.status, 200, 'staff without portal flag = mobile login');
+    assert.strictEqual(mobile.json.user.role, 'staff');
+    assert.ok(mobile.json.token, 'mobile staff get a session token');
+
+    // Every admin-tier role passes the portal gate.
+    const adminLogins = [
+      ['admin', 'admin123'],
+      ['superadmin', 'super123'],
+      ['owner', 'owner123'],
+    ];
+    for (const [username, password] of adminLogins) {
+      const ok = await call(side.url, '/api/auth/login', {
+        method: 'POST',
+        body: { username, password, portal: 'admin' },
+      });
+      assert.strictEqual(ok.status, 200, `${username} passes the portal gate`);
+    }
+  }
+});
+
 test('management tier may grant privileged roles; a plain admin may not', async () => {
   // A plain admin can grant staff/admin …
   const ownerRole = await both(

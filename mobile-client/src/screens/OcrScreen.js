@@ -18,6 +18,7 @@ import {
   listLocations,
   ocrStockCheck,
   scanProductPhoto,
+  STAFF_TOOLS_ROLES,
   useSessionRole,
   useSessionUsername,
 } from '../api';
@@ -45,8 +46,9 @@ export default function OcrScreen({ navigation }) {
   const isLoggedIn = !!useSessionUsername(null);
   // Staff/admin accounts get the verify-and-count flow after a scan: the
   // physical count is submitted as a PENDING adjustment the owner approves.
+  // STAFF_TOOLS_ROLES = staff + admin + super_admin + owner.
   const role = useSessionRole();
-  const isStaff = role === 'staff' || role === 'admin';
+  const isStaff = STAFF_TOOLS_ROLES.includes(role);
 
   // NOTE: all hooks must stay above the login gate (Rules of Hooks) — the
   // gate below is a render decision, not a hook-count decision.

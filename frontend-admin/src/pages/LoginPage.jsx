@@ -6,24 +6,25 @@ import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../api';
 import ShaderGradientBg from '../components/ShaderGradientBg';
-import { STAFF_TIER, roleMeta } from '../roles';
+import { ADMIN_TIER, roleMeta } from '../roles';
 import { brandSidebar, colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 
-// Demo accounts the quick-fill grid populates — one per sign-in role (see
-// src/roles.js). Kept in one place so the buttons and the credential hints
-// below can never drift apart.
+// Demo accounts the quick-fill grid populates — the three WEB PORTAL roles
+// (see src/roles.js). Staff is deliberately absent: per the role spec the
+// Inventory Staff experience is the MOBILE app only (QR scanning, counts,
+// adjustment requests) — the backend refuses a staff login sent with the
+// portal flag (403 portal_mobile_only). Kept in one place so the buttons and
+// the credential hints below can never drift apart.
 const DEMO_ACCOUNTS = [
   { label: 'Owner', username: 'owner', password: 'owner123', note: 'full oversight' },
   { label: 'Super Admin', username: 'superadmin', password: 'super123', note: 'accounts & roles' },
   { label: 'Admin', username: 'admin', password: 'admin123', note: 'products & approvals' },
-  { label: 'Staff', username: 'staff', password: 'staff123', note: 'scanning & requests' },
 ];
 
-// Landing route per role. Inventory Staff have no dashboard (it is a money and
-// analytics surface), so they land on the inventory levels page instead.
+// Landing route per role. All portal roles land on the dashboard.
 function homeForRole(role) {
-  return role === 'staff' ? '/inventory' : '/';
+  return '/';
 }
 
 export default function LoginPage({ onLogin }) {
@@ -71,7 +72,10 @@ export default function LoginPage({ onLogin }) {
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        // portal: 'admin' tells the backend this login came from the web
+        // portal, so it refuses mobile-only (staff) accounts with a 403
+        // portal_mobile_only response instead of a session.
+        body: JSON.stringify({ username, password, portal: 'admin' })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -95,12 +99,17 @@ export default function LoginPage({ onLogin }) {
         setLoading(false);
         return;
       }
-      // Staff-or-admin sign-in: customer-app accounts can never open the
-      // dashboard. Staff see a read/request-only subset; admins see all the
-      // store's controls. Register (customer app) hardcodes role 'customer',
-      // so this gate keeps the store's controls out of customer accounts.
-      if (!data.user || !STAFF_TIER.includes(data.user.role)) {
-        setError('This account does not have staff or admin access. Sign in with a staff or admin account.');
+      // Portal gate (belt to the backend's suspenders): the web admin is a
+      // desktop surface for the admin tier only. Staff authenticate fine on
+      // the backend (the 403 above fires when portal is set) — this client
+      // check keeps the door shut even against an older backend that doesn't
+      // send the flag yet.
+      if (!data.user || !ADMIN_TIER.includes(data.user.role)) {
+        setError(
+          data.user && data.user.role === 'staff'
+            ? 'Inventory Staff accounts are mobile-only — scan QR tags and submit counts from the INVENTRAK mobile app instead.'
+            : 'This account does not have web admin access.'
+        );
         return;
       }
       setToken(data.token);
@@ -129,8 +138,8 @@ export default function LoginPage({ onLogin }) {
     setError('');
     try {
       const data = await mfaVerify({ mfaToken, code: mfaCode });
-      if (!data.user || !STAFF_TIER.includes(data.user.role)) {
-        setError('This account does not have staff or admin access.');
+      if (!data.user || !ADMIN_TIER.includes(data.user.role)) {
+        setError('This account does not have web admin access.');
         return;
       }
       setToken(data.token);
@@ -183,8 +192,8 @@ export default function LoginPage({ onLogin }) {
         </Box>
 
         <Typography variant="subtitle1" sx={{ mb: 2, color: colors.textSecondary }}>
-          Sign in with your staff or admin credentials to manage products, inventory, and orders.
-          Roles: Owner, Super Admin, Admin, Inventory Staff.
+          Sign in with your admin credentials to manage products, inventory, and orders.
+          Roles: Owner, Super Admin, Admin — Inventory Staff sign in from the mobile app instead.
         </Typography>
 
         {/* Demo quick-fill: one tap per role populates the account, then press
@@ -238,6 +247,9 @@ export default function LoginPage({ onLogin }) {
           onClick={() => setShowDemo(s => !s)}
         >
           {showDemo ? 'Hide demo credentials' : 'Show demo credentials'} — one tap fills the account, then press Login.
+        </Typography>
+        <Typography variant="caption" sx={{ display: 'block', mb: 3, color: colors.textSecondary }}>
+          📱 Inventory Staff: sign in from the INVENTRAK mobile app to scan QR tags and submit counts — this portal is desktop-only.
         </Typography>
 
         {error ? <Alert severity="error" sx={{ mb: 2 }} aria-live="polite">{error}</Alert> : null}

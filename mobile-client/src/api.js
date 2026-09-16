@@ -144,9 +144,12 @@ export function clearToken() {
 let sessionUsername = null;
 let sessionEmail = null;
 let sessionVerified = false;
-// Account role ('customer' | 'staff' | 'admin') — lets the app show
-// role-gated tools (e.g. the staff scan-and-count flow). Defaults to
-// 'customer' so guest/customer sessions never expose staff features.
+// Account role ('customer' | 'staff' | 'admin' | 'super_admin' | 'owner') —
+// lets the app show role-gated tools (the staff scan-and-count flow).
+// Defaults to 'customer' so guest/customer sessions never expose staff
+// features. Admin-tier roles (admin/super_admin/owner) also unlock the
+// mobile staff tools: they outrank staff, and the spec's mobile app is where
+// EVERYONE scans — the web admin is the desktop-only surface.
 let sessionRole = 'customer';
 const sessionListeners = new Set();
 
@@ -163,7 +166,7 @@ if (isWeb()) {
         sessionUsername = s.username || null;
         sessionEmail = s.email || null;
         sessionVerified = !!s.verified;
-        sessionRole = ['staff', 'admin'].includes(s.role) ? s.role : 'customer';
+        sessionRole = STAFF_TOOLS_ROLES.includes(s.role) ? s.role : 'customer';
       }
     }
   } catch {}
@@ -178,11 +181,15 @@ export function setSessionUsername(name) {
 // Sets the profile fields that ride along with the session (the email the
 // account was registered with, and whether it has passed verification).
 // Kept separate from setSessionUsername so the guest-first flow stays intact.
+// Roles that unlock the on-phone staff tools (scan & count, QR scanner).
+// staff + the whole admin tier — the tier order is least → most privileged.
+export const STAFF_TOOLS_ROLES = ['staff', 'admin', 'super_admin', 'owner'];
+
 export function setSessionDetails({ email, verified, role }) {
   sessionEmail = email || null;
   sessionVerified = !!verified;
-  // Role-gate staff tools: only 'staff'/'admin' accounts unlock them.
-  if (role === 'staff' || role === 'admin') sessionRole = role;
+  // Role-gate staff tools: staff and every admin-tier role unlocks them.
+  if (STAFF_TOOLS_ROLES.includes(role)) sessionRole = role;
   persistWebSession();
   sessionListeners.forEach((fn) => fn(sessionUsername));
 }

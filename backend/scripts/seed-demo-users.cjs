@@ -54,6 +54,12 @@ async function seedSupabase() {
     (data || []).map((row) => [String((row.data || {}).username || '').toLowerCase(), row])
   );
 
+  // `idx` must be unique across the whole table — the store sorts by it and a
+  // collision makes two rows fight over one position (this bit the live DB
+  // once: superadmin and a Google signup both got idx 5). Take the highest
+  // existing idx and count up for every new row.
+  let nextIdx = (data || []).reduce((max, row) => Math.max(max, Number(row.idx) || 0), 0) + 1;
+
   const toUpsert = [];
   for (const demo of DEMO_USERS) {
     const found = existing.get(demo.username);
@@ -72,7 +78,7 @@ async function seedSupabase() {
         };
     toUpsert.push({
       id: found ? found.id : demo.id,
-      idx: found ? found.idx || 0 : demo.id,
+      idx: found ? found.idx || 0 : nextIdx++,
       data: user,
     });
     console.log(`  ✅ ${demo.username}: ${found ? 'reset' : 'created'} as ${demo.role}`);

@@ -259,6 +259,16 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "description": "Forbidden — a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin). Body carries code: portal_mobile_only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalDeniedError"
+                }
+              }
+            }
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
           }
@@ -3189,6 +3199,25 @@
           }
         }
       },
+      "PortalDeniedError": {
+        "type": "object",
+        "required": [
+          "error",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable explanation: staff accounts are mobile-only"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "portal_mobile_only"
+            ]
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -3201,6 +3230,13 @@
           },
           "password": {
             "type": "string"
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "admin"
+            ],
+            "description": "Sent by the web admin portal. When present, mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only — the staff experience is the mobile app only."
           }
         }
       },

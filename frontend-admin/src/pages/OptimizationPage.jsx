@@ -4,6 +4,7 @@ import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
+import FormulaBanner from '../components/FormulaBanner';
 import RangeFilter from '../components/RangeFilter';
 import { MONEY_MASK } from '../components/Money';
 import { RANGE_PRESETS, resolveRange } from '../dateRange';
@@ -129,6 +130,16 @@ export default function OptimizationPage({ onLogout }) {
             sx={{ minWidth: 220, backgroundColor: colors.surface }}
           />
         </Box>
+        <FormulaBanner
+          title="ABC formula"
+          items={[
+            'annualValue = SUM(sales total_amount) per product   (price × 12 when no sales yet)',
+            'rank products by annualValue DESC → cumulative share = cumValue ÷ totalValue × 100',
+            'Class A: cumulative ≤ 70%   ·   Class B: ≤ 90%   ·   Class C: the rest',
+          ]}
+          note="A = the few products driving ~70% of revenue — protect their stock first."
+        />
+        <Box sx={{ height: 16 }} />
         <Table>
           <TableHead>
             <TableRow>
@@ -183,6 +194,16 @@ export default function OptimizationPage({ onLogout }) {
             />
           </Box>
         </Box>
+        <FormulaBanner
+          title="FSN formula"
+          items={[
+            'transactions = sales count in window   ·   frequency = window ÷ transactions   ·   recency = days since last sale',
+            'N (Non-moving): transactions = 0   ·   F (Fast): frequency ≤ 7 days OR recency ≤ 7 days   ·   S (Slow): everything else',
+            `window = ${fsnWindow} days (${rangeCaption}) — change it with the Analysis window filter`,
+          ]}
+          note="N items are dead-stock candidates — clear, discount, or stop reordering."
+        />
+        <Box sx={{ height: 16 }} />
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -234,7 +255,21 @@ export default function OptimizationPage({ onLogout }) {
           </FormControl>
         </Box>
         {metrics ? (
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <FormulaBanner
+              title="EOQ / ROP / Safety stock formulas"
+              items={[
+                'EOQ = √( 2·D·S ÷ H )        D = annual demand · S = ordering cost (₱50) · H = 20% × unit cost',
+                'ROP  = daily demand × lead time (7 days)',
+                'SS   = √D × 0.1             safety buffer for demand spikes',
+                'Turnover = annual demand ÷ avg inventory',
+              ]}
+              note="Reorder when on-hand stock hits the ROP; EOQ is the cheapest batch size to reorder."
+            />
+            </Box>
+            <Box sx={{ height: 16 }} />
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Card sx={{ flex: 1, minWidth: 200, backgroundColor: colors.surface, borderRadius: 3 }}>
               <CardContent>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>Economic Order Quantity</Typography>
@@ -253,7 +288,8 @@ export default function OptimizationPage({ onLogout }) {
                 <Typography variant="h5">{metrics.safetyStock}</Typography>
               </CardContent>
             </Card>
-          </Box>
+            </Box>
+          </>
         ) : (
           <Typography>Select a product to view EOQ, ROP, and safety stock metrics.</Typography>
         )}

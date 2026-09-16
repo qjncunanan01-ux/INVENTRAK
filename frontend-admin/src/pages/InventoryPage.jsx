@@ -1,11 +1,12 @@
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiGet } from '../api';
 import usePageTitle from '../hooks/usePageTitle';
 import { colors } from '../theme';
 import AdminLayout from './AdminLayout';
+import FormulaBanner from '../components/FormulaBanner';
 
 // Status badge per inventory row. The backend stamps each item with its
 // movement-aware critical_level (critical-level.js) + a stock_status badge;
@@ -75,8 +76,88 @@ export default function InventoryPage({ onLogout }) {
       (item.product?.category || '').toLowerCase().includes(q);
   });
 
+  // Summary strip (the "root view"): headline numbers computed from the same
+  // items the detail tables below break down per location. Stock In / Stock
+  // Movement / Stock Adjustments pages remain the per-document details — this
+  // is the at-a-glance rollup at the top of the module.
+  const summary = useMemo(() => {
+    const all = inventory.items || [];
+    const totalUnits = all.reduce((s, it) => s + (Number(it.total) || 0), 0);
+    const perStatus = { out_of_stock: 0, critical: 0, low_stock: 0, in_stock: 0 };
+    let belowCriticalUnits = 0;
+    for (const it of all) {
+      perStatus[statusFor(it)] += 1;
+      const lvl = Number(it.critical_level);
+      if (Number.isFinite(lvl) && lvl > 0 && (Number(it.total) || 0) <= lvl) {
+        belowCriticalUnits += lvl - (Number(it.total) || 0);
+      }
+    }
+    return {
+      skus: all.length,
+      units: totalUnits,
+      perLocation: locs.map((loc) => ({
+        name: loc.name,
+        units: all.reduce((s, it) => s + (Number(it.locations?.[loc.name]) || 0), 0),
+      })),
+      outOfStock: perStatus.out_of_stock,
+      critical: perStatus.critical,
+      lowStock: perStatus.low_stock,
+      healthy: perStatus.in_stock,
+      reorderUnits: belowCriticalUnits,
+    };
+  }, [inventory, locs]);
+
+  const summaryCards = [
+    { label: 'Total units on hand', value: summary.units, color: colors.brandPrimary, hint: 'All locations combined' },
+    { label: 'Active SKUs', value: summary.skus, color: colors.textPrimary, hint: 'Products with an inventory row' },
+    { label: 'Out of stock', value: summary.outOfStock, color: '#c62828', hint: 'Zero units everywhere' },
+    { label: 'Critical', value: summary.critical, color: '#ef6c00', hint: 'At or below the critical level' },
+    { label: 'Low stock', value: summary.lowStock, color: '#b26a00', hint: 'Within 150% of the critical level' },
+    { label: 'Units to reorder', value: summary.reorderUnits, color: '#37648e', hint: 'Gap between stock and critical level' },
+  ];
+
   return (
     <AdminLayout title="Inventory Management" onLogout={onLogout}>
+      <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
+        <Typography variant="h6">Inventory summary</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Rollup across all {locs.length} locations — stock-in documents, movements and adjustments are detailed in their own pages.
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 1.5 }}>
+          {summaryCards.map((card) => (
+            <Box
+              key={card.label}
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                backgroundColor: colors.surface,
+                border: '1px solid rgba(0,0,0,0.06)',
+              }}
+            >
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
+                {card.label}
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: card.color }}>
+                {card.value.toLocaleString()}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
+                {card.hint}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+        {summary.perLocation.length > 0 && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+            Per location:{' '}
+            {summary.perLocation.map((loc, i) => (
+              <span key={loc.name}>
+                {i > 0 ? ' · ' : ''}{loc.name}: <strong>{loc.units.toLocaleString()}</strong>
+              </span>
+            ))}
+          </Typography>
+        )}
+      </Paper>
+
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
           <div>
@@ -126,6 +207,17 @@ export default function InventoryPage({ onLogout }) {
             <Typography variant="subtitle2" color="text.secondary">{locs.length} locations</Typography>
           </Box>
         </Box>
+        <FormulaBanner
+          title="Critical level formula (per product)"
+          items={[
+            'criticalLevel = max( floor(class), ceil(ratePerDay × leadTimeDays × (1 + z)) )',
+            'ratePerDay = units sold per day (FSN window)  ·  z = service factor (how much buffer the class warrants)',
+            'Fast: lead 7d, z 0.65, floor 120   ·   Slow: lead 14d, z 0.50, floor 60   ·   Non-moving: lead 30d, z 0.25, floor 32',
+            'In Stock > 150% of level  ·  Low ≤ 150%  ·  Critical ≤ level  ·  Out = 0',
+          ]}
+          note="Movement-aware: a fast mover gets a much higher bar than dead stock, so alerts fire before a top seller runs dry."
+        />
+        <Box sx={{ height: 16 }} />
         <Table>
           <TableHead>
             <TableRow>

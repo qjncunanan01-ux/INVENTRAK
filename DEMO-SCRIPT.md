@@ -22,8 +22,8 @@ talks to the live backend from any network.
 | 6 | Google sign-in works (optional) | Gmail button appears on the mobile login screen; test users approved in the Google Cloud console |
 
 **Demo credentials (all verified live):**
-- Admin dashboard: `admin` / `admin123`
-- Staff dashboard (role-based access): `staff` / `staff123` — sees only Dashboard, Inventory, Scan & Stock, Stock Movement (view), Stock Adjustments, Stock Transfers, Optimization, Reports. Products, Approvals, Order Inquiries, Locations, and Security are admin-only.
+- Web admin (desktop): `owner` / `owner123` (OWNER — full oversight), `superadmin` / `super123` (SUPER ADMIN — accounts & roles), `admin` / `admin123` (ADMIN — products & approvals)
+- Inventory Staff (`staff` / `staff123`) is **MOBILE-ONLY**: the web admin refuses a staff login with a "use the mobile app" message — that's the feature, not a bug. Staff tools (QR scan, physical count, adjustment requests) live in the phone app.
 - Demo customer (mobile): `customer` / `customer123`
 - Google sign-in: any approved test Gmail — creates/links an account by email
 
@@ -176,10 +176,13 @@ the system without retyping?"*.
      silently corrupt inventory."* (Optionally approve it in Approvals to
      close the loop, or leave it pending — either is fine to demo.)
 3. **Mobile scanner** (phone) → open the app logged in as **`staff` /
-   `staff123`** (any account works for browsing; the count flow needs
-   staff/admin):
+   `staff123`** (any account works for browsing; the count flow needs a
+   staff or admin-tier account — staff tools unlock for staff, admin,
+   super admin and owner on the phone):
    - **Account tab** → the header shows **"Staff Account · staff tools
      unlocked"** and a **Staff Tools** section with **Scan & Count Stock**.
+     The login screen has a **Fill Inventory Staff** quick-fill button so
+     nobody types credentials on stage.
    - Tap it → **Scan a product** → **Take photo** of a label → the match
      stays on screen (no auto-redirect for staff) with the same
      **verify & record physical count** panel: enter the counted qty per

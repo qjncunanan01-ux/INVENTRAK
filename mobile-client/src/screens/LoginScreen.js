@@ -9,15 +9,27 @@ import BackButton from '../BackButton';
 import { useThemeColors } from '../theme-context';
 import AnimatedEntry from '../AnimatedEntry';
 
-// Demo account the quick-fill button populates (matches the seeded
-// customer/customer123 account on both backends). Kept in one place so the
-// button and any hints can never drift apart.
-const DEMO_ACCOUNT = {
-  username: 'customer',
-  password: 'customer123',
-  label: 'Customer',
-  note: 'demo account',
-};
+// Demo accounts the quick-fill buttons populate (matches the seeded accounts
+// on both backends). Customer is the buyer demo; Staff is the on-phone
+// inventory role — staff are MOBILE-only by design (the web admin refuses
+// them), so this is where a staff account signs in. Kept in one place so the
+// buttons and any hints can never drift apart.
+const DEMO_ACCOUNTS = [
+  {
+    username: 'customer',
+    password: 'customer123',
+    label: 'Customer',
+    note: 'demo account',
+    icon: 'account-circle-outline',
+  },
+  {
+    username: 'staff',
+    password: 'staff123',
+    label: 'Inventory Staff',
+    note: 'mobile scan & count',
+    icon: 'clipboard-check-outline',
+  },
+];
 
 // Google sign-in runs through the backend OAuth relay (/api/auth/google/start
 // → Google → /api/auth/google/callback): Expo Go deep links (exp://…) can't be
@@ -94,11 +106,11 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // One tap fills the demo customer so the phone demo never types
-  // credentials on stage (and the form stays clean for real accounts).
-  const fillDemo = () => {
-    setUsername(DEMO_ACCOUNT.username);
-    setPassword(DEMO_ACCOUNT.password);
+  // One tap fills a demo account so the phone demo never types credentials
+  // on stage (and the form stays clean for real accounts).
+  const fillDemo = (account) => {
+    setUsername(account.username);
+    setPassword(account.password);
   };
 
   const handleLogin = async () => {
@@ -216,18 +228,25 @@ export default function LoginScreen({ navigation }) {
         secureTextEntry
         editable={!loading}
       />
-      <TouchableOpacity
-        style={styles.demoBtn}
-        onPress={fillDemo}
-        disabled={loading}
-        activeOpacity={0.85}
-        accessibilityLabel="Fill demo account"
-      >
-        <MaterialCommunityIcons name="account-outline" size={18} color={colors.brandPrimary} />
-        <Text style={styles.demoBtnText}>
-          Fill {DEMO_ACCOUNT.label} account
-        </Text>
-      </TouchableOpacity>
+      {/* Quick-fill: one tap per demo role — buyer and on-phone staff. */}
+      <View style={styles.demoRow}>
+        {DEMO_ACCOUNTS.map((account) => (
+          <TouchableOpacity
+            key={account.username}
+            style={styles.demoBtn}
+            onPress={() => fillDemo(account)}
+            disabled={loading}
+            activeOpacity={0.85}
+            accessibilityLabel={`Fill ${account.label} demo account`}
+          >
+            <MaterialCommunityIcons name={account.icon} size={18} color={colors.brandPrimary} />
+            <View style={{ flexShrink: 1 }}>
+              <Text style={styles.demoBtnText}>Fill {account.label}</Text>
+              <Text style={styles.demoBtnNote}>{account.note}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
       {loading ? (
         <ActivityIndicator size="large" color={colors.brandPrimary} />
       ) : (
@@ -276,7 +295,13 @@ const createStyles = (colors) => StyleSheet.create({
   title: { fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center', color: '#fff' },
   subtitle: { fontSize: 16, marginBottom: 8, textAlign: 'center', color: 'rgba(255,255,255,0.85)' },
   input: { backgroundColor: colors.surface, padding: 14, marginBottom: 16, borderRadius: 10, color: colors.textPrimary, fontSize: 16 },
+  demoRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
   demoBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -286,9 +311,10 @@ const createStyles = (colors) => StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 10,
     paddingVertical: 12,
-    marginBottom: 16,
+    paddingHorizontal: 8,
   },
-  demoBtnText: { fontSize: 14, fontWeight: '700', color: colors.brandPrimary },
+  demoBtnText: { fontSize: 13, fontWeight: '700', color: colors.brandPrimary },
+  demoBtnNote: { fontSize: 11, color: colors.textSecondary },
   linkRow: { alignItems: 'center', marginTop: 14 },
   linkText: { fontSize: 14, color: colors.textSecondary },
   linkStrong: { color: colors.brandPrimary, fontWeight: '700' },

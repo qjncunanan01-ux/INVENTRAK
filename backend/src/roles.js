@@ -37,11 +37,26 @@ const STAFF_TIER = ['staff', ...ADMIN_TIER];
 const ASSIGNABLE_BY_ADMIN = ['staff', 'admin'];
 const ASSIGNABLE_BY_MANAGEMENT = ROLE_ORDER.concat(['customer']);
 
-// The set of roles permitted to sign into the web admin portal.
-const ADMIN_PORTAL_ROLES = STAFF_TIER;
+// The set of roles permitted to sign into the web admin portal (desktop).
+// Inventory Staff is deliberately EXCLUDED: per the role spec the staff
+// experience is the MOBILE application only (QR scanning, physical counts,
+// adjustment requests). The web admin is a desktop surface for the admin
+// tier — a staff login there is refused with a pointer to the mobile app.
+const ADMIN_PORTAL_ROLES = ADMIN_TIER;
 
 function isKnownRole(role) {
   return ROLE_ORDER.includes(role);
+}
+
+/**
+ * Whether `role` may sign into the web admin portal (desktop).
+ * Staff accounts authenticate fine but are mobile-only, so the login
+ * endpoint refuses them with a `portal_mobile_only` error code.
+ * @param {string} role
+ * @returns {boolean}
+ */
+function canAccessAdminPortal(role) {
+  return ADMIN_PORTAL_ROLES.includes(role);
 }
 
 function hasRole(user, allowed) {
@@ -70,4 +85,5 @@ module.exports = {
   hasRole,
   canSeeMoney,
   isManagement,
+  canAccessAdminPortal,
 };

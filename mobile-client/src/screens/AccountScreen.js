@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View, ScrollView } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { clearSession, clearToken, logout, useSessionEmail, useSessionRole, useSessionUsername, useSessionVerified } from '../api';
+import { clearSession, clearToken, logout, STAFF_TOOLS_ROLES, useSessionEmail, useSessionRole, useSessionUsername, useSessionVerified } from '../api';
 import { useCart } from '../cart-context';
 import { useThemeColors } from '../theme-context';
 
@@ -34,7 +34,7 @@ export default function AccountScreen({ route, navigation }) {
   const sessionEmail = useSessionEmail();
   // Staff/admin accounts get a dedicated on-phone scan-and-count entry.
   const role = useSessionRole();
-  const isStaff = role === 'staff' || role === 'admin';
+  const isStaff = STAFF_TOOLS_ROLES.includes(role);
   const username = session || route.params?.username || 'Guest';
   // Logging out clears the basket too: on a shared device the next customer
   // must not inherit the previous user's cart (badge + items).
@@ -68,7 +68,7 @@ export default function AccountScreen({ route, navigation }) {
             {!isLoggedIn
               ? 'Browsing as a guest'
               : isStaff
-                ? `${role === 'admin' ? 'Administrator' : 'Staff'} Account · staff tools unlocked`
+                ? `${ROLE_LABELS[role] || 'Staff'} Account · staff tools unlocked`
                 : 'Customer Account'}
           </Text>
         </View>

@@ -26,6 +26,7 @@ const {
   ASSIGNABLE_BY_ADMIN,
   ASSIGNABLE_BY_MANAGEMENT,
   isKnownRole,
+  canAccessAdminPortal,
 } = require('./roles');
 const {
   verifyGoogleIdToken,
@@ -994,6 +995,20 @@ const server = http.createServer((req, res) => {
         loginLockout.recordFailure(obj.username, sourceIp);
         audit('auth.demo_account_blocked', { username: obj.username, ip: sourceIp });
         return sendJson(res, 401, { error: 'Invalid username or password' });
+      }
+      // Portal gate: Inventory Staff is a MOBILE role (see roles.js). The web
+      // admin is desktop-only, so a staff login FROM THE WEB PORTAL is
+      // refused with a specific code the portal turns into "use the mobile
+      // app". The portal flag is sent by the web admin only; the mobile app
+      // omits it, so staff sign in there freely (mobile staff surfaces gate
+      // themselves server-side by STAFF_TIER). Runs before the MFA branch so
+      // staff-with-MFA gets the portal error, not a challenge.
+      if (obj.portal === 'admin' && !canAccessAdminPortal(user.role)) {
+        audit('auth.login.portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
+        return sendJson(res, 403, {
+          error: 'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
+          code: 'portal_mobile_only',
+        });
       }
       // Admin MFA: when the administrator has enrolled, the password alone
       // yields only a short-lived challenge token, never a session.

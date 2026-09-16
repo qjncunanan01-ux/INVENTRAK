@@ -134,9 +134,14 @@ temp SQLite/JSON dirs — value parity across drivers is asserted, not assumed.
 - **Google sign-in** — server-side OAuth relay (`/api/auth/google/start` +
   `/api/auth/google/callback`) because Expo Go deep links can't be Google
   redirect URIs. Needs `GOOGLE_CLIENT_SECRET` + `GOOGLE_CLIENT_IDS` (DEPLOY.md).
-- **Demo accounts** — `admin/admin123`, `staff/staff123`,
-  `customer/customer123` (quick-fill buttons on both login screens); rejected
-  everywhere when `DISABLE_DEMO_ACCOUNTS=true`.
+- **Demo accounts** — `owner/owner123`, `superadmin/super123`, `admin/admin123`
+  (web portal), `staff/staff123` (MOBILE app only), `customer/customer123`
+  (quick-fill buttons on both login screens); rejected everywhere when
+  `DISABLE_DEMO_ACCOUNTS=true`.
+- **Portal split** — the web admin is a DESKTOP surface for Owner /
+  Super Admin / Admin. A staff login sent with `portal: 'admin'` (what the
+  web portal sends) is refused with `403 portal_mobile_only`; the same
+  account signs in fine on the phone, where the staff tools live.
 
 **Demo (2 min):** sign up with a weak password → rejected with the rule list.
 Wrong password 5× → locked with growing wait. Google button → real Gmail
@@ -178,15 +183,19 @@ a new role is a one-line change instead of a hunt through 40 guards.
 `App.jsx`. Money figures render through `components/Money.jsx`, which masks the
 amount for any role without revenue visibility.
 
-**Inventory Staff land on `/inventory`**, not the dashboard — the dashboard is a
-money + analytics surface, so a staff login is redirected there and the nav
-drops Dashboard/Optimization/Reports entirely.
+**Inventory Staff are MOBILE-ONLY.** The web admin refuses a staff login
+(`403 portal_mobile_only`) — per the role spec, staff work (QR scanning,
+physical counts, adjustment requests) happens in the mobile app, and the web
+admin is a desktop surface for the admin tier. Staff tools on the phone:
+Account tab → *Staff Tools → Scan & Count Stock*, plus the QR tag scanner
+(Catalog → Scan a Product → *Scan a QR/barcode tag*).
 
-**Demo (the money shot):** log in as **staff** → only the inventory modules are
-in the nav, and the peso figures show `••••`. Create an adjustment → *pending*.
-Log out, log in as **admin** (or **owner**) → Approvals shows the request →
-approve → the stock count updates. On the phone: staff account → Account tab →
-*Staff Tools → Scan & Count Stock*.
+**Demo (the money shot):** on the phone, log in as **staff** → Scan & Count
+Stock → scan a product label → correct the count → submit → it's *pending*.
+On the web, log in as **admin** (or **owner**) → Approvals shows the request →
+approve → the stock count updates. On the web admin the peso figures show
+`••••` for staff-tier eyes; every money page (Dashboard, Optimization,
+Reports) belongs to the admin tier.
 
 **Seeding the live database:** the cloud `users` dataset already exists and is
 never overwritten, so a deployed instance keeps only the accounts it was seeded
