@@ -105,6 +105,10 @@ function NavContent({ collapsed = false, onNavigate }) {
     }))
     .filter((section) => section.items.length > 0);
 
+  // First-load stagger: one running index across ALL sections so the slide-in
+  // delay reads as a single top-down wave through the whole sidebar.
+  let rowIndex = 0;
+
   return (
     <>
       <Box sx={{ px: collapsed ? 0 : 2, textAlign: collapsed ? 'center' : 'left' }}>
@@ -176,6 +180,7 @@ function NavContent({ collapsed = false, onNavigate }) {
 
             <Stack spacing={0.5} alignItems={collapsed ? 'center' : 'stretch'}>
               {section.items.map(({ label, path, Icon }) => {
+                const rowStagger = rowIndex++;
                 const active = location.pathname === path;
                 const button = (
                   <Button
@@ -185,6 +190,11 @@ function NavContent({ collapsed = false, onNavigate }) {
                     onClick={onNavigate}
                     startIcon={<Icon sx={{ fontSize: 20 }} />}
                     aria-label={collapsed ? label : undefined}
+                    // First-load polish: a gentle slide-in, staggered per row
+                    // (running counter so the list reads top-down). Global CSS
+                    // keyframes + prefers-reduced-motion guard in index.css.
+                    className="nav-row-enter"
+                    style={{ animationDelay: `${rowStagger * 28}ms` }}
                     sx={{
                       justifyContent: collapsed ? 'center' : 'flex-start',
                       minWidth: collapsed ? 44 : 0,

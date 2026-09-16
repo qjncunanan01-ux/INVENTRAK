@@ -14,6 +14,31 @@ body {
   border-radius: 18px;
 }
 
+/* Sidebar first-load entrance: module rows slide in gently with a small
+   per-row stagger (the row's --stagger index sets the delay). Runs once per
+   mount — navigation re-renders the same elements and never replays it.
+   Users who prefer reduced motion get the rows immediately, no animation. */
+@keyframes nav-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.nav-row-enter {
+  animation: nav-row-in 0.28s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-row-enter {
+    animation: none;
+  }
+}
+
 /* Printable QR tag sheet (components/QrTagSheet.jsx). When the operator prints,
    hide everything except the sheet so only the tags land on paper — the MUI
    dialog itself is neutralised so it does not clip the grid to one screen. */
