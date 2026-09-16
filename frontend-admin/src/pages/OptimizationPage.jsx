@@ -1,4 +1,5 @@
-import { Box, Card, CardContent, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Card, CardContent, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
@@ -16,6 +17,107 @@ const FSN_CHIP_COLOR = { F: 'success', S: 'warning', N: 'error' };
 const FSN_LABEL = { F: 'Fast-moving', S: 'Slow-moving', N: 'Non-moving' };
 
 const fmtNum = (n) => (typeof n === 'number' ? n.toLocaleString() : '—');
+
+// ─── "Why is this A/F?" per-product tooltip ───
+// Shows the EXACT numbers that earned the classification, mirroring the
+// backend walk: ABC ranks by annual value and takes the cumulative share
+// (app.js /api/optimization/abc), FSN reads the same frequency/recency
+// thresholds printed in the formula banners (fsn.js). The banner shows the
+// rule; the tooltip shows this product's evidence.
+const pesoFmt = (n) => `₱${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+function WhyBadge({ title, lines }) {
+  return (
+    <Tooltip
+      title={
+        <Box component="div" sx={{ p: 0.5 }}>
+          <Typography variant="caption" sx={{ display: 'block', fontWeight: 700, mb: 0.5, color: '#a8d22b' }}>
+            {title}
+          </Typography>
+          {lines.map((l) => (
+            <Typography key={l} variant="caption" component="div" sx={{ display: 'block', fontFamily: 'ui-monospace, monospace', fontSize: '0.7rem', whiteSpace: 'pre-wrap' }}>
+              {l}
+            </Typography>
+          ))}
+        </Box>
+      }
+      arrow
+      enterTouchDelay={0}
+      leaveTouchDelay={3000}
+    >
+      <Chip
+        icon={<HelpOutlineIcon />}
+        label="Why?"
+        size="small"
+        variant="outlined"
+        sx={{ ml: 1, cursor: 'help', '& .MuiChip-icon': { fontSize: 14 } }}
+        aria-label={title}
+      />
+    </Tooltip>
+  );
+}
+
+// ABC evidence: the backend ranks by annual value DESC and takes the running
+// cumulative share — so rank + cumShare (computed from the full sorted list)
+// ARE the exact numbers that earned the class.
+function abcWhyLines(item, ev, moneyVisible) {
+  const valueTxt = moneyVisible ? pesoFmt(item.value) : MONEY_MASK;
+  const share = ev.cumShare.toFixed(1);
+  if (item.classification === 'A') {
+    return [
+      `annual value = ${valueTxt}   ·   rank #${ev.rank}`,
+      `cumulative share = ${share}% ≤ 70% → Class A`,
+      'one of the top sellers driving ~70% of revenue — protect its stock first',
+    ];
+  }
+  if (item.classification === 'B') {
+    return [
+      `annual value = ${valueTxt}   ·   rank #${ev.rank}`,
+      `cumulative share = ${share}% (70–90% band) → Class B`,
+      'mid-value middle — review pricing, promotions, and bundling',
+    ];
+  }
+  return [
+    `annual value = ${valueTxt}   ·   rank #${ev.rank}`,
+    `cumulative share = ${share}% > 90% → Class C`,
+    'long tail — light-touch monitoring, avoid overstocking',
+  ];
+}
+
+// FSN evidence: raw window inputs and the threshold that fired. Mirrors
+// fsn.js: F = frequency ≤ 7 OR recency ≤ 7; N = zero txns; else S.
+function fsnWhyLines(item, moneyVisible) {
+  const w = item.windowDays || 90;
+  const revenueTxt = moneyVisible ? pesoFmt(item.valueSold) : MONEY_MASK;
+  if (item.classification === 'N') {
+    return [
+      `transactions in window = 0 (window = ${w} days)`,
+      'rule: zero sales in window → Non-moving (dead stock)',
+      'action: clear, discount, or stop reordering',
+    ];
+  }
+  const freq = item.frequencyDays === null ? '—' : `${fmtNum(item.frequencyDays)} days`;
+  const rec = item.recencyDays === null ? '—' : `${fmtNum(item.recencyDays)} days`;
+  const head = [
+    `transactions = ${fmtNum(item.transactions)} in ${w} days`,
+    `avg days between sales = ${w} ÷ ${fmtNum(item.transactions)} txns = ${freq}`,
+    `last sold ${rec} ago   ·   ${fmtNum(item.totalQty)} units, ${revenueTxt} revenue`,
+  ];
+  if (item.classification === 'F') {
+    const firedFreq = item.frequencyDays !== null && item.frequencyDays <= 7;
+    const firedRec = item.recencyDays !== null && item.recencyDays <= 7;
+    const cause = firedFreq && firedRec
+      ? 'frequency ≤ 7 AND recency ≤ 7 → Fast'
+      : firedFreq
+        ? 'frequency ≤ 7 days → Fast'
+        : 'recency ≤ 7 days (sold this week) → Fast';
+    return [...head, `rule: ${cause}`];
+  }
+  return [
+    ...head,
+    'rule: moves, but neither weekly nor this week → Slow',
+  ];
+}
 
 // FSN's analysis window floors at 7 days server-side, so short presets map to
 // the smallest supported window and "All" maps to the 730-day ceiling.
@@ -96,6 +198,20 @@ export default function OptimizationPage({ onLogout }) {
   });
   const prodList = Array.isArray(products) ? products : [];
 
+  // ABC rank/total for the per-row "Why?" tooltip: computed on the FULL
+  // sorted list (not the search-filtered one) so rank and cumulative share
+  // always match the backend's walk — cum/total in ranking order.
+  const abcEvidence = useMemo(() => {
+    const sorted = Array.isArray(abc) ? abc : [];
+    const total = sorted.reduce((s, i) => s + (Number(i.value) || 0), 0);
+    let cum = 0;
+    const map = new Map();
+    sorted.forEach((item, idx) => {
+      cum += Number(item.value) || 0;
+      map.set(item.id, { rank: idx + 1, cumShare: total > 0 ? (cum / total) * 100 : 0 });
+    });
+    return map;
+  }, [abc]);
   const fsnList = (Array.isArray(fsn) ? fsn : []).filter(item => {
     const q = search.trim().toLowerCase();
     return !q || (item.name || '').toLowerCase().includes(q) || (item.classification || '').toLowerCase() === q;
@@ -153,12 +269,16 @@ export default function OptimizationPage({ onLogout }) {
               <TableRow><TableCell colSpan={3}>Loading…</TableCell></TableRow>
             ) : abcList.length === 0 ? (
               <TableRow><TableCell colSpan={3}>No optimization data available</TableCell></TableRow>
-            ) : abcList.map(item => (
+            ) : abcList.map((item, idx) => (
               <TableRow key={item.id}>
                 <TableCell>{item.name}</TableCell>
                 <TableCell>{item.value}</TableCell>
                 <TableCell>
                   <Chip label={item.classification} color={getClassificationColor(item.classification)} size="small" />
+                  <WhyBadge
+                    title={`${item.name} is Class ${item.classification} — why?`}
+                    lines={abcWhyLines(item, abcEvidence.get(item.id) || { rank: '—', cumShare: 0 }, moneyVisible)}
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -226,6 +346,10 @@ export default function OptimizationPage({ onLogout }) {
                 <TableCell>{item.name}</TableCell>
                 <TableCell>
                   <Chip label={item.classification} color={FSN_CHIP_COLOR[item.classification]} size="small" />
+                  <WhyBadge
+                    title={`${item.name} is ${FSN_LABEL[item.classification]} — why?`}
+                    lines={fsnWhyLines(item, moneyVisible)}
+                  />
                 </TableCell>
                 <TableCell align="right">{fmtNum(item.transactions)}</TableCell>
                 <TableCell align="right">{item.frequencyDays === null ? '—' : fmtNum(item.frequencyDays)}</TableCell>

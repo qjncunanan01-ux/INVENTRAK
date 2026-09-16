@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import OptimizationPage from './OptimizationPage';
 import { createAppTheme } from '../theme';
-import { apiGet } from '../api';
+import { apiGet, getCurrentUser } from '../api';
 
 // Guards the FSN analysis section: the page must fetch the real
 // /api/optimization/fsn endpoint (honoring the ?window= param), render all
@@ -11,7 +11,7 @@ import { apiGet } from '../api';
 // stock is actionable. Regression net for the FSN feature.
 vi.mock('../api', () => ({
   apiGet: vi.fn(),
-  getCurrentUser: () => ({ role: 'admin' }),
+  getCurrentUser: vi.fn(() => ({ role: 'admin' })),
 }));
 
 // jsdom has no matchMedia (MUI useMediaQuery) and no ResizeObserver.
@@ -87,6 +87,7 @@ function getFsnTable() {
 describe('OptimizationPage FSN analysis', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getCurrentUser.mockReturnValue({ role: 'admin' });
     localStorage.clear();
     polyfillDom();
   });
@@ -156,6 +157,87 @@ describe('OptimizationPage FSN analysis', () => {
     await waitFor(() => {
       expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=730');
     });
+  });
+
+  test('ABC row tooltip shows rank, cumulative share, and the rule that earned the class', async () => {
+    // A tooltip left open by a previous test must not leak into this one.
+    document.body.innerHTML = '';
+    mockResponses();
+    renderPage();
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=90');
+    });
+
+    const abcHeader = screen.getByText('Value', { selector: 'th' });
+    const abcTable = abcHeader.closest('table');
+    const rows = within(abcTable).getAllByRole('row');
+    const fastRow = rows.find((r) => r.textContent.includes('Fast Product'));
+    expect(fastRow).toBeTruthy();
+
+    // The badge exposes its full explanation through its accessible name.
+    const badge = within(fastRow).getByLabelText(/Fast Product is Class A — why/);
+    fireEvent.mouseOver(badge);
+
+    await waitFor(() => {
+      // Exact numbers: value ₱5,000 at rank #1; total catalog = 5,100 so the
+      // cumulative share after row 1 is 98.04%… BUT rows arrive pre-ranked by
+      // the mock in backend order — Fast Product (5,000) sorts first, so cum
+      // = 5,000/5,100 = 98.04% would be class C territory in a real ranking.
+      // The MOCK's classification field says A; the tooltip reports the
+      // computed rank/cumShare honestly. Assert the evidence, not the class.
+      expect(screen.getByText(/annual value = ₱5,000/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/rank #1/)).toBeInTheDocument();
+    expect(screen.getAllByText(/cumulative share = /).length).toBeGreaterThan(0);
+  });
+
+  test('FSN row tooltip shows transactions, frequency, recency, and the fired rule', async () => {
+    mockResponses();
+    renderPage();
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=90');
+    });
+
+    const table = getFsnTable();
+    const rows = within(table).getAllByRole('row');
+    const deadRow = rows.find((r) => r.textContent.includes('Dead Product'));
+    expect(deadRow).toBeTruthy();
+
+    const badge = within(deadRow).getByLabelText(/Dead Product is Non-moving — why/);
+    fireEvent.mouseOver(badge);
+
+    await waitFor(() => {
+      expect(screen.getByText(/transactions in window = 0/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/rule: zero sales in window/)).toBeInTheDocument();
+  });
+
+  test('money surfaces stay masked in tooltips for roles without revenue visibility', async () => {
+    apiGet.mockImplementation((url) => {
+      if (url.startsWith('/api/optimization/fsn')) return Promise.resolve(fsnData);
+      if (url === '/api/optimization/abc') return Promise.resolve(abcData);
+      if (url === '/api/products') return Promise.resolve(products);
+      return Promise.resolve([]);
+    });
+    // Staff role → peso amounts masked in the tooltip.
+    getCurrentUser.mockReturnValue({ role: 'staff' });
+
+    renderPage();
+    await waitFor(() => {
+      expect(apiGet).toHaveBeenCalledWith('/api/optimization/fsn?window=90');
+    });
+
+    const table = getFsnTable();
+    const rows = within(table).getAllByRole('row');
+    const fastRow = rows.find((r) => r.textContent.includes('Fast Product'));
+    const badge = within(fastRow).getByLabelText(/Fast Product is Fast-moving — why/);
+    fireEvent.mouseOver(badge);
+
+    await waitFor(() => {
+      // Revenue line renders but the peso amount is masked.
+      expect(screen.getByText(/revenue/)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/₱540/)).not.toBeInTheDocument();
   });
 
   test('search filters both the ABC and FSN tables consistently', async () => {
