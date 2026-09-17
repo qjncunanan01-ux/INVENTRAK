@@ -2633,6 +2633,9 @@ const server = http.createServer((req, res) => {
         // Customers who actually paid for something — distinct names from the
         // sales ledger, regardless of whether they registered.
         customers_paid: new Set(sales.map(s => s.customer_name).filter(Boolean)).size,
+        // The account base: every registered customer account, ordered or
+        // not — the "Total registered customers" KPI beside customers_served.
+        customers_registered: users.filter(u => u.role === 'customer').length,
         pending_approvals: loadRows('adjustment', 'pending').length + loadRows('transfer', 'pending').length,
       };
 
@@ -3190,6 +3193,8 @@ const server = http.createServer((req, res) => {
           users.filter(u => u.role === 'customer' && customerAccountIds.has(Number(u.id)))
         ).size;
         const customersPaid = new Set(salesTransactions.map(t => t.customer_name).filter(Boolean)).size;
+        // The account base: every registered customer account (see /api/reports).
+        const customersRegistered = users.filter(u => u.role === 'customer').length;
 
         // 7. Order status summary (incl. the new 'delivered' state).
         const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
@@ -3214,7 +3219,7 @@ const server = http.createServer((req, res) => {
           pendingInquiries, totalSales, totalMovements, activeAlerts,
           topProducts, monthlyMovements,
           lowStockList, stockByLocation, fastMovingProducts, slowMovingProducts,
-          dailySalesValue, transactionCount, customersServed, customersPaid, orderStatusSummary,
+          dailySalesValue, transactionCount, customersServed, customersPaid, customersRegistered, orderStatusSummary,
           monthlySalesValue, monthlyTransactions, orderStatusCounts
         });
       });

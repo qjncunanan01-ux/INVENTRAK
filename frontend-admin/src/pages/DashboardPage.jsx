@@ -260,6 +260,11 @@ export default function DashboardPage({ user, onLogout }) {
           : (summaryData.customersServed ||
              new Set(sales.map(s => s.customer_name).filter(Boolean)).size);
 
+        // 10b. The account base: every registered customer account, ordered
+        // or not. Admins read it straight off the summary payload; staff (who
+        // can't hit the summary) fall back to 0 rather than a wrong number.
+        const customersRegistered = isStaff ? 0 : (summaryData.customersRegistered || 0);
+
         // 11. Order status counts (staff: use the public summary breakdown,
         // same reason as the pending-inquiries card above).
         const inquiries = Array.isArray(inquiriesData) ? inquiriesData : [];
@@ -366,7 +371,7 @@ export default function DashboardPage({ user, onLogout }) {
         setSummary({
           totalProducts, totalStock, lowStockItems: lowStockCount, totalLocations,
           pendingInquiries, totalSales, totalMovements, activeAlerts,
-          monthlySalesValue, monthlyTransactions, customersServed, orderStatusCounts,
+          monthlySalesValue, monthlyTransactions, customersServed, customersRegistered, orderStatusCounts,
           topProducts: topProductsLive,
           monthlyMovements: monthlyMovementsLive,
           fastMoving, slowMoving, locationStock, monthlySalesChart,
@@ -736,6 +741,7 @@ export default function DashboardPage({ user, onLogout }) {
     { key: 'monthlySales', label: 'Sales This Month', value: summary.monthlySalesValue, numericValue: summary.monthlySalesValue, prefix: 'P', money: true, color: colors.success, icon: <AttachMoneyIcon color="success" />, navigateTo: '/stock-movement' },
     { key: 'sales', label: 'Total Sales (selected range)', value: summary.totalSales, numericValue: summary.totalSales, prefix: 'P', money: true, color: colors.brandPrimary, icon: <AttachMoneyIcon color="primary" />, navigateTo: '/stock-movement' },
     { key: 'customers', label: 'Customers Served', value: summary.customersServed, numericValue: summary.customersServed, color: colors.info, icon: <PeopleIcon color="info" />, navigateTo: '/order-inquiries' },
+    { key: 'customersRegistered', label: 'Total Registered Customers', value: summary.customersRegistered, numericValue: summary.customersRegistered, color: colors.brandSecondary, icon: <PeopleIcon color="secondary" />, navigateTo: '/users' },
     { key: 'orderStatus', label: 'Order Status', value: summary.orderStatusCounts.pending, numericValue: summary.orderStatusCounts.pending, suffix: ' Pending', color: summary.orderStatusCounts.pending > 0 ? colors.warning : colors.success, icon: <ReceiptIcon color="warning" />, navigateTo: '/order-inquiries' },
     // Row 3 — Activity
     { key: 'monthlySalesTx', label: 'Transactions This Month', value: summary.monthlyTransactions, numericValue: summary.monthlyTransactions, color: colors.brandSecondary, icon: <ReceiptIcon />, navigateTo: '/stock-movement' },
@@ -842,7 +848,13 @@ export default function DashboardPage({ user, onLogout }) {
       />
       <Grid container spacing={2} sx={{ mt: 0.25 }}>
         {panels.slice(4, 8).map((panel, index) => {
-          const isMasked = panel.key === 'customers' ? !isExecutive : (Boolean(panel.money) && !isExecutive);
+          // Customers Served is account-based (executive oversight per the
+          // role split); Total Registered Customers is the account base, so
+          // both stay executive-only. Money cards stay executive-only too.
+          const isMasked =
+            panel.key === 'customers' || panel.key === 'customersRegistered'
+              ? !isExecutive
+              : Boolean(panel.money) && !isExecutive;
           return (
             <Grid item xs={12} sm={6} md={3} key={panel.label}>
               <StatCard
@@ -860,7 +872,10 @@ export default function DashboardPage({ user, onLogout }) {
 
       <SectionLabel>Activity</SectionLabel>
       <Grid container spacing={2}>
-        {panels.slice(8, 12).map((panel, index) => {
+        {/* 13 panels total: 4 + 4 above, the last 5 here (orderStatus moved
+            down with the new registered-customers card) — the fifth card
+            simply wraps to a second row. */}
+        {panels.slice(8, 13).map((panel, index) => {
           const isMasked = panel.key === 'monthlySalesTx' ? !isExecutive : (panel.key === 'inquiries' ? isStaffRole : false);
           return (
             <Grid item xs={12} sm={6} md={3} key={panel.label}>

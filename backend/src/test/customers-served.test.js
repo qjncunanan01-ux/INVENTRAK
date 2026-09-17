@@ -120,6 +120,30 @@ test('analytics summary: customersServed follows the same real-customer rule', a
   }
 });
 
+test('customers_registered is the raw account base — rises on signup, orders or not', async () => {
+  for (const side of [sqlite, npmfree]) {
+    const before = await summaryOf(side);
+    assert.ok(Number.isFinite(before.customers_registered), 'customers_registered finite');
+
+    // A fresh signup (no order) must raise the account base immediately —
+    // that is exactly what separates it from customers_served.
+    const fresh = await registerCustomer(side, 'BaseOnly');
+    assert.ok(fresh.token, 'signup succeeded');
+
+    const after = await summaryOf(side);
+    assert.strictEqual(
+      after.customers_registered,
+      before.customers_registered + 1,
+      'registration raises the account base by exactly one'
+    );
+    assert.strictEqual(
+      after.customers_served,
+      before.customers_served,
+      '…but never touches the ordered-from count'
+    );
+  }
+});
+
 test('audit-trail: status filter, limit and offset work on both backends', async () => {
   for (const side of [sqlite, npmfree]) {
     const base = await call(side.url, '/api/audit-trail', { token: side.token.admin });

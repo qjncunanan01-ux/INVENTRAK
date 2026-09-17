@@ -2972,6 +2972,11 @@ app.get('/api/reports', authenticateToken, adminOnly, (req, res) => {
     // sales ledger, regardless of whether they registered (kept for the
     // Reports page "Customers served" line).
     customers_paid: db.prepare('SELECT COUNT(DISTINCT customer_name) as c FROM sales_transactions').get().c,
+    // The account base: every registered customer account, ordered or not —
+    // the "Total registered customers" KPI beside customers_served.
+    customers_registered: db
+      .prepare("SELECT COUNT(*) as c FROM users WHERE role = 'customer'")
+      .get().c,
     pending_approvals:
       db.prepare("SELECT COUNT(*) as c FROM stock_adjustments WHERE status = 'pending'").get().c +
       db.prepare("SELECT COUNT(*) as c FROM stock_transfers WHERE status = 'pending'").get().c,
@@ -3874,6 +3879,10 @@ app.get(
     const customersPaid = db
       .prepare('SELECT COUNT(DISTINCT customer_name) as count FROM sales_transactions')
       .get().count;
+    // The account base: every registered customer account (see /api/reports).
+    const customersRegistered = db
+      .prepare("SELECT COUNT(*) as count FROM users WHERE role = 'customer'")
+      .get().count;
 
     // 7. Order status summary (incl. the new 'delivered' state).
     const statusRows = db
@@ -3918,6 +3927,7 @@ app.get(
       transactionCount,
       customersServed,
       customersPaid,
+      customersRegistered,
       orderStatusSummary,
       monthlySalesValue,
       monthlyTransactions,

@@ -4475,6 +4475,10 @@
                 "type": "integer",
                 "description": "Distinct payer names from the sales ledger (walk-ins included)"
               },
+              "customers_registered": {
+                "type": "integer",
+                "description": "Total registered customer accounts (the account base, ordered or not)"
+              },
               "pending_approvals": {
                 "type": "integer"
               }
@@ -5152,6 +5156,10 @@
           "customersPaid": {
             "type": "integer",
             "description": "Distinct payer names from the sales ledger (walk-ins included)"
+          },
+          "customersRegistered": {
+            "type": "integer",
+            "description": "Total registered customer accounts (the account base, ordered or not)"
           },
           "orderStatusSummary": {
             "type": "object",

@@ -105,6 +105,63 @@ describe('DashboardPage data wiring', () => {
     });
   });
 
+  test('Total Registered Customers card renders the account base from the summary', async () => {
+    // Executive role (owner) — the account base is executive-only, so render
+    // as owner to see the raw count. The card shows it verbatim (0 stays 0 —
+    // never a payer-name fallback).
+    mockRole = 'owner';
+    apiGet.mockImplementation((url) => {
+      const byUrl = {
+        '/api/analytics/summary': { customersRegistered: 12, customersServed: 5 },
+        '/api/inventory': { items: [], locations: [] },
+        '/api/products': [],
+        '/api/locations': [],
+        '/api/order-inquiries': [],
+        '/api/sales': [],
+        '/api/stock-movements': [],
+        '/api/alerts': [],
+      };
+      return Promise.resolve(byUrl[url] !== undefined ? byUrl[url] : []);
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Total Registered Customers')).toBeInTheDocument();
+    });
+    // The counter settles to the exact value once the spring completes.
+    await waitFor(() => {
+      expect(screen.getByText('12')).toBeInTheDocument();
+    }, { timeout: 2000 });
+  });
+
+  test('Total Registered Customers is masked for a role without executive oversight', async () => {
+    mockRole = 'admin'; // admin tier: NOT executive → account base hidden
+    apiGet.mockImplementation((url) => {
+      const byUrl = {
+        '/api/analytics/summary': { customersRegistered: 12, customersServed: 5 },
+        '/api/inventory': { items: [], locations: [] },
+        '/api/products': [],
+        '/api/locations': [],
+        '/api/order-inquiries': [],
+        '/api/sales': [],
+        '/api/stock-movements': [],
+        '/api/alerts': [],
+      };
+      return Promise.resolve(byUrl[url] !== undefined ? byUrl[url] : []);
+    });
+    renderPage();
+
+    // The value must never render raw for non-executives; the card shows the
+    // masked placeholder instead (the label text embeds the lock emoji).
+    await waitFor(() => {
+      expect(screen.getByText('Total Registered Customers')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getAllByText(/Executive Only/).length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText('12')).not.toBeInTheDocument();
+  });
+
   // Money is role-gated (see src/roles.js): a role WITHOUT revenue visibility
   // sees the masked placeholder on every peso surface instead of the amount,
   // and the two money charts collapse to "Hidden for your role". Inventory
