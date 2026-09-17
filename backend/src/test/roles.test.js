@@ -127,6 +127,44 @@ test('the web-portal flag refuses staff (mobile-only); the same account signs in
   }
 });
 
+test('the staff-app flag is staff-exclusive: admins/owners refused, customers refused, staff passes', async () => {
+  for (const side of [sqlite, npmfree]) {
+    // Admin-tier accounts are refused from the staff app — they work in the
+    // web admin; a shared shift device must never hold their broader session.
+    const adminLogins = [
+      ['admin', 'admin123'],
+      ['superadmin', 'super123'],
+      ['owner', 'owner123'],
+    ];
+    for (const [username, password] of adminLogins) {
+      const denied = await call(side.url, '/api/auth/login', {
+        method: 'POST',
+        body: { username, password, portal: 'staff' },
+      });
+      assert.strictEqual(denied.status, 403, `${username} + portal=staff must be 403`);
+      assert.strictEqual(denied.json.code, 'staff_app_exclusive');
+      assert.ok(denied.json.error, 'an explanation ships with the refusal');
+    }
+
+    // Customers are refused too (they shop in the customer app).
+    const customer = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: 'customer', password: 'customer123', portal: 'staff' },
+    });
+    assert.strictEqual(customer.status, 403, 'customer + portal=staff must be 403');
+    assert.strictEqual(customer.json.code, 'staff_app_exclusive');
+
+    // Staff passes the gate and gets a full session.
+    const ok = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: 'staff', password: 'staff123', portal: 'staff' },
+    });
+    assert.strictEqual(ok.status, 200, 'staff + portal=staff must be 200');
+    assert.strictEqual(ok.json.user.role, 'staff');
+    assert.ok(ok.json.token, 'the staff app gets a session token');
+  }
+});
+
 test('management tier may grant privileged roles; a plain admin may not', async () => {
   // A plain admin can grant staff/admin …
   const ownerRole = await both(

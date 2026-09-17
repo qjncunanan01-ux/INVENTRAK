@@ -27,6 +27,7 @@ const {
   ASSIGNABLE_BY_MANAGEMENT,
   isKnownRole,
   canAccessAdminPortal,
+  canAccessStaffPortal,
 } = require('./roles');
 const {
   verifyGoogleIdToken,
@@ -1009,6 +1010,17 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 403, {
           error: 'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
           code: 'portal_mobile_only',
+        });
+      }
+      // Staff-app gate (mirror of the one above): the dedicated staff app is
+      // EXCLUSIVELY for Inventory Staff. Admin-tier accounts are refused —
+      // they work in the web admin — so a shared shift device can never end
+      // up holding an owner/admin session with far broader reach.
+      if (obj.portal === 'staff' && !canAccessStaffPortal(user.role)) {
+        audit('auth.login.staff_portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
+        return sendJson(res, 403, {
+          error: 'The staff app is exclusively for Inventory Staff. Admins and owners use the web admin dashboard.',
+          code: 'staff_app_exclusive',
         });
       }
       // Admin MFA: when the administrator has enrolled, the password alone

@@ -43,6 +43,7 @@ const {
   ASSIGNABLE_BY_MANAGEMENT,
   isKnownRole,
   canAccessAdminPortal,
+  canAccessStaffPortal,
 } = require('./roles');
 // Attach a parsed, normalized `products_detail` array to every inquiry row so
 // clients (admin + mobile) can render per-line prices without re-parsing the
@@ -986,6 +987,18 @@ app.post(
       return res.status(403).json({
         error: 'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
         code: 'portal_mobile_only',
+      });
+    }
+
+    // Staff-app gate (mirror of the one above): the dedicated staff app is
+    // EXCLUSIVELY for Inventory Staff. Admin-tier accounts are refused —
+    // they work in the web admin — so a shared shift device can never end up
+    // holding an owner/admin session with far broader reach.
+    if (req.body.portal === 'staff' && !canAccessStaffPortal(user.role)) {
+      audit('auth.login.staff_portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
+      return res.status(403).json({
+        error: 'The staff app is exclusively for Inventory Staff. Admins and owners use the web admin dashboard.',
+        code: 'staff_app_exclusive',
       });
     }
 

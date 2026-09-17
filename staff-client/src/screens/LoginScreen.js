@@ -9,13 +9,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { login, setSessionDetails, setSessionUsername, setToken, clearToken, clearSession, STAFF_TIER } from '../api';
+import { login, setSessionDetails, setSessionUsername, setToken, clearToken, clearSession } from '../api';
+
+// The ONLY role this app admits — mirrors the server's canAccessStaffPortal.
+const STAFF_TIER_ONLY = ['staff'];
 import { useThemeColors } from '../theme-context';
 
-// Staff sign-in. Deliberately minimal: no signup, no Google, no password
-// reset, no customer quick-fills — accounts are provisioned by the owner
-// (web admin → Security/Users). Customers are refused here AND by the server
-// (`staff_app_forbidden`).
+// Staff sign-in — this app is EXCLUSIVELY for Inventory Staff. The login
+// sends portal: 'staff', which the SERVER enforces (403 staff_app_exclusive
+// for admins/owners/customers), with a client-side role gate as defense in
+// depth. No signup, no Google, no password reset: staff accounts are
+// provisioned by the owner on the web admin.
 const DEMO_STAFF = { username: 'staff', password: 'staff123' };
 
 export default function LoginScreen() {
@@ -36,15 +40,15 @@ export default function LoginScreen() {
     setBusy(true);
     setError('');
     try {
-      const response = await login({ username: u, password });
-      // Client-side staff-tier gate: the server only refuses customers on
-      // portal=admin logins, so a customer account WOULD receive a token
-      // here. Reject it locally before any session state is committed —
-      // the server still enforces staff-tier authorization on every request.
-      if (!STAFF_TIER.includes(response.user?.role)) {
+      const response = await login({ username: u, password, portal: 'staff' });
+      // Defense in depth: the server already refused non-staff roles with
+      // 403 staff_app_exclusive, but if a legacy/unexpected response ever
+      // slips a non-staff session through, reject it before any session
+      // state is committed.
+      if (!STAFF_TIER_ONLY.includes(response.user?.role)) {
         clearToken();
         clearSession();
-        setError('This app is for Inventory Staff only. Customer accounts use the INVENTRAK app.');
+        setError('This app is exclusively for Inventory Staff. Admins and owners use the web admin dashboard.');
         return;
       }
       if (response.token) setToken(response.token);
@@ -57,9 +61,10 @@ export default function LoginScreen() {
       // Successful login flips the session, and the App gate renders the
       // work tabs on the next render — no navigation call needed.
     } catch (err) {
-      // 403 = portal/staff denial (defense in depth); 401 = wrong credentials.
+      // 403 staff_app_exclusive = a non-staff role (admin/owner/customer);
+      // 401 = wrong credentials; 429 = lockout.
       if (err && err.status === 403) {
-        setError('This app is for Inventory Staff only. Customer accounts use the INVENTRAK app.');
+        setError('This app is exclusively for Inventory Staff. Admins and owners use the web admin dashboard.');
       } else if (err && err.status === 429) {
         setError('Too many attempts — wait a moment and try again.');
       } else {
@@ -125,7 +130,8 @@ export default function LoginScreen() {
       </View>
 
       <Text style={styles.footer}>
-        Accounts are created by the owner on the web admin. Customer accounts cannot sign in here.
+        Staff-exclusive: accounts are created by the owner on the web admin.
+        Admin/owner accounts sign in there, not here; customers use the INVENTRAK app.
       </Text>
     </KeyboardAvoidingView>
   );

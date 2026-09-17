@@ -260,7 +260,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Forbidden — a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin). Body carries code: portal_mobile_only.",
+            "description": "Forbidden — a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin, code: portal_mobile_only), or a non-staff role attempted to sign in from the staff app (portal=staff, code: staff_app_exclusive).",
             "content": {
               "application/json": {
                 "schema": {
@@ -3234,9 +3234,10 @@
           "portal": {
             "type": "string",
             "enum": [
-              "admin"
+              "admin",
+              "staff"
             ],
-            "description": "Sent by the web admin portal. When present, mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only — the staff experience is the mobile app only."
+            "description": "Portal flag identifying which app is signing in. portal=admin (web admin): mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only. portal=staff (dedicated staff app): only Inventory Staff is admitted — admins/owners are refused with 403 staff_app_exclusive. Omitted by the customer app."
           }
         }
       },

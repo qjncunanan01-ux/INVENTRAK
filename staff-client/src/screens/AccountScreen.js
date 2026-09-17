@@ -3,19 +3,13 @@ import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { logoutAndClear, useSession } from '../api';
 import { useThemeColors } from '../theme-context';
 
-// Account — minimal on purpose: who is on shift, at what clearance, dark
-// mode, and logout. No orders, no profile editing, no customer features.
-const ROLE_LABEL = {
-  staff: 'Inventory Staff',
-  admin: 'Administrator',
-  super_admin: 'Super Administrator',
-  owner: 'Business Owner',
-};
-
+// Account — minimal on purpose: who is on shift, dark mode, and logout.
+// No orders, no profile editing, no customer features. Only Inventory Staff
+// can hold a session here (enforced by the server's portal gate + login).
 export default function AccountScreen() {
   const { colors, dark, toggleDark } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { username, role } = useSession();
+  const { username } = useSession();
 
   return (
     <View style={styles.container}>
@@ -24,7 +18,7 @@ export default function AccountScreen() {
           <Text style={styles.avatarGlyph}>{String(username || '?').charAt(0).toUpperCase()}</Text>
         </View>
         <Text style={styles.username}>{username || '—'}</Text>
-        <Text style={styles.role}>{ROLE_LABEL[role] || 'Staff'}</Text>
+        <Text style={styles.role}>Inventory Staff</Text>
         <Text style={styles.note}>
           This device is a work tool: scan tags, count stock, and request
           adjustments. Approvals happen on the web admin.
@@ -75,7 +69,7 @@ const createStyles = (colors) =>
     },
     avatarGlyph: { color: '#fff', fontSize: 24, fontWeight: '900' },
     username: { fontSize: 19, fontWeight: '800', color: colors.textPrimary },
-    role: { fontSize: 13, fontWeight: '700', color: colors.workAccent, marginTop: 2 },
+    role: { fontSize: 13, fontWeight: '700', color: colors.brandPrimary, marginTop: 2 },
     note: { fontSize: 12, color: colors.textSecondary, lineHeight: 18, marginTop: 10 },
     row: {
       flexDirection: 'row',

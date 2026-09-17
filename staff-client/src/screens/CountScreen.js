@@ -12,7 +12,7 @@ import {
 import { createStockAdjustment, getInventory, listLocations } from '../api';
 import { useThemeColors } from '../theme-context';
 
-// COUNT — the no-camera path. Search the live inventory, tap a product,
+// COUNT — the no-camera module. Search the live inventory, tap a product,
 // enter the physical quantity per storage area, submit as PENDING
 // adjustments the owner approves on the web admin. Pre-fills every field
 // with the current system stock so a matching count is two taps.
@@ -268,7 +268,7 @@ const createStyles = (colors) =>
       minWidth: 34,
       textAlign: 'right',
     },
-    rowCta: { color: colors.workAccent, fontWeight: '800', fontSize: 13, marginLeft: 10 },
+    rowCta: { color: colors.brandPrimary, fontWeight: '800', fontSize: 13, marginLeft: 10 },
     empty: { color: colors.textSecondary, textAlign: 'center', marginTop: 24, fontSize: 13 },
     err: { color: colors.error, fontSize: 12, paddingHorizontal: 16, marginBottom: 6, lineHeight: 17 },
     // selected / form
@@ -279,7 +279,7 @@ const createStyles = (colors) =>
       paddingTop: 14,
       gap: 10,
     },
-    back: { color: colors.workAccent, fontWeight: '800', fontSize: 15 },
+    back: { color: colors.brandPrimary, fontWeight: '800', fontSize: 15 },
     selName: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.textPrimary },
     selSub: { fontSize: 12, color: colors.textSecondary, lineHeight: 17, paddingHorizontal: 16, marginTop: 6 },
     formCard: {
@@ -288,7 +288,7 @@ const createStyles = (colors) =>
       borderRadius: 12,
       padding: 14,
       borderWidth: 1.5,
-      borderColor: colors.workAccent,
+      borderColor: colors.brandPrimary,
     },
     countRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
     countLoc: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.textPrimary, paddingRight: 8 },

@@ -1,10 +1,11 @@
-// Brand palette — same greens as the customer app (one brand, two apps) but
-// with an amber WORK-SECONDARY accent so a staff device reads as a tool, not
-// a shop. Screens consume the active palette through useThemeColors().
+// Brand palette — the SAME colors as the customer app and the web admin
+// (one brand across the whole system): green primary/secondary, cream
+// background, dark-green text. This app is staff-exclusive, so the palette
+// carries no separate accent — it is INVENTRAK, full stop. The extra
+// semantic keys (pending/approved/rejected) drive the My Requests badges.
 export const colors = {
   brandPrimary: '#4e7d15',
   brandSecondary: '#a0c938',
-  workAccent: '#b8860b', // dark goldenrod — scan/count highlights, tab tint
   background: '#eef7e1',
   surface: '#ffffff',
   border: 'rgba(0, 0, 0, 0.14)',
@@ -19,10 +20,11 @@ export const colors = {
   rejected: '#d32f2f',
 };
 
+// DARK variant — identical to the customer app's dark palette so the two
+// phone apps look like siblings on the same device.
 export const darkColors = {
   brandPrimary: '#8bc34a',
   brandSecondary: '#a8d22b',
-  workAccent: '#e6c34a',
   background: '#10150c',
   surface: '#1a2113',
   border: 'rgba(255, 255, 255, 0.28)',
