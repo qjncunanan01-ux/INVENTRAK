@@ -156,6 +156,10 @@ CREATE TABLE IF NOT EXISTS stock_adjustments (
   location_id INTEGER NOT NULL,
   new_qty REAL NOT NULL,
   reason TEXT,
+  -- Best-before date recorded during the physical count (nullable, ISO
+  -- YYYY-MM-DD). On approval it becomes the reset lot's expiry_date, so
+  -- FEFO consumption and best-before alerts pick it up automatically.
+  expiry_date TEXT,
   status TEXT DEFAULT 'pending',
   created_at TEXT DEFAULT (datetime('now')),
   decided_at TEXT,

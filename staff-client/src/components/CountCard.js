@@ -4,15 +4,22 @@ import { createStockAdjustment, listLocations } from '../api';
 import { useThemeColors } from '../theme-context';
 
 // CountCard — the shared "verify & record physical count" form used by BOTH
-// scan modules (QR tag scan and label OCR). One product in focus, one input
-// per storage area, one submit that creates a PENDING adjustment per changed
-// location. Kept as a component so the two scan modules stay separate while
-// submitting through exactly the same logic.
+// scan modules (QR tag scan and label OCR) AND the Count module. One product
+// in focus, one input per storage area, an optional best-before date read off
+// the label, and one submit that creates a PENDING adjustment per changed
+// location (the best-before travels on every row it belongs to). On approval
+// the expiry becomes the reset lot's expiry_date, so FEFO consumption and
+// best-before alerts track the stock automatically.
 export default function CountCard({ focus, onClear }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [counts, setCounts] = useState({});
   const [reason, setReason] = useState('');
+  // Best-before date read off the label during the count (YYYY-MM-DD). One
+  // date per submission: it is stamped on every adjustment row created by
+  // this submission (a single label read applies to the whole batch).
+  const [bestBefore, setBestBefore] = useState('');
+  const [bestBeforeErr, setBestBeforeErr] = useState('');
   const [submitBusy, setSubmitBusy] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
   const [submitErr, setSubmitErr] = useState('');
@@ -27,6 +34,8 @@ export default function CountCard({ focus, onClear }) {
     Object.keys(focus.stock?.locations || {}).forEach((k) => { next[k] = focus.stock.locations[k]; });
     setCounts(next);
     setReason('');
+    setBestBefore('');
+    setBestBeforeErr('');
     setSubmitMsg('');
     setSubmitErr('');
   }
@@ -45,6 +54,21 @@ export default function CountCard({ focus, onClear }) {
 
   const submit = useCallback(async () => {
     if (!focus) return;
+    // Best-before is OPTIONAL, but a malformed one never submits — the
+    // backend enforces strict ISO YYYY-MM-DD (a real calendar date), and the
+    // same check client-side gives instant feedback.
+    let expiry = null;
+    const bb = bestBefore.trim();
+    if (bb) {
+      const asDate = new Date(`${bb}T00:00:00Z`);
+      const valid = /^\d{4}-\d{2}-\d{2}$/.test(bb) && !Number.isNaN(asDate.getTime()) && asDate.toISOString().slice(0, 10) === bb;
+      if (!valid) {
+        setBestBeforeErr('Use a real date in YYYY-MM-DD format (e.g. 2027-03-15).');
+        return;
+      }
+      expiry = bb;
+    }
+    setBestBeforeErr('');
     const changes = Object.keys(focus.stock?.locations || {}).filter((loc) => {
       const current = Number(focus.stock.locations[loc]) || 0;
       const next = Number(counts[loc]);
@@ -69,6 +93,7 @@ export default function CountCard({ focus, onClear }) {
           location_id: Number(locationId),
           new_qty: Number(counts[loc]),
           reason: reason.trim() || `Physical count from scan of ${focus.name}`,
+          expiry_date: expiry,
         });
         done += 1;
       } catch {
@@ -85,7 +110,7 @@ export default function CountCard({ focus, onClear }) {
     } else {
       setSubmitErr('Could not submit corrections. Check the product/locations and try again.');
     }
-  }, [focus, counts, reason, locIdByName]);
+  }, [focus, counts, reason, bestBefore, locIdByName]);
 
   if (!focus) return null;
 
@@ -113,6 +138,20 @@ export default function CountCard({ focus, onClear }) {
           </View>
         ))}
       </View>
+      {/* Best-before capture: read the date off the label during the count.
+          Optional, but validated (YYYY-MM-DD, real calendar date) on both the
+          phone and the server. Becomes the stock lot's expiry on approval. */}
+      <Text style={styles.fieldLabel}>Best before (optional)</Text>
+      <TextInput
+        style={styles.dateInput}
+        value={bestBefore}
+        onChangeText={(v) => { setBestBefore(v); setBestBeforeErr(''); }}
+        placeholder="YYYY-MM-DD — e.g. 2027-03-15"
+        placeholderTextColor={colors.textSecondary}
+        keyboardType="numbers-and-punctuation"
+        maxLength={10}
+      />
+      {bestBeforeErr ? <Text style={styles.err}>{bestBeforeErr}</Text> : null}
       <TextInput
         style={styles.reasonInput}
         value={reason}
@@ -163,6 +202,19 @@ const createStyles = (colors) =>
       borderColor: 'rgba(0,0,0,0.1)',
     },
     current: { fontSize: 11, color: colors.textSecondary, marginLeft: 8, width: 52 },
+    fieldLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginTop: 8, marginBottom: 6 },
+    dateInput: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.1)',
+      marginBottom: 2,
+    },
     reasonInput: {
       backgroundColor: colors.background,
       borderRadius: 8,

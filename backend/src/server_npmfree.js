@@ -2192,6 +2192,7 @@ const server = http.createServer((req, res) => {
       location_name: locationName,
       new_qty: Number(a.new_qty),
       reason: a.reason || '',
+      expiry_date: a.expiry_date === undefined || a.expiry_date === '' ? null : a.expiry_date,
       status: a.status || 'pending',
       created_at: a.created_at,
       decided_at: a.decided_at === undefined || a.decided_at === '' ? null : a.decided_at,
@@ -2250,6 +2251,18 @@ const server = http.createServer((req, res) => {
         if (!Number.isFinite(locationId) || locationId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
         if (!Number.isFinite(newQty) || newQty < 0) return sendJson(res, 400, { error: 'Validation failed', details: ['new_qty must be a number >= 0'] });
         if (obj.reason && String(obj.reason).length > 300) return sendJson(res, 400, { error: 'Validation failed', details: ['reason must be at most 300 characters'] });
+        // Optional best-before date read off the label during the physical
+        // count. Strict ISO YYYY-MM-DD and a REAL calendar date (2026-02-31
+        // is rejected), mirroring the SQLite validate({ date: true }) rule.
+        let expiryDate = null;
+        if (obj.expiry_date !== undefined && obj.expiry_date !== null && obj.expiry_date !== '') {
+          const v = String(obj.expiry_date);
+          const asDate = new Date(`${v}T00:00:00Z`);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(asDate.getTime()) || asDate.toISOString().slice(0, 10) !== v) {
+            return sendJson(res, 400, { error: 'Validation failed', details: ['expiry_date must be a valid date (YYYY-MM-DD)'] });
+          }
+          expiryDate = v;
+        }
         const products = readJSON(productsFile) || [];
         if (!products[productId - 1] || !isProductActive(products[productId - 1])) return sendJson(res, 404, { error: 'Product not found or inactive' });
         const inv = getInventory();
@@ -2262,6 +2275,7 @@ const server = http.createServer((req, res) => {
           location_name: inv.locations[locationId - 1],
           new_qty: newQty,
           reason: obj.reason || '',
+          expiry_date: expiryDate,
           status: 'pending',
           created_at: new Date().toISOString(),
           decided_at: null,
@@ -2308,8 +2322,10 @@ const server = http.createServer((req, res) => {
           writeJSON(inventoryFile, inv);
           // Keep the FEFO lot ledger consistent (mirrors SQLite: an approved
           // adjustment replaces the location's lots with one lot of new_qty).
+          // The recorded best-before travels with it so FEFO consumption and
+          // best-before alerts track the stock automatically.
           stockLots = stockLots.filter(l => !(Number(l.product_id) === Number(row.product_id) && Number(l.location_id) === Number(row.location_id)));
-          if (Number(row.new_qty) > 0) recordLot(Number(row.product_id), Number(row.location_id), Number(row.new_qty), now, null);
+          if (Number(row.new_qty) > 0) recordLot(Number(row.product_id), Number(row.location_id), Number(row.new_qty), now, row.expiry_date || null);
         }
         // Record the movement in the ledger (mirrors SQLite).
         const movements = readJSON(movementsFile) || [];

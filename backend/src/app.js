@@ -205,6 +205,14 @@ function staffOrAdmin(req, res, next) {
 
 // --- Validation Helpers ---
 
+// Strict ISO calendar date (YYYY-MM-DD): correct shape AND a real calendar
+// date (2026-02-31 is rejected). Used for best-before fields on counts.
+function isIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
 function validate(schema) {
   return (req, res, next) => {
     const errors = [];
@@ -249,6 +257,12 @@ function validate(schema) {
           errors.push(
             `${field} must be at most ${rules.maxLength} characters`
           );
+        }
+
+        // Optional strict date-format rule (ISO YYYY-MM-DD). Also rejects
+        // impossible calendar dates like 2026-02-31, not just malformed ones.
+        if (rules.date && !isIsoDate(String(value))) {
+          errors.push(`${field} must be a valid date (YYYY-MM-DD)`);
         }
       }
     }
@@ -2041,11 +2055,14 @@ function applyMovementEffect({
       'UPDATE stock SET quantity = ? WHERE product_id = ? AND location_id = ?'
     ).run(qty, product_id, loc);
     // Keep FIFO lots consistent with the adjusted quantity: replace the
-    // product's lots at this location with a single lot of the new qty.
+    // product's lots at this location with a single lot of the new qty. The
+    // lot inherits the adjustment's best-before date when one was recorded
+    // (best-before travels with the count), so FEFO consumption and
+    // best-before alerts track the reset stock automatically.
     db.prepare('DELETE FROM stock_lots WHERE product_id = ? AND location_id = ?').run(product_id, loc);
     db.prepare(
-      'INSERT INTO stock_lots (product_id, location_id, qty, received_at) VALUES (?, ?, ?, ?)'
-    ).run(product_id, loc, qty, now);
+      'INSERT INTO stock_lots (product_id, location_id, qty, received_at, expiry_date) VALUES (?, ?, ?, ?, ?)'
+    ).run(product_id, loc, qty, now, expiryDate);
   }
 
   // Movement-aware bar: the product's own critical level, not a flat 80.
@@ -2588,7 +2605,7 @@ function listAdjustments(dbRef, status) {
   return dbRef
     .prepare(
       `SELECT a.id, a.product_id, p.name as product_name, a.location_id, l.name as location_name,
-              a.new_qty, a.reason, a.status, a.created_at, a.decided_at, a.decided_by,
+              a.new_qty, a.reason, a.expiry_date, a.status, a.created_at, a.decided_at, a.decided_by,
               COALESCE(s.quantity, 0) as current_qty
        FROM stock_adjustments a
        JOIN products p ON p.id = a.product_id
@@ -2632,9 +2649,11 @@ app.post(
     location_id: { required: true, type: 'number', min: 1 },
     new_qty: { required: true, type: 'number', min: 0 },
     reason: { maxLength: 300 },
+    // Optional best-before date read off the label during the physical count.
+    expiry_date: { date: true, maxLength: 10 },
   }),
   (req, res) => {
-    const { product_id, location_id, new_qty, reason } = req.body;
+    const { product_id, location_id, new_qty, reason, expiry_date } = req.body;
     const product = db.prepare('SELECT id FROM products WHERE id = ? AND status = ?').get(product_id, 'active');
     if (!product) return res.status(404).json({ error: 'Product not found or inactive' });
     const loc = db.prepare('SELECT id FROM locations WHERE id = ?').get(location_id);
@@ -2642,9 +2661,9 @@ app.post(
 
     const info = db
       .prepare(
-        'INSERT INTO stock_adjustments (product_id, location_id, new_qty, reason, status) VALUES (?, ?, ?, ?, ?)'
+        'INSERT INTO stock_adjustments (product_id, location_id, new_qty, reason, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?)'
       )
-      .run(product_id, location_id, new_qty, reason || '', 'pending');
+      .run(product_id, location_id, new_qty, reason || '', expiry_date || null, 'pending');
 
     audit('stock.adjustment.created', {
       userId: req.user.id,
@@ -2653,6 +2672,7 @@ app.post(
       productId: product_id,
       locationId: location_id,
       newQty: new_qty,
+      expiryDate: expiry_date || null,
     });
 
     res.status(201).json({ ok: true, id: info.lastInsertRowid, message: 'Adjustment created (pending approval)' });
@@ -2692,6 +2712,10 @@ function decideAdjustment(req, res, action) {
         srcId: null,
         dstId: row.location_id,
         now,
+        // Best-before travels with the count: the approved adjustment's reset
+        // lot carries the recorded expiry, so FEFO consumption and best-before
+        // alerts track this stock automatically.
+        expiryDate: row.expiry_date || null,
       });
       db.prepare(
         'INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'

@@ -49,6 +49,14 @@ if (!hasUniqueStockPair) {
 // Migrations: order inquiries gained a customer phone number (SMS status
 // updates), then a delivery address + payment method (checkout). Additive, so
 // existing databases are untouched apart from the new nullable columns.
+// Best-before capture on physical counts: the adjustment row carries the
+// expiry date staff read off the label; approval stamps the reset lot with
+// it. Additive, so existing databases are untouched apart from the column.
+const adjustmentColumns = db.prepare('PRAGMA table_info(stock_adjustments)').all();
+if (!adjustmentColumns.some((c) => c.name === 'expiry_date')) {
+  db.exec('ALTER TABLE stock_adjustments ADD COLUMN expiry_date TEXT');
+}
+
 const inquiryColumns = db.prepare("PRAGMA table_info(order_inquiries)").all();
 if (!inquiryColumns.some((c) => c.name === 'customer_phone')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN customer_phone TEXT');

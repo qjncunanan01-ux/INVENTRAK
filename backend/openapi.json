@@ -3883,6 +3883,11 @@
           "reason": {
             "type": "string",
             "maxLength": 300
+          },
+          "expiry_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Optional best-before date read off the label during the physical count. On approval it becomes the reset lot's expiry_date (FEFO + best-before alerts)."
           }
         }
       },
@@ -3925,6 +3930,12 @@
           },
           "reason": {
             "type": "string"
+          },
+          "expiry_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Best-before date recorded during the physical count (null when staff did not record one)."
           },
           "status": {
             "type": "string",

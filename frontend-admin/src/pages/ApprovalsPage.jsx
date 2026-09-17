@@ -56,6 +56,7 @@ export default function ApprovalsPage({ onLogout }) {
               <TableCell>Product</TableCell>
               <TableCell>Location</TableCell>
               <TableCell>Current → Corrected</TableCell>
+              <TableCell>Best before</TableCell>
               <TableCell>Reason</TableCell>
               <TableCell>Requested</TableCell>
               <TableCell>Actions</TableCell>
@@ -63,19 +64,26 @@ export default function ApprovalsPage({ onLogout }) {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6}>Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7}>Loading…</TableCell></TableRow>
             ) : adjustments.length === 0 ? (
-              <TableRow><TableCell colSpan={6}>No pending adjustments.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7}>No pending adjustments.</TableCell></TableRow>
             ) : adjustments.map(r => (
               <TableRow key={'a' + r.id}>
                 <TableCell>{r.product_name}</TableCell>
                 <TableCell>{r.location_name}</TableCell>
                 <TableCell>{r.current_qty} → <strong>{r.new_qty}</strong></TableCell>
+                <TableCell>
+                  {r.expiry_date
+                    ? <Chip size="small" color="warning" label={r.expiry_date} />
+                    : '—'}
+                </TableCell>
                 <TableCell>{r.reason || '-'}</TableCell>
                 <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button size="small" variant="contained" color="success" onClick={() => decide('adjustment', r.id, 'approve')}>✓ Approve</Button>
+                    <Button size="small" variant="contained" color="success" onClick={() => decide('adjustment', r.id, 'approve')}>
+                      {r.expiry_date ? '✓ Approve & stamp expiry' : '✓ Approve'}
+                    </Button>
                     <Button size="small" variant="outlined" color="error" onClick={() => decide('adjustment', r.id, 'reject')}>✕ Reject</Button>
                   </Box>
                 </TableCell>
