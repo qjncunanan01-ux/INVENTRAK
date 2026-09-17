@@ -19,8 +19,9 @@ import SecurityPage from './pages/SecurityPage';
 import StockAdjustmentsPage from './pages/StockAdjustmentsPage';
 import StockMovementPage from './pages/StockMovementPage';
 import StockTransfersPage from './pages/StockTransfersPage';
+import SettingsPage from './pages/SettingsPage';
 import { createAppTheme } from './theme';
-import { ADMIN_TIER } from './roles';
+import { ADMIN_TIER, MANAGEMENT_TIER } from './roles';
 
 // Where a signed-in role lands when it opens a route it may not use. Inventory
 // Staff have no dashboard (it is a money/analytics surface), so they land on
@@ -109,6 +110,7 @@ function AppRoutes() {
         <Route path="/reports" element={<RequireRole roles={ADMIN_TIER}><ReportsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/security" element={<RequireRole roles={ADMIN_TIER}><SecurityPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/audit-trail" element={<RequireRole roles={ADMIN_TIER}><AuditTrailPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/settings" element={<RequireRole roles={MANAGEMENT_TIER}><SettingsPage user={user} onLogout={handleLogout} /></RequireRole>} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

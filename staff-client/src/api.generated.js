@@ -170,6 +170,10 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   mfaRecoveryCodes: (_) => request('POST', '/api/auth/mfa/recovery-codes', {  }),
   // GET /api/optimization/fsn — FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency
   getOptimizationFsn: (params) => request('GET', '/api/optimization/fsn', { query: params }),
+  // GET /api/settings — Get runtime system settings (admin tier — read-only)
+  getSettings: (_) => request('GET', '/api/settings', {  }),
+  // PUT /api/settings — Update runtime system settings (Owner / Super Admin only)
+  updateSettings: (body) => request('PUT', '/api/settings', { body }),
   // GET /api/audit-trail — Security audit log entries (admin only) — newest first
   listAuditTrail: (_) => request('GET', '/api/audit-trail', {  }),
   // GET /api/cache/stats — In-memory cache statistics (admin only)

@@ -16,6 +16,13 @@ const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = re
 const { createLoginLockout } = require('./login-lockout');
 const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
 const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./critical-level');
+const settings = require('./settings');
+// Demo-account gate consults the LIVE settings toggle (Governance → System
+// Settings) in addition to the operator's env var — either one blocks the
+// seeded logins.
+function isDemoBlocked(username) {
+  return settings.getDemoAccountsDisabled() || isDemoAccountBlocked(username);
+}
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines, summarizeLines } = require('./product-lines');
@@ -44,6 +51,7 @@ const {
   isKnownRole,
   canAccessAdminPortal,
   canAccessStaffPortal,
+  isManagement,
 } = require('./roles');
 // Attach a parsed, normalized `products_detail` array to every inquiry row so
 // clients (admin + mobile) can render per-line prices without re-parsing the
@@ -117,7 +125,11 @@ function pruneRevokedTokens() {
 }
 
 function signToken(payload, expiresIn = '24h') {
-  return jwt.sign({ ...payload, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn });
+  // Session tokens follow the live System Settings TTL (hours → seconds for
+  // jsonwebtoken); explicit durations (MFA challenges) are honored as passed.
+  const resolved =
+    expiresIn === '24h' ? `${settings.getSessionTokenTtlMs() / 3600000}h` : expiresIn;
+  return jwt.sign({ ...payload, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: resolved });
 }
 
 function readJSON(file) {
@@ -982,7 +994,7 @@ app.post(
     // Seeded demo credentials can be switched off in production (OWASP: no
     // default/test accounts in a live system). Rejected with the generic
     // error so the response doesn't reveal the account exists.
-    if (isDemoAccountBlocked(user.username)) {
+    if (isDemoBlocked(user.username)) {
       loginLockout.recordFailure(username, sourceIp);
       audit('auth.demo_account_blocked', { username, ip: sourceIp });
       return res.status(401).json({ error: 'Invalid username or password' });
@@ -1954,7 +1966,7 @@ app.get('/api/inventory', (req, res) => {
       critical_level: info.criticalLevel,
       movement_class: info.classification,
       movement_label: info.movementLabel,
-      stock_status: stockStatus(total, info.criticalLevel),
+      stock_status: stockStatus(total, info.criticalLevel, settings.getLowStockMultiplier()),
     };
   });
 
@@ -2847,6 +2859,35 @@ app.get('/api/approvals', authenticateToken, adminOnly, (req, res) => {
   });
 });
 
+// ================= SYSTEM SETTINGS (management tier) =================
+// Runtime configuration for the whole deployment — read by admins, changed
+// only by Super Admin / Owner (Governance → System Settings).
+
+app.get('/api/settings', authenticateToken, (req, res) => {
+  // Visible to the admin tier (so admins can SEE the live config); only
+  // management can change it (PUT below).
+  if (!ADMIN_TIER.includes(req.user.role)) return res.status(403).json({ error: 'Admin access required' });
+  res.json(settings.getSettings());
+});
+
+app.put('/api/settings', authenticateToken, (req, res) => {
+  // Owner / Super Admin only — the RBAC "who may reconfigure the system" line.
+  // isManagement takes the USER (it reads .role internally).
+  if (!isManagement(req.user)) {
+    return res.status(403).json({ error: 'Owner or Super Admin access required' });
+  }
+  const result = settings.updateSettings(req.body);
+  if (!result.ok) {
+    return res.status(400).json({ error: 'Validation failed', details: result.errors });
+  }
+  audit('system.settings.updated', {
+    userId: req.user.id,
+    username: req.user.username,
+    keys: Object.keys(req.body || {}),
+  });
+  res.json({ ok: true, settings: result.settings, message: 'Settings saved' });
+});
+
 // Printable report data for the Report Viewing module.
 // Reports carry revenue, so they are ADMIN TIER only. Inventory Staff is
 // deliberately excluded: the role spec forbids them from viewing sales,
@@ -3038,7 +3079,11 @@ app.delete(
 app.get(
   '/api/optimization/fsn',
   (req, res) => {
-    const windowDays = parseFsnWindow(req.query.window);
+    // Explicit query param wins; otherwise the live System Settings window
+    // (Governance → System Settings) drives every analytics surface.
+    const windowDays = parseFsnWindow(req.query.window, {
+      defaultWindow: settings.getFsnWindowDays(),
+    });
     const now = new Date();
 
     const products = db

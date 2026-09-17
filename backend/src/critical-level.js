@@ -109,12 +109,15 @@ function criticalLevelMap(products, sales, opts = {}) {
  * @param {number|string} criticalLevel The product's critical level.
  * @returns {'out_of_stock'|'critical'|'low_stock'|'in_stock'}
  */
-function stockStatus(qty, criticalLevel) {
+function stockStatus(qty, criticalLevel, lowStockMultiplier = 1.5) {
   const q = Number(qty) || 0;
   const level = Number(criticalLevel) || 0;
+  // The widening factor comes from live System Settings (owner-tunable) —
+  // the default keeps the historical 1.5× behavior.
+  const mult = Number(lowStockMultiplier) > 1 ? Number(lowStockMultiplier) : 1.5;
   if (q <= 0) return 'out_of_stock';
   if (q <= level) return 'critical';
-  if (q <= Math.ceil(level * 1.5)) return 'low_stock';
+  if (q <= Math.ceil(level * mult)) return 'low_stock';
   return 'in_stock';
 }
 

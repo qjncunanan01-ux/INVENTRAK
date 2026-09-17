@@ -2897,6 +2897,94 @@
         }
       }
     },
+    "/api/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get runtime system settings (admin tier — read-only)",
+        "description": "Returns the live runtime configuration: demo-account gate, default FSN window, low-stock multiplier, and session token lifetime. Readable by the admin tier; changes only via PUT (Owner/Super Admin).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden — non-admin token"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSettings",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update runtime system settings (Owner / Super Admin only)",
+        "description": "Partial update — only provided keys change. Every value is validated and clamped server-side; the change is written to the audit trail and takes effect immediately (session TTL applies to tokens issued afterwards).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved — returns the full updated settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "settings": {
+                      "$ref": "#/components/schemas/SystemSettings"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed — details list the offending keys"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden — requires Owner or Super Admin"
+          }
+        }
+      }
+    },
     "/api/audit-trail": {
       "get": {
         "tags": [
@@ -3856,6 +3944,57 @@
             "type": "string",
             "nullable": true,
             "description": "FEFO expiry date (ISO). null = non-perishable lot, consumed in pure FIFO order."
+          }
+        }
+      },
+      "SystemSettings": {
+        "type": "object",
+        "properties": {
+          "demo_accounts_disabled": {
+            "type": "boolean",
+            "description": "true = seeded demo logins (admin/customer/staff/owner/superadmin) are refused with the generic error. OWASP: no default accounts in production."
+          },
+          "fsn_window_days": {
+            "type": "integer",
+            "minimum": 7,
+            "maximum": 730,
+            "description": "Default FSN / analytics analysis window in days (the UI presets map to this; an explicit ?window= query still wins)."
+          },
+          "low_stock_multiplier": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3,
+            "description": "Low-stock badge widening factor: low_stock when qty ≤ criticalLevel × factor."
+          },
+          "session_token_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 168,
+            "description": "Session token lifetime in hours (applies to tokens issued after the change)."
+          }
+        }
+      },
+      "UpdateSettingsRequest": {
+        "type": "object",
+        "description": "Partial update — only the provided keys are changed.",
+        "properties": {
+          "demo_accounts_disabled": {
+            "type": "boolean"
+          },
+          "fsn_window_days": {
+            "type": "integer",
+            "minimum": 7,
+            "maximum": 730
+          },
+          "low_stock_multiplier": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "session_token_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 168
           }
         }
       },

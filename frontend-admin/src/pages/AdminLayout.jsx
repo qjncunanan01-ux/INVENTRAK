@@ -15,12 +15,14 @@ import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined';
 import SecurityOutlined from '@mui/icons-material/SecurityOutlined';
 import SwapHorizOutlined from '@mui/icons-material/SwapHorizOutlined';
 import TuneOutlined from '@mui/icons-material/TuneOutlined';
+import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { getCurrentUser } from '../api';
-import { ADMIN_TIER, STAFF_TIER, roleMeta } from '../roles';
+import { ADMIN_TIER, STAFF_TIER, MANAGEMENT_TIER, roleMeta } from '../roles';
 import { brandSidebar, colors } from '../theme';
 import Breadcrumbs from '../components/Breadcrumbs';
+
 
 // One flat, always-expanded module list: every module is its own visible row
 // under a small section header — nothing is buried inside a collapsed
@@ -77,6 +79,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ADMIN_TIER },
       { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: ADMIN_TIER },
+      { label: 'System Settings', path: '/settings', Icon: SettingsOutlined, roles: MANAGEMENT_TIER },
     ],
   },
   {

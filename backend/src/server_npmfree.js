@@ -18,6 +18,13 @@ const { audit, AUDIT_LOG_FILE } = require('./audit');
 const { sanitizeObject, isValidName, isValidEmail, isValidPhone } = require('./sanitize');
 const cache = require('./cache');
 const { isDemoAccountBlocked } = require('./demo-accounts');
+const settings = require('./settings');
+// Demo-account gate consults the LIVE settings toggle (Governance → System
+// Settings) in addition to the operator's env var — either one blocks the
+// seeded logins.
+function isDemoBlocked(username) {
+  return settings.getDemoAccountsDisabled() || isDemoAccountBlocked(username);
+}
 const { parseDateRange, rangeDays } = require('./date-range');
 const {
   ADMIN_TIER,
@@ -202,7 +209,9 @@ function persistRevokedTokens() {
 }
 
 function signToken(userId, opts = {}) {
-  const exp = Date.now() + (opts.ttlMs || TOKEN_TTL_MS);
+  // Session TTL follows the live System Settings value (hours → ms) unless a
+  // specific ttl was requested (MFA challenges keep their own short TTL).
+  const exp = Date.now() + (opts.ttlMs || settings.getSessionTokenTtlMs());
   const jti = crypto.randomBytes(16).toString('hex');
   const scope = opts.scope || 'session';
   const payload = `${userId}.${exp}.${jti}.${scope}`;
@@ -898,6 +907,30 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  // ================= SYSTEM SETTINGS (management tier) =================
+  // Mirrors app.js: GET visible to the admin tier, PUT restricted to
+  // Super Admin / Owner (Governance → System Settings).
+  if (req.method === 'GET' && url.split('?')[0] === '/api/settings') {
+    return requireAuth(req, res, true, (req, res) => sendJson(res, 200, settings.getSettings()));
+  }
+  if (req.method === 'PUT' && url.split('?')[0] === '/api/settings') {
+    return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const result = settings.updateSettings(obj);
+        if (!result.ok) {
+          return sendJson(res, 400, { error: 'Validation failed', details: result.errors });
+        }
+        audit('system.settings.updated', {
+          userId: req.user.id,
+          username: req.user.username,
+          keys: Object.keys(obj || {}),
+        });
+        return sendJson(res, 200, { ok: true, settings: result.settings, message: 'Settings saved' });
+      });
+    });
+  }
+
   // ================= INTEGRITY =================
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/health/integrity') {
@@ -993,7 +1026,7 @@ const server = http.createServer((req, res) => {
       // Seeded demo credentials can be switched off in production (OWASP: no
       // default/test accounts in a live system). Rejected with the generic
       // error so the response doesn't reveal the account exists.
-      if (isDemoAccountBlocked(user.username)) {
+      if (isDemoBlocked(user.username)) {
         loginLockout.recordFailure(obj.username, sourceIp);
         audit('auth.demo_account_blocked', { username: obj.username, ip: sourceIp });
         return sendJson(res, 401, { error: 'Invalid username or password' });
@@ -1870,7 +1903,7 @@ const server = http.createServer((req, res) => {
           critical_level: info.criticalLevel,
           movement_class: info.classification,
           movement_label: info.movementLabel,
-          stock_status: stockStatus(total, info.criticalLevel)
+          stock_status: stockStatus(total, info.criticalLevel, settings.getLowStockMultiplier())
         };
       })
       .filter(item => item.product && isProductActive(item.product));
@@ -2938,7 +2971,12 @@ const server = http.createServer((req, res) => {
       // Same shared classifier as the SQLite backend (fsn.js), fed from the
       // in-memory sales ledger (identical deterministic seed draw) — this is
       // the dual-backend parity the contract tests assert.
-      const windowDays = parseFsnWindow(new URL(url, 'http://localhost').searchParams.get('window'));
+      // Explicit query param wins; otherwise the live System Settings
+      // window (Governance → System Settings) drives every analytics surface.
+      const windowDays = parseFsnWindow(
+        new URL(url, 'http://localhost').searchParams.get('window'),
+        { defaultWindow: settings.getFsnWindowDays() }
+      );
       const now = new Date();
       const catalog = products.map((p, idx) => ({
         id: idx + 1,

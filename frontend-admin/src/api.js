@@ -105,5 +105,7 @@ export const mfaConfirm = client.mfaConfirm;
 export const mfaRecoveryCodes = client.mfaRecoveryCodes;
 export const mfaDisable = client.mfaDisable;
 export const mfaVerify = client.mfaVerify;
+export const getSettings = client.getSettings;
+export const updateSettings = client.updateSettings;
 
 export default client;
