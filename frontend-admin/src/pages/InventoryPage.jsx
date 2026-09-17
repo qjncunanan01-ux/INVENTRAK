@@ -114,10 +114,10 @@ export default function InventoryPage({ onLogout }) {
       .finally(() => setLoading(false));
 
     // Dated lots for the Best-before column. Public endpoint, safe to fetch
-    // alongside inventory; a failure just leaves the column undated.
-    const lotsParams = new URLSearchParams();
-    if (selectedLocation) lotsParams.set('location_id', selectedLocation);
-    apiGet(`/api/stock-lots${lotsParams.toString() ? '?' + lotsParams.toString() : ''}`)
+    // alongside inventory; a failure just leaves the column undated. Fetched
+    // unfiltered: the chip shows the earliest expiry across ALL locations
+    // (location_id here is numeric, the Location dropdown is a name).
+    apiGet('/api/stock-lots')
       .then(r => {
         const lots = Array.isArray(r) ? r : (r.data || []);
         // Earliest expiry wins per product (lots arrive FEFO-ordered from the
