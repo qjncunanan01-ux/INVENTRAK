@@ -175,7 +175,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   // PUT /api/settings — Update runtime system settings (Owner / Super Admin only)
   updateSettings: (body) => request('PUT', '/api/settings', { body }),
   // GET /api/audit-trail — Security audit log entries (admin only) — newest first
-  listAuditTrail: (_) => request('GET', '/api/audit-trail', {  }),
+  listAuditTrail: (params) => request('GET', '/api/audit-trail', { query: params }),
   // GET /api/cache/stats — In-memory cache statistics (admin only)
   getCacheStats: (_) => request('GET', '/api/cache/stats', {  }),
   };

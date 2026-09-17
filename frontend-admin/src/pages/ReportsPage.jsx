@@ -85,6 +85,7 @@ export default function ReportsPage({ onLogout }) {
               ['Total sales', money(s.total_sales)],
               ['Transactions', s.transactions],
               ['Customers served', s.customers_served],
+              ['Paying customers', s.customers_paid],
               ['Pending approvals', s.pending_approvals],
             ].map(([label, value]) => (
               <Paper key={label} sx={{ p: 2, backgroundColor: colors.surfaceAlt, textAlign: 'center' }}>

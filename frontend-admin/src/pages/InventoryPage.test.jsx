@@ -133,7 +133,7 @@ test('shows the nearest expiry per product with the urgency chip', async () => {
 test('tooltip reveals lot qty, the dated date, and the FEFO note', async () => {
   mockResponses();
   renderPage();
-  await screen.findByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
+  await screen.findAllByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
 
   hoverChip('Milklab Milk 1L');
   await waitFor(() => {
@@ -147,7 +147,7 @@ test('tooltip reveals lot qty, the dated date, and the FEFO note', async () => {
 test('Best-before filter narrows rows (expired / dated / undated)', async () => {
   mockResponses();
   renderPage();
-  await screen.findByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
+  await screen.findAllByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
 
   const selects = screen.getAllByRole('combobox');
   const bestBefore = selects.find((el) => el.closest('.MuiFormControl-root')?.textContent.includes('Best before'));
@@ -159,17 +159,19 @@ test('Best-before filter narrows rows (expired / dated / undated)', async () => 
   expect(screen.getByText('Milklab Milk 1L')).toBeInTheDocument();
   expect(screen.queryByText('Beryls Compound')).not.toBeInTheDocument();
 
-  // "No date recorded" → only the undated row remains.
+  // "No date recorded" → only the undated row remains. (Scoped to the table:
+  // the Expiring-soon card keeps its own chips regardless of the filter.)
   fireEvent.mouseDown(bestBefore);
   fireEvent.click(within(await screen.findByRole('listbox')).getByText('No date recorded'));
   await waitFor(() => expect(screen.getByText('Beryls Compound')).toBeInTheDocument());
-  expect(screen.queryByLabelText(/best before/i)).not.toBeInTheDocument();
+  const table = document.querySelector('table');
+  expect(within(table).queryByLabelText(/best before/i)).not.toBeInTheDocument();
 });
 
 test('search + expiry filter compose (AND)', async () => {
   mockResponses();
   renderPage();
-  await screen.findByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
+  await screen.findAllByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
 
   const selects = screen.getAllByRole('combobox');
   const bestBefore = selects.find((el) => el.closest('.MuiFormControl-root')?.textContent.includes('Best before'));
@@ -183,5 +185,42 @@ test('search + expiry filter compose (AND)', async () => {
   fireEvent.change(screen.getByLabelText(/Search products/i), { target: { value: 'torani' } });
   await waitFor(() => expect(screen.queryByText('Milklab Milk 1L')).not.toBeInTheDocument());
   expect(screen.getByText('Torani Vanilla Syrup')).toBeInTheDocument();
-  expect(screen.getByLabelText(new RegExp(`Torani Vanilla Syrup best before`, 'i'))).toBeInTheDocument();
+  const tableAfterSearch = document.querySelector('table');
+  expect(
+    within(tableAfterSearch).getByLabelText(new RegExp(`Torani Vanilla Syrup best before`, 'i'))
+  ).toBeInTheDocument();
+});
+
+test('Expiring-within-30-days card aggregates the nearest lots and lists the products', async () => {
+  mockResponses();
+  renderPage();
+
+  const card = await screen.findByLabelText('Expiring within 30 days summary');
+
+  // Two products qualify (product 1 expired 7d ago, product 2 18d out);
+  // 8 + 6 = 14 units sit on their dated lots.
+  expect(within(card).getByText('2')).toBeInTheDocument();
+  expect(within(card).getByText(/14 units on dated lots/)).toBeInTheDocument();
+
+  // Chips name each qualifying product with its urgency…
+  expect(within(card).getByText('Milklab Milk 1L — expired 7d ago')).toBeInTheDocument();
+  expect(within(card).getByText('Torani Vanilla Syrup — 18d left')).toBeInTheDocument();
+
+  // …and the undated product never appears.
+  expect(within(card).queryByText(/Beryls Compound/)).not.toBeInTheDocument();
+});
+
+test('Expiring-within-30-days card shows the empty state when nothing is dated', async () => {
+  apiGet.mockImplementation((url) => {
+    if (url.startsWith('/api/inventory')) return Promise.resolve(inventory);
+    if (url.startsWith('/api/stock-lots')) return Promise.resolve([]); // no dated lots at all
+    return Promise.resolve([]);
+  });
+  renderPage();
+
+  const card = await screen.findByLabelText('Expiring within 30 days summary');
+  await waitFor(() => expect(within(card).getByText('0')).toBeInTheDocument());
+  expect(
+    within(card).getByText(/Nothing dated expires in the next 30 days/)
+  ).toBeInTheDocument();
 });

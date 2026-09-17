@@ -113,10 +113,10 @@ export default function InventoryPage({ onLogout }) {
       .catch(() => {})
       .finally(() => setLoading(false));
 
-    // Dated lots for the Best-before column. Public endpoint, safe to fetch
-    // alongside inventory; a failure just leaves the column undated. Fetched
-    // unfiltered: the chip shows the earliest expiry across ALL locations
-    // (location_id here is numeric, the Location dropdown is a name).
+    // Dated lots for the Best-before column + the Expiring-soon card. Fetched
+    // unfiltered: the chip/card shows the earliest expiry across ALL
+    // locations (location_id here is numeric, the Location dropdown is a
+    // name — passing the name used to silently empty the chips).
     apiGet('/api/stock-lots')
       .then(r => {
         const lots = Array.isArray(r) ? r : (r.data || []);
@@ -198,6 +198,46 @@ export default function InventoryPage({ onLogout }) {
     { label: 'Units to reorder', value: summary.reorderUnits, color: '#37648e', hint: 'Gap between stock and critical level' },
   ];
 
+  // ---- Expiring-within-30-days card (FEFO ledger driven) ----
+  // Nearest open expiry per product, reduced from the same lots the
+  // Best-before column uses. Expired (past) lots count too — they are the
+  // most urgent.
+  const expiringSoon = useMemo(() => {
+    const perProduct = {};
+    for (const [pid, entry] of Object.entries(nearestExpiry)) {
+      const days = daysUntil(entry.expiry_date);
+      if (days === null || days > 30) continue;
+      perProduct[pid] = { ...entry, days };
+    }
+    const products = Object.entries(perProduct)
+      .map(([pid, e]) => {
+        const inv = (inventory.items || []).find(
+          (it) => (it.product?.id ?? it.id) === Number(pid)
+        );
+        return {
+          id: Number(pid),
+          name: inv?.product?.name || `Product #${pid}`,
+          days: e.days,
+          date: e.expiry_date,
+          qty: e.qty,
+        };
+      })
+      .sort((a, b) => a.days - b.days);
+    return {
+      count: products.length,
+      units: products.reduce((s, p) => s + p.qty, 0),
+      products: products.slice(0, 8),
+      hasMore: products.length > 8,
+    };
+  }, [nearestExpiry, inventory.items]);
+
+  const expiringCardColor =
+    expiringSoon.count === 0
+      ? colors.brandPrimary
+      : expiringSoon.products.some((p) => p.days < 0)
+        ? '#c62828'
+        : '#ef6c00';
+
   return (
     <AdminLayout title="Inventory Management" onLogout={onLogout}>
       <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
@@ -238,6 +278,57 @@ export default function InventoryPage({ onLogout }) {
             ))}
           </Typography>
         )}
+        <Box
+          sx={{
+            mt: 2,
+            p: 1.5,
+            borderRadius: 2,
+            backgroundColor: colors.surface,
+            border: '1px solid rgba(0,0,0,0.06)',
+            borderLeft: `4px solid ${expiringCardColor}`,
+          }}
+          aria-label="Expiring within 30 days summary"
+        >
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+            <Typography variant="caption" color="text.secondary">
+              Expiring within 30 days
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: expiringCardColor }}>
+              {expiringSoon.count}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              product{expiringSoon.count === 1 ? '' : 's'} · {expiringSoon.units.toLocaleString()} unit{expiringSoon.units === 1 ? '' : 's'} on dated lots
+            </Typography>
+          </Box>
+          {expiringSoon.products.length > 0 && (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
+              {expiringSoon.products.map((p) => (
+                <Chip
+                  key={p.id}
+                  size="small"
+                  color={p.days < 0 ? 'error' : p.days <= 7 ? 'error' : p.days <= 30 ? 'warning' : 'success'}
+                  variant={p.days <= 7 ? 'filled' : 'outlined'}
+                  label={
+                    p.days < 0
+                      ? `${p.name} — expired ${-p.days}d ago`
+                      : p.days === 0
+                        ? `${p.name} — expires today`
+                        : `${p.name} — ${p.days}d left`
+                  }
+                  aria-label={`${p.name} best before ${p.date}, ${p.days < 0 ? `expired ${-p.days} days ago` : `${p.days} days left`}, ${p.qty} units on the dated lot`}
+                />
+              ))}
+              {expiringSoon.hasMore && (
+                <Chip size="small" label={`+${expiringSoon.count - 8} more`} onClick={() => setExpiryFilter('d30')} />
+              )}
+            </Box>
+          )}
+          {expiringSoon.count === 0 && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              Nothing dated expires in the next 30 days. Staff counts with best-before dates fill this card automatically.
+            </Typography>
+          )}
+        </Box>
       </Paper>
 
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>

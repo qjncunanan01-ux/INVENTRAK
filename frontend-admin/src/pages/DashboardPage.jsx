@@ -250,11 +250,15 @@ export default function DashboardPage({ user, onLogout }) {
           monthlyTransactions = monthlySales.length;
         }
 
-        // 10. Unique customers served (all-time). Staff fall back to the
-        // public summary (their ledger fetch is role-blocked).
+        // 10. Unique customers served (all-time). The backend now counts REAL
+        // customers — registered accounts that placed an order (customer_id /
+        // customer_email). Staff fall back to the public summary (their ledger
+        // fetch is role-blocked); admins now prefer the backend's accurate
+        // count, falling back to distinct payer names on older payloads.
         const customersServed = isStaff
           ? (summaryData.customersServed || 0)
-          : new Set(sales.map(s => s.customer_name).filter(Boolean)).size;
+          : (summaryData.customersServed ||
+             new Set(sales.map(s => s.customer_name).filter(Boolean)).size);
 
         // 11. Order status counts (staff: use the public summary breakdown,
         // same reason as the pending-inquiries card above).

@@ -2997,6 +2997,26 @@
             "bearerAuth": []
           }
         ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) — keeps only entries whose details.status matches"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "description": "Page size (default 200, max 1000)"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0 },
+            "description": "Skip this many entries (pagination together with limit)"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Audit log entries",
@@ -4448,7 +4468,12 @@
                 "type": "integer"
               },
               "customers_served": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Registered customer accounts with at least one order inquiry"
+              },
+              "customers_paid": {
+                "type": "integer",
+                "description": "Distinct payer names from the sales ledger (walk-ins included)"
               },
               "pending_approvals": {
                 "type": "integer"
@@ -5122,7 +5147,11 @@
           },
           "customersServed": {
             "type": "integer",
-            "description": "Distinct customers across sales"
+            "description": "Registered customer accounts with at least one order inquiry"
+          },
+          "customersPaid": {
+            "type": "integer",
+            "description": "Distinct payer names from the sales ledger (walk-ins included)"
           },
           "orderStatusSummary": {
             "type": "object",

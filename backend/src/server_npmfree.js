@@ -889,10 +889,18 @@ const server = http.createServer((req, res) => {
       try {
         // Same file audit.js writes to (see audit.js for the default path).
         const auditFile = AUDIT_LOG_FILE;
+        const params = new URL(url, 'http://localhost').searchParams;
+        const parseLimit = (raw, fallback) => {
+          const n = Number.parseInt(raw, 10);
+          return Number.isFinite(n) && n > 0 ? Math.min(n, 1000) : fallback;
+        };
+        const status = (params.get('status') || '').toString();
+        const limit = parseLimit(params.get('limit'), 200);
+        const offset = parseLimit(params.get('offset'), 0);
         if (!fs.existsSync(auditFile)) {
-          return sendJson(res, 200, { data: [], pagination: { total: 0 } });
+          return sendJson(res, 200, { data: [], pagination: { total: 0, limit, offset } });
         }
-        const logs = fs.readFileSync(auditFile, 'utf8')
+        let logs = fs.readFileSync(auditFile, 'utf8')
           .split('\n')
           .filter(Boolean)
           .map((line) => {
@@ -900,7 +908,17 @@ const server = http.createServer((req, res) => {
           })
           .filter(Boolean)
           .reverse();
-        return sendJson(res, 200, { data: logs, pagination: { total: logs.length } });
+        // Optional lifecycle filter (?status=...) — same semantics as app.js.
+        if (status) {
+          const lower = status.toLowerCase();
+          logs = logs.filter(
+            (e) =>
+              (e.details && typeof e.details === 'object' && e.details.status && String(e.details.status).toLowerCase() === lower) ||
+              (e.event || '').toLowerCase() === `order.status.${lower}`
+          );
+        }
+        const total = logs.length;
+        return sendJson(res, 200, { data: logs.slice(offset, offset + limit), pagination: { total, limit, offset } });
       } catch (err) {
         return sendJson(res, 500, { error: 'Failed to load audit trail' });
       }
@@ -2596,7 +2614,25 @@ const server = http.createServer((req, res) => {
         total_stock: (inv.items || []).reduce((sum, it) => sum + (it.total || 0), 0),
         total_sales: sales.reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0),
         transactions: sales.length,
-        customers_served: new Set(sales.map(s => s.customer_name)).size,
+        // Real customers only: registered accounts that have placed an order.
+        // The seeded sales ledger's customer_name strings (Juan, Maria, Paolo…)
+        // are walk-in payers, NOT accounts, so a distinct-name count reported
+        // people who don't exist anywhere in the system.
+        customers_served: (() => {
+          const accountIds = new Set(
+            orders
+              .map(o => Number(o.user_id))
+              .filter(id => Number.isFinite(id) && id > 0)
+          );
+          const customers = new Set(
+            users
+              .filter(u => u.role === 'customer' && accountIds.has(Number(u.id)))
+            );
+          return customers.size;
+        })(),
+        // Customers who actually paid for something — distinct names from the
+        // sales ledger, regardless of whether they registered.
+        customers_paid: new Set(sales.map(s => s.customer_name).filter(Boolean)).size,
         pending_approvals: loadRows('adjustment', 'pending').length + loadRows('transfer', 'pending').length,
       };
 
@@ -3143,7 +3179,17 @@ const server = http.createServer((req, res) => {
 
         // 6. Number of transactions + customers served.
         const transactionCount = salesTransactions.length;
-        const customersServed = new Set(salesTransactions.map(t => t.customer_name).filter(Boolean)).size;
+        // Real customers: accounts that placed an order (mirrors the SQLite
+        // backend). Distinct payers stay available for the Reports page.
+        const customerAccountIds = new Set(
+          orders
+            .map(o => Number(o.user_id))
+            .filter(id => Number.isFinite(id) && id > 0)
+        );
+        const customersServed = new Set(
+          users.filter(u => u.role === 'customer' && customerAccountIds.has(Number(u.id)))
+        ).size;
+        const customersPaid = new Set(salesTransactions.map(t => t.customer_name).filter(Boolean)).size;
 
         // 7. Order status summary (incl. the new 'delivered' state).
         const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
@@ -3168,7 +3214,7 @@ const server = http.createServer((req, res) => {
           pendingInquiries, totalSales, totalMovements, activeAlerts,
           topProducts, monthlyMovements,
           lowStockList, stockByLocation, fastMovingProducts, slowMovingProducts,
-          dailySalesValue, transactionCount, customersServed, orderStatusSummary,
+          dailySalesValue, transactionCount, customersServed, customersPaid, orderStatusSummary,
           monthlySalesValue, monthlyTransactions, orderStatusCounts
         });
       });

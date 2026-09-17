@@ -2956,7 +2956,22 @@ app.get('/api/reports', authenticateToken, adminOnly, (req, res) => {
     total_stock: db.prepare('SELECT COALESCE(SUM(quantity), 0) as t FROM stock').get().t,
     total_sales: db.prepare('SELECT COALESCE(SUM(total_amount), 0) as t FROM sales_transactions').get().t,
     transactions: db.prepare('SELECT COUNT(*) as c FROM sales_transactions').get().c,
-    customers_served: db.prepare('SELECT COUNT(DISTINCT customer_name) as c FROM sales_transactions').get().c,
+    // Real customers only: registered accounts that have placed an order.
+    // The seeded sales ledger's customer_name strings (Juan, Maria, Paolo…)
+    // are walk-in payers, NOT accounts, so COUNT(DISTINCT customer_name)
+    // reported people who don't exist anywhere in the system.
+    customers_served: db
+      .prepare(
+        `SELECT COUNT(DISTINCT oi.user_id) as c
+         FROM order_inquiries oi
+         WHERE oi.user_id IS NOT NULL
+           AND EXISTS (SELECT 1 FROM users u WHERE u.id = oi.user_id AND u.role = 'customer')`
+      )
+      .get().c,
+    // Customers who actually paid for something — distinct names from the
+    // sales ledger, regardless of whether they registered (kept for the
+    // Reports page "Customers served" line).
+    customers_paid: db.prepare('SELECT COUNT(DISTINCT customer_name) as c FROM sales_transactions').get().c,
     pending_approvals:
       db.prepare("SELECT COUNT(*) as c FROM stock_adjustments WHERE status = 'pending'").get().c +
       db.prepare("SELECT COUNT(*) as c FROM stock_transfers WHERE status = 'pending'").get().c,
@@ -3845,7 +3860,18 @@ app.get(
     const transactionCount = db
       .prepare('SELECT COUNT(*) as count FROM sales_transactions')
       .get().count;
+    // Real customers: accounts that placed an order (see /api/analytics/summary
+    // for why customer_name alone lies). Distinct payers stay available for
+    // the Reports page.
     const customersServed = db
+      .prepare(
+        `SELECT COUNT(DISTINCT oi.user_id) as count
+         FROM order_inquiries oi
+         WHERE oi.user_id IS NOT NULL
+           AND EXISTS (SELECT 1 FROM users u WHERE u.id = oi.user_id AND u.role = 'customer')`
+      )
+      .get().count;
+    const customersPaid = db
       .prepare('SELECT COUNT(DISTINCT customer_name) as count FROM sales_transactions')
       .get().count;
 
@@ -3891,6 +3917,7 @@ app.get(
       dailySalesValue,
       transactionCount,
       customersServed,
+      customersPaid,
       orderStatusSummary,
       monthlySalesValue,
       monthlyTransactions,
@@ -4167,22 +4194,28 @@ app.get('/api/audit-trail', authenticateToken, adminOnly, (req, res) => {
     // different file than the writer produced is how the trail once came
     // up empty on deploys where no AUDIT_LOG_FILE was configured.
     const auditFile = AUDIT_LOG_FILE;
+    const parseLimit = (raw, fallback) => {
+      const n = Number.parseInt(raw, 10);
+      return Number.isFinite(n) && n > 0 ? Math.min(n, 1000) : fallback;
+    };
+    const status = (req.query.status || '').toString();
+    const limit = parseLimit(req.query.limit, 200);
+    const offset = (() => {
+      const n = Number.parseInt(req.query.offset, 10);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    })();
 
     if (!fs.existsSync(auditFile)) {
       return res.json({
         data: [],
-        pagination: {
-          total: 0,
-        },
+        pagination: { total: 0, limit, offset },
       });
     }
 
-    const lines = fs
+    let logs = fs
       .readFileSync(auditFile, 'utf8')
       .split('\n')
-      .filter(Boolean);
-
-    const logs = lines
+      .filter(Boolean)
       .map((line) => {
         try {
           return JSON.parse(line);
@@ -4193,11 +4226,21 @@ app.get('/api/audit-trail', authenticateToken, adminOnly, (req, res) => {
       .filter(Boolean)
       .reverse();
 
+    // Optional lifecycle filter (?status=pending|approved|rejected|fulfilled|delivered):
+    // the trail embeds each inquiry status change as `status: <new>`.
+    if (status) {
+      const lower = status.toLowerCase();
+      logs = logs.filter(
+        (e) =>
+          (e.details && typeof e.details === 'object' && e.details.status && String(e.details.status).toLowerCase() === lower) ||
+          (e.event || '').toLowerCase() === `order.status.${lower}`
+      );
+    }
+
+    const total = logs.length;
     res.json({
-      data: logs,
-      pagination: {
-        total: logs.length,
-      },
+      data: logs.slice(offset, offset + limit),
+      pagination: { total, limit, offset },
     });
   } catch (err) {
     console.error('Audit trail error:', err);
