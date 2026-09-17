@@ -94,14 +94,14 @@ export default function DashboardPage({ user, onLogout }) {
 
   const [rawData, setRawData] = useState({
     inventory: [], sales: [], inquiries: [], movements: [], products: [],
-    alerts: [], summary: null, dailySales: [],
+    alerts: [], summary: null, dailySales: [], accounts: [],
   });
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const [summaryRes, inventoryRes, productsRes, locationsRes, inquiriesRes, salesRes, movementsRes, alertsRes] = await Promise.allSettled([
+        const [summaryRes, inventoryRes, productsRes, locationsRes, inquiriesRes, salesRes, movementsRes, alertsRes, accountsRes] = await Promise.allSettled([
           apiGet('/api/analytics/summary'),
           apiGet('/api/inventory'),
           apiGet('/api/products'),
@@ -109,7 +109,8 @@ export default function DashboardPage({ user, onLogout }) {
           apiGet('/api/order-inquiries'),
           apiGet('/api/sales'),
           apiGet('/api/stock-movements'),
-          apiGet('/api/alerts')
+          apiGet('/api/alerts'),
+          apiGet('/api/users')
         ]);
 
         const summaryData = summaryRes.status === 'fulfilled' ? (summaryRes.value.data || summaryRes.value) : {};
@@ -120,6 +121,9 @@ export default function DashboardPage({ user, onLogout }) {
         const salesData = salesRes.status === 'fulfilled' ? (salesRes.value.data || salesRes.value) : [];
         const movementsData = movementsRes.status === 'fulfilled' ? (movementsRes.value.data || movementsRes.value) : [];
         const alertsData = alertsRes.status === 'fulfilled' ? (alertsRes.value.data || alertsRes.value) : [];
+        // Customer accounts (the Total Registered Customers KPI's source of
+        // truth). Staff get 403 here — allSettled turns that into [].
+        const accountsData = accountsRes.status === 'fulfilled' ? (accountsRes.value.data || accountsRes.value) : [];
 
         // Alert list fetch is admin-only (staff get 403, handled by
         // allSettled) — the staff dashboard falls back to the low-stock
@@ -163,6 +167,7 @@ export default function DashboardPage({ user, onLogout }) {
           movements: rangeMovements,
           products: Array.isArray(productsData) ? productsData : [],
           alerts: rawAlerts,
+          accounts: Array.isArray(accountsData) ? accountsData : [],
           // Staff-visible fallbacks the detail modals reuse so a card's value
           // and its modal never disagree (same source the cards count from).
           summary: summaryData,
@@ -393,7 +398,7 @@ export default function DashboardPage({ user, onLogout }) {
     setModalLoading(false);
     setSearchQuery('');
 
-    const { inventory, sales, inquiries, movements, products, alerts, summary, dailySales } = rawData;
+    const { inventory, sales, inquiries, movements, products, alerts, summary, dailySales, accounts } = rawData;
 
     if (panel.key === 'lowStock') {
       const lowEntries = [];
@@ -452,21 +457,30 @@ export default function DashboardPage({ user, onLogout }) {
         setModalData([]);
       }
     } else if (panel.key === 'customers') {
-      const seen = new Set();
-      const unique = [];
-      sales.forEach(s => {
-        if (s.customer_name && !seen.has(s.customer_name)) {
-          seen.add(s.customer_name);
-          unique.push({ customer_name: s.customer_name, total_spent: 0, transactions: 0 });
+      // Account-based like the card: distinct submitters from the inquiries
+      // payload (email identifies the account; name is the display name).
+      // Walk-in payer names from the sales ledger are intentionally NOT
+      // listed here anymore. Rows arrive newest-first, so the first hit per
+      // customer carries their latest status.
+      const byCustomer = {};
+      inquiries.forEach(i => {
+        const key = (i.customer_email || i.customer_name || '').toLowerCase();
+        if (!key) return;
+        if (!byCustomer[key]) {
+          byCustomer[key] = {
+            id: key,
+            customer_name: i.customer_name || 'Customer',
+            customer_email: i.customer_email || '—',
+            orders: 0,
+            latest_status: i.status || 'pending',
+          };
         }
+        byCustomer[key].orders += 1;
       });
-      // Compute per-customer totals
-      sales.forEach(s => {
-        const c = unique.find(u => u.customer_name === s.customer_name);
-        if (c) { c.total_spent += Number(s.total_amount || s.total_price) || 0; c.transactions += 1; }
-      });
-      unique.sort((a, b) => b.total_spent - a.total_spent);
-      setModalData(unique);
+      setModalData(Object.values(byCustomer).sort((a, b) => b.orders - a.orders));
+    } else if (panel.key === 'customersRegistered') {
+      // The account base — straight from the Users API.
+      setModalData(accounts);
     } else if (panel.key === 'movements') {
       setModalData(movements);
     } else if (panel.key === 'fastMoving') {
@@ -1205,9 +1219,18 @@ export default function DashboardPage({ user, onLogout }) {
                         )}
                         {activeModal.key === 'customers' && (
                           <>
-                            <TableCell><strong>Customer Name</strong></TableCell>
-                            <TableCell align="right"><strong>Transactions</strong></TableCell>
-                            <TableCell align="right"><strong>Total Spent</strong></TableCell>
+                            <TableCell><strong>Customer</strong></TableCell>
+                            <TableCell><strong>Email</strong></TableCell>
+                            <TableCell align="right"><strong>Orders</strong></TableCell>
+                            <TableCell align="center"><strong>Latest Status</strong></TableCell>
+                          </>
+                        )}
+                        {activeModal.key === 'customersRegistered' && (
+                          <>
+                            <TableCell><strong>Username</strong></TableCell>
+                            <TableCell><strong>Email</strong></TableCell>
+                            <TableCell align="center"><strong>Verified</strong></TableCell>
+                            <TableCell><strong>Joined</strong></TableCell>
                           </>
                         )}
                         {activeModal.key === 'movements' && (
@@ -1311,10 +1334,29 @@ export default function DashboardPage({ user, onLogout }) {
                           {activeModal.key === 'customers' && (
                             <>
                               <TableCell><strong>{item.customer_name}</strong></TableCell>
-                              <TableCell align="right">{item.transactions}</TableCell>
-                              <TableCell align="right">
-                                {moneyVisible ? `P${Number(item.total_spent).toLocaleString()}` : MONEY_MASK}
+                              <TableCell>{item.customer_email}</TableCell>
+                              <TableCell align="right">{item.orders}</TableCell>
+                              <TableCell align="center">
+                                <Chip
+                                  label={item.latest_status || 'pending'}
+                                  size="small"
+                                  color={item.latest_status === 'approved' || item.latest_status === 'fulfilled' ? 'success' : item.latest_status === 'rejected' || item.latest_status === 'cancelled' ? 'error' : 'warning'}
+                                />
                               </TableCell>
+                            </>
+                          )}
+                          {activeModal.key === 'customersRegistered' && (
+                            <>
+                              <TableCell><strong>{item.username}</strong></TableCell>
+                              <TableCell>{item.email || '—'}</TableCell>
+                              <TableCell align="center">
+                                <Chip
+                                  label={item.email_verified === false ? 'Unverified' : 'Verified'}
+                                  size="small"
+                                  color={item.email_verified === false ? 'warning' : 'success'}
+                                />
+                              </TableCell>
+                              <TableCell>{item.created_at ? new Date(item.created_at).toLocaleDateString() : '—'}</TableCell>
                             </>
                           )}
                           {activeModal.key === 'movements' && (
