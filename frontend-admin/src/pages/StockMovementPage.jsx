@@ -60,6 +60,17 @@ export default function StockMovementPage({ onLogout }) {
       setSnackbar({ open: true, message: 'Expiry date only applies to Stock In and Transfers', severity: 'warning' });
       return;
     }
+    // Same strict calendar check the staff app applies to its Best-before
+    // field (and the backend enforces): V8/browsers roll 2027-02-31 over to
+    // Mar 3, so compare the parsed date back to the entered string.
+    if (form.expiry_date) {
+      const asDate = new Date(`${form.expiry_date}T00:00:00`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(form.expiry_date) || Number.isNaN(asDate.getTime()) ||
+        `${asDate.getFullYear()}-${String(asDate.getMonth() + 1).padStart(2, '0')}-${String(asDate.getDate()).padStart(2, '0')}` !== form.expiry_date) {
+        setSnackbar({ open: true, message: 'Best before must be a real calendar date (YYYY-MM-DD)', severity: 'warning' });
+        return;
+      }
+    }
     setSaving(true);
     try {
       const result = await apiPost('/api/stock-movement', {
@@ -159,14 +170,14 @@ export default function StockMovementPage({ onLogout }) {
           )}
           {showExpiry && (
             <TextField
-              label="Expiry date (optional)"
+              label="Best before / expiry (optional)"
               type="date"
               value={form.expiry_date}
               onChange={e => setForm({ ...form, expiry_date: e.target.value })}
               fullWidth
               sx={{ backgroundColor: colors.surface }}
               InputLabelProps={{ shrink: true }}
-              helperText="FEFO: this lot is consumed before non-expiring stock"
+              helperText="FEFO: this lot is consumed before non-expiring stock — same capture as the staff count form"
             />
           )}
           <TextField label="Notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} multiline rows={2} fullWidth sx={{ backgroundColor: colors.surface }} />

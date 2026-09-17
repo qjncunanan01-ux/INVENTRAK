@@ -2080,12 +2080,15 @@ const server = http.createServer((req, res) => {
         }
         // Optional FEFO expiry — mirrors the SQLite backend's normalization:
         // accept YYYY-MM-DD (or a full ISO timestamp, trimmed to its date
-        // part), reject anything else.
+        // part), reject anything else. Strict calendar check (round-trip):
+        // V8 parses 2027-02-31 as Mar 3, so a plain isValidDate() would stamp
+        // lots with nonexistent days.
         let expiryDate = null;
         if (obj.expiry_date !== undefined && obj.expiry_date !== null && obj.expiry_date !== '') {
           const raw = String(obj.expiry_date).trim();
           const normalized = raw.slice(0, 10);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Number.isNaN(new Date(`${normalized}T00:00:00Z`).getTime())) {
+          const asDate = new Date(`${normalized}T00:00:00Z`);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Number.isNaN(asDate.getTime()) || asDate.toISOString().slice(0, 10) !== normalized) {
             return sendJson(res, 400, { error: 'expiry_date must be a valid date (YYYY-MM-DD)' });
           }
           expiryDate = normalized;

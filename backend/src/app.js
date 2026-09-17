@@ -2229,12 +2229,15 @@ app.post(
 
     // Optional FEFO expiry (perishables). Accepts YYYY-MM-DD (or a full ISO
     // timestamp, normalized to its date part); anything else is rejected so
-    // lot ordering can never be poisoned by an unparseable value.
+    // lot ordering can never be poisoned by an unparseable value. Strict
+    // calendar check (round-trip): V8 parses 2027-02-31 as Mar 3, so a plain
+    // isValidDate() would stamp lots with nonexistent days.
     let expiryDate = null;
     if (expiry_date !== undefined && expiry_date !== null && expiry_date !== '') {
       const raw = String(expiry_date).trim();
       const normalized = raw.slice(0, 10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Number.isNaN(new Date(`${normalized}T00:00:00Z`).getTime())) {
+      const asDate = new Date(`${normalized}T00:00:00Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Number.isNaN(asDate.getTime()) || asDate.toISOString().slice(0, 10) !== normalized) {
         return res.status(400).json({
           error: 'expiry_date must be a valid date (YYYY-MM-DD)',
         });

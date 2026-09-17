@@ -44,7 +44,10 @@ test.after(teardown);
 
 test('POST stock-movement validates expiry_date format on both backends', async () => {
   for (const side of [sqlite, npmfree]) {
-    const cases = ['not-a-date', '2030-13-01', '2030-1-1', '2030/01/01'];
+    // '2027-02-31' is the calendar-rollout case: V8's Date constructor happily
+    // parses it as Mar 3, so a plain isValidDate() check would ACCEPT it and
+    // stamp a lot with a nonexistent day. The round-trip comparison rejects it.
+    const cases = ['not-a-date', '2030-13-01', '2030-1-1', '2030/01/01', '2027-02-31'];
     for (const bad of cases) {
       const { status, json } = await call(side.url, '/api/stock-movement', {
         method: 'POST',
