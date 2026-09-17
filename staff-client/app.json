@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "INVENTRAK Staff",
+    "slug": "inventrak-staff",
+    "scheme": "inventrak-staff",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#eef7e1",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/splash.png",
+          "imageWidth": 280,
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow INVENTRAK Staff to use your camera to scan QR tags, barcodes, and product labels.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-font",
+      "expo-status-bar"
+    ],
+    "android": {
+      "package": "com.inventrak.staff",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "owner": "patrickcuevas",
+    "extra": {
+      "eas": {
+        "projectId": "bced8cf0-0271-4194-954d-9bc44f6941eb"
+      }
+    }
+  }
+}

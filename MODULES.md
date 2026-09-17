@@ -543,6 +543,52 @@ unlock automatically when a staff/admin account signs in.
 
 ---
 
+## 17b. Mobile staff app (`staff-client/`) — QR, counts & adjustment requests ONLY
+
+A **separate, staff-only app** (own APK, package `com.inventrak.staff`, installs
+alongside the customer app). It contains **no cart, no catalog, no orders, no
+analytics** — only the three on-floor workflows, matching the role spec:
+"Inventory Staff may use the mobile application to scan QR codes, check
+physical stock, and submit inventory records for approval."
+
+**Run:**
+
+```bash
+cd staff-client
+npm install
+npx expo start              # QR for Expo Go (same-Wi-Fi dev)
+EXPO_PUBLIC_API_URL=https://inventrak-api.onrender.com npx expo start
+                            # talk to the deployed backend from any network
+```
+
+**Build the APK:**
+
+```bash
+cd staff-client
+npx eas-cli build -p android --profile production    # APK via EAS
+```
+
+**Screens (4 + login):**
+
+| Screen | What it does |
+|---|---|
+| Login | Staff-tier gate: customer accounts are refused client-side AND server-side. Session persists (AsyncStorage) so shift devices stay signed in. |
+| **Scan** | Live QR/barcode camera (location tags → that area's stock inline; product tags → count card) + label-OCR mode (photo → match → verify-and-count). Every scan is audited server-side. |
+| **Count** | No-camera path: searchable inventory list → tap a product → enter per-location physical counts → submit as PENDING adjustments. |
+| **My Requests** | The staff member's submitted adjustments with live status (pending / approved / rejected) and decision trail. |
+| Account | Shift identity + role badge, dark mode, logout (revokes the token server-side). |
+
+**APIs it may call (the whole surface):** login/logout, `/api/inventory`,
+`/api/locations`, `/api/stock-lots`, `POST /api/ocr/stock`,
+`GET|POST /api/stock-adjustments`, `POST /api/scan-events`. Approve/reject
+endpoints are **not** in the app — approvals live on the web admin (maker-
+approver separation).
+
+**Demo:** `staff/staff123`. Customer accounts get "This app is for Inventory
+Staff only."
+
+---
+
 ## 18. Security, audit & integrity
 
 **Code:** `backend/src/audit.js`, `totp.js`, `csrf.js`, `sanitize.js`,
