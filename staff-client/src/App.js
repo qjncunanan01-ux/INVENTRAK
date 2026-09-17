@@ -11,7 +11,7 @@ import LabelScanScreen from './screens/LabelScanScreen';
 import CountScreen from './screens/CountScreen';
 import RequestsScreen from './screens/RequestsScreen';
 import AccountScreen from './screens/AccountScreen';
-import { useSession, useSessionHydrated, wakeBackend } from './api';
+import { isSessionInvalidated, useSession, useSessionHydrated, wakeBackend } from './api';
 import { ThemeProvider, useThemeColors } from './theme-context';
 
 const RootStack = createNativeStackNavigator();
@@ -82,6 +82,10 @@ function AppShell() {
   // otherwise a slow read flashes the Login screen over a valid session.
   const hydrated = useSessionHydrated();
   const { isLoggedIn } = useSession();
+  // Server-side proof that a restored session is dead (expired between
+  // shifts, or its revocation record was lost on a Render redeploy): drop
+  // the stale token and return to Login instead of failing everywhere.
+  const invalidated = isSessionInvalidated();
 
   // Warm the Render instance at launch (fire-and-forget) so the first real
   // request of a shift doesn't die to a 30-60s cold start.
@@ -101,7 +105,7 @@ function AppShell() {
     <NavigationContainer>
       <StatusBar style={dark ? 'light' : 'dark'} backgroundColor={colors.background} />
       <RootStack.Navigator>
-        {!isLoggedIn ? (
+        {!isLoggedIn || invalidated ? (
           // Auth-first: a staff tool has no guest mode. The login is
           // staff-exclusive (portal=staff enforced server-side AND
           // client-side).

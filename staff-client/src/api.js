@@ -146,6 +146,9 @@ export function useSessionHydrated() {
 
 export function setToken(token) {
   authToken = token;
+  // A fresh token is a fresh session: clear any previous invalidation so the
+  // gate admits the newly signed-in user.
+  sessionInvalidated = false;
   persistSession();
 }
 
@@ -185,17 +188,6 @@ export function getSessionRole() {
   return sessionRole;
 }
 
-// Local-only logout: clears the persisted session. (The server-side token
-// revocation happens through the `logout()` wrapper below.)
-export function clearSession() {
-  sessionUsername = null;
-  sessionEmail = null;
-  sessionVerified = false;
-  sessionRole = null;
-  clearPersistedSession();
-  sessionListeners.forEach((fn) => fn());
-}
-
 export function subscribeSession(listener) {
   sessionListeners.add(listener);
   return () => sessionListeners.delete(listener);
@@ -212,6 +204,26 @@ export function useSession() {
     verified: sessionVerified,
     isLoggedIn: !!sessionUsername && !!authToken,
   };
+}
+
+// True once the restored session has been proven INVALID on the server (401
+// or the invalid-token 403). The App shell watches this and self-heals back
+// to the Login screen instead of showing work tabs that fail on every
+// request — e.g. a token that expired between shifts, or whose revocation
+// (or issuance) record was lost when Render's ephemeral disk recycled.
+let sessionInvalidated = false;
+
+export function isSessionInvalidated() {
+  return sessionInvalidated;
+}
+
+function clearLocalSessionOnly() {
+  sessionUsername = null;
+  sessionEmail = null;
+  sessionVerified = false;
+  sessionRole = null;
+  clearPersistedSession();
+  sessionListeners.forEach((fn) => fn());
 }
 
 // Shared client instance wired to this app's base URL + token store.
@@ -242,7 +254,17 @@ for (const key of Object.keys(rawClient)) {
         return await rawClient[key](...args);
       } catch (err) {
         lastErr = err;
-        if (err.status) throw err;
+        if (err.status) {
+          // 401 (no/missing auth) or the invalid-token 403 on an AUTHED
+          // request means the persisted session is dead server-side: expire
+          // it locally and flip the session so the App gate returns to Login.
+          // Auth endpoints (login) carry no token, so they are unaffected.
+          if ((err.status === 401 || err.status === 403) && authToken) {
+            sessionInvalidated = true;
+            clearLocalSessionOnly();
+          }
+          throw err;
+        }
         if (attempt < 2) await sleep(1500 * (attempt + 1));
       }
     }
@@ -279,6 +301,7 @@ export const createScanEvent = client.createScanEvent;
 // regardless of network state (a dead network must never trap a shift device
 // in a signed-in state).
 export async function logoutAndClear() {
+  sessionInvalidated = false;
   try {
     await client.logout();
   } catch {
