@@ -568,15 +568,18 @@ cd staff-client
 npx eas-cli build -p android --profile production    # APK via EAS
 ```
 
-**Screens (4 + login):**
+**Screens (5 separate modules + login — one workflow per module, never merged):**
 
-| Screen | What it does |
+| Module | What it does |
 |---|---|
-| Login | Staff-tier gate: customer accounts are refused client-side AND server-side. Session persists (AsyncStorage) so shift devices stay signed in. |
-| **Scan** | Live QR/barcode camera (location tags → that area's stock inline; product tags → count card) + label-OCR mode (photo → match → verify-and-count). Every scan is audited server-side. |
+| Login | **Staff-exclusive gate:** sends `portal: 'staff'`, which the SERVER enforces — admins/owners/customers are refused with `403 staff_app_exclusive` (client-side role gate as defense in depth). Session persists (AsyncStorage) so shift devices stay signed in. |
+| **Scan Tag** | Live QR/barcode camera ONLY: location tags → that storage area's stock inline; product tags → count card. Every scan is audited server-side. |
+| **Label Scan** | Label-photo OCR ONLY: photo → catalog match → verify → count card. (Shared `CountCard` component with Scan Tag — identical submission logic, separate screens.) |
 | **Count** | No-camera path: searchable inventory list → tap a product → enter per-location physical counts → submit as PENDING adjustments. |
-| **My Requests** | The staff member's submitted adjustments with live status (pending / approved / rejected) and decision trail. |
+| **Requests** | The staff member's submitted adjustments with live status (pending / approved / rejected) and decision trail. |
 | Account | Shift identity + role badge, dark mode, logout (revokes the token server-side). |
+
+**Same brand palette as the customer app and web admin** — one INVENTRAK look across all three apps (light + dark).
 
 **APIs it may call (the whole surface):** login/logout, `/api/inventory`,
 `/api/locations`, `/api/stock-lots`, `POST /api/ocr/stock`,
@@ -584,8 +587,8 @@ npx eas-cli build -p android --profile production    # APK via EAS
 endpoints are **not** in the app — approvals live on the web admin (maker-
 approver separation).
 
-**Demo:** `staff/staff123`. Customer accounts get "This app is for Inventory
-Staff only."
+**Demo:** `staff/staff123`. Admin/owner/customer accounts get "The staff app is
+exclusively for Inventory Staff. Admins and owners use the web admin dashboard."
 
 ---
 
