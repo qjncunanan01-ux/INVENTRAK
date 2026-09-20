@@ -39,34 +39,44 @@ body {
   }
 }
 
-/* Printable QR tag sheet (components/QrTagSheet.jsx). When the operator prints,
-   hide everything except the sheet so only the tags land on paper — the MUI
-   dialog itself is neutralised so it does not clip the grid to one screen. */
+/* ===================== PRINT =====================
+   One mechanism for every printable surface (reports, QR tags):
+   the caller marks the printable region with data-print-root via
+   printElement() (src/printReport.js), and these rules hide everything else
+   on paper. The old rules revealed ONLY #qr-tag-sheet, so Reports'
+   "Print / Save PDF" produced blank paper — everything was hidden and
+   nothing revealed the report. */
 @media print {
   body * {
     visibility: hidden;
   }
 
-  #qr-tag-sheet,
-  #qr-tag-sheet * {
+  [data-print-root],
+  [data-print-root] * {
     visibility: visible;
   }
 
-  #qr-tag-sheet {
+  /* Print from the very top-left of the page, full width. */
+  [data-print-root] {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
   }
 
-  /* Neutralise the dialog chrome (positioning, scroll bars, backdrop) so the
-     full tag grid prints across as many pages as it needs. */
+  /* Chrome that must never reach paper. */
+  .MuiBackdrop-root,
+  .MuiDialogActions-root,
+  .MuiDialogTitle-root {
+    display: none !important;
+  }
+
+  /* Dialog surfaces: neutralise positioning/clipping so the marked region
+     can flow across as many pages as it needs. */
   .MuiDialog-root,
   .MuiDialog-container,
-  .MuiDialog-paper {
+  .MuiDialog-paper,
+  .MuiDialogContent-root {
     position: static !important;
     max-width: none !important;
     max-height: none !important;
@@ -75,9 +85,35 @@ body {
     box-shadow: none !important;
   }
 
-  .MuiBackdrop-root,
-  .MuiDialogActions-root,
-  .MuiDialogTitle-root {
-    display: none !important;
+  /* Paper cards on a printout: keep borders readable but drop shadows and
+     the app's background tints (saves ink, keeps text crisp). */
+  .MuiPaper-root {
+    box-shadow: none !important;
+    background: #fff !important;
+    border: 1px solid #d0d0d0;
+  }
+
+  /* MUI Tables use sticky headers with colored backgrounds by default —
+     force plain black-on-white so text survives grayscale printing. */
+  .MuiTableCell-head {
+    color: #000 !important;
+    background: #f3f3f3 !important;
+  }
+
+  /* Force light colors for anything still themed dark. */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* The QR tag sheet keeps its compact 3-column tag grid. */
+  #qr-tag-sheet {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  @page {
+    margin: 14mm;
   }
 }

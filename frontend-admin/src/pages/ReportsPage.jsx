@@ -1,5 +1,5 @@
 import { Box, Button, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
@@ -7,6 +7,7 @@ import AdminLayout from './AdminLayout';
 import RangeFilter from '../components/RangeFilter';
 import FormulaBanner from '../components/FormulaBanner';
 import { MONEY_MASK } from '../components/Money';
+import { printElement } from '../printReport';
 import { DEFAULT_RANGE, resolveRange, rangeQuery } from '../dateRange';
 import { canSeeMoney } from '../roles';
 
@@ -26,6 +27,9 @@ export default function ReportsPage({ onLogout }) {
   const range = useMemo(() => resolveRange(rangePreset), [rangePreset]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Printable region for "Print / Save PDF" — wraps everything with data.
+  const printAreaRef = useRef(null);
+  const handlePrint = () => printElement(printAreaRef.current);
 
   const load = async(q) => {
     setLoading(true);
@@ -56,7 +60,12 @@ export default function ReportsPage({ onLogout }) {
         </div>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <RangeFilter value={rangePreset} onChange={setRangePreset} />
-          <Button variant="contained" color="secondary" onClick={() => window.print()} disabled={loading}>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handlePrint}
+            disabled={loading || !report}
+          >
             🖨 Print / Save PDF
           </Button>
         </Box>
@@ -65,7 +74,7 @@ export default function ReportsPage({ onLogout }) {
       {error ? <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}><Typography color="error">{error}</Typography></Paper> : null}
 
       {report ? (
-        <>
+        <Box ref={printAreaRef}>
           {/* Every peso figure in this report is one of these two sums — shown
               up top so the panel can trace each number to its source. */}
           <FormulaBanner
@@ -170,7 +179,7 @@ export default function ReportsPage({ onLogout }) {
               </Table>
             </Paper>
           </Box>
-        </>
+        </Box>
       ) : null}
     </AdminLayout>
   );

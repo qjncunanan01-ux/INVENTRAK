@@ -8,6 +8,7 @@ import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 import QrTagSheet from '../components/QrTagSheet';
 import QrImage from '../components/QrImage';
+import { printElement } from '../printReport';
 import { parseQrPayload, productQrPayload } from '../qr';
 
 const filter = createFilterOptions();
@@ -34,6 +35,8 @@ export default function ProductsPage({ onLogout }) {
   // QR tags: `activeTag` is the single-tag dialog, `showSheet` the batch
   // printable sheet, `scanValue` the scan-to-stock input box.
   const [activeTag, setActiveTag] = useState(null);
+  // Printable region for the single-tag dialog's "Print tag" button.
+  const singleTagRef = useRef(null);
   const [showSheet, setShowSheet] = useState(false);
   const [scanValue, setScanValue] = useState('');
 
@@ -546,7 +549,7 @@ export default function ProductsPage({ onLogout }) {
         <DialogTitle>{activeTag ? `QR tag — ${activeTag.name}` : 'QR tag'}</DialogTitle>
         <DialogContent>
           {activeTag ? (
-            <Box sx={{ textAlign: 'center' }}>
+            <Box sx={{ textAlign: 'center' }} ref={singleTagRef}>
               {/* Local QR generation — no third-party request. */}
               <QrImage payload={productQrPayload(activeTag)} size={240} sx={{ mx: 'auto' }} />
               <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
@@ -561,7 +564,7 @@ export default function ProductsPage({ onLogout }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setActiveTag(null)}>Close</Button>
-          <Button variant="contained" color="secondary" onClick={() => window.print()} disabled={!activeTag}>
+          <Button variant="contained" color="secondary" onClick={() => printElement(singleTagRef.current)} disabled={!activeTag}>
             🖨 Print tag
           </Button>
         </DialogActions>

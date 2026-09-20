@@ -1,5 +1,7 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+import { useRef } from 'react';
 import QrImage from './QrImage';
+import { printElement } from '../printReport';
 import { locationQrPayload, productQrPayload } from '../qr';
 
 // One tag on the printable sheet: the QR image plus a human-readable caption so
@@ -36,6 +38,7 @@ function Tag({ payload, caption, sub }) {
  */
 export default function QrTagSheet({ open, onClose, locations = [], products = [], includeProducts = true }) {
   const hasTags = locations.length > 0 || (includeProducts && products.length > 0);
+  const printRef = useRef(null);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
@@ -53,6 +56,7 @@ export default function QrTagSheet({ open, onClose, locations = [], products = [
         ) : (
           <Box
             id="qr-tag-sheet"
+            ref={printRef}
             sx={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
@@ -82,7 +86,7 @@ export default function QrTagSheet({ open, onClose, locations = [], products = [
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
-        <Button variant="contained" color="secondary" onClick={() => window.print()} disabled={!hasTags}>
+        <Button variant="contained" color="secondary" onClick={() => printElement(printRef.current)} disabled={!hasTags}>
           🖨 Print sheet
         </Button>
       </DialogActions>
