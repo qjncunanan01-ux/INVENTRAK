@@ -1,5 +1,6 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
-import { locationQrPayload, productQrPayload, qrImageUrl } from '../qr';
+import QrImage from './QrImage';
+import { locationQrPayload, productQrPayload } from '../qr';
 
 // One tag on the printable sheet: the QR image plus a human-readable caption so
 // a printed page can still be filed or matched by eye.
@@ -15,12 +16,8 @@ function Tag({ payload, caption, sub }) {
         pageBreakInside: 'avoid',
       }}
     >
-      <Box
-        component="img"
-        src={qrImageUrl(payload, 140)}
-        alt={`QR tag ${caption}`}
-        sx={{ width: 140, height: 140, display: 'block', margin: '0 auto' }}
-      />
+      {/* Local QR generation — the payload never leaves this machine. */}
+      <QrImage payload={payload} size={140} sx={{ margin: '0 auto' }} />
       <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 800, lineHeight: 1.2 }}>
         {caption}
       </Typography>

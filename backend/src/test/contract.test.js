@@ -1099,7 +1099,9 @@ test('contract: GCash checkout returns a payment step identically', async () => 
     assert.strictEqual(body.payment.payment_method, 'gcash');
     assert.strictEqual(body.payment.payment_status, 'unpaid');
     assert.ok(body.payment.payment_reference, `${side} has a reference`);
-    assert.ok(/^https?:\/\//.test(body.payment.payment_qr), `${side} QR is a URL`);
+    // The QR is a locally generated data URL (private + offline-capable),
+    // never a third-party QR web service URL.
+    assert.ok(/^data:image\/png;base64,/.test(body.payment.payment_qr), `${side} QR is a local data URL`);
   }
 
   // The stored inquiry carries the payment fields on read-back.

@@ -5,7 +5,6 @@ import {
   locationQrPayload,
   parseQrPayload,
   productQrPayload,
-  qrImageUrl,
 } from './qr';
 
 // The QR payload format is a CROSS-APP CONTRACT: mobile-client's
@@ -24,11 +23,9 @@ describe('QR payload contract', () => {
     expect(payload.startsWith(PRODUCT_QR_PREFIX)).toBe(true);
   });
 
-  test('qrImageUrl encodes the payload into the image request', () => {
-    const url = qrImageUrl('INVENTRAK:LOC:2:Stockroom%201', 200);
-    expect(url).toContain('size=200x200');
-    expect(url).toContain(encodeURIComponent('INVENTRAK:LOC:2:Stockroom%201'));
-  });
+  // qrImageUrl() was removed: QR images now render locally via the QrImage
+  // component so payloads (tag ids, payment data, the MFA secret) are never
+  // sent to a third-party QR web service.
 });
 
 describe('parseQrPayload (mirrors the mobile scanner)', () => {

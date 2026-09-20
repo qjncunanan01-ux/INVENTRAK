@@ -10,10 +10,11 @@
 // step fully demoable offline, while the real gateway just swaps in when the
 // key is present.
 //
-// The module is deliberately dependency-free: no SDK, just fetch() (Node 18+
-// has global fetch) for the PayMongo call.
+// The module only needs fetch() (Node 18+) for the PayMongo call; QR images
+// are generated locally with the `qrcode` package.
 
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 
 const PAYMONGO_API = 'https://api.paymongo.com/v1/checkout_sessions';
 
@@ -28,10 +29,13 @@ function qrPayload(amount, reference) {
   return `INVENTRAK PAYMENT\nAmount: PHP ${Number(amount || 0).toFixed(2)}\nRef: ${reference}`;
 }
 
-// QR image URL (api.qrserver.com needs no key; the same URL pattern is used
-// by the mobile client to render the QR with the built-in <Image> component).
-function qrImageUrl(payload) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(payload)}`;
+// QR image as a data URL, generated locally with the `qrcode` package. The
+// previous implementation pointed the mobile <Image> at api.qrserver.com,
+// which sent the payment amount + reference to a third-party service as a URL
+// parameter — and needed internet access to render at all. A data URL keeps
+// the payload private and renders offline.
+async function qrImageUrl(payload) {
+  return QRCode.toDataURL(String(payload), { width: 240, margin: 1, errorCorrectionLevel: 'M' });
 }
 
 // PayMongo checkout session (real GCash payment). Basic auth with the secret
@@ -126,7 +130,7 @@ async function buildPaymentStep({ id, amount, description, email, paymentMethod 
       payment_status: 'unpaid',
       payment_reference: session.reference || reference,
       payment_url: session.checkout_url,
-      payment_qr: qrImageUrl(`PAYMENT ${session.reference || reference} AMOUNT PHP ${Number(amount || 0).toFixed(2)}`),
+      payment_qr: await qrImageUrl(`PAYMENT ${session.reference || reference} AMOUNT PHP ${Number(amount || 0).toFixed(2)}`),
       payment_provider: session.provider,
     };
   }
@@ -137,7 +141,7 @@ async function buildPaymentStep({ id, amount, description, email, paymentMethod 
     payment_status: 'unpaid',
     payment_reference: reference,
     payment_url: null,
-    payment_qr: qrImageUrl(qrPayload(amount, reference)),
+    payment_qr: await qrImageUrl(qrPayload(amount, reference)),
     payment_provider: 'demo',
   };
 }

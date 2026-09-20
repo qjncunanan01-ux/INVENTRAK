@@ -7,7 +7,8 @@ import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 import QrTagSheet from '../components/QrTagSheet';
-import { parseQrPayload, productQrPayload, qrImageUrl } from '../qr';
+import QrImage from '../components/QrImage';
+import { parseQrPayload, productQrPayload } from '../qr';
 
 const filter = createFilterOptions();
 
@@ -546,12 +547,8 @@ export default function ProductsPage({ onLogout }) {
         <DialogContent>
           {activeTag ? (
             <Box sx={{ textAlign: 'center' }}>
-              <Box
-                component="img"
-                src={qrImageUrl(productQrPayload(activeTag), 240)}
-                alt={`QR tag for ${activeTag.name}`}
-                sx={{ width: 240, height: 240, display: 'block', mx: 'auto' }}
-              />
+              {/* Local QR generation — no third-party request. */}
+              <QrImage payload={productQrPayload(activeTag)} size={240} sx={{ mx: 'auto' }} />
               <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
                 {productQrPayload(activeTag)}
               </Typography>

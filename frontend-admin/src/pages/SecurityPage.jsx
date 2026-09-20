@@ -1,6 +1,7 @@
 import { Alert, Box, Button, Card, CardContent, Chip, Divider, Link, TextField, Typography } from '@mui/material';
 import { useState } from 'react';
 import { mfaConfirm, mfaDisable, mfaRecoveryCodes, mfaSetup } from '../api';
+import QrImage from '../components/QrImage';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
@@ -120,11 +121,14 @@ export default function SecurityPage({ onLogout }) {
                 <Typography variant="body2" sx={{ mb: 1 }}>
                 Scan the QR code (below) or type the secret manually:
                 </Typography>
-                <Box
-                  component="img"
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pending.otpauth_url)}`}
-                  alt="MFA QR code"
-                  sx={{ width: 180, height: 180, borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 1 }}
+                {/* The otpauth URL embeds the TOTP secret: generate the QR
+                    LOCALLY so the secret never leaves this browser (the old
+                    <img src="https://api.qrserver.com/..."> sent it to a
+                    third-party service as a URL parameter). */}
+                <QrImage
+                  payload={pending.otpauth_url}
+                  size={180}
+                  sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 1 }}
                 />
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all', mb: 1 }}>
                   {pending.secret}

@@ -7,11 +7,10 @@ import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
 import QrTagSheet from '../components/QrTagSheet';
+import QrImage from '../components/QrImage';
 // QR payload formats live in ../qr (a cross-app contract with the mobile
 // scanner) so the tag generator and the scanner can never drift apart.
-import { locationQrPayload, qrImageUrl } from '../qr';
-
-const locationQrUrl = (loc, size = 260) => qrImageUrl(locationQrPayload(loc), size);
+import { locationQrPayload } from '../qr';
 
 export default function LocationsPage({ onLogout }) {
   usePageTitle('/locations');
@@ -143,11 +142,11 @@ export default function LocationsPage({ onLogout }) {
                 <TableCell>{loc.id}</TableCell>
                 <TableCell>{loc.name}</TableCell>
                 <TableCell>
-                  <Box
-                    component="img"
-                    src={locationQrUrl(loc, 44)}
-                    alt={`QR tag for ${loc.name}`}
-                    sx={{ width: 44, height: 44, borderRadius: 1, border: '1px solid rgba(0,0,0,0.12)' }}
+                  {/* Local QR generation — no third-party request, works offline. */}
+                  <QrImage
+                    payload={locationQrPayload(loc)}
+                    size={44}
+                    sx={{ borderRadius: 1, border: '1px solid rgba(0,0,0,0.12)' }}
                   />
                 </TableCell>
                 <TableCell>
@@ -191,12 +190,7 @@ export default function LocationsPage({ onLogout }) {
                   backgroundColor: colors.surface,
                 }}
               >
-                <Box
-                  component="img"
-                  src={locationQrUrl(loc)}
-                  alt={`QR tag for ${loc.name}`}
-                  sx={{ width: 180, height: 180, mx: 'auto', display: 'block' }}
-                />
+                <QrImage payload={locationQrPayload(loc)} size={180} sx={{ mx: 'auto' }} />
                 <Typography variant="subtitle2" sx={{ mt: 1 }}>{loc.name}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
                   {locationQrPayload(loc)}

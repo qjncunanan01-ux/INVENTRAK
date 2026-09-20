@@ -18,11 +18,12 @@ export function productQrPayload(product) {
   return `${PRODUCT_QR_PREFIX}${product.id}`;
 }
 
-// QR images come from the same public qrserver.com endpoint the MFA page
-// already uses — no new dependency and no server round-trip.
-export function qrImageUrl(payload, size = 260) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}`;
-}
+// QR images are generated LOCALLY by the `qrcode` package via the
+// components/QrImage.jsx component — never a network request. The previous
+// qrImageUrl() helper pointed at api.qrserver.com, which sent every payload
+// (printed tag ids, payment amounts, and the MFA otpauth:// secret) to a
+// third-party server as a URL parameter. It was removed: call sites now render
+// <QrImage payload={...} size={...} />, which also works offline.
 
 /**
  * Decode an INVENTRAK QR payload. Mirrors the mobile scanner's parseQr so the
