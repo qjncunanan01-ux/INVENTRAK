@@ -26,7 +26,7 @@ function extractCode(line) {
 
 let user;
 
-before(async () => {
+before(async() => {
   await bootBoth();
   user = `verify_exp_${Date.now().toString(36)}`;
 });
@@ -35,10 +35,10 @@ after(() => {
   teardown();
 });
 
-test('verify: a code older than the TTL is rejected as expired on BOTH backends', async () => {
+test('verify: a code older than the TTL is rejected as expired on BOTH backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const uname = `${user}_${side === sqlite ? 's' : 'n'}`;
-    let lines = [];
+    const lines = [];
     const orig = console.log;
     console.log = (...args) => {
       const line = args.join(' ');

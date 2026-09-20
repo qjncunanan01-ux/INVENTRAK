@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ProductsPage from './ProductsPage';
 import * as api from '../api';
 
-vi.mock('../api', async () => {
+vi.mock('../api', async() => {
   const actual = await vi.importActual('../api');
   return {
     ...actual,
@@ -44,7 +44,7 @@ function renderProductsPage() {
   return render(
     <MemoryRouter>
       <ProductsPage onLogout={() => {}} />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
@@ -54,7 +54,7 @@ describe('ProductsPage Comboboxes (Category, Brand, Unit)', () => {
     api.apiGet.mockResolvedValue(sampleProducts);
   });
 
-  it('renders products and fetches existing category, brand, and unit options', async () => {
+  it('renders products and fetches existing category, brand, and unit options', async() => {
     renderProductsPage();
 
     await waitFor(() => {
@@ -71,7 +71,7 @@ describe('ProductsPage Comboboxes (Category, Brand, Unit)', () => {
     expect(unitInput).toBeInTheDocument();
   });
 
-  it('allows creating a new category option when typed value does not exist', async () => {
+  it('allows creating a new category option when typed value does not exist', async() => {
     renderProductsPage();
 
     await waitFor(() => {
@@ -84,7 +84,7 @@ describe('ProductsPage Comboboxes (Category, Brand, Unit)', () => {
     expect(categoryInput).toHaveValue('Specialty Teas');
   });
 
-  it('pre-populates category, brand, and unit fields when editing a product', async () => {
+  it('pre-populates category, brand, and unit fields when editing a product', async() => {
     renderProductsPage();
 
     await waitFor(() => {
@@ -105,7 +105,7 @@ describe('ProductsPage Comboboxes (Category, Brand, Unit)', () => {
 
   // Generous timeout: under parallel vitest runs this multi-waitFor test can
   // exceed the 5s default and flake the suite (it passes consistently alone).
-  it('binds new/selected entries correctly to the form payload on submission', { timeout: 20000 }, async () => {
+  it('binds new/selected entries correctly to the form payload on submission', { timeout: 20000 }, async() => {
     api.apiPost.mockResolvedValue({ id: 3, name: 'New Product' });
 
     renderProductsPage();

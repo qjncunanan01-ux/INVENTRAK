@@ -27,13 +27,21 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "eslint src/**/*.jsx src/**/*.js",
+    "lint:fix": "eslint src/**/*.jsx src/**/*.js --fix",
+    "format": "prettier --write src/**/*.jsx src/**/*.js",
+    "format:check": "prettier --check src/**/*.jsx src/**/*.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^14.3.1",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
     "jsdom": "^26.1.0",
+    "prettier": "^3.9.8",
     "vitest": "^3.2.0"
   }
 }

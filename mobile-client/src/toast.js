@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useThemeColors } from './theme-context';
 
-let listeners = new Set();
+const listeners = new Set();
 let current = null;
 let hideTimer = null;
 
@@ -81,6 +81,22 @@ export function Toaster() {
 }
 
 const createStyles = (colors) => StyleSheet.create({
+  action: { color: colors.brandSecondary, fontSize: 13, fontWeight: '800', marginLeft: 12 },
+  pill: {
+    alignItems: 'center',
+    backgroundColor: '#22320f',
+    borderRadius: 22,
+    elevation: 6,
+    flexDirection: 'row',
+    maxWidth: '86%',
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  text: { color: '#fff', flexShrink: 1, fontSize: 13, fontWeight: '600' },
   wrap: {
     position: 'absolute',
     left: 0,
@@ -89,20 +105,4 @@ const createStyles = (colors) => StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#22320f',
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 6,
-    maxWidth: '86%',
-  },
-  text: { color: '#fff', fontSize: 13, fontWeight: '600', flexShrink: 1 },
-  action: { color: colors.brandSecondary, fontSize: 13, fontWeight: '800', marginLeft: 12 },
 });

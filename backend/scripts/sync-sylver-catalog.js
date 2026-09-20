@@ -61,13 +61,13 @@ const BRAND_PREFIXES = [
 function fetch(url) {
   return new Promise((resolve, reject) => {
     https
-      .get(url, { headers: { 'User-Agent': 'Mozilla/5.0 INVENTRAK-sync/1.0' } }, (res) => {
+      .get(url, { headers: { 'User-Agent': 'Mozilla/5.0 INVENTRAK-sync/1.0' } }, res => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           fetch(res.headers.location).then(resolve).catch(reject);
           return;
         }
         let data = '';
-        res.on('data', (c) => (data += c));
+        res.on('data', c => (data += c));
         res.on('end', () => {
           if (res.statusCode !== 200) reject(new Error(`HTTP ${res.statusCode} for ${url}`));
           else resolve(data);
@@ -78,9 +78,9 @@ function fetch(url) {
 }
 
 function parseFeed(xml) {
-  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => {
+  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => {
     const block = m[1];
-    const get = (tag) => {
+    const get = tag => {
       const mm = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
       return mm ? mm[1].replace(/<[^>]+>/g, '').trim() : '';
     };
@@ -106,13 +106,15 @@ function norm(s) {
 }
 
 function normalizeSize(s) {
-  return norm(String(s || '')
-    .replace(/\s+/g, '')
-    .replace(/kilogram/g, 'kg')
-    .replace(/liter/g, 'l')
-    .replace(/milliliter/g, 'ml')
-    .replace(/ounce/g, 'oz')
-    .replace(/pieces/g, 'pcs'));
+  return norm(
+    String(s || '')
+      .replace(/\s+/g, '')
+      .replace(/kilogram/g, 'kg')
+      .replace(/liter/g, 'l')
+      .replace(/milliliter/g, 'ml')
+      .replace(/ounce/g, 'oz')
+      .replace(/pieces/g, 'pcs')
+  );
 }
 
 function extractSize(title) {
@@ -124,7 +126,9 @@ function extractSize(title) {
 }
 
 function stripBrandPrefix(title) {
-  let name = String(title || '').replace(/\([^)]*\)/g, '').trim();
+  let name = String(title || '')
+    .replace(/\([^)]*\)/g, '')
+    .trim();
   for (const prefix of BRAND_PREFIXES.sort((a, b) => b.length - a.length)) {
     const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`, 'i');
     if (re.test(name)) {
@@ -167,10 +171,10 @@ function scoreMatch(app, web) {
   if (appName === webName) score += 0.45;
   else if (appName.includes(webName) || webName.includes(appName)) score += 0.3;
   else {
-    const ta = new Set(appName.split(' ').filter((w) => w.length > 2));
-    const tb = new Set(webName.split(' ').filter((w) => w.length > 2));
+    const ta = new Set(appName.split(' ').filter(w => w.length > 2));
+    const tb = new Set(webName.split(' ').filter(w => w.length > 2));
     let inter = 0;
-    ta.forEach((w) => {
+    ta.forEach(w => {
       if (tb.has(w)) inter++;
     });
     const union = new Set([...ta, ...tb]).size || 1;
@@ -274,8 +278,8 @@ function matchCatalog(products, feed) {
 }
 
 function applyUpdates(products, matches) {
-  const byRef = new Map(matches.map((m) => [m.app, m]));
-  return products.map((p) => {
+  const byRef = new Map(matches.map(m => [m.app, m]));
+  return products.map(p => {
     const m = byRef.get(p);
     if (!m) return p;
     const image = p.Image || p.image || '';
@@ -329,9 +333,7 @@ async function main() {
   const xml = await fetch(FEED_URL);
   const feed = parseFeed(xml);
   const products = JSON.parse(fs.readFileSync(PRODUCTS_FILE, 'utf8'));
-  const inventory = fs.existsSync(INVENTORY_FILE)
-    ? JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8'))
-    : null;
+  const inventory = fs.existsSync(INVENTORY_FILE) ? JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8')) : null;
 
   const { matches, unmatchedApp, unmatchedWeb } = matchCatalog(products, feed);
   console.log(`\nFeed: ${feed.length} products | App: ${products.length} products`);
@@ -349,18 +351,18 @@ async function main() {
   }
 
   console.log(`\nField changes on matched products: ${changes.length}`);
-  changes.slice(0, 25).forEach((c) => {
+  changes.slice(0, 25).forEach(c => {
     console.log(`  • ${c.name} → ${c.field}: ${JSON.stringify(c.old)} → ${JSON.stringify(c.new)}`);
   });
   if (changes.length > 25) console.log(`  … and ${changes.length - 25} more`);
 
   if (unmatchedApp.length) {
     console.log('\nApp products kept as-is (no confident web match):');
-    unmatchedApp.forEach((p) => console.log(`  - [${p.Category}] ${p['Product Name']}`));
+    unmatchedApp.forEach(p => console.log(`  - [${p.Category}] ${p['Product Name']}`));
   }
   if (unmatchedWeb.length) {
     console.log('\nWeb products not matched to existing app rows:');
-    unmatchedWeb.forEach((w) => console.log(`  + [${w.brand}] ${w.title} — ₱${w.price}`));
+    unmatchedWeb.forEach(w => console.log(`  + [${w.brand}] ${w.title} — ₱${w.price}`));
   }
 
   const updatedProducts = applyUpdates(products, matches);
@@ -392,7 +394,7 @@ async function main() {
   console.log('\nDone. Run: npm run migrate:check && npm test');
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error(err);
   process.exit(1);
 });

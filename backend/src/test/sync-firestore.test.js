@@ -82,7 +82,7 @@ after(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-test('canonicalizers agree: syncing SQLite into Firestore then re-reading is a no-op', async () => {
+test('canonicalizers agree: syncing SQLite into Firestore then re-reading is a no-op', async() => {
   const store = require('../store-firestore');
   store._setDb(makeFakeDb());
   await store.init();
@@ -102,7 +102,7 @@ test('canonicalizers agree: syncing SQLite into Firestore then re-reading is a n
   }
 });
 
-test('null on SQLite equals empty-string in Firestore (no false conflict)', async () => {
+test('null on SQLite equals empty-string in Firestore (no false conflict)', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);
@@ -114,12 +114,12 @@ test('null on SQLite equals empty-string in Firestore (no false conflict)', asyn
   assert.strictEqual(fake._cols.get('movements').get('1').src_location, '', 'driver sanitized null to empty string');
   const { report } = diffAndMerge(
     canonicalFromSqlite(dumpSnapshot(process.env.INVENTRAK_DB_PATH)),
-    readCanonical(store)
+    readCanonical(store),
   );
   assert.strictEqual(report.perDataset['stock_movements.json'].conflicts, 0);
 });
 
-test('bidirectional sync converges: edits on BOTH sides reach both stores', async () => {
+test('bidirectional sync converges: edits on BOTH sides reach both stores', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);
@@ -144,7 +144,7 @@ test('bidirectional sync converges: edits on BOTH sides reach both stores', asyn
   await store.flush();
 
   // Conflict on product 1: SQLite raises the price (newer), Firestore edits the name (older).
-  db.prepare("UPDATE products SET price = 150, updated_at = '2024-03-05T00:00:00.000Z' WHERE id = 1").run();
+  db.prepare('UPDATE products SET price = 150, updated_at = \'2024-03-05T00:00:00.000Z\' WHERE id = 1').run();
   const fsProducts = store.read('products.json');
   fsProducts[0]['Product Name'] = 'Sauce A (cloud-renamed)';
   fsProducts[0]['updated_at'] = '2024-03-04T00:00:00.000Z';
@@ -181,14 +181,14 @@ test('bidirectional sync converges: edits on BOTH sides reach both stores', asyn
   // Converged: a second sync must be a no-op.
   const { report: report2 } = diffAndMerge(
     canonicalFromSqlite(dumpSnapshot(process.env.INVENTRAK_DB_PATH)),
-    readCanonical(store)
+    readCanonical(store),
   );
   Object.values(report2.perDataset).forEach((r) => {
     assert.strictEqual(r.added + r.updated + r.conflicts, 0, 'second sync is a no-op');
   });
 });
 
-test('conflict policies: keep-sqlite, keep-firestore, skip', async () => {
+test('conflict policies: keep-sqlite, keep-firestore, skip', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);
@@ -196,7 +196,7 @@ test('conflict policies: keep-sqlite, keep-firestore, skip', async () => {
   await syncUp(store);
 
   // Product 2 differs on both sides (no timestamp change → LWW defaults to local).
-  db.prepare("UPDATE products SET price = 250 WHERE id = 2").run();
+  db.prepare('UPDATE products SET price = 250 WHERE id = 2').run();
   const fsProducts = store.read('products.json');
   fsProducts[1]['Price'] = 999;
   store.write('products.json', fsProducts);
@@ -228,7 +228,7 @@ const cloudOnlyRow = (store) => store.write('order_inquiries.json', [
 ]);
 
 // Scenario 1 — default union: rows created on either side reach BOTH stores.
-test('deletions (ignore): union pulls remote-only rows and pushes local-only rows', async () => {
+test('deletions (ignore): union pulls remote-only rows and pushes local-only rows', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);
@@ -241,26 +241,26 @@ test('deletions (ignore): union pulls remote-only rows and pushes local-only row
   cloudOnlyRow(store);
   await store.flush();
 
-  let local = canonicalFromSqlite(dumpSnapshot(process.env.INVENTRAK_DB_PATH));
-  let remote = readCanonical(store);
-  let { report, toLocal, toRemote } = diffAndMerge(local, remote);
+  const local = canonicalFromSqlite(dumpSnapshot(process.env.INVENTRAK_DB_PATH));
+  const remote = readCanonical(store);
+  const { report, toLocal, toRemote } = diffAndMerge(local, remote);
   assert.strictEqual(report.perDataset['order_inquiries.json'].added, 1);
   assert.strictEqual(report.perDataset['order_inquiries.json'].removed, 1);
   applyToSqlite(db, toLocal);
   await applyToFirestore(store, toRemote);
   assert.deepStrictEqual(
     readCanonical(store)['order_inquiries.json'].map((o) => o.id).sort(),
-    [1, 2, 3]
+    [1, 2, 3],
   );
   assert.deepStrictEqual(
     canonicalFromSqlite(dumpSnapshot(process.env.INVENTRAK_DB_PATH))['order_inquiries.json'].map((o) => o.id).sort(),
-    [1, 2, 3]
+    [1, 2, 3],
   );
 });
 
 // Scenario 2 — mirror SQLite → Firestore: the cloud becomes exactly the local
 // rows, so the cloud-only row is deleted from Firestore.
-test('deletions (propagate, to-firestore): cloud mirrors SQLite and loses its extra row', async () => {
+test('deletions (propagate, to-firestore): cloud mirrors SQLite and loses its extra row', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);
@@ -287,7 +287,7 @@ test('deletions (propagate, to-firestore): cloud mirrors SQLite and loses its ex
 // contiguous 1..N), so Firestore's position-based product identity (doc id =
 // idx + 1) can never shift. Prove a soft-deleted middle product survives a
 // mirror sync with its id intact and inventory refs still aligned.
-test('soft-deleted products keep stable ids across a mirror sync (position identity)', async () => {
+test('soft-deleted products keep stable ids across a mirror sync (position identity)', async() => {
   const store = require('../store-firestore');
   store._setDb(makeFakeDb());
   await store.init();
@@ -308,7 +308,7 @@ test('soft-deleted products keep stable ids across a mirror sync (position ident
 
 // Mirror Firestore → SQLite with a product absent on the cloud: SQLite must
 // soft-delete it AND drop its stock rows, or per-location totals diverge.
-test('deletions (propagate, to-sqlite): soft-deleted products lose their stock rows', async () => {
+test('deletions (propagate, to-sqlite): soft-deleted products lose their stock rows', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);
@@ -334,7 +334,7 @@ test('deletions (propagate, to-sqlite): soft-deleted products lose their stock r
   assert.strictEqual(
     sqliteAfter['products.json'].find((p) => p.id === 4).status,
     'inactive',
-    'product 4 soft-deleted, not hard-deleted'
+    'product 4 soft-deleted, not hard-deleted',
   );
   const stock4 = db.prepare('SELECT * FROM stock WHERE product_id = 4').all();
   assert.strictEqual(stock4.length, 0, 'stale stock rows for the soft-deleted product are dropped');
@@ -345,14 +345,14 @@ test('deletions (propagate, to-sqlite): soft-deleted products lose their stock r
 // A login-time password upgrade re-hashes without touching created_at, so an
 // equal-timestamp @users conflict must resolve to the hashed row — a legacy
 // plaintext row must never win the tie and overwrite the cloud hash.
-test('@users LWW tie: a hashed row beats plaintext when timestamps match', async () => {
+test('@users LWW tie: a hashed row beats plaintext when timestamps match', async() => {
   const store = require('../store-firestore');
   store._setDb(makeFakeDb());
   await store.init();
   await syncUp(store); // user 1 seeded with a bcrypt hash
 
   // Legacy plaintext lands on SQLite with the SAME created_at as the cloud hash.
-  db.prepare("UPDATE users SET password = 'legacy-plaintext' WHERE id = 1").run();
+  db.prepare('UPDATE users SET password = \'legacy-plaintext\' WHERE id = 1').run();
   const local = canonicalFromSqlite(dumpSnapshot(process.env.INVENTRAK_DB_PATH));
   const remote = readCanonical(store);
   const { report, toLocal, toRemote } = diffAndMerge(local, remote); // default LWW
@@ -366,7 +366,7 @@ test('@users LWW tie: a hashed row beats plaintext when timestamps match', async
 
 // Scenario 3 — mirror Firestore → SQLite: SQLite becomes exactly the cloud
 // rows, so the local-only row is deleted from SQLite.
-test('deletions (propagate, to-sqlite): SQLite mirrors the cloud and loses its extra row', async () => {
+test('deletions (propagate, to-sqlite): SQLite mirrors the cloud and loses its extra row', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);

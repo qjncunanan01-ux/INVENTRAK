@@ -17,23 +17,23 @@ const path = require('path');
 // Table mapping: JSON file name -> Supabase table name
 // ================================================================
 const TABLES = {
-  'products.json':          'products',
-  'inventory.json':         'inventory',
-  'stock_movements.json':   'movements',
-  'order_inquiries.json':   'inquiries',
+  'products.json': 'products',
+  'inventory.json': 'inventory',
+  'stock_movements.json': 'movements',
+  'order_inquiries.json': 'inquiries',
   'stock_adjustments.json': 'stock_adjustments',
-  'stock_transfers.json':   'stock_transfers',
-  '@users':                 'users',
-  '@sales':                 'sales',
-  '@alerts':                'alerts',
-  '@verificationCodes':     'verification_codes',
-  '@inventoryMeta':         'inventory_meta',
-  '@resetTokens':           'reset_tokens',
-  '@lots':                  'stock_lots',
+  'stock_transfers.json': 'stock_transfers',
+  '@users': 'users',
+  '@sales': 'sales',
+  '@alerts': 'alerts',
+  '@verificationCodes': 'verification_codes',
+  '@inventoryMeta': 'inventory_meta',
+  '@resetTokens': 'reset_tokens',
+  '@lots': 'stock_lots',
 };
 
-let client = null;  // supabase client
-const cache = {};   // table -> { rows: [...], byId: Map }
+let client = null; // supabase client
+const cache = {}; // table -> { rows: [...], byId: Map }
 let writeChain = Promise.resolve();
 let ready = false;
 
@@ -57,9 +57,7 @@ function upsertRow(table, id, idx, data) {
 
 function rebuildRows(table) {
   if (!cache[table]) return [];
-  cache[table].rows = [...cache[table].byId.values()]
-    .sort((a, b) => a.idx - b.idx)
-    .map(e => e.data);
+  cache[table].rows = [...cache[table].byId.values()].sort((a, b) => a.idx - b.idx).map(e => e.data);
   return cache[table].rows;
 }
 
@@ -111,10 +109,12 @@ function read(file) {
   if (!table) return null;
 
   if (file === 'inventory.json') {
-    const metaEntry = (cache['inventory_meta'] || cache['@inventoryMeta']) && (cache['inventory_meta'] || cache['@inventoryMeta']).byId.get('_meta');
+    const metaEntry =
+      (cache['inventory_meta'] || cache['@inventoryMeta']) &&
+      (cache['inventory_meta'] || cache['@inventoryMeta']).byId.get('_meta');
     const rawLocations = metaEntry ? metaEntry.data : [];
     // Normalize: server expects locations as string[], not {id,name}[]
-    const locations = rawLocations.map(loc => typeof loc === 'string' ? loc : (loc && loc.name) || String(loc));
+    const locations = rawLocations.map(loc => (typeof loc === 'string' ? loc : (loc && loc.name) || String(loc)));
     const items = rebuildRows('inventory');
     if (!items.length && !locations.length) return null;
     return { locations, items };
@@ -128,44 +128,46 @@ function write(file, rows) {
   const table = tableFor(file);
   if (!table) return;
 
-  writeChain = writeChain.then(async () => {
-    if (!client) return;
+  writeChain = writeChain
+    .then(async () => {
+      if (!client) return;
 
-    if (file === 'inventory.json') {
-      const locations = (rows && rows.locations) || [];
-      const items = (rows && rows.items) || [];
+      if (file === 'inventory.json') {
+        const locations = (rows && rows.locations) || [];
+        const items = (rows && rows.items) || [];
 
-      // Upsert items
+        // Upsert items
+        cache[table] = cache[table] || { rows: [], byId: new Map() };
+        cache[table].byId.clear();
+        items.forEach((item, idx) => {
+          const id = (item && item.product && item.product.id) || idx + 1;
+          upsertRow(table, id, idx, item);
+        });
+        rebuildRows(table);
+
+        // Upsert locations meta
+        if (!cache['inventory_meta']) cache['inventory_meta'] = { rows: [], byId: new Map() };
+        cache['inventory_meta'].byId.set('_meta', { id: '_meta', idx: -1, data: locations });
+
+        // Flush both
+        await flushTable(client, table);
+        await flushTable(client, 'inventory_meta');
+        return;
+      }
+
+      // Normal dataset
       cache[table] = cache[table] || { rows: [], byId: new Map() };
       cache[table].byId.clear();
-      items.forEach((item, idx) => {
-        const id = (item && item.product && item.product.id) || idx + 1;
-        upsertRow(table, id, idx, item);
+      (rows || []).forEach((row, idx) => {
+        const id = row && row.id !== undefined ? row.id : idx + 1;
+        upsertRow(table, id, idx, row);
       });
       rebuildRows(table);
-
-      // Upsert locations meta
-      if (!cache['inventory_meta']) cache['inventory_meta'] = { rows: [], byId: new Map() };
-      cache['inventory_meta'].byId.set('_meta', { id: '_meta', idx: -1, data: locations });
-
-      // Flush both
       await flushTable(client, table);
-      await flushTable(client, 'inventory_meta');
-      return;
-    }
-
-    // Normal dataset
-    cache[table] = cache[table] || { rows: [], byId: new Map() };
-    cache[table].byId.clear();
-    (rows || []).forEach((row, idx) => {
-      const id = row && row.id !== undefined ? row.id : idx + 1;
-      upsertRow(table, id, idx, row);
+    })
+    .catch(err => {
+      console.error(`[supabase] write error for ${file}:`, err.message);
     });
-    rebuildRows(table);
-    await flushTable(client, table);
-  }).catch(err => {
-    console.error(`[supabase] write error for ${file}:`, err.message);
-  });
 }
 
 async function init() {
@@ -237,7 +239,9 @@ async function init() {
           await flushTable(client, 'inventory_meta');
           console.log(`[supabase] Auto-seeded inventory with ${localInv.items.length} items`);
         }
-      } catch { /* no local inventory */ }
+      } catch {
+        /* no local inventory */
+      }
     } catch (err) {
       console.error(`[supabase] Could not auto-seed from local JSON: ${err.message}`);
     }

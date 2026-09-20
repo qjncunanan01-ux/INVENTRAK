@@ -4,7 +4,19 @@ const path = require('path');
 const crypto = require('crypto');
 const { passwordError } = require('./password-policy');
 const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
-const { LOW_STOCK_THRESHOLD, TOKEN_TTL_MS, MFA_TOKEN_TTL_MS, RESET_CODE_TTL_MS, VERIFICATION_CODE_TTL_MS, MAX_BODY_BYTES, MAX_OCR_BODY_BYTES, READ_CACHE_TTL, BULK_PRICES_MAX_ENTRIES, PRODUCT_NAME_MAX_LENGTH, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } = require('./config');
+const {
+  TOKEN_TTL_MS,
+  MFA_TOKEN_TTL_MS,
+  RESET_CODE_TTL_MS,
+  VERIFICATION_CODE_TTL_MS,
+  MAX_BODY_BYTES,
+  MAX_OCR_BODY_BYTES,
+  READ_CACHE_TTL,
+  BULK_PRICES_MAX_ENTRIES,
+  PRODUCT_NAME_MAX_LENGTH,
+  DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE,
+} = require('./config');
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./login-lockout');
@@ -13,7 +25,14 @@ const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./criti
 const { buildPaymentStep } = require('./payments');
 const { handleOcr, handleOcrStock } = require('./ocr');
 const { normalizeLines } = require('./product-lines');
-const { generateSecret, verifyTOTP, otpauthUrl, generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode } = require('./totp');
+const {
+  generateSecret,
+  verifyTOTP,
+  otpauthUrl,
+  generateRecoveryCodes,
+  normalizeRecoveryCode,
+  matchRecoveryCode,
+} = require('./totp');
 const { audit, AUDIT_LOG_FILE } = require('./audit');
 const { sanitizeObject, isValidName, isValidEmail, isValidPhone } = require('./sanitize');
 const cache = require('./cache');
@@ -79,10 +98,7 @@ function hashCode(code) {
 // Precedence: CLI flag > DB_DRIVER env > auto-detect from credentials.
 function firestoreConfigured({ env = process.env } = {}) {
   if (env.FIRESTORE_EMULATOR_HOST) return true;
-  return Boolean(
-    env.FIREBASE_PROJECT_ID &&
-    (env.FIREBASE_SERVICE_ACCOUNT_JSON || env.GOOGLE_APPLICATION_CREDENTIALS)
-  );
+  return Boolean(env.FIREBASE_PROJECT_ID && (env.FIREBASE_SERVICE_ACCOUNT_JSON || env.GOOGLE_APPLICATION_CREDENTIALS));
 }
 
 function supabaseConfigured({ env = process.env } = {}) {
@@ -101,7 +117,11 @@ function resolveDriver({ env = process.env, argv = process.argv } = {}) {
 const DB_DRIVER = resolveDriver();
 const useFirestore = DB_DRIVER === 'firestore';
 const useSupabase = DB_DRIVER === 'supabase';
-const store = useSupabase ? require('./store-supabase') : useFirestore ? require('./store-firestore') : require('./store-json');
+const store = useSupabase
+  ? require('./store-supabase')
+  : useFirestore
+    ? require('./store-firestore')
+    : require('./store-json');
 
 // Allow tests to point the fallback at an isolated data directory.
 const dataDir = process.env.INVENTRAK_DATA_DIR || path.join(__dirname, '..', 'data');
@@ -121,15 +141,60 @@ const openapiFile = path.join(__dirname, '..', 'openapi.json');
 // PLAINTEXT rows (old registrations, pre-hashing migrations) are upgraded on
 // successful login via verifyPassword().needsRehash.
 let users = [
-  { id: 1, username: 'admin', password: hashPassword('admin123'), role: 'admin', email: 'admin@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
-  { id: 2, username: 'customer', password: hashPassword('customer123'), role: 'customer', email: 'customer@example.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
+  {
+    id: 1,
+    username: 'admin',
+    password: hashPassword('admin123'),
+    role: 'admin',
+    email: 'admin@inventrak.com',
+    phone: null,
+    email_verified: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 2,
+    username: 'customer',
+    password: hashPassword('customer123'),
+    role: 'customer',
+    email: 'customer@example.com',
+    phone: null,
+    email_verified: true,
+    created_at: new Date().toISOString(),
+  },
   // Demo staff account: proposes adjustments/transfers + scans stock, but
   // cannot approve anything (admin-only decision routes).
-  { id: 3, username: 'staff', password: hashPassword('staff123'), role: 'staff', email: 'staff@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
+  {
+    id: 3,
+    username: 'staff',
+    password: hashPassword('staff123'),
+    role: 'staff',
+    email: 'staff@inventrak.com',
+    phone: null,
+    email_verified: true,
+    created_at: new Date().toISOString(),
+  },
   // Management tier (roles.js): Super Admin manages accounts/roles; the Owner
   // has full business oversight and authorizes access decisions.
-  { id: 4, username: 'owner', password: hashPassword('owner123'), role: 'owner', email: 'owner@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
-  { id: 5, username: 'superadmin', password: hashPassword('super123'), role: 'super_admin', email: 'superadmin@inventrak.com', phone: null, email_verified: true, created_at: new Date().toISOString() },
+  {
+    id: 4,
+    username: 'owner',
+    password: hashPassword('owner123'),
+    role: 'owner',
+    email: 'owner@inventrak.com',
+    phone: null,
+    email_verified: true,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 5,
+    username: 'superadmin',
+    password: hashPassword('super123'),
+    role: 'super_admin',
+    email: 'superadmin@inventrak.com',
+    phone: null,
+    email_verified: true,
+    created_at: new Date().toISOString(),
+  },
 ];
 let nextUserId = 6;
 let salesTransactions = [];
@@ -146,11 +211,14 @@ let verificationCodes = new Map();
 
 function persistVerificationCodes() {
   if (!useFirestore) return;
-  writeJSON('@verificationCodes', [...verificationCodes.entries()].map(([codeHash, t]) => ({
-    code_hash: codeHash,
-    user_id: t.user_id,
-    expires_at: t.expires_at
-  })));
+  writeJSON(
+    '@verificationCodes',
+    [...verificationCodes.entries()].map(([codeHash, t]) => ({
+      code_hash: codeHash,
+      user_id: t.user_id,
+      expires_at: t.expires_at,
+    }))
+  );
 }
 
 // resetTokens: HMAC-SHA256 hash -> { user_id, expires_at }
@@ -158,11 +226,14 @@ let resetTokens = new Map();
 
 function persistResetTokens() {
   if (!useFirestore) return;
-  writeJSON('@resetTokens', [...resetTokens.entries()].map(([codeHash, t]) => ({
-    code_hash: codeHash,
-    user_id: t.user_id,
-    expires_at: t.expires_at
-  })));
+  writeJSON(
+    '@resetTokens',
+    [...resetTokens.entries()].map(([codeHash, t]) => ({
+      code_hash: codeHash,
+      user_id: t.user_id,
+      expires_at: t.expires_at,
+    }))
+  );
 }
 
 // --- Demo-token auth: HMAC-signed so a token cannot be forged. The SQLite
@@ -178,9 +249,15 @@ if (!process.env.NPMFREE_TOKEN_SECRET) {
   // Render deploys must set NPMFREE_TOKEN_SECRET (see DEPLOY.md).
   console.warn(
     '[security] NPMFREE_TOKEN_SECRET is not set — using the PUBLIC fallback secret. ' +
-    'Set NPMFREE_TOKEN_SECRET on the deployed server (Render: Service → Environment), ' +
-    'or anyone who reads this repo can forge admin tokens.'
+      'Set NPMFREE_TOKEN_SECRET on the deployed server (Render: Service → Environment), ' +
+      'or anyone who reads this repo can forge admin tokens.'
   );
+
+  // In production, fail fast if NPMFREE_TOKEN_SECRET is not configured
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[security] FATAL: NPMFREE_TOKEN_SECRET must be set in production');
+    process.exit(1);
+  }
 }
 
 // MFA challenge tokens are short-lived (10 minutes) so a leaked challenge
@@ -193,19 +270,23 @@ if (!process.env.NPMFREE_TOKEN_SECRET) {
 // constant time. jti makes each token unique so logout can revoke it.
 // Persisted revoked tokens — loaded at startup, pruned on read.
 const REVOKED_FILE = path.join(__dirname, '..', 'data', 'revoked-tokens.json');
-let revokedTokens = new Map(); // jti -> expiresAtMs
+const revokedTokens = new Map(); // jti -> expiresAtMs
 try {
   const raw = JSON.parse(require('fs').readFileSync(REVOKED_FILE, 'utf8'));
   const now = Date.now();
   for (const [jti, exp] of Object.entries(raw)) {
     if (exp > now) revokedTokens.set(jti, exp);
   }
-} catch { /* first run or missing file — start empty */ }
+} catch {
+  /* first run or missing file — start empty */
+}
 
 function persistRevokedTokens() {
   const obj = {};
   for (const [jti, exp] of revokedTokens) obj[jti] = exp;
-  try { require('fs').writeFileSync(REVOKED_FILE, JSON.stringify(obj, null, 2)); } catch {}
+  try {
+    require('fs').writeFileSync(REVOKED_FILE, JSON.stringify(obj, null, 2));
+  } catch {}
 }
 
 function signToken(userId, opts = {}) {
@@ -223,7 +304,10 @@ function pruneRevokedTokens() {
   const now = Date.now();
   let changed = false;
   for (const [jti, exp] of revokedTokens) {
-    if (exp <= now) { revokedTokens.delete(jti); changed = true; }
+    if (exp <= now) {
+      revokedTokens.delete(jti);
+      changed = true;
+    }
   }
   if (changed) persistRevokedTokens();
 }
@@ -240,7 +324,10 @@ function verifyToken(token) {
   if (!Number.isInteger(id) || id < 1 || !Number.isFinite(exp) || exp <= Date.now()) return null;
   pruneRevokedTokens();
   if (revokedTokens.has(jti)) return null;
-  const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(`${idStr}.${expStr}.${jti}.${scope}`).digest('base64url');
+  const expected = crypto
+    .createHmac('sha256', TOKEN_SECRET)
+    .update(`${idStr}.${expStr}.${jti}.${scope}`)
+    .digest('base64url');
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
@@ -302,14 +389,20 @@ function bootstrap() {
     // Hydrated users may predate verification (or come from a plaintext-era
     // migration) — treat any row that isn't explicitly false as verified, so
     // existing accounts are never locked out by the new signup gate.
-    users = users.map(u => ({ ...u, email_verified: u.email_verified !== false, phone: u.phone == null ? null : u.phone }));
+    users = users.map(u => ({
+      ...u,
+      email_verified: u.email_verified !== false,
+      phone: u.phone == null ? null : u.phone,
+    }));
     const persistedResets = readJSON('@resetTokens');
     if (Array.isArray(persistedResets)) {
       resetTokens = new Map(persistedResets.map(t => [t.code_hash, { user_id: t.user_id, expires_at: t.expires_at }]));
     }
     const persistedVerifications = readJSON('@verificationCodes');
     if (Array.isArray(persistedVerifications)) {
-      verificationCodes = new Map(persistedVerifications.map(t => [t.code_hash, { user_id: t.user_id, expires_at: t.expires_at }]));
+      verificationCodes = new Map(
+        persistedVerifications.map(t => [t.code_hash, { user_id: t.user_id, expires_at: t.expires_at }])
+      );
     }
   }
 
@@ -320,7 +413,11 @@ function bootstrap() {
       const stocks = {};
       let total = 0;
       // Draws 1-3: location stock (same formula as the SQLite seeder).
-      DEMO_LOCATIONS.forEach(l => { const q = Math.floor(rand() * 160) + 20; stocks[l] = q; total += q; });
+      DEMO_LOCATIONS.forEach(l => {
+        const q = Math.floor(rand() * 160) + 20;
+        stocks[l] = q;
+        total += q;
+      });
       // The remaining draws belong to the sales stream; consume them so the
       // next product's stock draws line up with the SQLite seeder's stream.
       // Must match seedSales() exactly: 1 FSN frequency draw + 2 draws
@@ -329,7 +426,7 @@ function bootstrap() {
       return {
         product: formatProduct(p, idx),
         locations: stocks,
-        total
+        total,
       };
     });
     writeJSON(inventoryFile, { locations: DEMO_LOCATIONS, items });
@@ -345,7 +442,11 @@ function bootstrap() {
   // bootstrap() runs before the module's `let stockLots` has been evaluated.
   if (alerts.length === 0) {
     process.nextTick(() => {
-      try { refreshAlerts(); } catch (err) { console.error('[alerts] initial refresh failed:', err.message); }
+      try {
+        refreshAlerts();
+      } catch (err) {
+        console.error('[alerts] initial refresh failed:', err.message);
+      }
     });
   }
 
@@ -359,7 +460,8 @@ function bootstrap() {
     writeJSON('@sales', salesTransactions);
     writeJSON('@alerts', alerts);
   }
-}  if (!useFirestore && !useSupabase) bootstrap();
+}
+if (!useFirestore && !useSupabase) bootstrap();
 
 // Seed the in-memory sales history from the same stream (draws 4-9 per
 // product: 2 per customer), mirroring the SQLite seeder exactly.
@@ -379,10 +481,8 @@ function seedSales() {
     const fsnRoll = rand();
     const isFsnRare = fsnRoll >= 0.85;
     DEMO_CUSTOMERS.forEach(cust => {
-      const saleQty = isFsnRare ? (Math.floor(rand() * 2) + 1) : (Math.floor(rand() * 15) + 1);
-      const daysAgo = isFsnRare
-        ? 90 + Math.floor(rand() * 90)
-        : Math.floor(rand() * 45);
+      const saleQty = isFsnRare ? Math.floor(rand() * 2) + 1 : Math.floor(rand() * 15) + 1;
+      const daysAgo = isFsnRare ? 90 + Math.floor(rand() * 90) : Math.floor(rand() * 45);
       salesTransactions.push({
         id: nextSaleId++,
         product_id: idx + 1,
@@ -390,7 +490,7 @@ function seedSales() {
         unit_price: price,
         total_amount: saleQty * price,
         transaction_date: new Date(SEED_EPOCH - daysAgo * 86400000).toISOString(),
-        customer_name: cust
+        customer_name: cust,
       });
     });
   });
@@ -398,7 +498,7 @@ function seedSales() {
 
 function formatProduct(p, idx) {
   const now = new Date().toISOString();
-  const pick = (a, b, fallback) => (a !== undefined ? a : (b !== undefined ? b : fallback));
+  const pick = (a, b, fallback) => (a !== undefined ? a : b !== undefined ? b : fallback);
   return {
     id: idx + 1,
     name: pick(p['Product Name'], p.name, ''),
@@ -413,7 +513,7 @@ function formatProduct(p, idx) {
     // Firestore maps null -> ''; normalize back to null for SQLite parity.
     image: pick(p['Image'], p.image, '') || null,
     created_at: p.created_at || now,
-    updated_at: p.updated_at || now
+    updated_at: p.updated_at || now,
   };
 }
 
@@ -429,7 +529,11 @@ function isProductActive(p) {
 // deeper paths 404 exactly like Express routes do.
 function isParamPath(url, prefix, segments) {
   const parts = url.split('?')[0].split('/').filter(Boolean);
-  return parts.length === segments && parts.slice(0, segments - 1).join('/') === prefix && /^\d+$/.test(parts[parts.length - 1]);
+  return (
+    parts.length === segments &&
+    parts.slice(0, segments - 1).join('/') === prefix &&
+    /^\d+$/.test(parts[parts.length - 1])
+  );
 }
 
 // Dynamic demand: actual sales volume, mirroring the SQLite backend's
@@ -475,7 +579,9 @@ function consumeLots(productId, locationId, qty) {
   // recreate matching destination lots — expiry travels with the goods.
   const manifest = [];
   const candidates = stockLots
-    .filter(l => Number(l.product_id) === Number(productId) && Number(l.location_id) === Number(locationId) && l.qty > 0)
+    .filter(
+      l => Number(l.product_id) === Number(productId) && Number(l.location_id) === Number(locationId) && l.qty > 0
+    )
     .sort((a, b) => {
       const aHas = a.expiry_date != null;
       const bHas = b.expiry_date != null;
@@ -530,7 +636,7 @@ function getInventory() {
 function criticalLevels(now = Date.now()) {
   if (criticalCache.map.size && now - criticalCache.at < 60000) return criticalCache.map;
   const products = (readJSON(productsFile) || []).map((p, idx) => ({ id: idx + 1, name: p.name, price: p.price }));
-  const sales = salesTransactions.length ? salesTransactions : (readJSON('@sales') || []);
+  const sales = salesTransactions.length ? salesTransactions : readJSON('@sales') || [];
   criticalCache = { at: now, map: criticalLevelMap(products, sales) };
   return criticalCache.map;
 }
@@ -543,7 +649,13 @@ function criticalLevelOf(productId) {
 function upsertLowStockAlert(productId, locationId, qty) {
   const threshold = criticalLevelOf(productId);
   if (qty > threshold) return;
-  const existing = alerts.find(a => a.product_id === Number(productId) && a.location_id === Number(locationId) && a.alert_type === 'low_stock' && a.status === 'active');
+  const existing = alerts.find(
+    a =>
+      a.product_id === Number(productId) &&
+      a.location_id === Number(locationId) &&
+      a.alert_type === 'low_stock' &&
+      a.status === 'active'
+  );
   if (existing) {
     existing.current_qty = qty;
     existing.threshold = threshold;
@@ -564,7 +676,7 @@ function upsertLowStockAlert(productId, locationId, qty) {
     expiry_date: null,
     status: 'active',
     created_at: new Date().toISOString(),
-    resolved_at: null
+    resolved_at: null,
   });
   if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
 }
@@ -577,7 +689,7 @@ function refreshLowStockAlerts() {
   const locations = inv.locations || [];
   const live = new Set();
 
-  (inv.items || []).forEach((item) => {
+  (inv.items || []).forEach(item => {
     const productId = Number(item.product && item.product.id);
     if (!Number.isFinite(productId)) return;
     const level = criticalLevelFromMap(map, productId);
@@ -587,7 +699,13 @@ function refreshLowStockAlerts() {
       const quantity = Number(qty) || 0;
       if (quantity > level) return;
       live.add(`${productId}:${locationId}`);
-      const existing = alerts.find(a => a.product_id === productId && a.location_id === locationId && a.alert_type === 'low_stock' && a.status === 'active');
+      const existing = alerts.find(
+        a =>
+          a.product_id === productId &&
+          a.location_id === locationId &&
+          a.alert_type === 'low_stock' &&
+          a.status === 'active'
+      );
       if (existing) {
         existing.current_qty = quantity;
         existing.threshold = level;
@@ -605,7 +723,7 @@ function refreshLowStockAlerts() {
         expiry_date: null,
         status: 'active',
         created_at: new Date().toISOString(),
-        resolved_at: null
+        resolved_at: null,
       });
     });
   });
@@ -652,10 +770,21 @@ function refreshExpiryAlerts(now = new Date()) {
     const type = daysLeft < 0 ? 'expired' : 'expiring_soon';
     live.add(`${productId}:${locationId}:${type}`);
 
-    const flipped = alerts.find(a => a.product_id === productId && a.location_id === locationId && a.alert_type === (type === 'expired' ? 'expiring_soon' : 'expired') && a.status === 'active');
-    if (flipped) { flipped.status = 'resolved'; flipped.resolved_at = new Date().toISOString(); }
+    const flipped = alerts.find(
+      a =>
+        a.product_id === productId &&
+        a.location_id === locationId &&
+        a.alert_type === (type === 'expired' ? 'expiring_soon' : 'expired') &&
+        a.status === 'active'
+    );
+    if (flipped) {
+      flipped.status = 'resolved';
+      flipped.resolved_at = new Date().toISOString();
+    }
 
-    const existing = alerts.find(a => a.product_id === productId && a.location_id === locationId && a.alert_type === type && a.status === 'active');
+    const existing = alerts.find(
+      a => a.product_id === productId && a.location_id === locationId && a.alert_type === type && a.status === 'active'
+    );
     if (existing) {
       existing.threshold = daysLeft;
       existing.current_qty = qty;
@@ -675,7 +804,7 @@ function refreshExpiryAlerts(now = new Date()) {
       expiry_date: expiry,
       status: 'active',
       created_at: new Date().toISOString(),
-      resolved_at: null
+      resolved_at: null,
     });
   }
 
@@ -698,7 +827,6 @@ function refreshAlerts() {
 function computeAlerts() {
   return alerts.filter(a => a.status === 'active');
 }
-
 
 function bodyError(res, err) {
   if (err && err.status === 413) return sendJson(res, 413, { error: 'Payload Too Large' });
@@ -731,8 +859,11 @@ function parseBodyWithLimit(req, limitBytes, callback) {
   });
   req.on('end', () => {
     if (tooLarge) return callback({ status: 413 });
-    try { callback(null, JSON.parse(body || '{}')); }
-    catch (err) { callback(err); }
+    try {
+      callback(null, JSON.parse(body || '{}'));
+    } catch (err) {
+      callback(err);
+    }
   });
 }
 
@@ -753,15 +884,17 @@ function sendJson(res, status, payload, cacheControl) {
   res.end(JSON.stringify(payload));
 }
 
-
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
 function setCorsHeaders(req, res) {
   const origin = req.headers.origin || '';
   // In production, only allow explicitly listed origins. In local dev with no
   // CORS_ORIGINS set, allow all (convenience). This prevents arbitrary sites
   // from making authenticated API calls to the deployed server.
   const allowed = ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin);
-  res.setHeader('Access-Control-Allow-Origin', allowed ? (origin || '*') : ALLOWED_ORIGINS[0]);
+  res.setHeader('Access-Control-Allow-Origin', allowed ? origin || '*' : ALLOWED_ORIGINS[0]);
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -900,11 +1033,16 @@ const server = http.createServer((req, res) => {
         if (!fs.existsSync(auditFile)) {
           return sendJson(res, 200, { data: [], pagination: { total: 0, limit, offset } });
         }
-        let logs = fs.readFileSync(auditFile, 'utf8')
+        let logs = fs
+          .readFileSync(auditFile, 'utf8')
           .split('\n')
           .filter(Boolean)
-          .map((line) => {
-            try { return JSON.parse(line); } catch { return null; }
+          .map(line => {
+            try {
+              return JSON.parse(line);
+            } catch {
+              return null;
+            }
           })
           .filter(Boolean)
           .reverse();
@@ -912,8 +1050,11 @@ const server = http.createServer((req, res) => {
         if (status) {
           const lower = status.toLowerCase();
           logs = logs.filter(
-            (e) =>
-              (e.details && typeof e.details === 'object' && e.details.status && String(e.details.status).toLowerCase() === lower) ||
+            e =>
+              (e.details &&
+                typeof e.details === 'object' &&
+                e.details.status &&
+                String(e.details.status).toLowerCase() === lower) ||
               (e.event || '').toLowerCase() === `order.status.${lower}`
           );
         }
@@ -975,7 +1116,7 @@ const server = http.createServer((req, res) => {
       return sendJson(res, 200, {
         ok: errors.length === 0,
         errors,
-        checkedAt: new Date().toISOString()
+        checkedAt: new Date().toISOString(),
       });
     });
   }
@@ -1059,7 +1200,8 @@ const server = http.createServer((req, res) => {
       if (obj.portal === 'admin' && !canAccessAdminPortal(user.role)) {
         audit('auth.login.portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
         return sendJson(res, 403, {
-          error: 'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
+          error:
+            'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
           code: 'portal_mobile_only',
         });
       }
@@ -1086,7 +1228,13 @@ const server = http.createServer((req, res) => {
       audit('auth.login.success', { userId: user.id, username: user.username, ip: sourceIp });
       return sendJson(res, 200, {
         token: signToken(user.id),
-        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false }
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          email: user.email,
+          email_verified: user.email_verified !== false,
+        },
       });
     });
   }
@@ -1114,15 +1262,15 @@ const server = http.createServer((req, res) => {
       const lowerEmail = email.toLowerCase();
       // Find by email (case-insensitive); link google_sub to an existing
       // password account so Google sign-in is the SAME identity, not a dup.
-      let user = users.find((u) => String(u.email || '').toLowerCase() === lowerEmail);
+      let user = users.find(u => String(u.email || '').toLowerCase() === lowerEmail);
       if (!user) {
         // New OAuth account: deduped username from Google's verified profile
         // name (e.g. "Jerico Cunanan" not the email prefix), random password
         // (Google owns the identity), email pre-verified.
-        let base = googleUsername(result.payload.name, email);
+        const base = googleUsername(result.payload.name, email);
         let username = base;
         let n = 1;
-        while (users.some((u) => u.username === username)) username = `${base}${n++}`;
+        while (users.some(u => u.username === username)) username = `${base}${n++}`;
         user = {
           id: nextUserId++,
           username,
@@ -1152,7 +1300,13 @@ const server = http.createServer((req, res) => {
       audit('auth.login.success', { userId: user.id, username: user.username });
       return sendJson(res, 200, {
         token: signToken(user.id),
-        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false },
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          email: user.email,
+          email_verified: user.email_verified !== false,
+        },
       });
     });
   }
@@ -1194,7 +1348,7 @@ const server = http.createServer((req, res) => {
         usedRecovery = true;
         const norm = normalizeRecoveryCode(obj.code);
         const usedHash = hashCode(norm);
-        user.mfa_recovery = (user.mfa_recovery || []).filter((h) => h !== usedHash);
+        user.mfa_recovery = (user.mfa_recovery || []).filter(h => h !== usedHash);
         if (useFirestore || useSupabase) writeJSON('@users', users);
       }
       if (!codeOk) {
@@ -1203,10 +1357,19 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 401, { error: 'Invalid verification code' });
       }
       loginLockout.recordSuccess('mfa', sourceIp);
-      audit(usedRecovery ? 'auth.mfa.recovery_used' : 'auth.mfa.verified', { userId: user.id, username: user.username });
+      audit(usedRecovery ? 'auth.mfa.recovery_used' : 'auth.mfa.verified', {
+        userId: user.id,
+        username: user.username,
+      });
       return sendJson(res, 200, {
         token: signToken(user.id),
-        user: { id: user.id, username: user.username, role: user.role, email: user.email, email_verified: user.email_verified !== false },
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          email: user.email,
+          email_verified: user.email_verified !== false,
+        },
       });
     });
   }
@@ -1228,32 +1391,34 @@ const server = http.createServer((req, res) => {
   // Admin-only: prove possession of the secret by entering a live code, then
   // MFA is enabled for every future login.
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/mfa/confirm') {
-    return requireAuth(req, res, true, (req, res) => parseBody(req, (err, obj) => {
-      if (err) return bodyError(res, err);
-      if (!obj.code) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['code is required'] });
-      }
-      if (!req.user.mfa_secret) {
-        return sendJson(res, 409, { error: 'Start MFA setup first' });
-      }
-      if (!verifyTOTP(req.user.mfa_secret, obj.code)) {
-        return sendJson(res, 401, { error: 'Invalid verification code' });
-      }
-      // Issue one-time recovery codes at enrollment: plaintext returned EXACTLY
-      // once, only hashes stored at rest.
-      const recoveryCodes = generateRecoveryCodes(10);
-      req.user.mfa_enabled = true;
-      // Hash the NORMALIZED form (no dashes) — the verify path normalizes user
-      // input before hashing, so storage must match or codes never match.
-      req.user.mfa_recovery = recoveryCodes.map((c) => hashCode(normalizeRecoveryCode(c)));
-      if (useFirestore || useSupabase) writeJSON('@users', users);
-      audit('auth.mfa.enabled', { userId: req.user.id, username: req.user.username });
-      return sendJson(res, 200, {
-        ok: true,
-        message: 'MFA enabled',
-        recovery_codes: recoveryCodes,
-      });
-    }));
+    return requireAuth(req, res, true, (req, res) =>
+      parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        if (!obj.code) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['code is required'] });
+        }
+        if (!req.user.mfa_secret) {
+          return sendJson(res, 409, { error: 'Start MFA setup first' });
+        }
+        if (!verifyTOTP(req.user.mfa_secret, obj.code)) {
+          return sendJson(res, 401, { error: 'Invalid verification code' });
+        }
+        // Issue one-time recovery codes at enrollment: plaintext returned EXACTLY
+        // once, only hashes stored at rest.
+        const recoveryCodes = generateRecoveryCodes(10);
+        req.user.mfa_enabled = true;
+        // Hash the NORMALIZED form (no dashes) — the verify path normalizes user
+        // input before hashing, so storage must match or codes never match.
+        req.user.mfa_recovery = recoveryCodes.map(c => hashCode(normalizeRecoveryCode(c)));
+        if (useFirestore || useSupabase) writeJSON('@users', users);
+        audit('auth.mfa.enabled', { userId: req.user.id, username: req.user.username });
+        return sendJson(res, 200, {
+          ok: true,
+          message: 'MFA enabled',
+          recovery_codes: recoveryCodes,
+        });
+      })
+    );
   }
 
   // Admin-only: regenerate the one-time recovery codes (invalidates the old
@@ -1264,7 +1429,7 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 409, { error: 'MFA is not enabled' });
       }
       const recoveryCodes = generateRecoveryCodes(10);
-      req.user.mfa_recovery = recoveryCodes.map((c) => hashCode(normalizeRecoveryCode(c)));
+      req.user.mfa_recovery = recoveryCodes.map(c => hashCode(normalizeRecoveryCode(c)));
       if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.mfa.recovery_regenerated', { userId: req.user.id, username: req.user.username });
       return sendJson(res, 200, { recovery_codes: recoveryCodes });
@@ -1273,24 +1438,26 @@ const server = http.createServer((req, res) => {
 
   // Admin-only: disable MFA — requires the current authenticator code.
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/mfa/disable') {
-    return requireAuth(req, res, true, (req, res) => parseBody(req, (err, obj) => {
-      if (err) return bodyError(res, err);
-      if (!obj.code) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['code is required'] });
-      }
-      if (!req.user.mfa_enabled || !req.user.mfa_secret) {
-        return sendJson(res, 409, { error: 'MFA is not enabled' });
-      }
-      if (!verifyTOTP(req.user.mfa_secret, obj.code)) {
-        return sendJson(res, 401, { error: 'Invalid verification code' });
-      }
-      req.user.mfa_enabled = false;
-      req.user.mfa_secret = null;
-      req.user.mfa_recovery = [];
-      if (useFirestore || useSupabase) writeJSON('@users', users);
-      audit('auth.mfa.disabled', { userId: req.user.id, username: req.user.username });
-      return sendJson(res, 200, { ok: true, message: 'MFA disabled' });
-    }));
+    return requireAuth(req, res, true, (req, res) =>
+      parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        if (!obj.code) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['code is required'] });
+        }
+        if (!req.user.mfa_enabled || !req.user.mfa_secret) {
+          return sendJson(res, 409, { error: 'MFA is not enabled' });
+        }
+        if (!verifyTOTP(req.user.mfa_secret, obj.code)) {
+          return sendJson(res, 401, { error: 'Invalid verification code' });
+        }
+        req.user.mfa_enabled = false;
+        req.user.mfa_secret = null;
+        req.user.mfa_recovery = [];
+        if (useFirestore || useSupabase) writeJSON('@users', users);
+        audit('auth.mfa.disabled', { userId: req.user.id, username: req.user.username });
+        return sendJson(res, 200, { ok: true, message: 'MFA disabled' });
+      })
+    );
   }
 
   // Logout destroys the session server-side: the presented token's jti goes
@@ -1315,7 +1482,10 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 400, { error: 'Validation failed', details: ['Unexpected field: website'] });
       }
       if (!obj.username || !obj.password || !obj.email || !obj.phone) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['username, password, email and phone are required'] });
+        return sendJson(res, 400, {
+          error: 'Validation failed',
+          details: ['username, password, email and phone are required'],
+        });
       }
       // Mirror the SQLite backend's register validation: maxLength on
       // password/email/username (SQLite rejects >100-char passwords, so must
@@ -1334,7 +1504,10 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username must be at most 50 characters'] });
       }
       if (String(obj.phone).length > 20 || !/^(\+63|63|0)?9\d{9}$/.test(String(obj.phone).trim())) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['phone must be a valid PH mobile number (e.g. 09171234567 or +639171234567)'] });
+        return sendJson(res, 400, {
+          error: 'Validation failed',
+          details: ['phone must be a valid PH mobile number (e.g. 09171234567 or +639171234567)'],
+        });
       }
       const pwError = passwordError(obj.password);
       if (pwError) {
@@ -1350,13 +1523,26 @@ const server = http.createServer((req, res) => {
       if (!cleanEmail || cleanEmail.length === 0) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['email must contain valid characters'] });
       }
-      if (users.some(u => u.username === cleanUsername)) return sendJson(res, 409, { error: 'Username already exists' });
-      const user = { id: nextUserId++, username: cleanUsername, password: hashPassword(obj.password), role: 'customer', email: cleanEmail, phone: obj.phone, email_verified: false, created_at: new Date().toISOString() };
+      if (users.some(u => u.username === cleanUsername))
+        return sendJson(res, 409, { error: 'Username already exists' });
+      const user = {
+        id: nextUserId++,
+        username: cleanUsername,
+        password: hashPassword(obj.password),
+        role: 'customer',
+        email: cleanEmail,
+        phone: obj.phone,
+        email_verified: false,
+        created_at: new Date().toISOString(),
+      };
       users.push(user);
       if (useFirestore || useSupabase) writeJSON('@users', users);
       audit('auth.register', { userId: user.id, username: obj.username });
       const code = generateCode();
-      verificationCodes.set(hashCode(code), { user_id: user.id, expires_at: new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString() });
+      verificationCodes.set(hashCode(code), {
+        user_id: user.id,
+        expires_at: new Date(Date.now() + VERIFICATION_CODE_TTL_MS).toISOString(),
+      });
       persistVerificationCodes();
       // Await so the response can tell the app whether the code actually went
       // out (email always, SMS when a phone was provided).
@@ -1373,7 +1559,7 @@ const server = http.createServer((req, res) => {
         notify: {
           email: !!(delivery && delivery[0] && delivery[0].sent),
           sms: !!(delivery && delivery[1] && delivery[1].sent),
-        }
+        },
       });
     });
   }
@@ -1440,7 +1626,9 @@ const server = http.createServer((req, res) => {
       }
       loginLockout.recordFailure('resend-verification', sourceIp);
       // Only UNVERIFIED accounts get a new code (still 200 either way).
-      const user = users.find(u => u.email && u.email.toLowerCase() === String(obj.email).toLowerCase() && u.email_verified === false);
+      const user = users.find(
+        u => u.email && u.email.toLowerCase() === String(obj.email).toLowerCase() && u.email_verified === false
+      );
       let notifyDelivery = null;
       if (user) {
         const code = generateCode();
@@ -1448,7 +1636,10 @@ const server = http.createServer((req, res) => {
         for (const [h, t] of [...verificationCodes]) {
           if (t.user_id === user.id || new Date(t.expires_at).getTime() < now) verificationCodes.delete(h);
         }
-        verificationCodes.set(hashCode(code), { user_id: user.id, expires_at: new Date(now + VERIFICATION_CODE_TTL_MS).toISOString() });
+        verificationCodes.set(hashCode(code), {
+          user_id: user.id,
+          expires_at: new Date(now + VERIFICATION_CODE_TTL_MS).toISOString(),
+        });
         persistVerificationCodes();
         const delivery = await notifyVerificationCode({
           email: user.email,
@@ -1508,16 +1699,14 @@ const server = http.createServer((req, res) => {
         }
         resetTokens.set(codeHash, { user_id: user.id, expires_at: expiresAt });
         persistResetTokens();
-        notifyPasswordReset(
-          user.email,
-          user.username,
-          code,
-          Math.max(1, Math.round(RESET_CODE_TTL_MS / 60000))
-        );
+        notifyPasswordReset(user.email, user.username, code, Math.max(1, Math.round(RESET_CODE_TTL_MS / 60000)));
       }
       // Always 200 — never reveal whether the email belongs to an account
       // (no user-enumeration oracle, same as the SQLite backend).
-      return sendJson(res, 200, { ok: true, message: 'If an account exists for that email, a reset code has been sent.' });
+      return sendJson(res, 200, {
+        ok: true,
+        message: 'If an account exists for that email, a reset code has been sent.',
+      });
     });
   }
 
@@ -1637,12 +1826,12 @@ const server = http.createServer((req, res) => {
       }
       const { sub, email } = result.payload;
       const lowerEmail = email.toLowerCase();
-      let user = users.find((u) => String(u.email || '').toLowerCase() === lowerEmail);
+      let user = users.find(u => String(u.email || '').toLowerCase() === lowerEmail);
       if (!user) {
-        let base = googleUsername(result.payload.name, email);
+        const base = googleUsername(result.payload.name, email);
         let username = base;
         let n = 1;
-        while (users.some((u) => u.username === username)) username = `${base}${n++}`;
+        while (users.some(u => u.username === username)) username = `${base}${n++}`;
         user = {
           id: nextUserId++,
           username,
@@ -1670,7 +1859,7 @@ const server = http.createServer((req, res) => {
       });
       res.writeHead(302, { Location: `${webReturn}?${q.toString()}` });
       return res.end();
-    })().catch((e) => {
+    })().catch(e => {
       return sendJson(res, 500, { error: 'Google sign-in failed', details: [String(e.message || e)] });
     });
   }
@@ -1678,7 +1867,10 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.split('?')[0] === '/api/auth/me') {
     return requireAuth(req, res, false, (req, res) => {
       return sendJson(res, 200, {
-        id: req.user.id, username: req.user.username, role: req.user.role, email: req.user.email,
+        id: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        email: req.user.email,
         email_verified: req.user.email_verified !== false,
         phone: req.user.phone === undefined || req.user.phone === '' ? null : req.user.phone,
         created_at: req.user.created_at,
@@ -1689,12 +1881,21 @@ const server = http.createServer((req, res) => {
   // ================= PRODUCTS =================
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/products/categories') {
-    const cats = cache.get('categories:all') || (() => {
-      const products = readJSON(productsFile) || [];
-      const c = [...new Set(products.filter(isProductActive).map(p => p['Category'] || p.category).filter(Boolean))].sort();
-      cache.set('categories:all', c);
-      return c;
-    })();
+    const cats =
+      cache.get('categories:all') ||
+      (() => {
+        const products = readJSON(productsFile) || [];
+        const c = [
+          ...new Set(
+            products
+              .filter(isProductActive)
+              .map(p => p['Category'] || p.category)
+              .filter(Boolean)
+          ),
+        ].sort();
+        cache.set('categories:all', c);
+        return c;
+      })();
     return sendJson(res, 200, cats, READ_CACHE_TTL);
   }
 
@@ -1712,7 +1913,7 @@ const server = http.createServer((req, res) => {
     // name to mirror the SQLite backend's `ORDER BY name ASC`.
     let formatted = products
       .map(formatProduct)
-      .filter(f => want === 'active' ? isProductActive(f) : f.status === want)
+      .filter(f => (want === 'active' ? isProductActive(f) : f.status === want))
       .sort((a, b) => a.name.localeCompare(b.name, 'en'));
 
     if (search) {
@@ -1727,15 +1928,20 @@ const server = http.createServer((req, res) => {
       const pageNum = Math.max(1, parseInt(page, 10) || 1);
       const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
       const offset = (pageNum - 1) * limitNum;
-      return sendJson(res, 200, {
-        data: formatted.slice(offset, offset + limitNum),
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total: formatted.length,
-          totalPages: Math.ceil(formatted.length / limitNum)
-        }
-      }, READ_CACHE_TTL);
+      return sendJson(
+        res,
+        200,
+        {
+          data: formatted.slice(offset, offset + limitNum),
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total: formatted.length,
+            totalPages: Math.ceil(formatted.length / limitNum),
+          },
+        },
+        READ_CACHE_TTL
+      );
     }
     return sendJson(res, 200, formatted, READ_CACHE_TTL);
   }
@@ -1752,25 +1958,39 @@ const server = http.createServer((req, res) => {
     return requireAuth(req, res, true, (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
-        if (!obj.name || !obj.category) return sendJson(res, 400, { error: 'Validation failed', details: ['name and category are required'] });
-        if (String(obj.name).length > PRODUCT_NAME_MAX_LENGTH) return sendJson(res, 400, { error: 'Validation failed', details: [`name must be at most ${PRODUCT_NAME_MAX_LENGTH} characters`] });
+        if (!obj.name || !obj.category)
+          return sendJson(res, 400, { error: 'Validation failed', details: ['name and category are required'] });
+        if (String(obj.name).length > PRODUCT_NAME_MAX_LENGTH)
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: [`name must be at most ${PRODUCT_NAME_MAX_LENGTH} characters`],
+          });
         // Mirror the SQLite validate() schema: price is required and numeric >= 0.
         const priceNum = Number(obj.price);
-        if (obj.price === undefined || obj.price === null || obj.price === '' || !Number.isFinite(priceNum) || priceNum < 0) {
-          return sendJson(res, 400, { error: 'Validation failed', details: ['price is required and must be a number >= 0'] });
+        if (
+          obj.price === undefined ||
+          obj.price === null ||
+          obj.price === '' ||
+          !Number.isFinite(priceNum) ||
+          priceNum < 0
+        ) {
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: ['price is required and must be a number >= 0'],
+          });
         }
         const products = readJSON(productsFile) || [];
         // Sanitize user-supplied text fields to prevent XSS in stored data
         const newProduct = {
           'Product Name': sanitizeObject(obj.name),
-          'Category': sanitizeObject(obj.category),
-          'Brand': sanitizeObject(obj.brand || ''),
-          'Description': sanitizeObject(obj.description || ''),
-          'Size': sanitizeObject(obj.size || ''),
-          'Unit': sanitizeObject(obj.unit || 'pcs'),
-          'Price': priceNum,
-          'status': 'active',
-          'Image': obj.image || ''
+          Category: sanitizeObject(obj.category),
+          Brand: sanitizeObject(obj.brand || ''),
+          Description: sanitizeObject(obj.description || ''),
+          Size: sanitizeObject(obj.size || ''),
+          Unit: sanitizeObject(obj.unit || 'pcs'),
+          Price: priceNum,
+          status: 'active',
+          Image: obj.image || '',
         };
         products.push(newProduct);
         writeJSON(productsFile, products);
@@ -1790,13 +2010,19 @@ const server = http.createServer((req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         if (!Array.isArray(obj.prices)) {
-          return sendJson(res, 400, { error: 'Validation failed', details: ['prices must be an array of { name, price } entries'] });
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: ['prices must be an array of { name, price } entries'],
+          });
         }
         if (obj.prices.length === 0) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['prices must not be empty'] });
         }
         if (obj.prices.length > BULK_PRICES_MAX_ENTRIES) {
-          return sendJson(res, 400, { error: 'Validation failed', details: [`prices must not exceed ${BULK_PRICES_MAX_ENTRIES} entries`] });
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: [`prices must not exceed ${BULK_PRICES_MAX_ENTRIES} entries`],
+          });
         }
         const products = readJSON(productsFile) || [];
         const skipped = [];
@@ -1806,7 +2032,14 @@ const server = http.createServer((req, res) => {
           const price = entry && entry.price;
           // String(price).trim() catches whitespace-only strings that Number()
           // would silently coerce to 0 (e.g. '   '). Mirrors SQLite exactly.
-          if (price === undefined || price === null || price === '' || (typeof price === 'string' && price.trim() === '') || !Number.isFinite(Number(price)) || Number(price) < 0) {
+          if (
+            price === undefined ||
+            price === null ||
+            price === '' ||
+            (typeof price === 'string' && price.trim() === '') ||
+            !Number.isFinite(Number(price)) ||
+            Number(price) < 0
+          ) {
             skipped.push({ name: name || '(unnamed)', reason: 'invalid price' });
             continue;
           }
@@ -1827,7 +2060,12 @@ const server = http.createServer((req, res) => {
             }
           }
           if (idx === -1 && name) {
-            idx = products.findIndex((p) => String(p['Product Name'] || p.name || '').trim().toLowerCase() === name.toLowerCase());
+            idx = products.findIndex(
+              p =>
+                String(p['Product Name'] || p.name || '')
+                  .trim()
+                  .toLowerCase() === name.toLowerCase()
+            );
           }
           if (idx === -1) {
             skipped.push({ name: name || '(unnamed)', reason: 'not found' });
@@ -1891,11 +2129,13 @@ const server = http.createServer((req, res) => {
   // ================= INVENTORY =================
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/inventory') {
-    const inv = cache.get('inventory:full') || (() => {
-      const i = getInventory();
-      cache.set('inventory:full', i);
-      return i;
-    })();
+    const inv =
+      cache.get('inventory:full') ||
+      (() => {
+        const i = getInventory();
+        cache.set('inventory:full', i);
+        return i;
+      })();
     const parsed = new URL(url, 'http://localhost');
     const lowStock = parsed.searchParams.get('low_stock') === 'true';
     const location = parsed.searchParams.get('location');
@@ -1921,7 +2161,7 @@ const server = http.createServer((req, res) => {
           critical_level: info.criticalLevel,
           movement_class: info.classification,
           movement_label: info.movementLabel,
-          stock_status: stockStatus(total, info.criticalLevel, settings.getLowStockMultiplier())
+          stock_status: stockStatus(total, info.criticalLevel, settings.getLowStockMultiplier()),
         };
       })
       .filter(item => item.product && isProductActive(item.product));
@@ -1929,13 +2169,12 @@ const server = http.createServer((req, res) => {
       // Accept a numeric location id or a name, mirroring the SQLite
       // resolveLocation() helper (the numeric form is used by the UI).
       const locId = Number(location);
-      const locName = Number.isInteger(locId) && locId >= 1 && locId <= inv.locations.length
-        ? inv.locations[locId - 1]
-        : location;
+      const locName =
+        Number.isInteger(locId) && locId >= 1 && locId <= inv.locations.length ? inv.locations[locId - 1] : location;
       items = items.map(item => ({
         ...item,
         locations: item.locations[locName] !== undefined ? { [locName]: item.locations[locName] } : {},
-        total: item.locations[locName] || 0
+        total: item.locations[locName] || 0,
       }));
     }
     if (lowStock) items = items.filter(item => item.total < item.critical_level);
@@ -1947,7 +2186,11 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/locations') {
     const inv = getInventory();
-    return sendJson(res, 200, inv.locations.map((name, index) => ({ id: index + 1, name })));
+    return sendJson(
+      res,
+      200,
+      inv.locations.map((name, index) => ({ id: index + 1, name }))
+    );
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/locations') {
@@ -1969,7 +2212,8 @@ const server = http.createServer((req, res) => {
     const id = Number(url.split('?')[0].split('/').pop());
     return requireAuth(req, res, true, (req, res) => {
       const inv = getInventory();
-      if (Number.isNaN(id) || id <= 0 || id > inv.locations.length) return sendJson(res, 404, { error: 'Location not found' });
+      if (Number.isNaN(id) || id <= 0 || id > inv.locations.length)
+        return sendJson(res, 404, { error: 'Location not found' });
       const removedName = inv.locations[id - 1];
       const hasStock = inv.items.some(item => (item.locations[removedName] || 0) > 0);
       if (hasStock) {
@@ -1983,10 +2227,14 @@ const server = http.createServer((req, res) => {
       const adjRefs = adjustments.some(a => Number(a.location_id) === id);
       const trfRefs = transfers.some(t => Number(t.src_location) === id || Number(t.dst_location) === id);
       if (adjRefs || trfRefs) {
-        return sendJson(res, 400, { error: 'Cannot delete location referenced by stock adjustments or transfers. Resolve them first.' });
+        return sendJson(res, 400, {
+          error: 'Cannot delete location referenced by stock adjustments or transfers. Resolve them first.',
+        });
       }
       inv.locations.splice(id - 1, 1);
-      inv.items.forEach(item => { delete item.locations[removedName]; });
+      inv.items.forEach(item => {
+        delete item.locations[removedName];
+      });
       writeJSON(inventoryFile, inv);
       return sendJson(res, 200, { ok: true, message: 'Location deleted' });
     });
@@ -2007,7 +2255,7 @@ const server = http.createServer((req, res) => {
     movements = movements.map(m => ({
       ...m,
       src_location: m.src_location === undefined || m.src_location === '' ? null : m.src_location,
-      dst_location: m.dst_location === undefined || m.dst_location === '' ? null : m.dst_location
+      dst_location: m.dst_location === undefined || m.dst_location === '' ? null : m.dst_location,
     }));
     if (type) movements = movements.filter(m => m.type === type);
     if (productId) movements = movements.filter(m => Number(m.product_id) === Number(productId));
@@ -2021,8 +2269,8 @@ const server = http.createServer((req, res) => {
           page: pageNum,
           limit: limitNum,
           total: movements.length,
-          totalPages: Math.ceil(movements.length / limitNum)
-        }
+          totalPages: Math.ceil(movements.length / limitNum),
+        },
       });
     }
     return sendJson(res, 200, movements);
@@ -2049,18 +2297,30 @@ const server = http.createServer((req, res) => {
         inv.locations.forEach(loc => {
           const qty = item.locations[loc] || 0;
           if (qty > 0) {
-            stockLots.push({ id: nextLotId++, product_id: item.product.id, product_name: item.product.name, location_id: inv.locations.indexOf(loc) + 1, location_name: loc, qty, received_at: new Date().toISOString(), expiry_date: null });
+            stockLots.push({
+              id: nextLotId++,
+              product_id: item.product.id,
+              product_name: item.product.name,
+              location_id: inv.locations.indexOf(loc) + 1,
+              location_name: loc,
+              qty,
+              received_at: new Date().toISOString(),
+              expiry_date: null,
+            });
           }
         });
       });
     }
-    const locName = (id) => inv.locations[Number(id) - 1] || `Location ${id}`;
+    const locName = id => inv.locations[Number(id) - 1] || `Location ${id}`;
     const lots = stockLots
       .filter(l => l.qty > 0)
       .map(l => ({
         id: l.id,
         product_id: l.product_id,
-        product_name: (products[Number(l.product_id) - 1] && (products[Number(l.product_id) - 1]['Product Name'] || products[Number(l.product_id) - 1].name)) || `Product ${l.product_id}`,
+        product_name:
+          (products[Number(l.product_id) - 1] &&
+            (products[Number(l.product_id) - 1]['Product Name'] || products[Number(l.product_id) - 1].name)) ||
+          `Product ${l.product_id}`,
         location_id: l.location_id,
         location_name: locName(l.location_id),
         qty: l.qty,
@@ -2106,13 +2366,19 @@ const server = http.createServer((req, res) => {
           const raw = String(obj.expiry_date).trim();
           const normalized = raw.slice(0, 10);
           const asDate = new Date(`${normalized}T00:00:00Z`);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized) || Number.isNaN(asDate.getTime()) || asDate.toISOString().slice(0, 10) !== normalized) {
+          if (
+            !/^\d{4}-\d{2}-\d{2}$/.test(normalized) ||
+            Number.isNaN(asDate.getTime()) ||
+            asDate.toISOString().slice(0, 10) !== normalized
+          ) {
             return sendJson(res, 400, { error: 'expiry_date must be a valid date (YYYY-MM-DD)' });
           }
           expiryDate = normalized;
         }
         if (!['stock-in', 'stock-out', 'transfer', 'adjustment'].includes(obj.type)) {
-          return sendJson(res, 400, { error: 'Invalid type. Must be one of: stock-in, stock-out, transfer, adjustment' });
+          return sendJson(res, 400, {
+            error: 'Invalid type. Must be one of: stock-in, stock-out, transfer, adjustment',
+          });
         }
         // Mirror the SQLite validate() schema: qty must be a positive number
         // and product_id a positive integer. A negative qty stock-out would
@@ -2136,7 +2402,10 @@ const server = http.createServer((req, res) => {
           return sendJson(res, 400, { error: 'Validation failed', details: ['dst_location is required for stock-in'] });
         }
         if (obj.type === 'stock-out' && !obj.src_location) {
-          return sendJson(res, 400, { error: 'Validation failed', details: ['src_location is required for stock-out'] });
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: ['src_location is required for stock-out'],
+          });
         }
         const products = readJSON(productsFile) || [];
         if (!products[pid - 1] || !isProductActive(products[pid - 1])) {
@@ -2146,9 +2415,9 @@ const server = http.createServer((req, res) => {
         // in the movement ledger (mirrors the SQLite backend).
         const inv = getInventory();
         const item = inv.items.find(i => i.product.id === pid);
-        const locFor = (loc) => typeof loc === 'string' ? loc : (inv.locations[Number(loc) - 1]);
+        const locFor = loc => (typeof loc === 'string' ? loc : inv.locations[Number(loc) - 1]);
         if ((obj.type === 'stock-out' || obj.type === 'transfer') && obj.src_location) {
-          const available = item ? (item.locations[locFor(obj.src_location)] || 0) : 0;
+          const available = item ? item.locations[locFor(obj.src_location)] || 0 : 0;
           if (available < qty) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
         }
         const movements = readJSON(movementsFile) || [];
@@ -2161,7 +2430,7 @@ const server = http.createServer((req, res) => {
           dst_location: obj.dst_location || null,
           notes: obj.notes || '',
           created_at: new Date().toISOString(),
-          user: obj.user || (req.user && req.user.username) || 'system'
+          user: obj.user || (req.user && req.user.username) || 'system',
         };
         movements.unshift(newMovement);
         writeJSON(movementsFile, movements);
@@ -2171,7 +2440,7 @@ const server = http.createServer((req, res) => {
           // Resolve numeric location ids once so the lot ledger can be kept
           // in sync with the stock change below (same rows the SQLite
           // backend's stock_lots table would hold).
-          const locIdFor = (loc) => {
+          const locIdFor = loc => {
             const name = locFor(loc);
             const idx = inv.locations.indexOf(name);
             return idx >= 0 ? idx + 1 : null;
@@ -2234,7 +2503,7 @@ const server = http.createServer((req, res) => {
 
   function adjustmentRow(a, inv, products) {
     const product = products[Number(a.product_id) - 1] || null;
-    const locationName = a.location_name || (inv.locations[Number(a.location_id) - 1]) || `Location ${a.location_id}`;
+    const locationName = a.location_name || inv.locations[Number(a.location_id) - 1] || `Location ${a.location_id}`;
     let currentQty = 0;
     const item = inv.items.find(i => i.product && Number(i.product.id) === Number(a.product_id));
     if (item) currentQty = item.locations[locationName] || 0;
@@ -2257,8 +2526,8 @@ const server = http.createServer((req, res) => {
 
   function transferRow(t, inv, products) {
     const product = products[Number(t.product_id) - 1] || null;
-    const srcName = t.src_location_name || (inv.locations[Number(t.src_location) - 1]) || `Location ${t.src_location}`;
-    const dstName = t.dst_location_name || (inv.locations[Number(t.dst_location) - 1]) || `Location ${t.dst_location}`;
+    const srcName = t.src_location_name || inv.locations[Number(t.src_location) - 1] || `Location ${t.src_location}`;
+    const dstName = t.dst_location_name || inv.locations[Number(t.dst_location) - 1] || `Location ${t.dst_location}`;
     return {
       id: Number(t.id),
       product_id: Number(t.product_id),
@@ -2301,10 +2570,14 @@ const server = http.createServer((req, res) => {
         const productId = Number(obj.product_id);
         const locationId = Number(obj.location_id);
         const newQty = Number(obj.new_qty);
-        if (!Number.isFinite(productId) || productId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
-        if (!Number.isFinite(locationId) || locationId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
-        if (!Number.isFinite(newQty) || newQty < 0) return sendJson(res, 400, { error: 'Validation failed', details: ['new_qty must be a number >= 0'] });
-        if (obj.reason && String(obj.reason).length > 300) return sendJson(res, 400, { error: 'Validation failed', details: ['reason must be at most 300 characters'] });
+        if (!Number.isFinite(productId) || productId < 1)
+          return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
+        if (!Number.isFinite(locationId) || locationId < 1)
+          return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
+        if (!Number.isFinite(newQty) || newQty < 0)
+          return sendJson(res, 400, { error: 'Validation failed', details: ['new_qty must be a number >= 0'] });
+        if (obj.reason && String(obj.reason).length > 300)
+          return sendJson(res, 400, { error: 'Validation failed', details: ['reason must be at most 300 characters'] });
         // Optional best-before date read off the label during the physical
         // count. Strict ISO YYYY-MM-DD and a REAL calendar date (2026-02-31
         // is rejected), mirroring the SQLite validate({ date: true }) rule.
@@ -2312,13 +2585,21 @@ const server = http.createServer((req, res) => {
         if (obj.expiry_date !== undefined && obj.expiry_date !== null && obj.expiry_date !== '') {
           const v = String(obj.expiry_date);
           const asDate = new Date(`${v}T00:00:00Z`);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(asDate.getTime()) || asDate.toISOString().slice(0, 10) !== v) {
-            return sendJson(res, 400, { error: 'Validation failed', details: ['expiry_date must be a valid date (YYYY-MM-DD)'] });
+          if (
+            !/^\d{4}-\d{2}-\d{2}$/.test(v) ||
+            Number.isNaN(asDate.getTime()) ||
+            asDate.toISOString().slice(0, 10) !== v
+          ) {
+            return sendJson(res, 400, {
+              error: 'Validation failed',
+              details: ['expiry_date must be a valid date (YYYY-MM-DD)'],
+            });
           }
           expiryDate = v;
         }
         const products = readJSON(productsFile) || [];
-        if (!products[productId - 1] || !isProductActive(products[productId - 1])) return sendJson(res, 404, { error: 'Product not found or inactive' });
+        if (!products[productId - 1] || !isProductActive(products[productId - 1]))
+          return sendJson(res, 404, { error: 'Product not found or inactive' });
         const inv = getInventory();
         if (!inv.locations[locationId - 1]) return sendJson(res, 404, { error: 'Location not found' });
         const rows = readJSON(adjustmentsFile) || [];
@@ -2343,7 +2624,11 @@ const server = http.createServer((req, res) => {
   }
 
   // /api/stock-adjustments/{id}/approve | /reject (admin only)
-  if (req.method === 'POST' && url.startsWith('/api/stock-adjustments/') && /^\/api\/stock-adjustments\/\d+\/(approve|reject)$/.test(pathPart)) {
+  if (
+    req.method === 'POST' &&
+    url.startsWith('/api/stock-adjustments/') &&
+    /^\/api\/stock-adjustments\/\d+\/(approve|reject)$/.test(pathPart)
+  ) {
     return requireAuth(req, res, true, (req, res) => {
       const id = Number(pathPart.split('/')[3]);
       const action = pathPart.split('/')[4];
@@ -2378,8 +2663,17 @@ const server = http.createServer((req, res) => {
           // adjustment replaces the location's lots with one lot of new_qty).
           // The recorded best-before travels with it so FEFO consumption and
           // best-before alerts track the stock automatically.
-          stockLots = stockLots.filter(l => !(Number(l.product_id) === Number(row.product_id) && Number(l.location_id) === Number(row.location_id)));
-          if (Number(row.new_qty) > 0) recordLot(Number(row.product_id), Number(row.location_id), Number(row.new_qty), now, row.expiry_date || null);
+          stockLots = stockLots.filter(
+            l => !(Number(l.product_id) === Number(row.product_id) && Number(l.location_id) === Number(row.location_id))
+          );
+          if (Number(row.new_qty) > 0)
+            recordLot(
+              Number(row.product_id),
+              Number(row.location_id),
+              Number(row.new_qty),
+              now,
+              row.expiry_date || null
+            );
         }
         // Record the movement in the ledger (mirrors SQLite).
         const movements = readJSON(movementsFile) || [];
@@ -2425,16 +2719,29 @@ const server = http.createServer((req, res) => {
         const srcId = Number(obj.src_location);
         const dstId = Number(obj.dst_location);
         const qty = Number(obj.qty);
-        if (!Number.isFinite(productId) || productId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
-        if (!Number.isFinite(srcId) || srcId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['src_location must be a positive number'] });
-        if (!Number.isFinite(dstId) || dstId < 1) return sendJson(res, 400, { error: 'Validation failed', details: ['dst_location must be a positive number'] });
-        if (!Number.isFinite(qty) || qty <= 0) return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
-        if (obj.reason && String(obj.reason).length > 300) return sendJson(res, 400, { error: 'Validation failed', details: ['reason must be at most 300 characters'] });
+        if (!Number.isFinite(productId) || productId < 1)
+          return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
+        if (!Number.isFinite(srcId) || srcId < 1)
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: ['src_location must be a positive number'],
+          });
+        if (!Number.isFinite(dstId) || dstId < 1)
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: ['dst_location must be a positive number'],
+          });
+        if (!Number.isFinite(qty) || qty <= 0)
+          return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
+        if (obj.reason && String(obj.reason).length > 300)
+          return sendJson(res, 400, { error: 'Validation failed', details: ['reason must be at most 300 characters'] });
         if (srcId === dstId) return sendJson(res, 400, { error: 'Source and destination must differ' });
         const products = readJSON(productsFile) || [];
-        if (!products[productId - 1] || !isProductActive(products[productId - 1])) return sendJson(res, 404, { error: 'Product not found or inactive' });
+        if (!products[productId - 1] || !isProductActive(products[productId - 1]))
+          return sendJson(res, 404, { error: 'Product not found or inactive' });
         const inv = getInventory();
-        if (!inv.locations[srcId - 1] || !inv.locations[dstId - 1]) return sendJson(res, 404, { error: 'Location not found' });
+        if (!inv.locations[srcId - 1] || !inv.locations[dstId - 1])
+          return sendJson(res, 404, { error: 'Location not found' });
         const rows = readJSON(transfersFile) || [];
         const row = {
           id: rows.length + 1,
@@ -2458,7 +2765,11 @@ const server = http.createServer((req, res) => {
   }
 
   // /api/stock-transfers/{id}/approve | /reject (admin only)
-  if (req.method === 'POST' && url.startsWith('/api/stock-transfers/') && /^\/api\/stock-transfers\/\d+\/(approve|reject)$/.test(pathPart)) {
+  if (
+    req.method === 'POST' &&
+    url.startsWith('/api/stock-transfers/') &&
+    /^\/api\/stock-transfers\/\d+\/(approve|reject)$/.test(pathPart)
+  ) {
     return requireAuth(req, res, true, (req, res) => {
       const id = Number(pathPart.split('/')[3]);
       const action = pathPart.split('/')[4];
@@ -2484,7 +2795,7 @@ const server = http.createServer((req, res) => {
         const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
         const srcName = row.src_location_name || inv.locations[Number(row.src_location) - 1];
         const dstName = row.dst_location_name || inv.locations[Number(row.dst_location) - 1];
-        const available = item ? (item.locations[srcName] || 0) : 0;
+        const available = item ? item.locations[srcName] || 0 : 0;
         if (available < Number(row.qty)) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
         if (item) {
           item.locations[srcName] = (item.locations[srcName] || 0) - Number(row.qty);
@@ -2497,10 +2808,13 @@ const server = http.createServer((req, res) => {
           // destination).
           // FEFO: destination lots mirror the consumed source lots (grouped
           // by expiry) — mirrors the SQLite approval applier.
-          const approvalManifest = groupManifestByExpiry(consumeLots(Number(row.product_id), Number(row.src_location), Number(row.qty)));
+          const approvalManifest = groupManifestByExpiry(
+            consumeLots(Number(row.product_id), Number(row.src_location), Number(row.qty))
+          );
           for (const g of approvalManifest) {
             recordLot(Number(row.product_id), Number(row.dst_location), g.qty, now, g.expiry_date);
-          }        }
+          }
+        }
         const movements = readJSON(movementsFile) || [];
         movements.unshift({
           id: movements.length + 1,
@@ -2558,9 +2872,9 @@ const server = http.createServer((req, res) => {
       const generated_at = new Date().toISOString();
       const cutoff = Date.parse(`${from}T00:00:00Z`);
       const until = Date.parse(`${to}T23:59:59.999Z`);
-      const sales = salesTransactions.length ? salesTransactions : (readJSON('@sales') || []);
+      const sales = salesTransactions.length ? salesTransactions : readJSON('@sales') || [];
 
-      const dateKey = (iso) => (iso || '').slice(0, 10);
+      const dateKey = iso => (iso || '').slice(0, 10);
       const dailyMap = {};
       sales.forEach(s => {
         const at = new Date(s.transaction_date).getTime();
@@ -2580,7 +2894,10 @@ const server = http.createServer((req, res) => {
 
       const orders = readJSON(orderFile) || [];
       const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
-      orders.forEach(o => { const s = o.status || 'pending'; if (orderStatusSummary[s] !== undefined) orderStatusSummary[s] += 1; });
+      orders.forEach(o => {
+        const s = o.status || 'pending';
+        if (orderStatusSummary[s] !== undefined) orderStatusSummary[s] += 1;
+      });
 
       const products = readJSON(productsFile) || [];
       const lvlMap = criticalLevels();
@@ -2601,7 +2918,10 @@ const server = http.createServer((req, res) => {
         qty_sold: qtyByProduct[idx + 1] || 0,
         value: valueByProduct[idx + 1] || 0,
       }));
-      const fastMovers = moverRows.filter(r => r.qty_sold > 0).sort((a, b) => b.qty_sold - a.qty_sold).slice(0, 10);
+      const fastMovers = moverRows
+        .filter(r => r.qty_sold > 0)
+        .sort((a, b) => b.qty_sold - a.qty_sold)
+        .slice(0, 10);
       // SQLite's slow-mover rows carry only name + qty_sold — strip the value
       // key here so the report shapes stay byte-identical across backends.
       const slowMovers = moverRows
@@ -2619,15 +2939,8 @@ const server = http.createServer((req, res) => {
         // are walk-in payers, NOT accounts, so a distinct-name count reported
         // people who don't exist anywhere in the system.
         customers_served: (() => {
-          const accountIds = new Set(
-            orders
-              .map(o => Number(o.user_id))
-              .filter(id => Number.isFinite(id) && id > 0)
-          );
-          const customers = new Set(
-            users
-              .filter(u => u.role === 'customer' && accountIds.has(Number(u.id)))
-            );
+          const accountIds = new Set(orders.map(o => Number(o.user_id)).filter(id => Number.isFinite(id) && id > 0));
+          const customers = new Set(users.filter(u => u.role === 'customer' && accountIds.has(Number(u.id))));
           return customers.size;
         })(),
         // Customers who actually paid for something — distinct names from the
@@ -2658,70 +2971,74 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/order-inquiries') {
     return requireAuth(req, res, false, (req, res) => {
-    const parsed = new URL(url, 'http://localhost');
-    const page = parsed.searchParams.get('page');
-    const limit = parsed.searchParams.get('limit');
-    const status = parsed.searchParams.get('status');
-    let orders = readJSON(orderFile) || [];
-    // Normalize so every row carries customer_phone (null when absent) — the
-    // SQLite backend always returns the column, and the contract suites assert
-    // identical shapes, so an old row without the key would break parity.
-    orders = orders.map(o => ({
-      ...o,
-      customer_phone: o.customer_phone === undefined || o.customer_phone === '' ? null : o.customer_phone,
-      // Firestore stores null as '' — normalize back; payment_method defaults to
-      // 'cod' for rows created before checkout existed (SQLite parity).
-      delivery_address: o.delivery_address === undefined || o.delivery_address === '' ? null : o.delivery_address,
-      payment_method: o.payment_method === undefined || o.payment_method === '' ? 'cod' : o.payment_method,
-      // Payment step (SQLite parity): status defaults to 'unpaid' for rows
-      // created before checkout payment existed; reference/url/qr are null.
-      payment_status: o.payment_status === undefined || o.payment_status === '' ? 'unpaid' : o.payment_status,
-      payment_reference: o.payment_reference === undefined || o.payment_reference === '' ? null : o.payment_reference,
-      payment_url: o.payment_url === undefined || o.payment_url === '' ? null : o.payment_url,
-      payment_qr: o.payment_qr === undefined || o.payment_qr === '' ? null : o.payment_qr,
-      payment_provider: o.payment_provider === undefined || o.payment_provider === '' ? null : o.payment_provider,
-      // Ownership + progress timeline (SQLite parity): user_id is an integer
-      // (null when the order predates account stamping), status_history is the
-      // JSON status-timeline string (null when the row predates tracking).
-      user_id: o.user_id === undefined || o.user_id === null || o.user_id === '' ? null : Number(o.user_id),
-      status_history: o.status_history === undefined || o.status_history === '' ? null : o.status_history,
-    }));
-    // Per-account scoping: admins see every inquiry; customers only their own
-    // (user_id match, with a legacy fallback to the account's email so orders
-    // placed before ownership was stamped still appear in history).
-    if (!ADMIN_TIER.includes(req.user.role)) {
-      const owner = users.find(u => u.id === req.user.id);
-      const myEmail = (owner && owner.email || '').toLowerCase();
-      orders = orders.filter(o => Number(o.user_id) === req.user.id || (o.customer_email || '').toLowerCase() === myEmail);
-    }
-    if (status) orders = orders.filter(o => o.status === status);
-    // Parse + normalize the stored line items into a `products_detail` array
-    // (SQLite parity): every row exposes per-line prices the client can render
-    // without re-parsing the products JSON itself.
-    orders = orders.map(o => ({
-      ...o,
-      products_detail: (() => {
-        try {
-          const parsed = JSON.parse(o.products || '[]');
-          return Array.isArray(parsed) ? parsed : [];
-        } catch { return []; }
-      })(),
-    }));
-    if (page !== null || limit !== null) {
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
-      const offset = (pageNum - 1) * limitNum;
-      return sendJson(res, 200, {
-        data: orders.slice(offset, offset + limitNum),
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total: orders.length,
-          totalPages: Math.ceil(orders.length / limitNum)
-        }
-      });
-    }
-    return sendJson(res, 200, orders);
+      const parsed = new URL(url, 'http://localhost');
+      const page = parsed.searchParams.get('page');
+      const limit = parsed.searchParams.get('limit');
+      const status = parsed.searchParams.get('status');
+      let orders = readJSON(orderFile) || [];
+      // Normalize so every row carries customer_phone (null when absent) — the
+      // SQLite backend always returns the column, and the contract suites assert
+      // identical shapes, so an old row without the key would break parity.
+      orders = orders.map(o => ({
+        ...o,
+        customer_phone: o.customer_phone === undefined || o.customer_phone === '' ? null : o.customer_phone,
+        // Firestore stores null as '' — normalize back; payment_method defaults to
+        // 'cod' for rows created before checkout existed (SQLite parity).
+        delivery_address: o.delivery_address === undefined || o.delivery_address === '' ? null : o.delivery_address,
+        payment_method: o.payment_method === undefined || o.payment_method === '' ? 'cod' : o.payment_method,
+        // Payment step (SQLite parity): status defaults to 'unpaid' for rows
+        // created before checkout payment existed; reference/url/qr are null.
+        payment_status: o.payment_status === undefined || o.payment_status === '' ? 'unpaid' : o.payment_status,
+        payment_reference: o.payment_reference === undefined || o.payment_reference === '' ? null : o.payment_reference,
+        payment_url: o.payment_url === undefined || o.payment_url === '' ? null : o.payment_url,
+        payment_qr: o.payment_qr === undefined || o.payment_qr === '' ? null : o.payment_qr,
+        payment_provider: o.payment_provider === undefined || o.payment_provider === '' ? null : o.payment_provider,
+        // Ownership + progress timeline (SQLite parity): user_id is an integer
+        // (null when the order predates account stamping), status_history is the
+        // JSON status-timeline string (null when the row predates tracking).
+        user_id: o.user_id === undefined || o.user_id === null || o.user_id === '' ? null : Number(o.user_id),
+        status_history: o.status_history === undefined || o.status_history === '' ? null : o.status_history,
+      }));
+      // Per-account scoping: admins see every inquiry; customers only their own
+      // (user_id match, with a legacy fallback to the account's email so orders
+      // placed before ownership was stamped still appear in history).
+      if (!ADMIN_TIER.includes(req.user.role)) {
+        const owner = users.find(u => u.id === req.user.id);
+        const myEmail = ((owner && owner.email) || '').toLowerCase();
+        orders = orders.filter(
+          o => Number(o.user_id) === req.user.id || (o.customer_email || '').toLowerCase() === myEmail
+        );
+      }
+      if (status) orders = orders.filter(o => o.status === status);
+      // Parse + normalize the stored line items into a `products_detail` array
+      // (SQLite parity): every row exposes per-line prices the client can render
+      // without re-parsing the products JSON itself.
+      orders = orders.map(o => ({
+        ...o,
+        products_detail: (() => {
+          try {
+            const parsed = JSON.parse(o.products || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        })(),
+      }));
+      if (page !== null || limit !== null) {
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
+        const offset = (pageNum - 1) * limitNum;
+        return sendJson(res, 200, {
+          data: orders.slice(offset, offset + limitNum),
+          pagination: {
+            page: pageNum,
+            limit: limitNum,
+            total: orders.length,
+            totalPages: Math.ceil(orders.length / limitNum),
+          },
+        });
+      }
+      return sendJson(res, 200, orders);
     });
   }
 
@@ -2734,7 +3051,9 @@ const server = http.createServer((req, res) => {
         const order = orders.find(o => o.id === id);
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
         if (!['pending', 'approved', 'rejected', 'fulfilled', 'delivered'].includes(obj.status)) {
-          return sendJson(res, 400, { error: 'Invalid status. Must be one of: pending, approved, rejected, fulfilled, delivered' });
+          return sendJson(res, 400, {
+            error: 'Invalid status. Must be one of: pending, approved, rejected, fulfilled, delivered',
+          });
         }
         const updatedStatus = obj.status || order.status;
         // Progress timeline (Shopee-style): append the new status with a
@@ -2765,7 +3084,10 @@ const server = http.createServer((req, res) => {
     return parseBody(req, async (err, obj) => {
       if (err) return bodyError(res, err);
       if (!obj.customer_name || !obj.customer_email) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['customer_name and customer_email are required'] });
+        return sendJson(res, 400, {
+          error: 'Validation failed',
+          details: ['customer_name and customer_email are required'],
+        });
       }
       // Sanitize user input to prevent XSS in stored data
       obj.customer_name = sanitizeObject(obj.customer_name);
@@ -2775,18 +3097,26 @@ const server = http.createServer((req, res) => {
       if (Array.isArray(obj.products)) {
         for (const item of obj.products) {
           const qty = Number(item.quantity || item.qty);
-          if (qty < 0) return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not be negative'] });
-          if (qty > 10000) return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not exceed 10000'] });
+          if (qty < 0)
+            return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not be negative'] });
+          if (qty > 10000)
+            return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not exceed 10000'] });
         }
       }
       // Checkout fields (optional but validated when present) — mirrors the
       // SQLite backend: delivery_address <= 500 chars, payment_method enum.
       const validPayments = ['cod', 'gcash', 'card', 'other'];
       if (obj.delivery_address !== undefined && String(obj.delivery_address).length > 500) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['delivery_address must be at most 500 characters'] });
+        return sendJson(res, 400, {
+          error: 'Validation failed',
+          details: ['delivery_address must be at most 500 characters'],
+        });
       }
       if (obj.payment_method !== undefined && !validPayments.includes(obj.payment_method)) {
-        return sendJson(res, 400, { error: 'Validation failed', details: ['payment_method must be one of cod, gcash, card, other'] });
+        return sendJson(res, 400, {
+          error: 'Validation failed',
+          details: ['payment_method must be one of cod, gcash, card, other'],
+        });
       }
       const orders = readJSON(orderFile) || [];
       // Optional auth: the app sends the customer's token at checkout, so the
@@ -2804,7 +3134,7 @@ const server = http.createServer((req, res) => {
       // estimated_cost is recomputed from the line subtotals so the record
       // always matches what the customer was charged (SQLite parity).
       const { lines, total } = normalizeLines(obj.products);
-      const storedCost = total !== null ? total : (obj.estimated_cost || 0);
+      const storedCost = total !== null ? total : obj.estimated_cost || 0;
       const newOrder = {
         id,
         customer_name: obj.customer_name,
@@ -2823,7 +3153,7 @@ const server = http.createServer((req, res) => {
         user_id: userId,
         status_history: JSON.stringify([{ status: 'pending', at: now }]),
         status: 'pending',
-        created_at: now
+        created_at: now,
       };
       // GCash/Card checkout: build the payment step (PayMongo when configured,
       // else the QR demo fallback) — identical to the SQLite backend. Guarded
@@ -2856,13 +3186,17 @@ const server = http.createServer((req, res) => {
         ok: true,
         message: 'Inquiry submitted',
         id,
-        ...(payment ? { payment: {
-          payment_method: payment.payment_method,
-          payment_status: payment.payment_status,
-          payment_reference: payment.payment_reference,
-          payment_url: payment.payment_url,
-          payment_qr: payment.payment_qr,
-        } } : {}),
+        ...(payment
+          ? {
+              payment: {
+                payment_method: payment.payment_method,
+                payment_status: payment.payment_status,
+                payment_reference: payment.payment_reference,
+                payment_url: payment.payment_url,
+                payment_qr: payment.payment_qr,
+              },
+            }
+          : {}),
       });
     });
   }
@@ -2882,9 +3216,9 @@ const server = http.createServer((req, res) => {
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
         if (!ADMIN_TIER.includes(req.user.role)) {
           const owner = users.find(u => u.id === req.user.id);
-          const myEmail = (owner && owner.email || '').toLowerCase();
-          const mine = Number(order.user_id) === Number(req.user.id) ||
-            (order.customer_email || '').toLowerCase() === myEmail;
+          const myEmail = ((owner && owner.email) || '').toLowerCase();
+          const mine =
+            Number(order.user_id) === Number(req.user.id) || (order.customer_email || '').toLowerCase() === myEmail;
           if (!mine) return sendJson(res, 403, { error: 'Not your inquiry' });
         }
         order.payment_status = obj.payment_status;
@@ -2899,9 +3233,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && url.split('?')[0] === '/api/ocr') {
     return parseBodyLarge(req, async (err, obj) => {
       if (err) {
-        return err.status === 413
-          ? sendJson(res, 413, { error: 'Payload too large' })
-          : bodyError(res, err);
+        return err.status === 413 ? sendJson(res, 413, { error: 'Payload too large' }) : bodyError(res, err);
       }
       // Normalize through formatProduct so matches carry REAL ids (positional,
       // exactly like /api/products) — raw rows have no id, which would make
@@ -2927,7 +3259,10 @@ const server = http.createServer((req, res) => {
           return sendJson(res, 400, { error: 'Validation failed', details: ['payload is required'] });
         }
         if (payload.length > 300) {
-          return sendJson(res, 400, { error: 'Validation failed', details: ['payload must be at most 300 characters'] });
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: ['payload must be at most 300 characters'],
+          });
         }
         const scanKinds = ['location', 'product', 'barcode', 'unknown'];
         const event = {
@@ -2935,12 +3270,12 @@ const server = http.createServer((req, res) => {
           actor: req.user.username,
           actorRole: req.user.role,
           kind: scanKinds.includes(obj.kind) ? obj.kind : 'unknown',
-          target_id: obj.target_id === undefined || obj.target_id === null || !Number.isFinite(Number(obj.target_id))
-            ? null
-            : Number(obj.target_id),
-          location: typeof obj.location === 'string' && obj.location.trim() !== ''
-            ? obj.location.trim().slice(0, 100)
-            : null,
+          target_id:
+            obj.target_id === undefined || obj.target_id === null || !Number.isFinite(Number(obj.target_id))
+              ? null
+              : Number(obj.target_id),
+          location:
+            typeof obj.location === 'string' && obj.location.trim() !== '' ? obj.location.trim().slice(0, 100) : null,
           payload: payload.trim(),
         };
         audit('scan.qr', event);
@@ -2956,19 +3291,15 @@ const server = http.createServer((req, res) => {
     return requireAuth(req, res, STAFF_TIER, (req, res) => {
       return parseBodyLarge(req, async (err, obj) => {
         if (err) {
-          return err.status === 413
-            ? sendJson(res, 413, { error: 'Payload too large' })
-            : bodyError(res, err);
+          return err.status === 413 ? sendJson(res, 413, { error: 'Payload too large' }) : bodyError(res, err);
         }
         const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
         // Stock snapshot keyed by the same positional ids formatProduct assigns.
         const inv = getInventory();
-        const byId = new Map(inv.items.map((i) => [Number(i.product && i.product.id), i]));
-        const stockLookup = (productId) => {
+        const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));
+        const stockLookup = productId => {
           const item = byId.get(Number(productId));
-          return item
-            ? { locations: item.locations || {}, total: item.total || 0 }
-            : { locations: {}, total: 0 };
+          return item ? { locations: item.locations || {}, total: item.total || 0 } : { locations: {}, total: 0 };
         };
         req.body = obj;
         await handleOcrStock(req, res, sendJson, products, stockLookup);
@@ -2992,8 +3323,8 @@ const server = http.createServer((req, res) => {
       const arr = products.map((p, idx) => ({
         id: idx + 1,
         name: p['Product Name'] || p.name,
-        value: ((idx + 1) * 10) * (p['Price'] || p.price || 1),
-        annualQty: 0
+        value: (idx + 1) * 10 * (p['Price'] || p.price || 1),
+        annualQty: 0,
       }));
       arr.sort((a, b) => b.value - a.value);
       const total = arr.reduce((sum, item) => sum + item.value, 0);
@@ -3015,18 +3346,18 @@ const server = http.createServer((req, res) => {
       // the dual-backend parity the contract tests assert.
       // Explicit query param wins; otherwise the live System Settings
       // window (Governance → System Settings) drives every analytics surface.
-      const windowDays = parseFsnWindow(
-        new URL(url, 'http://localhost').searchParams.get('window'),
-        { defaultWindow: settings.getFsnWindowDays() }
-      );
+      const windowDays = parseFsnWindow(new URL(url, 'http://localhost').searchParams.get('window'), {
+        defaultWindow: settings.getFsnWindowDays(),
+      });
       const now = new Date();
       const catalog = products.map((p, idx) => ({
         id: idx + 1,
         name: p['Product Name'] || p.name,
         price: p['Price'] || p.price || 0,
       }));
-      const sales = (salesTransactions.length ? salesTransactions : (readJSON('@sales') || []))
-        .filter(s => new Date(s.transaction_date).getTime() >= now.getTime() - windowDays * 86400000);
+      const sales = (salesTransactions.length ? salesTransactions : readJSON('@sales') || []).filter(
+        s => new Date(s.transaction_date).getTime() >= now.getTime() - windowDays * 86400000
+      );
       const result = classifyFsnCatalog(catalog, sales, { windowDays, now });
       return sendJson(res, 200, result);
     }
@@ -3046,7 +3377,7 @@ const server = http.createServer((req, res) => {
           productName: p['Product Name'] || p.name,
           eoq: Math.round(EOQ),
           annualDemand: D,
-          turnoverRatio: Math.round((D / avgInv) * 100) / 100
+          turnoverRatio: Math.round((D / avgInv) * 100) / 100,
         };
       });
       return sendJson(res, 200, results);
@@ -3072,7 +3403,7 @@ const server = http.createServer((req, res) => {
       safetyStock,
       annualDemand: D,
       turnoverRatio: Math.round((D / avgInventory) * 100) / 100,
-      avgInventory
+      avgInventory,
     });
   }
 
@@ -3082,8 +3413,7 @@ const server = http.createServer((req, res) => {
     const parts = url.split('?')[0].split('/').filter(Boolean);
     // Valid shapes are /api/analytics/summary and /api/analytics/export/{type}.
     const validAnalyticsPath =
-      (parts.length === 3 && parts[2] === 'summary') ||
-      (parts.length === 4 && parts[2] === 'export');
+      (parts.length === 3 && parts[2] === 'summary') || (parts.length === 4 && parts[2] === 'export');
     if (!validAnalyticsPath) {
       return sendJson(res, 404, { error: 'Not found' });
     }
@@ -3102,7 +3432,7 @@ const server = http.createServer((req, res) => {
         // critical-level.js) — matches the SQLite backend so the contract
         // test passes.
         const levelMap = criticalLevels();
-        const lowStockItems = inv.items.filter((i) => i.total < criticalLevelFromMap(levelMap, i.product.id)).length;
+        const lowStockItems = inv.items.filter(i => i.total < criticalLevelFromMap(levelMap, i.product.id)).length;
         const totalLocations = inv.locations.length;
         const pendingInquiries = orders.filter(o => o.status === 'pending').length;
         const totalSales = salesTransactions.reduce((sum, s) => sum + s.total_amount, 0);
@@ -3157,7 +3487,12 @@ const server = http.createServer((req, res) => {
         // Positional ids (idx + 1) — the JSON file has no id column, and the
         // SQLite backend numbers products the same way, so parity holds.
         const fastMovingProducts = activeProducts
-          .map((p, idx) => ({ id: idx + 1, name: p['Product Name'] || p.name, qty_sold: qtySold[idx + 1] || 0, value: valueSold[idx + 1] || 0 }))
+          .map((p, idx) => ({
+            id: idx + 1,
+            name: p['Product Name'] || p.name,
+            qty_sold: qtySold[idx + 1] || 0,
+            value: valueSold[idx + 1] || 0,
+          }))
           .sort((a, b) => b.qty_sold - a.qty_sold)
           .slice(0, 5);
 
@@ -3185,9 +3520,7 @@ const server = http.createServer((req, res) => {
         // Real customers: accounts that placed an order (mirrors the SQLite
         // backend). Distinct payers stay available for the Reports page.
         const customerAccountIds = new Set(
-          orders
-            .map(o => Number(o.user_id))
-            .filter(id => Number.isFinite(id) && id > 0)
+          orders.map(o => Number(o.user_id)).filter(id => Number.isFinite(id) && id > 0)
         );
         const customersServed = new Set(
           users.filter(u => u.role === 'customer' && customerAccountIds.has(Number(u.id)))
@@ -3198,7 +3531,9 @@ const server = http.createServer((req, res) => {
 
         // 7. Order status summary (incl. the new 'delivered' state).
         const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
-        orders.forEach(o => { if (orderStatusSummary[o.status] !== undefined) orderStatusSummary[o.status] += 1; });
+        orders.forEach(o => {
+          if (orderStatusSummary[o.status] !== undefined) orderStatusSummary[o.status] += 1;
+        });
 
         // 8. This-month aggregates so the dashboard KPI cards render without
         // needing the raw /api/sales (which is admin-only).
@@ -3215,12 +3550,29 @@ const server = http.createServer((req, res) => {
         const orderStatusCounts = { ...orderStatusSummary };
 
         return sendJson(res, 200, {
-          totalProducts, totalStock, lowStockItems, totalLocations,
-          pendingInquiries, totalSales, totalMovements, activeAlerts,
-          topProducts, monthlyMovements,
-          lowStockList, stockByLocation, fastMovingProducts, slowMovingProducts,
-          dailySalesValue, transactionCount, customersServed, customersPaid, customersRegistered, orderStatusSummary,
-          monthlySalesValue, monthlyTransactions, orderStatusCounts
+          totalProducts,
+          totalStock,
+          lowStockItems,
+          totalLocations,
+          pendingInquiries,
+          totalSales,
+          totalMovements,
+          activeAlerts,
+          topProducts,
+          monthlyMovements,
+          lowStockList,
+          stockByLocation,
+          fastMovingProducts,
+          slowMovingProducts,
+          dailySalesValue,
+          transactionCount,
+          customersServed,
+          customersPaid,
+          customersRegistered,
+          orderStatusSummary,
+          monthlySalesValue,
+          monthlyTransactions,
+          orderStatusCounts,
         });
       });
     }
@@ -3234,18 +3586,26 @@ const server = http.createServer((req, res) => {
         if (type === 'products') data = (readJSON(productsFile) || []).filter(isProductActive).map(formatProduct);
         else if (type === 'inventory') {
           const inv = getInventory();
-          inv.items.forEach(item => inv.locations.forEach(loc => {
-            data.push({ product: item.product.name, location: loc, quantity: item.locations[loc] || 0 });
-          }));
+          inv.items.forEach(item =>
+            inv.locations.forEach(loc => {
+              data.push({ product: item.product.name, location: loc, quantity: item.locations[loc] || 0 });
+            })
+          );
         } else if (type === 'movements') data = readJSON(movementsFile) || [];
         else return sendJson(res, 404, { error: 'Export type not found. Use: products, inventory, movements' });
 
         if (format === 'csv') {
           const headers = Object.keys(data[0] || {}).join(',');
-          const rows = data.map(row => Object.values(row).map(v => `"${v}"`).join(',')).join('\n');
+          const rows = data
+            .map(row =>
+              Object.values(row)
+                .map(v => `"${v}"`)
+                .join(',')
+            )
+            .join('\n');
           res.writeHead(200, {
             'Content-Type': 'text/csv',
-            'Content-Disposition': `attachment; filename=${type}-${Date.now()}.csv`
+            'Content-Disposition': `attachment; filename=${type}-${Date.now()}.csv`,
           });
           return res.end(`${headers}\n${rows}`);
         }
@@ -3270,7 +3630,10 @@ const server = http.createServer((req, res) => {
       const products = readJSON(productsFile) || [];
       const enriched = salesTransactions.map(s => ({
         ...s,
-        product_name: (products[s.product_id - 1] && (products[s.product_id - 1]['Product Name'] || products[s.product_id - 1].name)) || ''
+        product_name:
+          (products[s.product_id - 1] &&
+            (products[s.product_id - 1]['Product Name'] || products[s.product_id - 1].name)) ||
+          '',
       }));
       if (page !== null || limit !== null) {
         const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -3282,8 +3645,8 @@ const server = http.createServer((req, res) => {
             page: pageNum,
             limit: limitNum,
             total: enriched.length,
-            totalPages: Math.ceil(enriched.length / limitNum)
-          }
+            totalPages: Math.ceil(enriched.length / limitNum),
+          },
         });
       }
       return sendJson(res, 200, enriched);
@@ -3319,7 +3682,7 @@ const server = http.createServer((req, res) => {
           unit_price: p['Price'] || p.price || 0,
           total_amount: total,
           transaction_date: new Date().toISOString(),
-          customer_name: obj.customer_name || 'anonymous'
+          customer_name: obj.customer_name || 'anonymous',
         });
         if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
         return sendJson(res, 201, { ok: true, total });
@@ -3331,7 +3694,19 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/users') {
     return requireAuth(req, res, true, (req, res) => {
-      return sendJson(res, 200, users.map(u => ({ id: u.id, username: u.username, role: u.role, email: u.email, email_verified: u.email_verified !== false, google_sub: u.google_sub || null, created_at: u.created_at })));
+      return sendJson(
+        res,
+        200,
+        users.map(u => ({
+          id: u.id,
+          username: u.username,
+          role: u.role,
+          email: u.email,
+          email_verified: u.email_verified !== false,
+          google_sub: u.google_sub || null,
+          created_at: u.created_at,
+        }))
+      );
     });
   }
 
@@ -3342,7 +3717,11 @@ const server = http.createServer((req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
         if (!obj.username) return sendJson(res, 400, { error: 'Validation failed', details: ['username is required'] });
-        if (String(obj.username).length > 50) return sendJson(res, 400, { error: 'Validation failed', details: ['username must be at most 50 characters'] });
+        if (String(obj.username).length > 50)
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: ['username must be at most 50 characters'],
+          });
         const user = users.find(u => u.username === obj.username);
 
         // No `role` in the body → legacy behaviour: customer → admin. An
@@ -3350,7 +3729,8 @@ const server = http.createServer((req, res) => {
         // grant staff/admin, only owner/super_admin may grant the privileged
         // roles. Mirrors the SQLite backend exactly.
         if (obj.role === undefined) {
-          if (!user || user.role !== 'customer') return sendJson(res, 404, { error: 'Customer not found or already an admin' });
+          if (!user || user.role !== 'customer')
+            return sendJson(res, 404, { error: 'Customer not found or already an admin' });
           user.role = 'admin';
           if (useFirestore || useSupabase) writeJSON('@users', users);
           audit('auth.role_change', {
@@ -3359,7 +3739,10 @@ const server = http.createServer((req, res) => {
             target: user.username,
             role: 'admin',
           });
-          return sendJson(res, 200, { ok: true, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
+          return sendJson(res, 200, {
+            ok: true,
+            user: { id: user.id, username: user.username, role: user.role, email: user.email },
+          });
         }
 
         const target = String(obj.role);
@@ -3377,7 +3760,10 @@ const server = http.createServer((req, res) => {
           target: user.username,
           role: target,
         });
-        return sendJson(res, 200, { ok: true, user: { id: user.id, username: user.username, role: user.role, email: user.email } });
+        return sendJson(res, 200, {
+          ok: true,
+          user: { id: user.id, username: user.username, role: user.role, email: user.email },
+        });
       });
     });
   }
@@ -3396,13 +3782,18 @@ const server = http.createServer((req, res) => {
         .map(a => ({
           ...a,
           resolved_at: a.resolved_at === undefined || a.resolved_at === '' ? null : a.resolved_at,
-          expiry_date: a.expiry_date === undefined || a.expiry_date === '' ? null : a.expiry_date
+          expiry_date: a.expiry_date === undefined || a.expiry_date === '' ? null : a.expiry_date,
         }));
       return sendJson(res, 200, list);
     });
   }
 
-  if (req.method === 'PUT' && url.startsWith('/api/alerts/') && url.split('?')[0].endsWith('/resolve') && url.split('?')[0].split('/').length === 5) {
+  if (
+    req.method === 'PUT' &&
+    url.startsWith('/api/alerts/') &&
+    url.split('?')[0].endsWith('/resolve') &&
+    url.split('?')[0].split('/').length === 5
+  ) {
     return requireAuth(req, res, true, (req, res) => {
       const id = Number(url.split('?')[0].split('/')[3]);
       const alert = computeAlerts().find(a => a.id === id);
@@ -3430,7 +3821,9 @@ const server = http.createServer((req, res) => {
     if (!fs.existsSync(safe) || !fs.statSync(safe).isFile()) {
       return sendJson(res, 404, { error: 'Not found' });
     }
-    res.writeHead(200, { 'Content-Type': 'image/' + (path.extname(safe).slice(1) === 'jpg' ? 'jpeg' : path.extname(safe).slice(1)) });
+    res.writeHead(200, {
+      'Content-Type': 'image/' + (path.extname(safe).slice(1) === 'jpg' ? 'jpeg' : path.extname(safe).slice(1)),
+    });
     return fs.createReadStream(safe).pipe(res);
   }
 
@@ -3473,19 +3866,28 @@ if (require.main === module) {
       if (useFirestore || useSupabase) {
         console.error('[firestore] Starting fallback health server — fix credentials and redeploy.');
         const http = require('http');
-        const body = JSON.stringify({ status: 'error', message: 'Firestore init failed — redeploy with correct FIREBASE_SERVICE_ACCOUNT_JSON', detail: err.message });
-        http.createServer((req, res) => {
-          if (req.url === '/api/openapi.json') {
-            try {
-              const spec = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'openapi.json'), 'utf8'));
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              return res.end(JSON.stringify(spec));
-            } catch (_) { /* fall through */ }
-          }
-          res.writeHead(503, { 'Content-Type': 'application/json' });
-          res.end(body);
-        }).listen(process.env.PORT || 4001, () =>
-          console.log('[fallback] Health server on', process.env.PORT || 4001));
+        const body = JSON.stringify({
+          status: 'error',
+          message: 'Firestore init failed — redeploy with correct FIREBASE_SERVICE_ACCOUNT_JSON',
+          detail: err.message,
+        });
+        http
+          .createServer((req, res) => {
+            if (req.url === '/api/openapi.json') {
+              try {
+                const spec = JSON.parse(
+                  require('fs').readFileSync(require('path').join(__dirname, '..', 'openapi.json'), 'utf8')
+                );
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                return res.end(JSON.stringify(spec));
+              } catch (_) {
+                /* fall through */
+              }
+            }
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(body);
+          })
+          .listen(process.env.PORT || 4001, () => console.log('[fallback] Health server on', process.env.PORT || 4001));
       } else {
         process.exit(1);
       }

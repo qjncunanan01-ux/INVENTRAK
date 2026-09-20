@@ -24,7 +24,7 @@ export default function StockAdjustmentsPage({ onLogout }) {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [form, setForm] = useState({ product_id: '', location_id: '', new_qty: '', reason: '' });
 
-  const loadData = async () => {
+  const loadData = async() => {
     setLoading(true);
     try {
       const [adjRes, prodRes, locRes] = await Promise.all([
@@ -44,7 +44,7 @@ export default function StockAdjustmentsPage({ onLogout }) {
 
   useEffect(() => { loadData(); }, [statusFilter]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async() => {
     if (!form.product_id || !form.location_id || form.new_qty === '') {
       setSnackbar({ open: true, message: 'Select a product, location, and enter the corrected quantity', severity: 'warning' });
       return;
@@ -71,7 +71,7 @@ export default function StockAdjustmentsPage({ onLogout }) {
     }
   };
 
-  const decide = async (id, action) => {
+  const decide = async(id, action) => {
     try {
       const result = await apiPost(`/api/stock-adjustments/${id}/${action}`, {});
       setSnackbar({ open: true, message: result.message, severity: 'success' });

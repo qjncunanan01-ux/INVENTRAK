@@ -35,13 +35,13 @@ const DEFAULT_DATA_DIR = path.join(__dirname, '..', 'data');
 function normalizeProductRow(p) {
   const out = {
     'Product Name': p['Product Name'] ?? p.name ?? '',
-    'Category': p['Category'] ?? p.category ?? '',
-    'Brand': p['Brand'] ?? p.brand ?? '',
-    'Description': p['Description'] ?? p.description ?? '',
-    'Size': p['Size'] ?? p.size ?? '',
-    'Unit': p['Unit'] ?? p.unit ?? '',
-    'Price': p['Price'] ?? p.price ?? 0,
-    'Image': p['Image'] ?? p.image ?? '',
+    Category: p['Category'] ?? p.category ?? '',
+    Brand: p['Brand'] ?? p.brand ?? '',
+    Description: p['Description'] ?? p.description ?? '',
+    Size: p['Size'] ?? p.size ?? '',
+    Unit: p['Unit'] ?? p.unit ?? '',
+    Price: p['Price'] ?? p.price ?? 0,
+    Image: p['Image'] ?? p.image ?? '',
   };
   if (p.status && p.status !== 'active') out['status'] = p.status;
   return out;
@@ -61,7 +61,7 @@ function stripVolatile(product) {
 function normalizeInventory(inv) {
   return {
     locations: inv.locations || [],
-    items: (inv.items || []).map((it) => ({
+    items: (inv.items || []).map(it => ({
       product: stripVolatile(it.product),
       locations: it.locations || {},
       total: it.total,
@@ -141,7 +141,7 @@ function checkCatalog({ dbPath, productsFile, dataDir = DEFAULT_DATA_DIR } = {})
 
   const counts = {};
   for (const [dataset, rows] of Object.entries(datasets)) {
-    counts[dataset] = Array.isArray(rows) ? rows.length : (rows && Array.isArray(rows.items) ? rows.items.length : 'n/a');
+    counts[dataset] = Array.isArray(rows) ? rows.length : rows && Array.isArray(rows.items) ? rows.items.length : 'n/a';
   }
 
   return { ok: diffs.length === 0, diffs, counts };
@@ -161,7 +161,7 @@ if (require.main === module) {
       console.log('\nPASS: the transform reproduces the committed catalog exactly.');
     } else {
       console.log('\nFAIL: transform output diverges from the committed catalog.');
-      result.diffs.forEach((d) => {
+      result.diffs.forEach(d => {
         console.log(`  ${d.dataset}${d.path}: expected ${JSON.stringify(d.expected)}, got ${JSON.stringify(d.actual)}`);
       });
       console.log('\nFix the drift (catalog vs seed/transform) before migrating to Firestore.');

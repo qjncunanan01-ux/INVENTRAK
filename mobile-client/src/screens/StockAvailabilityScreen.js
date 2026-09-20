@@ -27,7 +27,7 @@ export default function StockAvailabilityScreen({ route }) {
   // opens focused on that one storage area (single-column view).
   const scopedLocation = route?.params?.location || '';
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async() => {
     try {
       const r = await getInventory();
       const parsed = r && r.data ? r.data : r;
@@ -130,28 +130,28 @@ export default function StockAvailabilityScreen({ route }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
-  subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  cell: { flex: 1, fontSize: 13 },
+  center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
+  container: { backgroundColor: colors.background, flex: 1 },
+  header: { paddingBottom: 8, paddingHorizontal: 16, paddingTop: 16 },
+  list: { paddingBottom: 24, paddingHorizontal: 16 },
+  locName: { color: '#fff' },
+  locQty: { color: '#fff', textAlign: 'center' },
+  locRow: { backgroundColor: colors.brandPrimary, borderRadius: 10, flexDirection: 'row', marginBottom: 8, paddingHorizontal: 10, paddingVertical: 10 },
+  productCell: { alignItems: 'center', flex: 2, flexDirection: 'row' },
+  productName: { color: colors.textPrimary, flex: 1, fontWeight: '600' },
+  qty: { color: colors.textPrimary, fontWeight: '700', textAlign: 'center' },
+  row: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 10, flexDirection: 'row', marginBottom: 6, paddingHorizontal: 10, paddingVertical: 10 },
   searchInput: {
-    marginTop: 12,
     backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
     borderRadius: 10,
     color: colors.textPrimary,
     fontSize: 15,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  list: { paddingHorizontal: 16, paddingBottom: 24 },
-  locRow: { flexDirection: 'row', backgroundColor: colors.brandPrimary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 10, marginBottom: 8 },
-  locName: { color: '#fff' },
-  locQty: { color: '#fff', textAlign: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 10, marginBottom: 6 },
-  cell: { flex: 1, fontSize: 13 },
-  productCell: { flex: 2, flexDirection: 'row', alignItems: 'center' },
-  productName: { color: colors.textPrimary, fontWeight: '600', flex: 1 },
-  thumb: { width: 32, height: 32, borderRadius: 6, marginRight: 8, backgroundColor: colors.background },
-  qty: { color: colors.textPrimary, textAlign: 'center', fontWeight: '700' },
+  subtitle: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
+  thumb: { backgroundColor: colors.background, borderRadius: 6, height: 32, marginRight: 8, width: 32 },
+  title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700' },
 });

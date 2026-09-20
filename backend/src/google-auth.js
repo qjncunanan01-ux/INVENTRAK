@@ -25,7 +25,7 @@ const ALLOWED_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google
 function googleClientIds(env = process.env) {
   return (env.GOOGLE_CLIENT_IDS || '')
     .split(',')
-    .map((s) => s.trim())
+    .map(s => s.trim())
     .filter(Boolean);
 }
 
@@ -90,11 +90,10 @@ async function fetchJwks(fetchImpl) {
 //   { ok: false, reason: 'issuer' }            `iss` not Google
 //   { ok: false, reason: 'expired' }           token past `exp` (or before nbf)
 //   { ok: false, reason: 'unavailable' }       JWKS fetch failed (network/5xx)
-async function verifyGoogleIdToken(idToken, {
-  clientIds = googleClientIds(),
-  fetchImpl = (u) => fetch(u),
-  now = Date.now(),
-} = {}) {
+async function verifyGoogleIdToken(
+  idToken,
+  { clientIds = googleClientIds(), fetchImpl = u => fetch(u), now = Date.now() } = {}
+) {
   if (!clientIds || clientIds.length === 0) {
     return { ok: false, reason: 'unconfigured' };
   }
@@ -118,7 +117,7 @@ async function verifyGoogleIdToken(idToken, {
   } catch {
     return { ok: false, reason: 'unavailable' };
   }
-  const key = keys.find((k) => k.kid === jwt.header.kid && k.alg === 'RS256');
+  const key = keys.find(k => k.kid === jwt.header.kid && k.alg === 'RS256');
   if (!key) return { ok: false, reason: 'signature' };
   const { n, e } = key;
   if (!n || !e) return { ok: false, reason: 'signature' };
@@ -226,7 +225,7 @@ function consumeRelayState(state, now = Date.now()) {
 function allowedHttpsReturnHosts(env = process.env) {
   const extras = String(env.GOOGLE_RETURN_HOSTS || '')
     .split(',')
-    .map((s) => s.trim().toLowerCase())
+    .map(s => s.trim().toLowerCase())
     .filter(Boolean);
   return new Set(['inventrak-mobile.onrender.com', ...extras]);
 }
@@ -266,7 +265,10 @@ function buildGoogleAuthUrl({ clientId, redirectUri, state, scope = 'openid emai
 
 // Exchanges the one-time authorization code for tokens using the web client's
 // secret. Injectable fetch so tests never touch the network.
-async function exchangeCodeForTokens(code, { clientId, clientSecret, redirectUri, fetchImpl = (u, init) => fetch(u, init) }) {
+async function exchangeCodeForTokens(
+  code,
+  { clientId, clientSecret, redirectUri, fetchImpl = (u, init) => fetch(u, init) }
+) {
   if (!code || !clientId || !clientSecret) {
     return { ok: false, reason: 'missing-params' };
   }
@@ -289,7 +291,11 @@ async function exchangeCodeForTokens(code, { clientId, clientSecret, redirectUri
       data = JSON.parse(text);
     } catch {}
     if (!res.ok) {
-      return { ok: false, reason: `http_${res.status}`, detail: data.error_description || data.error || text.slice(0, 200) };
+      return {
+        ok: false,
+        reason: `http_${res.status}`,
+        detail: data.error_description || data.error || text.slice(0, 200),
+      };
     }
     if (!data.id_token) return { ok: false, reason: 'no-id-token' };
     return { ok: true, tokens: data };

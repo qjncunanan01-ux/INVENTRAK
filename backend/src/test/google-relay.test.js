@@ -112,7 +112,10 @@ test('isAllowedReturnUrl accepts app deep links, localhost, and the deployed web
   assert.strictEqual(isAllowedReturnUrl('https://inventrak-mobile.onrender.com/#/google-auth'), true);
   assert.strictEqual(isAllowedReturnUrl('https://inventrak-mobile.onrender.com/--/google-auth?token=x'), true);
   // Env override adds extra origins; without it they are rejected.
-  assert.strictEqual(isAllowedReturnUrl('https://myapp.example.com/cb', { GOOGLE_RETURN_HOSTS: 'myapp.example.com' }), true);
+  assert.strictEqual(
+    isAllowedReturnUrl('https://myapp.example.com/cb', { GOOGLE_RETURN_HOSTS: 'myapp.example.com' }),
+    true
+  );
   assert.strictEqual(isAllowedReturnUrl('https://myapp.example.com/cb'), false);
   // Hosts we do not own can never carry the token.
   assert.strictEqual(isAllowedReturnUrl('https://evil.example.com/phish'), false);
@@ -192,10 +195,7 @@ test('buildGoogleAuthUrl carries the code flow params and state', () => {
 
 test('relayCallbackUrl honors the env override and request-derived https', () => {
   const req = { headers: { host: 'inventrak-api.onrender.com', 'x-forwarded-proto': 'https' } };
-  assert.strictEqual(
-    relayCallbackUrl(req),
-    'https://inventrak-api.onrender.com/api/auth/google/callback'
-  );
+  assert.strictEqual(relayCallbackUrl(req), 'https://inventrak-api.onrender.com/api/auth/google/callback');
   // Forwarded proto wins even on a non-render host.
   assert.strictEqual(
     relayCallbackUrl({ headers: { host: 'api.example.com', 'x-forwarded-proto': 'https' } }),
@@ -217,7 +217,9 @@ test('relayCallbackUrl honors the env override and request-derived https', () =>
 
 test('exchangeCodeForTokens succeeds and reports failures precisely', async () => {
   const ok = await exchangeCodeForTokens('the-code', {
-    clientId: 'c', clientSecret: 's', redirectUri: 'http://localhost:4001/cb',
+    clientId: 'c',
+    clientSecret: 's',
+    redirectUri: 'http://localhost:4001/cb',
     fetchImpl: async (u, init) => {
       assert.ok(u.includes('oauth2.googleapis.com/token'));
       assert.strictEqual(init.method, 'POST');
@@ -230,20 +232,32 @@ test('exchangeCodeForTokens succeeds and reports failures precisely', async () =
   assert.deepStrictEqual(ok, { ok: true, tokens: { id_token: 'jwt-1', access_token: 'at' } });
 
   const httpErr = await exchangeCodeForTokens('code', {
-    clientId: 'c', clientSecret: 's', redirectUri: 'cb',
-    fetchImpl: async () => ({ ok: false, status: 400, text: async () => '{"error":"invalid_grant","error_description":"bad code"}' }),
+    clientId: 'c',
+    clientSecret: 's',
+    redirectUri: 'cb',
+    fetchImpl: async () => ({
+      ok: false,
+      status: 400,
+      text: async () => '{"error":"invalid_grant","error_description":"bad code"}',
+    }),
   });
   assert.deepStrictEqual(httpErr, { ok: false, reason: 'http_400', detail: 'bad code' });
 
   const noToken = await exchangeCodeForTokens('code', {
-    clientId: 'c', clientSecret: 's', redirectUri: 'cb',
+    clientId: 'c',
+    clientSecret: 's',
+    redirectUri: 'cb',
     fetchImpl: async () => ({ ok: true, text: async () => '{}' }),
   });
   assert.deepStrictEqual(noToken, { ok: false, reason: 'no-id-token' });
 
   const netFail = await exchangeCodeForTokens('code', {
-    clientId: 'c', clientSecret: 's', redirectUri: 'cb',
-    fetchImpl: async () => { throw new Error('boom'); },
+    clientId: 'c',
+    clientSecret: 's',
+    redirectUri: 'cb',
+    fetchImpl: async () => {
+      throw new Error('boom');
+    },
   });
   assert.strictEqual(netFail.ok, false);
   assert.strictEqual(netFail.reason, 'network');
@@ -267,11 +281,16 @@ test('exchangeCodeForTokens with the DEFAULT fetch forwards POST + body (regress
   };
   try {
     const res = await exchangeCodeForTokens('the-code', {
-      clientId: 'c', clientSecret: 's', redirectUri: 'http://localhost:4001/cb',
+      clientId: 'c',
+      clientSecret: 's',
+      redirectUri: 'http://localhost:4001/cb',
     });
     assert.deepStrictEqual(res, { ok: true, tokens: { id_token: 'jwt-x' } });
     assert.strictEqual(seenMethod, 'POST', 'default fetchImpl must send POST');
-    assert.ok(seenBody && seenBody.includes('grant_type=authorization_code'), 'default fetchImpl must send the form body');
+    assert.ok(
+      seenBody && seenBody.includes('grant_type=authorization_code'),
+      'default fetchImpl must send the form body'
+    );
   } finally {
     global.fetch = original;
   }
@@ -281,18 +300,26 @@ test('exchangeCodeForTokens with the DEFAULT fetch forwards POST + body (regress
 
 test('start returns 501 when the relay is not configured (both backends)', async () => {
   clearRelayEnv();
-  const { a, b } = await both('start-unconfigured', '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth'), {
-    method: 'GET',
-  });
+  const { a, b } = await both(
+    'start-unconfigured',
+    '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth'),
+    {
+      method: 'GET',
+    }
+  );
   assert.strictEqual(a.status, 501);
   assert.strictEqual(b.status, 501);
 });
 
 test('start rejects disallowed return urls (both backends)', async () => {
   setRelayEnv();
-  const { a, b } = await both('start-bad-return', '/api/auth/google/start?returnUrl=' + encodeURIComponent('https://evil.example.com/phish'), {
-    method: 'GET',
-  });
+  const { a, b } = await both(
+    'start-bad-return',
+    '/api/auth/google/start?returnUrl=' + encodeURIComponent('https://evil.example.com/phish'),
+    {
+      method: 'GET',
+    }
+  );
   assert.strictEqual(a.status, 400);
   assert.strictEqual(b.status, 400);
   assert.strictEqual(a.json.error, 'Validation failed');
@@ -333,7 +360,10 @@ test('callback relays a Google denial to the app deep link (both backends)', asy
   try {
     for (const side of [sqlite, npmfree]) {
       // Mint a state the way the app flow does (start -> extract state).
-      const start = await rawGet(side.url, '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth'));
+      const start = await rawGet(
+        side.url,
+        '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth')
+      );
       const state = new URL(start.location).searchParams.get('state');
       const cb = await rawGet(side.url, `/api/auth/google/callback?state=${state}&error=access_denied`);
       assert.strictEqual(cb.status, 302);
@@ -354,13 +384,22 @@ test('relay uses the Google profile name as the username (both backends)', async
     const u = String(input);
     if (u.includes('/oauth2/v3/certs')) return { ok: true, json: async () => JWKS };
     if (u.includes('oauth2.googleapis.com/token')) {
-      return { ok: true, text: async () => JSON.stringify({ id_token: mintGoogleIdToken({ name: 'Jerico Cunanan', email: 'jerico.cunanan@gmail.com' }) }) };
+      return {
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            id_token: mintGoogleIdToken({ name: 'Jerico Cunanan', email: 'jerico.cunanan@gmail.com' }),
+          }),
+      };
     }
     return original(input, init);
   };
   try {
     for (const side of [sqlite, npmfree]) {
-      const start = await rawGet(side.url, '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth'));
+      const start = await rawGet(
+        side.url,
+        '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth')
+      );
       const state = new URL(start.location).searchParams.get('state');
       const cb = await rawGet(side.url, `/api/auth/google/callback?state=${state}&code=name-code`);
       assert.strictEqual(cb.status, 302);
@@ -405,7 +444,10 @@ test('full relay happy path creates the account and returns a working token (bot
       // The account row exists (admin list) — the google_sub link is stored
       // (the list endpoint deliberately hides google_sub itself).
       const users = await call(side.url, '/api/users', { token: side.token.admin });
-      assert.ok(users.json.some((u) => u.email === 'relay.user@gmail.com'), 'google account row present');
+      assert.ok(
+        users.json.some(u => u.email === 'relay.user@gmail.com'),
+        'google account row present'
+      );
 
       // State is single-use: replaying the callback is rejected.
       const replay = await rawGet(side.url, `/api/auth/google/callback?state=${state}&code=again`);

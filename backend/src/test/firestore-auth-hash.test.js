@@ -14,9 +14,10 @@ const path = require('node:path');
 // --- Isolate BEFORE requiring the server (it reads env at module load) ---
 const tmpData = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-fs-auth-'));
 process.env.INVENTRAK_DATA_DIR = tmpData;
-fs.writeFileSync(path.join(tmpData, 'products.json'), JSON.stringify([
-  { 'Product Name': 'Demo Sauce', 'Category': 'Sauces', 'Brand': 'Demo', 'Price': 120 },
-]));
+fs.writeFileSync(
+  path.join(tmpData, 'products.json'),
+  JSON.stringify([{ 'Product Name': 'Demo Sauce', Category: 'Sauces', Brand: 'Demo', Price: 120 }])
+);
 fs.writeFileSync(path.join(tmpData, 'order_inquiries.json'), '[]');
 fs.writeFileSync(path.join(tmpData, 'stock_movements.json'), '[]');
 process.env.DB_DRIVER = 'firestore';
@@ -53,21 +54,28 @@ before(async () => {
 });
 
 after(() => {
-  try { server && server.close(); } catch {}
+  try {
+    server && server.close();
+  } catch {}
   fs.rmSync(tmpData, { recursive: true, force: true });
 });
 
 // Reads a row straight from the PERSISTED Firestore collection (the cloud
 // truth), after letting the store's async write queue settle.
 function persistedUser(username) {
-  return [...fake._cols.get('users').values()].find((d) => d.username === username);
+  return [...fake._cols.get('users').values()].find(d => d.username === username);
 }
 
 test('register persists a bcrypt hash in the Firestore @users row (never plaintext)', async () => {
   const res = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'cloud_user_reg', password: PASSWORD, email: 'reg@test.com', phone: '09171234567' }),
+    body: JSON.stringify({
+      username: 'cloud_user_reg',
+      password: PASSWORD,
+      email: 'reg@test.com',
+      phone: '09171234567',
+    }),
   });
   assert.strictEqual(res.status, 200);
   const body = await res.json();
@@ -114,18 +122,26 @@ test('register is salted per user even with the same password (cloud rows differ
   const res = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'cloud_user_salt', password: PASSWORD, email: 'salt@test.com', phone: '09171234567' }),
+    body: JSON.stringify({
+      username: 'cloud_user_salt',
+      password: PASSWORD,
+      email: 'salt@test.com',
+      phone: '09171234567',
+    }),
   });
   assert.strictEqual(res.status, 200);
   await fsStore.flush();
 
-  const hashes = ['cloud_user', 'cloud_user_reg', 'cloud_user_salt'].map((u) => {
+  const hashes = ['cloud_user', 'cloud_user_reg', 'cloud_user_salt'].map(u => {
     const row = persistedUser(u);
     assert.ok(row, `${u} exists in the cloud`);
     return row.password;
   });
   assert.ok(new Set(hashes).size === 3, 'each registration gets a distinct salted hash');
-  assert.ok(hashes.every((h) => isHashed(h)), 'all cloud rows hold hashes');
+  assert.ok(
+    hashes.every(h => isHashed(h)),
+    'all cloud rows hold hashes'
+  );
 });
 
 test('demo users are seeded as bcrypt hashes in Firestore mode (boot path)', async () => {
@@ -137,24 +153,29 @@ test('demo users are seeded as bcrypt hashes in Firestore mode (boot path)', asy
   assert.deepStrictEqual(verifyPassword('admin123', admin.password), { ok: true, needsRehash: false });
 
   // The server's /api/users endpoint must never leak the hash to the wire.
-  const login = await (await fetch(`${baseUrl}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'admin', password: 'admin123' }),
-  })).json();
+  const login = await (
+    await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'admin123' }),
+    })
+  ).json();
   const usersRes = await fetch(`${baseUrl}/api/users`, {
     headers: { Authorization: `Bearer ${login.token}` },
   });
   assert.strictEqual(usersRes.status, 200);
   const users = await usersRes.json();
-  assert.ok(users.every((u) => !('password' in u)), 'password hash never leaves the server');
+  assert.ok(
+    users.every(u => !('password' in u)),
+    'password hash never leaves the server'
+  );
 });
 
 // Captures the verification code from the console log (no provider is
 // configured in this isolated test, so notify logs it instead of sending).
 function captureCodeDuringRegister(body) {
   return (async () => {
-    let lines = [];
+    const lines = [];
     const orig = console.log;
     console.log = (...args) => {
       const line = args.join(' ');
@@ -204,7 +225,7 @@ test('verification codes stored in Firestore are HMAC-keyed, not plain SHA-256 (
 
   await fsStore.flush();
   const docs = [...fake._cols.get('verificationCodes').values()];
-  const mine = docs.find((d) => d.user_id === body.user.id);
+  const mine = docs.find(d => d.user_id === body.user.id);
   assert.ok(mine, 'verification code row persisted to the Firestore verificationCodes collection');
 
   const plainSha = crypto.createHash('sha256').update(code).digest('hex');

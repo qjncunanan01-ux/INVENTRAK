@@ -14,16 +14,13 @@ const LOC_A = 1;
 const LOC_B = 2;
 const LOC_C = 3;
 
-const day = (offset) =>
-  new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+const day = offset => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
 
 // Sum of open-lot qty for one product/location on one backend.
 async function lotQty(side, productId, locationId) {
-  const { status, json } = await call(
-    side.url,
-    `/api/stock-lots?product_id=${productId}&location_id=${locationId}`,
-    { token: side.token.admin }
-  );
+  const { status, json } = await call(side.url, `/api/stock-lots?product_id=${productId}&location_id=${locationId}`, {
+    token: side.token.admin,
+  });
   assert.strictEqual(status, 200);
   return json.reduce((sum, lot) => sum + Number(lot.qty), 0);
 }
@@ -77,13 +74,11 @@ test('stock-in with expiry_date records a lot carrying that expiry on both backe
       expiry_date: longLife,
       notes: 'fefo test lot A',
     });
-    const { status, json } = await call(
-      side.url,
-      `/api/stock-lots?product_id=${PROD}&location_id=${LOC_A}`,
-      { token: side.token.admin }
-    );
+    const { status, json } = await call(side.url, `/api/stock-lots?product_id=${PROD}&location_id=${LOC_A}`, {
+      token: side.token.admin,
+    });
     assert.strictEqual(status, 200);
-    const lot = json.find((l) => l.expiry_date === longLife);
+    const lot = json.find(l => l.expiry_date === longLife);
     assert.ok(lot, 'lot with the supplied expiry_date should exist');
     assert.strictEqual(Number(lot.qty), 10);
     // Schema parity: every lot exposes expiry_date (nullable).
@@ -113,13 +108,14 @@ test('FEFO: soonest-expiry lot is consumed first, FIFO lots untouched', async ()
     assert.strictEqual(await lotQty(side, PROD, LOC_A), before, 'only the soon lot should be consumed');
 
     // The soon lot must be gone; the long-life lot must remain.
-    const { json: lots } = await call(
-      side.url,
-      `/api/stock-lots?product_id=${PROD}&location_id=${LOC_A}`,
-      { token: side.token.admin }
+    const { json: lots } = await call(side.url, `/api/stock-lots?product_id=${PROD}&location_id=${LOC_A}`, {
+      token: side.token.admin,
+    });
+    assert.ok(!lots.some(l => l.expiry_date === soon), 'soon-expiring lot fully consumed');
+    assert.ok(
+      lots.some(l => l.qty > 0),
+      'remaining lots still open'
     );
-    assert.ok(!lots.some((l) => l.expiry_date === soon), 'soon-expiring lot fully consumed');
-    assert.ok(lots.some((l) => l.qty > 0), 'remaining lots still open');
   }
 });
 
@@ -147,14 +143,15 @@ test('FEFO: non-expiring lots are consumed last (after every expiring lot)', asy
 
     await move(side, { product_id: PROD, qty: 4, type: 'stock-out', src_location: LOC_B });
 
-    const { json: lots } = await call(
-      side.url,
-      `/api/stock-lots?product_id=${PROD}&location_id=${LOC_B}`,
-      { token: side.token.admin }
+    const { json: lots } = await call(side.url, `/api/stock-lots?product_id=${PROD}&location_id=${LOC_B}`, {
+      token: side.token.admin,
+    });
+    const noExpiry = lots.find(l => l.expiry_date == null);
+    assert.ok(
+      noExpiry && Number(noExpiry.qty) === 5,
+      'non-expiring lot must NOT be consumed while an expiring lot exists'
     );
-    const noExpiry = lots.find((l) => l.expiry_date == null);
-    assert.ok(noExpiry && Number(noExpiry.qty) === 5, 'non-expiring lot must NOT be consumed while an expiring lot exists');
-    assert.ok(!lots.some((l) => l.expiry_date === day(3)), 'expiring lot consumed first despite arriving later');
+    assert.ok(!lots.some(l => l.expiry_date === day(3)), 'expiring lot consumed first despite arriving later');
   }
 });
 
@@ -171,12 +168,10 @@ test('transfer carries the expiry_date to the destination lot', async () => {
     });
     await move(side, { product_id: PROD, qty: 3, type: 'transfer', src_location: LOC_C, dst_location: LOC_A });
 
-    const { json: destLots } = await call(
-      side.url,
-      `/api/stock-lots?product_id=${PROD}&location_id=${LOC_A}`,
-      { token: side.token.admin }
-    );
-    const moved = destLots.find((l) => l.expiry_date === exp && Number(l.qty) === 3);
+    const { json: destLots } = await call(side.url, `/api/stock-lots?product_id=${PROD}&location_id=${LOC_A}`, {
+      token: side.token.admin,
+    });
+    const moved = destLots.find(l => l.expiry_date === exp && Number(l.qty) === 3);
     assert.ok(moved, 'destination lot keeps the source expiry_date and remaining qty');
   }
 });
@@ -194,7 +189,7 @@ test('GET /api/stock-lots?expiring_within filters to lots expiring in the window
       assert.ok(lot.expiry_date <= cutoff, `lot expiry ${lot.expiry_date} within cutoff ${cutoff}`);
     }
     // The 365-day lot from the earlier test must not appear here.
-    assert.ok(!json.some((l) => l.expiry_date === day(365)), 'long-life lot excluded from the 30-day view');
+    assert.ok(!json.some(l => l.expiry_date === day(365)), 'long-life lot excluded from the 30-day view');
   }
 });
 

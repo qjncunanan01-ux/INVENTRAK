@@ -21,8 +21,19 @@ const AUDIT_LOG_FILE = process.env.AUDIT_LOG_FILE || path.join(DEFAULT_DATA_DIR,
 // Defense in depth: even if a caller slips a sensitive field into `details`,
 // it is stripped before the line is written. Never trust the caller.
 const SENSITIVE_KEYS = new Set([
-  'password', 'pass', 'token', 'mfaToken', 'idToken', 'secret', 'mfa_secret',
-  'code', 'verificationCode', 'resetCode', 'authorization', 'cookie', 'apiKey',
+  'password',
+  'pass',
+  'token',
+  'mfaToken',
+  'idToken',
+  'secret',
+  'mfa_secret',
+  'code',
+  'verificationCode',
+  'resetCode',
+  'authorization',
+  'cookie',
+  'apiKey',
 ]);
 
 function redact(details) {
@@ -51,7 +62,5 @@ function audit(event, details = {}) {
     }
   }
 }
-
-
 
 module.exports = { audit, AUDIT_LOG_FILE };

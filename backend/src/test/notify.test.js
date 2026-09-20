@@ -6,58 +6,99 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const net = require('node:net');
-const { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, normalizePhNumber, smtpSendMail } = require('../notify');
+const {
+  sendEmail,
+  sendSms,
+  notifyInquiryStatus,
+  notifyWelcome,
+  normalizePhNumber,
+  smtpSendMail,
+} = require('../notify');
 
 // Force an unconfigured state regardless of the machine's env.
 const SAVED = {};
 const KEYS = [
-  'RESEND_API_KEY', 'EMAIL_FROM', 'SEMAPHORE_API_KEY', 'SEMAPHORE_SENDER_NAME',
-  'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM',
-  'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE',
+  'RESEND_API_KEY',
+  'EMAIL_FROM',
+  'SEMAPHORE_API_KEY',
+  'SEMAPHORE_SENDER_NAME',
+  'TWILIO_ACCOUNT_SID',
+  'TWILIO_AUTH_TOKEN',
+  'TWILIO_FROM',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_USER',
+  'SMTP_PASS',
+  'SMTP_SECURE',
 ];
 
 test('notify: unconfigured email and SMS resolve to { sent: false } without throwing', async () => {
-  KEYS.forEach((k) => { SAVED[k] = process.env[k]; delete process.env[k]; });
+  KEYS.forEach(k => {
+    SAVED[k] = process.env[k];
+    delete process.env[k];
+  });
   try {
     const email = await sendEmail({ to: 'a@b.com', subject: 'Hi', text: 'Body' });
     assert.deepStrictEqual(email, { sent: false });
     const sms = await sendSms({ to: '+639171234567', message: 'Hello' });
     assert.deepStrictEqual(sms, { sent: false });
   } finally {
-    KEYS.forEach((k) => { if (SAVED[k] !== undefined) process.env[k] = SAVED[k]; });
+    KEYS.forEach(k => {
+      if (SAVED[k] !== undefined) process.env[k] = SAVED[k];
+    });
   }
 });
 
 test('notify: inquiry status notification never throws, even with no contacts', async () => {
-  KEYS.forEach((k) => { SAVED[k] = process.env[k]; delete process.env[k]; });
+  KEYS.forEach(k => {
+    SAVED[k] = process.env[k];
+    delete process.env[k];
+  });
   try {
     const result = await notifyInquiryStatus(
-      { customer_name: 'Buyer', customer_email: 'buyer@example.com', customer_phone: '+639171234567', products: 'Widget x2' },
+      {
+        customer_name: 'Buyer',
+        customer_email: 'buyer@example.com',
+        customer_phone: '+639171234567',
+        products: 'Widget x2',
+      },
       'approved'
     );
     assert.ok(Array.isArray(result) || result === undefined, 'resolves with an array or undefined');
   } finally {
-    KEYS.forEach((k) => { if (SAVED[k] !== undefined) process.env[k] = SAVED[k]; });
+    KEYS.forEach(k => {
+      if (SAVED[k] !== undefined) process.env[k] = SAVED[k];
+    });
   }
 });
 
 test('notify: welcome email resolves to { sent: false } when unconfigured', async () => {
-  KEYS.forEach((k) => { SAVED[k] = process.env[k]; delete process.env[k]; });
+  KEYS.forEach(k => {
+    SAVED[k] = process.env[k];
+    delete process.env[k];
+  });
   try {
     const result = await notifyWelcome('new@example.com', 'newbie');
     assert.deepStrictEqual(result, { sent: false });
   } finally {
-    KEYS.forEach((k) => { if (SAVED[k] !== undefined) process.env[k] = SAVED[k]; });
+    KEYS.forEach(k => {
+      if (SAVED[k] !== undefined) process.env[k] = SAVED[k];
+    });
   }
 });
 
 test('notify: inquiry without an email/phone skips both channels cleanly', async () => {
-  KEYS.forEach((k) => { SAVED[k] = process.env[k]; delete process.env[k]; });
+  KEYS.forEach(k => {
+    SAVED[k] = process.env[k];
+    delete process.env[k];
+  });
   try {
     const result = await notifyInquiryStatus({ customer_name: 'No Contact' }, 'fulfilled');
     assert.ok(Array.isArray(result) || result === undefined);
   } finally {
-    KEYS.forEach((k) => { if (SAVED[k] !== undefined) process.env[k] = SAVED[k]; });
+    KEYS.forEach(k => {
+      if (SAVED[k] !== undefined) process.env[k] = SAVED[k];
+    });
   }
 });
 
@@ -72,11 +113,18 @@ function stubFetch() {
     calls.push({ url: String(url), opts });
     return { ok: true, text: async () => '' };
   };
-  return { calls, restore: () => { global.fetch = original; } };
+  return {
+    calls,
+    restore: () => {
+      global.fetch = original;
+    },
+  };
 }
 
 test('notify: email posts to Resend with Bearer auth and a correct body', async () => {
-  KEYS.forEach((k) => { delete process.env[k]; });
+  KEYS.forEach(k => {
+    delete process.env[k];
+  });
   process.env.RESEND_API_KEY = 're_test_123';
   process.env.EMAIL_FROM = 'INVENTRAK <hello@inventrak.ph>';
   const stub = stubFetch();
@@ -94,12 +142,16 @@ test('notify: email posts to Resend with Bearer auth and a correct body', async 
     assert.strictEqual(body.subject, 'Test');
   } finally {
     stub.restore();
-    KEYS.forEach((k) => { delete process.env[k]; });
+    KEYS.forEach(k => {
+      delete process.env[k];
+    });
   }
 });
 
 test('notify: semaphore SMS uses a 0-prefixed PH number', async () => {
-  KEYS.forEach((k) => { delete process.env[k]; });
+  KEYS.forEach(k => {
+    delete process.env[k];
+  });
   process.env.SEMAPHORE_API_KEY = 'sema_key';
   process.env.SEMAPHORE_SENDER_NAME = 'INVENTRAK';
   const stub = stubFetch();
@@ -115,12 +167,16 @@ test('notify: semaphore SMS uses a 0-prefixed PH number', async () => {
     assert.strictEqual(params.get('message'), 'Hello');
   } finally {
     stub.restore();
-    KEYS.forEach((k) => { delete process.env[k]; });
+    KEYS.forEach(k => {
+      delete process.env[k];
+    });
   }
 });
 
 test('notify: twilio SMS uses an E.164 PH number with basic auth', async () => {
-  KEYS.forEach((k) => { delete process.env[k]; });
+  KEYS.forEach(k => {
+    delete process.env[k];
+  });
   process.env.TWILIO_ACCOUNT_SID = 'ACxxx';
   process.env.TWILIO_AUTH_TOKEN = 'tok';
   process.env.TWILIO_FROM = '+15005550006';
@@ -137,12 +193,16 @@ test('notify: twilio SMS uses an E.164 PH number with basic auth', async () => {
     assert.strictEqual(call.opts.headers.Authorization, `Basic ${expected}`);
   } finally {
     stub.restore();
-    KEYS.forEach((k) => { delete process.env[k]; });
+    KEYS.forEach(k => {
+      delete process.env[k];
+    });
   }
 });
 
 test('notify: unparseable SMS numbers are skipped, not sent', async () => {
-  KEYS.forEach((k) => { delete process.env[k]; });
+  KEYS.forEach(k => {
+    delete process.env[k];
+  });
   process.env.SEMAPHORE_API_KEY = 'sema_key';
   const stub = stubFetch();
   try {
@@ -151,7 +211,9 @@ test('notify: unparseable SMS numbers are skipped, not sent', async () => {
     assert.strictEqual(stub.calls.length, 0);
   } finally {
     stub.restore();
-    KEYS.forEach((k) => { delete process.env[k]; });
+    KEYS.forEach(k => {
+      delete process.env[k];
+    });
   }
 });
 
@@ -172,14 +234,14 @@ test('notify: normalizePhNumber handles all PH input styles', () => {
 // exercise the client: greeting, multiline EHLO (AUTH, no STARTTLS), AUTH
 // PLAIN, MAIL FROM, RCPT TO, DATA (captures the message), QUIT.
 function startFakeSmtp() {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const commands = [];
     let lastMessage = '';
-    const server = net.createServer((sock) => {
+    const server = net.createServer(sock => {
       let dataMode = false;
       let msg = [];
       sock.write('220 fake.smtp.test ESMTP ready\r\n');
-      sock.on('data', (chunk) => {
+      sock.on('data', chunk => {
         const text = chunk.toString();
         for (const line of text.split('\r\n')) {
           if (line === '') continue;
@@ -220,7 +282,7 @@ function startFakeSmtp() {
         port: server.address().port,
         getCommands: () => commands.slice(),
         getLastMessage: () => lastMessage,
-        close: () => new Promise((r) => server.close(r)),
+        close: () => new Promise(r => server.close(r)),
       });
     });
   });
@@ -228,7 +290,9 @@ function startFakeSmtp() {
 
 test('notify: SMTP runs the full protocol (EHLO/AUTH/MAIL/RCPT/DATA/QUIT) and delivers', async () => {
   const fake = await startFakeSmtp();
-  KEYS.forEach((k) => { delete process.env[k]; });
+  KEYS.forEach(k => {
+    delete process.env[k];
+  });
   process.env.SMTP_HOST = '127.0.0.1';
   process.env.SMTP_PORT = String(fake.port);
   process.env.SMTP_SECURE = 'false';
@@ -239,7 +303,7 @@ test('notify: SMTP runs the full protocol (EHLO/AUTH/MAIL/RCPT/DATA/QUIT) and de
     const r = await sendEmail({ to: 'buyer@example.com', subject: 'Hi', text: 'Plain body', html: '<b>Rich</b>' });
     assert.deepStrictEqual(r, { sent: true });
     const cmds = fake.getCommands();
-    const verbs = cmds.map((c) => c.split(' ')[0]);
+    const verbs = cmds.map(c => c.split(' ')[0]);
     assert.ok(verbs.includes('EHLO'), 'client sends EHLO');
     assert.ok(verbs.includes('AUTH'), 'client authenticates');
     assert.ok(verbs.includes('MAIL'), 'client sends MAIL FROM');
@@ -252,38 +316,52 @@ test('notify: SMTP runs the full protocol (EHLO/AUTH/MAIL/RCPT/DATA/QUIT) and de
     assert.ok(msg.includes('<b>Rich</b>'), 'html part present');
     assert.ok(msg.includes('Plain body'), 'text part present');
   } finally {
-    KEYS.forEach((k) => { delete process.env[k]; });
+    KEYS.forEach(k => {
+      delete process.env[k];
+    });
     await fake.close();
   }
 });
 
 test('notify: SMTP without credentials skips AUTH and still delivers', async () => {
   const fake = await startFakeSmtp();
-  KEYS.forEach((k) => { delete process.env[k]; });
+  KEYS.forEach(k => {
+    delete process.env[k];
+  });
   process.env.SMTP_HOST = '127.0.0.1';
   process.env.SMTP_PORT = String(fake.port);
   process.env.SMTP_SECURE = 'false';
   try {
     const r = await smtpSendMail({
-      host: '127.0.0.1', port: fake.port, secure: false, user: '', pass: '',
-      from: 'a@b.com', to: 'c@d.com', subject: 'S', text: 'T', html: '',
+      host: '127.0.0.1',
+      port: fake.port,
+      secure: false,
+      user: '',
+      pass: '',
+      from: 'a@b.com',
+      to: 'c@d.com',
+      subject: 'S',
+      text: 'T',
+      html: '',
     });
     assert.deepStrictEqual(r, { sent: true });
-    const verbs = fake.getCommands().map((c) => c.split(' ')[0]);
+    const verbs = fake.getCommands().map(c => c.split(' ')[0]);
     assert.ok(!verbs.includes('AUTH'), 'no AUTH without credentials');
     assert.ok(verbs.includes('MAIL'));
   } finally {
-    KEYS.forEach((k) => { delete process.env[k]; });
+    KEYS.forEach(k => {
+      delete process.env[k];
+    });
     await fake.close();
   }
 });
 
 test('notify: SMTP failure (bad recipient code) resolves { sent: false } without throwing', async () => {
   // A fake server that rejects RCPT TO with 550.
-  const server = await new Promise((resolve) => {
-    const srv = net.createServer((sock) => {
+  const server = await new Promise(resolve => {
+    const srv = net.createServer(sock => {
       sock.write('220 fake ESMTP\r\n');
-      sock.on('data', (chunk) => {
+      sock.on('data', chunk => {
         const line = chunk.toString().split('\r\n')[0];
         if (/^EHLO/.test(line)) sock.write('250-fake\r\n250-AUTH PLAIN\r\n250 ok\r\n');
         else if (/^AUTH/.test(line)) sock.write('235 ok\r\n');
@@ -292,12 +370,22 @@ test('notify: SMTP failure (bad recipient code) resolves { sent: false } without
         else sock.write('250 ok\r\n');
       });
     });
-    srv.listen(0, '127.0.0.1', () => resolve({ port: srv.address().port, close: () => new Promise((r) => srv.close(r)) }));
+    srv.listen(0, '127.0.0.1', () =>
+      resolve({ port: srv.address().port, close: () => new Promise(r => srv.close(r)) })
+    );
   });
   try {
     const r = await smtpSendMail({
-      host: '127.0.0.1', port: server.port, secure: false, user: 'u', pass: 'p',
-      from: 'a@b.com', to: 'nobody@example.com', subject: 'S', text: 'T', html: '',
+      host: '127.0.0.1',
+      port: server.port,
+      secure: false,
+      user: 'u',
+      pass: 'p',
+      from: 'a@b.com',
+      to: 'nobody@example.com',
+      subject: 'S',
+      text: 'T',
+      html: '',
     });
     assert.deepStrictEqual(r, { sent: false });
   } finally {
@@ -306,7 +394,9 @@ test('notify: SMTP failure (bad recipient code) resolves { sent: false } without
 });
 
 test('notify: provider failure (non-ok) resolves { sent: false } and logs', async () => {
-  KEYS.forEach((k) => { delete process.env[k]; });
+  KEYS.forEach(k => {
+    delete process.env[k];
+  });
   process.env.RESEND_API_KEY = 're_test_123';
   const original = global.fetch;
   global.fetch = async () => ({ ok: false, status: 401, text: async () => 'unauthorized' });
@@ -315,6 +405,8 @@ test('notify: provider failure (non-ok) resolves { sent: false } and logs', asyn
     assert.deepStrictEqual(r, { sent: false });
   } finally {
     global.fetch = original;
-    KEYS.forEach((k) => { delete process.env[k]; });
+    KEYS.forEach(k => {
+      delete process.env[k];
+    });
   }
 });

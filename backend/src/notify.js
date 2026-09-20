@@ -56,7 +56,10 @@ function esc(s) {
 }
 
 function linesToHtml(text) {
-  return String(text == null ? '' : text).split('\n').map(esc).join('<br>');
+  return String(text == null ? '' : text)
+    .split('\n')
+    .map(esc)
+    .join('<br>');
 }
 
 // Branded HTML wrapper used by every email (code rendered as a big dashed box).
@@ -105,7 +108,7 @@ function buildMessage(from, to, subject, text, html) {
 
 // One SMTP transaction for a single recipient. Resolves { sent: boolean }.
 function smtpSendMail({ host, port, secure, user, pass, from, to, subject, text, html }) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const TIMEOUT_MS = 15000;
     let buffer = '';
     let replyLines = [];
@@ -113,20 +116,24 @@ function smtpSendMail({ host, port, secure, user, pass, from, to, subject, text,
     let settled = false;
     let socket = null;
 
-    const fail = (err) => {
+    const fail = err => {
       if (settled) return;
       settled = true;
       console.error(`[notify] smtp error: ${(err && err.message) || err}`);
-      try { socket && socket.destroy(); } catch {}
+      try {
+        socket && socket.destroy();
+      } catch {}
       resolve({ sent: false });
     };
     const done = () => {
       if (settled) return;
       settled = true;
-      try { socket && socket.end(); } catch {}
+      try {
+        socket && socket.end();
+      } catch {}
       resolve({ sent: true });
     };
-    const writeLine = (line) => socket.write(line + '\r\n');
+    const writeLine = line => socket.write(line + '\r\n');
 
     function onReply(code, all) {
       switch (stage) {
@@ -139,9 +146,16 @@ function smtpSendMail({ host, port, secure, user, pass, from, to, subject, text,
           if (code !== 250) return fail(new Error(`EHLO ${code}`));
           const canStartTls = !secure && /STARTTLS/i.test(all);
           const canAuth = !!user && /AUTH/i.test(all);
-          if (canStartTls) { stage = 'starttls'; writeLine('STARTTLS'); }
-          else if (canAuth) { stage = 'auth'; writeLine(`AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`).toString('base64')}`); }
-          else { stage = 'mail'; writeLine(`MAIL FROM:<${from}>`); }
+          if (canStartTls) {
+            stage = 'starttls';
+            writeLine('STARTTLS');
+          } else if (canAuth) {
+            stage = 'auth';
+            writeLine(`AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`).toString('base64')}`);
+          } else {
+            stage = 'mail';
+            writeLine(`MAIL FROM:<${from}>`);
+          }
           return;
         }
         case 'starttls': {
@@ -215,9 +229,7 @@ function smtpSendMail({ host, port, secure, user, pass, from, to, subject, text,
       s.on('data', onData);
     }
 
-    socket = secure
-      ? tls.connect({ host, port: port || 465, servername: host })
-      : net.connect(port || 587, host);
+    socket = secure ? tls.connect({ host, port: port || 465, servername: host }) : net.connect(port || 587, host);
     attach(socket);
   });
 }
@@ -233,9 +245,7 @@ async function sendEmail({ to, subject, text, html }) {
     // Convention: 587 means STARTTLS, 465 (or unset) means implicit TLS;
     // SMTP_SECURE=true/false overrides when set.
     const port = parseInt(process.env.SMTP_PORT || '', 10) || 465;
-    const secure = process.env.SMTP_SECURE !== undefined
-      ? process.env.SMTP_SECURE === 'true'
-      : port !== 587;
+    const secure = process.env.SMTP_SECURE !== undefined ? process.env.SMTP_SECURE === 'true' : port !== 587;
     let last = { sent: false };
     for (const recipient of recipients) {
       last = await smtpSendMail({
@@ -348,23 +358,16 @@ async function sendSms({ to, message }) {
   return { sent: false };
 }
 
+const { summarizeProducts } = require('./product-lines');
+
 const STATUS_LABELS = { approved: 'APPROVED', rejected: 'REJECTED', fulfilled: 'FULFILLED', delivered: 'DELIVERED' };
 
-// The stored products value is a JSON string (e.g. '["Widget x1"]'); render it
-// as a readable list for the email body.
-function productSummary(products) {
-  if (Array.isArray(products)) return products.join(', ');
-  if (typeof products === 'string') {
-    try {
-      const parsed = JSON.parse(products);
-      if (Array.isArray(parsed)) return parsed.join(', ');
-      return products;
-    } catch {
-      return products;
-    }
-  }
-  return 'your items';
-}
+// The stored products value is a JSON string of line objects (e.g.
+// '[{"name":"Widget","qty":2}]') or, for legacy rows, plain strings.
+// summarizeProducts handles every storage shape (string, array, objects) and
+// always returns a readable, non-empty summary — line objects never leak as
+// "[object Object]".
+const productSummary = summarizeProducts;
 
 // Compose + send an order-inquiry status update to the customer (email always,
 // SMS when a phone number was provided). Resolves when both channels settled.
@@ -378,15 +381,17 @@ function notifyInquiryStatus(inquiry, newStatus) {
     bodyText: `Hi ${esc(name)},<br><br>Your order inquiry <strong>(${esc(items)})</strong> is now <strong>${esc(label)}</strong>.`,
   });
 
-  const emailP = inquiry && inquiry.customer_email
-    ? sendEmail({ to: inquiry.customer_email, subject: `Your INVENTRAK order inquiry is ${label}`, text, html })
-    : Promise.resolve({ sent: false });
+  const emailP =
+    inquiry && inquiry.customer_email
+      ? sendEmail({ to: inquiry.customer_email, subject: `Your INVENTRAK order inquiry is ${label}`, text, html })
+      : Promise.resolve({ sent: false });
 
-  const smsP = inquiry && inquiry.customer_phone
-    ? sendSms({ to: inquiry.customer_phone, message: `INVENTRAK: Your order inquiry is now ${label}.` })
-    : Promise.resolve({ sent: false });
+  const smsP =
+    inquiry && inquiry.customer_phone
+      ? sendSms({ to: inquiry.customer_phone, message: `INVENTRAK: Your order inquiry is now ${label}.` })
+      : Promise.resolve({ sent: false });
 
-  return Promise.all([emailP, smsP]).catch((err) => {
+  return Promise.all([emailP, smsP]).catch(err => {
     console.error(`[notify] inquiry notification error: ${err && err.message}`);
   });
 }
@@ -400,9 +405,10 @@ function notifyWelcome(email, username) {
     text: `Hi ${username},\n\nYour INVENTRAK account is ready. Browse supplies, send order inquiries, and track their status.\n\n— INVENTRAK`,
     html: htmlBody({
       title: `Welcome, ${esc(username)}!`,
-      bodyText: 'Your INVENTRAK account is ready. Browse supplies, send order inquiries, and track their status right from the app.',
+      bodyText:
+        'Your INVENTRAK account is ready. Browse supplies, send order inquiries, and track their status right from the app.',
     }),
-  }).catch((err) => {
+  }).catch(err => {
     console.error(`[notify] welcome email error: ${err && err.message}`);
   });
 }
@@ -424,7 +430,7 @@ function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 
   const smsP = phone
     ? sendSms({ to: phone, message: `INVENTRAK: Your verification code is ${code}.` })
     : Promise.resolve({ sent: false });
-  return Promise.all([emailP, smsP]).catch((err) => {
+  return Promise.all([emailP, smsP]).catch(err => {
     console.error(`[notify] verification notification error: ${err && err.message}`);
   });
 }
@@ -444,9 +450,18 @@ function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
       bodyText: `Hi ${esc(username)},<br><br>Use this code to reset your INVENTRAK password. It expires in <strong>${ttlMinutes} minutes</strong>. If you didn't request this, you can safely ignore this email.`,
       code,
     }),
-  }).catch((err) => {
+  }).catch(err => {
     console.error(`[notify] password reset email error: ${err && err.message}`);
   });
 }
 
-module.exports = { sendEmail, sendSms, notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode, normalizePhNumber, smtpSendMail };
+module.exports = {
+  sendEmail,
+  sendSms,
+  notifyInquiryStatus,
+  notifyWelcome,
+  notifyPasswordReset,
+  notifyVerificationCode,
+  normalizePhNumber,
+  smtpSendMail,
+};

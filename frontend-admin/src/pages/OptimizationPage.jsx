@@ -150,12 +150,12 @@ export default function OptimizationPage({ onLogout }) {
   // Revenue is a money surface — Owner / Super Admin / Admin only.
   const moneyVisible = canSeeMoney(getCurrentUser()?.role || 'admin');
 
-  const loadData = async () => {
+  const loadData = async() => {
     setLoading(true);
     try {
       const [abcRes, productsRes] = await Promise.all([
         apiGet('/api/optimization/abc'),
-        apiGet('/api/products')
+        apiGet('/api/products'),
       ]);
       const abcData = abcRes.data || abcRes;
       const prodData = productsRes.data || productsRes;
@@ -169,7 +169,7 @@ export default function OptimizationPage({ onLogout }) {
     }
   };
 
-  const loadFsn = async (windowDays) => {
+  const loadFsn = async(windowDays) => {
     setFsnLoading(true);
     try {
       const res = await apiGet(`/api/optimization/fsn?window=${windowDays}`);
@@ -381,37 +381,37 @@ export default function OptimizationPage({ onLogout }) {
         {metrics ? (
           <>
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <FormulaBanner
-              title="EOQ / ROP / Safety stock formulas"
-              items={[
-                'EOQ = √( 2·D·S ÷ H )        D = annual demand · S = ordering cost (₱50) · H = 20% × unit cost',
-                'ROP  = daily demand × lead time (7 days)',
-                'SS   = √D × 0.1             safety buffer for demand spikes',
-                'Turnover = annual demand ÷ avg inventory',
-              ]}
-              note="Reorder when on-hand stock hits the ROP; EOQ is the cheapest batch size to reorder."
-            />
+              <FormulaBanner
+                title="EOQ / ROP / Safety stock formulas"
+                items={[
+                  'EOQ = √( 2·D·S ÷ H )        D = annual demand · S = ordering cost (₱50) · H = 20% × unit cost',
+                  'ROP  = daily demand × lead time (7 days)',
+                  'SS   = √D × 0.1             safety buffer for demand spikes',
+                  'Turnover = annual demand ÷ avg inventory',
+                ]}
+                note="Reorder when on-hand stock hits the ROP; EOQ is the cheapest batch size to reorder."
+              />
             </Box>
             <Box sx={{ height: 16 }} />
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <Card sx={{ flex: 1, minWidth: 200, backgroundColor: colors.surface, borderRadius: 3 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Economic Order Quantity</Typography>
-                <Typography variant="h5">{metrics.EOQ}</Typography>
-              </CardContent>
-            </Card>
-            <Card sx={{ flex: 1, minWidth: 200, backgroundColor: colors.surface, borderRadius: 3 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Reorder Point</Typography>
-                <Typography variant="h5">{metrics.ROP}</Typography>
-              </CardContent>
-            </Card>
-            <Card sx={{ flex: 1, minWidth: 200, backgroundColor: colors.surface, borderRadius: 3 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>Safety Stock</Typography>
-                <Typography variant="h5">{metrics.safetyStock}</Typography>
-              </CardContent>
-            </Card>
+              <Card sx={{ flex: 1, minWidth: 200, backgroundColor: colors.surface, borderRadius: 3 }}>
+                <CardContent>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>Economic Order Quantity</Typography>
+                  <Typography variant="h5">{metrics.EOQ}</Typography>
+                </CardContent>
+              </Card>
+              <Card sx={{ flex: 1, minWidth: 200, backgroundColor: colors.surface, borderRadius: 3 }}>
+                <CardContent>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>Reorder Point</Typography>
+                  <Typography variant="h5">{metrics.ROP}</Typography>
+                </CardContent>
+              </Card>
+              <Card sx={{ flex: 1, minWidth: 200, backgroundColor: colors.surface, borderRadius: 3 }}>
+                <CardContent>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>Safety Stock</Typography>
+                  <Typography variant="h5">{metrics.safetyStock}</Typography>
+                </CardContent>
+              </Card>
             </Box>
           </>
         ) : (

@@ -76,7 +76,7 @@ function LiveCamera({ onCapture, onClose }) {
   // the camera light goes off and other apps can use the camera.
   useEffect(() => {
     let alive = true;
-    (async () => {
+    (async() => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1920 } },
@@ -96,7 +96,7 @@ function LiveCamera({ onCapture, onClose }) {
           setErr(
             e && e.name === 'NotAllowedError'
               ? 'Camera permission was denied. Allow camera access in your browser, or use "Take photo" / "Upload image" instead.'
-              : 'Could not start the camera here. Use "Take photo" / "Upload image" instead.'
+              : 'Could not start the camera here. Use "Take photo" / "Upload image" instead.',
           );
         }
       }
@@ -231,12 +231,12 @@ export default function ScanStockPage({ onLogout }) {
       setError(
         recognized
           ? 'No SYLVER product detected — this label doesn\u2019t match anything in the catalog. Only products in the SYLVER supply catalog can be scanned.'
-          : 'No text recognized. Try a clearer, well-lit photo of the label.'
+          : 'No text recognized. Try a clearer, well-lit photo of the label.',
       );
     }
   };
 
-  const runBase64 = async (image) => {
+  const runBase64 = async(image) => {
     setBusy(true);
     setError('');
     setResult(null);
@@ -263,7 +263,7 @@ export default function ScanStockPage({ onLogout }) {
     run(file);
   };
 
-  const run = async (file) => {
+  const run = async(file) => {
     setBusy(true);
     setError('');
     setResult(null);
@@ -339,7 +339,7 @@ export default function ScanStockPage({ onLogout }) {
   // Each changed location becomes its own adjustment request (the existing
   // maker-approver queue: staff proposes, owner approves). Nothing is applied
   // to stock until the owner approves.
-  const submitCorrection = async () => {
+  const submitCorrection = async() => {
     if (!top) return;
     const changes = locs.filter((loc) => {
       const current = Number(top.stock?.locations?.[loc]) || 0;
@@ -375,7 +375,7 @@ export default function ScanStockPage({ onLogout }) {
     if (done > 0) {
       setConfirmMsg(
         `${done} correction(s) submitted for approval — stock updates after the owner approves.`
-        + (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : '')
+        + (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : ''),
       );
       setReason('');
     } else {

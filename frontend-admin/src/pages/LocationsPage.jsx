@@ -27,7 +27,7 @@ export default function LocationsPage({ onLogout }) {
   // Batch-print sheet (all location tags on one printable page).
   const [showSheet, setShowSheet] = useState(false);
 
-  const loadLocations = async () => {
+  const loadLocations = async() => {
     setLoading(true);
     try {
       const response = await apiGet('/api/locations');
@@ -39,7 +39,7 @@ export default function LocationsPage({ onLogout }) {
 
   useEffect(() => { loadLocations(); }, []);
 
-  const handleCreate = async () => {
+  const handleCreate = async() => {
     if (!name.trim()) return;
     setSaving(true);
     try {
@@ -54,7 +54,7 @@ export default function LocationsPage({ onLogout }) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async() => {
     if (!confirmDelete) return;
     setSaving(true);
     try {

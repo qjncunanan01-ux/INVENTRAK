@@ -22,7 +22,7 @@ db.exec(SCHEMA);
 // counts and totals. Rebuild the table with the constraint, merging any
 // duplicate rows by summing their quantities.
 const stockIndexes = db.prepare("PRAGMA index_list('stock')").all();
-const hasUniqueStockPair = stockIndexes.some((i) => i.origin === 'u');
+const hasUniqueStockPair = stockIndexes.some(i => i.origin === 'u');
 
 if (!hasUniqueStockPair) {
   db.transaction(() => {
@@ -53,45 +53,45 @@ if (!hasUniqueStockPair) {
 // expiry date staff read off the label; approval stamps the reset lot with
 // it. Additive, so existing databases are untouched apart from the column.
 const adjustmentColumns = db.prepare('PRAGMA table_info(stock_adjustments)').all();
-if (!adjustmentColumns.some((c) => c.name === 'expiry_date')) {
+if (!adjustmentColumns.some(c => c.name === 'expiry_date')) {
   db.exec('ALTER TABLE stock_adjustments ADD COLUMN expiry_date TEXT');
 }
 
-const inquiryColumns = db.prepare("PRAGMA table_info(order_inquiries)").all();
-if (!inquiryColumns.some((c) => c.name === 'customer_phone')) {
+const inquiryColumns = db.prepare('PRAGMA table_info(order_inquiries)').all();
+if (!inquiryColumns.some(c => c.name === 'customer_phone')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN customer_phone TEXT');
 }
-if (!inquiryColumns.some((c) => c.name === 'delivery_address')) {
+if (!inquiryColumns.some(c => c.name === 'delivery_address')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN delivery_address TEXT');
 }
-if (!inquiryColumns.some((c) => c.name === 'payment_method')) {
+if (!inquiryColumns.some(c => c.name === 'payment_method')) {
   db.exec("ALTER TABLE order_inquiries ADD COLUMN payment_method TEXT DEFAULT 'cod'");
 }
 // Checkout ownership + progress timeline: user_id links an inquiry to the
 // account that placed it (per-account history scoping); status_history is the
 // JSON timeline of status changes (Placed -> Approved -> Delivered) shown on
 // the mobile cards. Additive.
-if (!inquiryColumns.some((c) => c.name === 'user_id')) {
+if (!inquiryColumns.some(c => c.name === 'user_id')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN user_id INTEGER');
 }
-if (!inquiryColumns.some((c) => c.name === 'status_history')) {
+if (!inquiryColumns.some(c => c.name === 'status_history')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN status_history TEXT');
 }
 // Payment step (GCash/card): payment_status/reference/url/qr/provider are
 // added by the checkout handler after the inquiry is inserted. Additive.
-if (!inquiryColumns.some((c) => c.name === 'payment_status')) {
+if (!inquiryColumns.some(c => c.name === 'payment_status')) {
   db.exec("ALTER TABLE order_inquiries ADD COLUMN payment_status TEXT DEFAULT 'unpaid'");
 }
-if (!inquiryColumns.some((c) => c.name === 'payment_reference')) {
+if (!inquiryColumns.some(c => c.name === 'payment_reference')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_reference TEXT');
 }
-if (!inquiryColumns.some((c) => c.name === 'payment_url')) {
+if (!inquiryColumns.some(c => c.name === 'payment_url')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_url TEXT');
 }
-if (!inquiryColumns.some((c) => c.name === 'payment_qr')) {
+if (!inquiryColumns.some(c => c.name === 'payment_qr')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_qr TEXT');
 }
-if (!inquiryColumns.some((c) => c.name === 'payment_provider')) {
+if (!inquiryColumns.some(c => c.name === 'payment_provider')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_provider TEXT');
 }
 
@@ -99,13 +99,13 @@ if (!inquiryColumns.some((c) => c.name === 'payment_provider')) {
 // account id) so OAuth-created accounts can be matched/linked by identity.
 // Additive, like the columns above.
 const googleUserColumns = db.prepare('PRAGMA table_info(users)').all();
-if (!googleUserColumns.some((c) => c.name === 'google_sub')) {
+if (!googleUserColumns.some(c => c.name === 'google_sub')) {
   db.exec('ALTER TABLE users ADD COLUMN google_sub TEXT');
 }
 
 // Product images (supplier photo library -> /images/* served by both backends).
 const productColumns = db.prepare('PRAGMA table_info(products)').all();
-if (!productColumns.some((c) => c.name === 'image')) {
+if (!productColumns.some(c => c.name === 'image')) {
   db.exec('ALTER TABLE products ADD COLUMN image TEXT');
 }
 
@@ -114,7 +114,7 @@ if (!productColumns.some((c) => c.name === 'image')) {
 // consumed before non-expiring ones, soonest expiry first (arrival order as
 // the tiebreaker). Additive — existing databases are untouched.
 const stockLotColumns = db.prepare('PRAGMA table_info(stock_lots)').all();
-if (!stockLotColumns.some((c) => c.name === 'expiry_date')) {
+if (!stockLotColumns.some(c => c.name === 'expiry_date')) {
   db.exec('ALTER TABLE stock_lots ADD COLUMN expiry_date TEXT');
 }
 
@@ -122,7 +122,7 @@ if (!stockLotColumns.some((c) => c.name === 'expiry_date')) {
 // 'expiring_soon' / 'expired' alert can carry the date it is warning about
 // (low_stock alerts leave it NULL). Additive — existing rows are untouched.
 const alertColumns = db.prepare('PRAGMA table_info(inventory_alerts)').all();
-if (!alertColumns.some((c) => c.name === 'expiry_date')) {
+if (!alertColumns.some(c => c.name === 'expiry_date')) {
   db.exec('ALTER TABLE inventory_alerts ADD COLUMN expiry_date TEXT');
 }
 
@@ -131,7 +131,7 @@ if (!alertColumns.some((c) => c.name === 'expiry_date')) {
 // accounts created before verification existed are never locked out; only new
 // registrations start unverified. Additive.
 const userColumns = db.prepare('PRAGMA table_info(users)').all();
-const userNames = new Set(userColumns.map((c) => c.name));
+const userNames = new Set(userColumns.map(c => c.name));
 if (!userNames.has('email_verified')) {
   db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 1');
 }

@@ -100,7 +100,7 @@ export default function ProductScreen({ route, navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async() => {
     try {
       // Parallel: full catalog (pages past the 100-row clamp), ABC ranking and
       // stock levels — the last two are what determine today's flash picks,
@@ -172,7 +172,7 @@ export default function ProductScreen({ route, navigation }) {
   // so memoize it on (selected, products) instead of re-scoring every render.
   const sim = useMemo(
     () => (selected ? similarProducts(selected, products, 6) : []),
-    [selected, products]
+    [selected, products],
   );
 
   useEffect(() => {
@@ -195,7 +195,7 @@ export default function ProductScreen({ route, navigation }) {
 
   const categories = useMemo(
     () => ['', ...new Set(products.map((p) => p.category).filter(Boolean))],
-    [products]
+    [products],
   );
 
   const filtered = useMemo(() => {
@@ -247,9 +247,9 @@ export default function ProductScreen({ route, navigation }) {
     const deal = pickIds.has(Number(selected.id)) ? dealPricing(selected) : null;
     const totalStock = locStock
       ? Object.keys(locStock.item.locations || {}).reduce(
-          (s, k) => s + (Number(locStock.item.locations[k]) || 0),
-          0
-        )
+        (s, k) => s + (Number(locStock.item.locations[k]) || 0),
+        0,
+      )
       : undefined;
     const status = stockStatus(totalStock);
     const stockColor =
@@ -399,32 +399,32 @@ export default function ProductScreen({ route, navigation }) {
 
         <View style={styles.stickyBar}>
           <TouchableOpacity
-                style={styles.addCartBtn}
-                onPress={() =>
-                  requireLogin(() => {
-                    addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
-                    setAddedToCart(selected);
-                  })
-                }
-                accessibilityLabel="Add to cart"
-                accessibilityRole="button"
-              >
+            style={styles.addCartBtn}
+            onPress={() =>
+              requireLogin(() => {
+                addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
+                setAddedToCart(selected);
+              })
+            }
+            accessibilityLabel="Add to cart"
+            accessibilityRole="button"
+          >
             <Text style={styles.addCartBtnText}>Add to Cart</Text>
           </TouchableOpacity>
           <TouchableOpacity
-                style={styles.stickyBtn}
-                onPress={() =>
-                  requireLogin(() => {
-                    addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
-                    navigation.navigate('OrdersTab', {
-                      screen: 'OrderInquiry',
-                      params: { preselectId: selected.id },
-                    });
-                  })
-                }
-                accessibilityLabel="Buy now"
-                accessibilityRole="button"
-              >
+            style={styles.stickyBtn}
+            onPress={() =>
+              requireLogin(() => {
+                addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
+                navigation.navigate('OrdersTab', {
+                  screen: 'OrderInquiry',
+                  params: { preselectId: selected.id },
+                });
+              })
+            }
+            accessibilityLabel="Buy now"
+            accessibilityRole="button"
+          >
             <Text style={styles.stickyBtnText}>Buy Now</Text>
           </TouchableOpacity>
         </View>
@@ -580,47 +580,47 @@ export default function ProductScreen({ route, navigation }) {
           const cardDeal = pickIds.has(Number(item.id)) ? dealPricing(item) : null;
           return (
             <AnimatedEntry delay={Math.min(index * 60, 480)} preset="pop" duration={350} style={styles.gridCell}>
-            <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} accessibilityLabel={`${item.name}, ${item.category}, P${item.price}`} accessibilityRole="button">
-              <View style={styles.cardTop}>
-                {item.image ? (
-                  <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="contain" />
-                ) : null}
-                {/* Quick-add (+) corner button, Shopee-style: adds without
+              <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} accessibilityLabel={`${item.name}, ${item.category}, P${item.price}`} accessibilityRole="button">
+                <View style={styles.cardTop}>
+                  {item.image ? (
+                    <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="contain" />
+                  ) : null}
+                  {/* Quick-add (+) corner button, Shopee-style: adds without
                     leaving the grid. Guests get the login gate instead. */}
-                <TouchableOpacity
-                  style={styles.quickAdd}
-                  onPress={() =>
-                    requireLogin(() => {
-                      addItem(item, 1, cardDeal ? cardDeal.deal : undefined, cardDeal ? cardDeal.original : undefined);
-                      showToast('Added to cart', {
-                        actionLabel: 'View',
-                        onAction: () => navigation.navigate('CartTab'),
-                      });
-                    })
-                  }
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  accessibilityLabel={`Add ${item.name} to cart`}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.quickAddText}>+</Text>
-                </TouchableOpacity>
-                <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
-              </View>
-              <Text style={styles.cardMeta} numberOfLines={1}>{item.category}</Text>
-              {/* Today's picks show the flash deal price right on the card, so
+                  <TouchableOpacity
+                    style={styles.quickAdd}
+                    onPress={() =>
+                      requireLogin(() => {
+                        addItem(item, 1, cardDeal ? cardDeal.deal : undefined, cardDeal ? cardDeal.original : undefined);
+                        showToast('Added to cart', {
+                          actionLabel: 'View',
+                          onAction: () => navigation.navigate('CartTab'),
+                        });
+                      })
+                    }
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    accessibilityLabel={`Add ${item.name} to cart`}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.quickAddText}>+</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
+                </View>
+                <Text style={styles.cardMeta} numberOfLines={1}>{item.category}</Text>
+                {/* Today's picks show the flash deal price right on the card, so
                   the grid previews what the detail page will charge. */}
-              {cardDeal ? (
-                <DealPrice deal={cardDeal} styles={styles} />
-              ) : (
-                <Text style={styles.cardPrice}>P{item.price}</Text>
-              )}
-              <View style={styles.cardBottom}>
-                {/* Stock-status pill: customer Stock Status Display requirement
+                {cardDeal ? (
+                  <DealPrice deal={cardDeal} styles={styles} />
+                ) : (
+                  <Text style={styles.cardPrice}>P{item.price}</Text>
+                )}
+                <View style={styles.cardBottom}>
+                  {/* Stock-status pill: customer Stock Status Display requirement
                     (In stock / Low stock / Out of stock) on the catalog grid. */}
-                <StockPill total={stockMap[Number(item.id)]} styles={styles} />
-                <Text style={styles.cardRating}>★ {productRating(item).rating}</Text>
-              </View>
-            </TouchableOpacity>
+                  <StockPill total={stockMap[Number(item.id)]} styles={styles} />
+                  <Text style={styles.cardRating}>★ {productRating(item).rating}</Text>
+                </View>
+              </TouchableOpacity>
             </AnimatedEntry>
           );
         }}
@@ -632,15 +632,15 @@ export default function ProductScreen({ route, navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: colors.background },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  input: { flex: 1, backgroundColor: colors.surface, padding: 12, paddingRight: 44, borderRadius: 10, color: colors.textPrimary, fontSize: 15 },
-  scanBtn: { position: 'absolute', right: 6, padding: 6 },
+  container: { backgroundColor: colors.background, flex: 1, padding: 16 },
+  searchWrap: { alignItems: 'center', flexDirection: 'row', marginBottom: 10 },
+  input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, flex: 1, fontSize: 15, padding: 12, paddingRight: 44 },
+  scanBtn: { padding: 6, position: 'absolute', right: 6 },
   // Explicit height (>= 40px tap target) + centered chips — the row can never
   // collapse into the sort row / count text on any platform or width.
   chipList: { flexGrow: 0, flexShrink: 0, height: 42, marginBottom: 4 },
   chipRow: { alignItems: 'center', paddingRight: 8 },
-  chip: { backgroundColor: colors.surface, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
+  chip: { backgroundColor: colors.surface, borderColor: 'rgba(0,0,0,0.06)', borderRadius: 16, borderWidth: 1, marginRight: 8, paddingHorizontal: 12, paddingVertical: 6 },
   chipActive: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
   chipText: { color: colors.textPrimary, fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: '#fff' },
@@ -648,233 +648,233 @@ const createStyles = (colors) => StyleSheet.create({
   sortRowContent: { alignItems: 'center' },
   sortChip: {
     backgroundColor: colors.surface,
+    borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 14,
+    borderWidth: 1,
+    marginRight: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.08)',
   },
   sortChipActive: { backgroundColor: colors.brandSecondary, borderColor: colors.brandSecondary },
   sortChipText: { color: colors.textPrimary, fontSize: 12, fontWeight: '600' },
   sortChipTextActive: { color: '#fff' },
-  resultCount: { fontSize: 12, color: colors.textSecondary, marginBottom: 10 },
+  resultCount: { color: colors.textSecondary, fontSize: 12, marginBottom: 10 },
   gridList: { flex: 1 },
   // New-arch (Fabric) FlatList rows don't give children a definite width, so
   // percentage card widths collapse to content size. Full-width row + gap +
   // flex:1 cells renders two equal columns on both old and new architecture.
-  rowWrap: { width: '100%', gap: 12 },
+  rowWrap: { gap: 12, width: '100%' },
   gridCell: { flex: 1 },
   listContent: { paddingBottom: 24 },
   card: {
     alignSelf: 'stretch',
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 12,
+    elevation: 2,
     marginBottom: 12,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
-    elevation: 2,
   },
   cardTop: { minHeight: 42 },
   // White tile + 'contain' (Shopee/Lazada pattern): product photos are shot
   // on white, so letterboxing blends invisibly and every product renders at
   // the same visual size. 'cover' zoom-crops each photo differently, which
   // read as misaligned/overlapping images in the grid.
-  cardImage: { width: '100%', height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: '#ffffff' },
-  cardName: { fontWeight: '700', color: colors.textPrimary, fontSize: 14 },
+  cardImage: { backgroundColor: '#ffffff', borderRadius: 8, height: 90, marginBottom: 8, width: '100%' },
+  cardName: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
-  cardPrice: { color: colors.brandPrimary, fontWeight: '800', fontSize: 15, marginTop: 8 },
-  empty: { marginTop: 24, textAlign: 'center', color: colors.textSecondary },
-  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
-  stockPillSm: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  cardPrice: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800', marginTop: 8 },
+  empty: { color: colors.textSecondary, marginTop: 24, textAlign: 'center' },
+  cardBottom: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  stockPillSm: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
   stockPillSmText: { fontSize: 10, fontWeight: '800' },
   cardRating: { color: '#f5a623', fontSize: 12, fontWeight: '700', marginTop: 2 },
   // ---- Deal-of-the-day price row (shared PDP / PLP / cross-sell) ----
-  dealRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 8, flexWrap: 'wrap' },
-  dealPrice: { fontSize: 15, fontWeight: '800', color: '#e23744' },
+  dealRow: { alignItems: 'baseline', flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+  dealPrice: { color: '#e23744', fontSize: 15, fontWeight: '800' },
   // Large (PDP) variant: bigger type but NO extra top margin — dealRow already
   // carries the spacing, so the PDP row doesn't double-pad.
-  dealPriceLg: { fontSize: 24, fontWeight: '800', color: '#e23744' },
-  dealOriginal: { fontSize: 11, color: '#9aa0a6', textDecorationLine: 'line-through', marginLeft: 6 },
-  dealOff: { fontSize: 10, fontWeight: '800', color: '#e23744', marginLeft: 4 },
+  dealPriceLg: { color: '#e23744', fontSize: 24, fontWeight: '800' },
+  dealOriginal: { color: '#9aa0a6', fontSize: 11, marginLeft: 6, textDecorationLine: 'line-through' },
+  dealOff: { color: '#e23744', fontSize: 10, fontWeight: '800', marginLeft: 4 },
   dealChip: {
-    marginTop: 6,
     alignSelf: 'flex-start',
     backgroundColor: '#ffe3dd',
     borderRadius: 6,
+    marginTop: 6,
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
-  dealChipText: { fontSize: 10, fontWeight: '800', color: '#e23744', letterSpacing: 0.3 },
-  addedDealWrap: { alignItems: 'center', marginTop: 6, marginBottom: 16 },
-  skelSearch: { height: 44, borderRadius: 10, backgroundColor: colors.surface, marginBottom: 10 },
-  skelChips: { height: 30, borderRadius: 15, backgroundColor: colors.surface, marginBottom: 14, width: '55%' },
+  dealChipText: { color: '#e23744', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
+  addedDealWrap: { alignItems: 'center', marginBottom: 16, marginTop: 6 },
+  skelSearch: { backgroundColor: colors.surface, borderRadius: 10, height: 44, marginBottom: 10 },
+  skelChips: { backgroundColor: colors.surface, borderRadius: 15, height: 30, marginBottom: 14, width: '55%' },
   skelGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   skelCard: {
-    width: '48%',
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 12,
     marginBottom: 12,
+    padding: 12,
+    width: '48%',
   },
-  skelImage: { height: 90, borderRadius: 8, backgroundColor: colors.background, marginBottom: 10 },
-  skelLine: { height: 12, borderRadius: 6, backgroundColor: colors.background, marginBottom: 8, width: '80%' },
-  skelLineShort: { height: 12, borderRadius: 6, backgroundColor: colors.background, width: '45%' },
+  skelImage: { backgroundColor: colors.background, borderRadius: 8, height: 90, marginBottom: 10 },
+  skelLine: { backgroundColor: colors.background, borderRadius: 6, height: 12, marginBottom: 8, width: '80%' },
+  skelLineShort: { backgroundColor: colors.background, borderRadius: 6, height: 12, width: '45%' },
   pdp: { flex: 1 },
   pdpContent: { paddingBottom: 8 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  ratingRow: { alignItems: 'center', flexDirection: 'row', marginTop: 6 },
   ratingStars: { color: '#f5a623', fontSize: 15, letterSpacing: 1 },
   ratingText: { color: colors.textSecondary, fontSize: 12, marginLeft: 6 },
   sellerRow: {
-    marginTop: 10,
+    alignSelf: 'flex-start',
     backgroundColor: colors.background,
     borderRadius: 8,
-    paddingVertical: 6,
+    marginTop: 10,
     paddingHorizontal: 10,
-    alignSelf: 'flex-start',
+    paddingVertical: 6,
   },
   sellerText: { color: colors.brandPrimary, fontSize: 11, fontWeight: '600' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' },
+  metaRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   moqPill: {
     backgroundColor: colors.background,
-    borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
     borderRadius: 14,
+    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   moqText: { color: colors.textPrimary, fontSize: 12, fontWeight: '700' },
   stockPill: {
-    borderWidth: 1,
+    backgroundColor: colors.surface,
     borderRadius: 14,
+    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: colors.surface,
   },
   stockText: { fontSize: 12, fontWeight: '700' },
   tierCard: {
-    marginTop: 14,
     backgroundColor: colors.background,
-    borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 14,
     padding: 12,
   },
-  tierTitle: { fontWeight: '800', color: colors.textPrimary, fontSize: 13, marginBottom: 8 },
+  tierTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '800', marginBottom: 8 },
   tierRow: {
-    flexDirection: 'row',
     alignItems: 'center',
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 7,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
-  tierLabel: { color: colors.textPrimary, fontWeight: '600', fontSize: 13 },
-  tierSave: { color: colors.brandSecondary, fontWeight: '800', fontSize: 12 },
-  tierPrice: { color: colors.brandPrimary, fontWeight: '700', fontSize: 13 },
+  tierLabel: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  tierSave: { color: colors.brandSecondary, fontSize: 12, fontWeight: '800' },
+  tierPrice: { color: colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   simSection: { marginTop: 18 },
-  simTitle: { fontWeight: '800', color: colors.textPrimary, fontSize: 15, marginBottom: 10 },
+  simTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 10 },
   simCard: {
-    width: 130,
     backgroundColor: colors.background,
     borderRadius: 10,
-    padding: 8,
     marginRight: 10,
+    padding: 8,
+    width: 130,
   },
-  simImage: { width: '100%', height: 84, borderRadius: 8, backgroundColor: '#ffffff' },
+  simImage: { backgroundColor: '#ffffff', borderRadius: 8, height: 84, width: '100%' },
   simName: { color: colors.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 },
   simPrice: { color: colors.brandPrimary, fontSize: 13, fontWeight: '800', marginTop: 4 },
   simAdd: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
+    alignItems: 'center',
     backgroundColor: colors.brandPrimary,
     borderRadius: 14,
-    width: 24,
     height: 24,
-    alignItems: 'center',
     justifyContent: 'center',
+    position: 'absolute',
+    right: 4,
+    top: 4,
+    width: 24,
   },
   simAddText: { color: '#fff', fontSize: 16, fontWeight: '800', lineHeight: 20 },
   backLink: { paddingVertical: 10 },
   backText: { color: colors.info, fontSize: 15, fontWeight: '600' },
   detailCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 20 },
-  detailImage: { width: '100%', height: 180, borderRadius: 12, marginBottom: 12, backgroundColor: '#ffffff' },
-  detailTitle: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
+  detailImage: { backgroundColor: '#ffffff', borderRadius: 12, height: 180, marginBottom: 12, width: '100%' },
+  detailTitle: { color: colors.textPrimary, fontSize: 22, fontWeight: '700' },
   detailCategory: { color: colors.textSecondary, marginTop: 4 },
-  detailPrice: { fontSize: 24, fontWeight: '800', color: colors.brandPrimary, marginTop: 10, marginBottom: 12 },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  detailPrice: { color: colors.brandPrimary, fontSize: 24, fontWeight: '800', marginBottom: 12, marginTop: 10 },
+  detailRow: { borderBottomColor: 'rgba(0,0,0,0.05)', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10 },
   detailLabel: { color: colors.textSecondary, fontWeight: '500' },
-  detailDesc: { marginTop: 12, color: colors.textSecondary, lineHeight: 20 },
-  locCard: { marginTop: 14, backgroundColor: colors.background, borderRadius: 10, padding: 12 },
-  locTitle: { fontWeight: '700', color: colors.textPrimary, fontSize: 13, marginBottom: 8 },
+  detailDesc: { color: colors.textSecondary, lineHeight: 20, marginTop: 12 },
+  locCard: { backgroundColor: colors.background, borderRadius: 10, marginTop: 14, padding: 12 },
+  locTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '700', marginBottom: 8 },
   locRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
   locName: { color: colors.textSecondary, fontSize: 13 },
-  locQty: { color: colors.textPrimary, fontWeight: '700', fontSize: 13 },
+  locQty: { color: colors.textPrimary, fontSize: 13, fontWeight: '700' },
   locQtyZero: { color: colors.error },
   locEmpty: { color: colors.textSecondary, fontSize: 12 },
   stickyBar: {
     backgroundColor: colors.surface,
-    padding: 12,
-    borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.06)',
+    borderTopWidth: 1,
     flexDirection: 'row',
     gap: 10,
+    padding: 12,
   },
   addCartBtn: {
-    flex: 1,
+    alignItems: 'center',
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
     borderColor: colors.brandPrimary,
     borderRadius: 12,
+    borderWidth: 1.5,
+    flex: 1,
     paddingVertical: 13,
-    alignItems: 'center',
   },
   addCartBtnText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
-  stickyBtn: { flex: 1.4, backgroundColor: colors.brandPrimary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  stickyBtn: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 12, flex: 1.4, paddingVertical: 14 },
   stickyBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   quickAdd: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
+    alignItems: 'center',
     backgroundColor: colors.brandPrimary,
     borderRadius: 16,
-    width: 28,
+    elevation: 3,
     height: 28,
-    alignItems: 'center',
     justifyContent: 'center',
+    position: 'absolute',
+    right: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 3,
+    top: 4,
+    width: 28,
   },
   quickAddText: { color: '#fff', fontSize: 20, fontWeight: '800', lineHeight: 24 },
   addedBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    flex: 1,
     justifyContent: 'center',
     padding: 28,
   },
   addedCard: {
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 16,
+    maxWidth: 380,
     padding: 24,
     width: '100%',
-    maxWidth: 380,
-    alignItems: 'center',
   },
   addedGlyph: { fontSize: 34, marginBottom: 8 },
-  addedTitle: { fontSize: 19, fontWeight: '800', color: colors.textPrimary },
-  addedName: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
-  addedPrice: { fontSize: 18, fontWeight: '800', color: colors.brandPrimary, marginTop: 6, marginBottom: 16 },
-  addedBtn: { width: '100%', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  addedTitle: { color: colors.textPrimary, fontSize: 19, fontWeight: '800' },
+  addedName: { color: colors.textSecondary, fontSize: 14, marginTop: 8, textAlign: 'center' },
+  addedPrice: { color: colors.brandPrimary, fontSize: 18, fontWeight: '800', marginBottom: 16, marginTop: 6 },
+  addedBtn: { alignItems: 'center', borderRadius: 12, marginBottom: 10, paddingVertical: 14, width: '100%' },
   addedBtnPrimary: { backgroundColor: colors.brandPrimary },
   addedBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  addedBtnGhost: { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.brandPrimary },
+  addedBtnGhost: { backgroundColor: colors.surface, borderColor: colors.brandPrimary, borderWidth: 1.5 },
   addedBtnGhostText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
 });

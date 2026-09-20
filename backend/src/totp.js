@@ -29,7 +29,9 @@ function base32Encode(buf) {
 }
 
 function base32Decode(str) {
-  const cleaned = String(str).toUpperCase().replace(/[^A-Z2-7]/g, '');
+  const cleaned = String(str)
+    .toUpperCase()
+    .replace(/[^A-Z2-7]/g, '');
   let bits = 0;
   let value = 0;
   const bytes = [];
@@ -131,7 +133,9 @@ function generateRecoveryCodes(count = 10) {
 // Canonical form for hashing: uppercase, no dashes/spaces. Entry is forgiving
 // (lowercase, missing dashes, pasted with spaces — all normalize identically).
 function normalizeRecoveryCode(code) {
-  return String(code || '').toUpperCase().replace(/[^A-Z2-9]/g, '');
+  return String(code || '')
+    .toUpperCase()
+    .replace(/[^A-Z2-9]/g, '');
 }
 
 // True when `code` matches one of the stored hashes. `hashFn` is the caller's
@@ -145,6 +149,13 @@ function matchRecoveryCode(storedHashes, code, hashFn) {
 }
 
 module.exports = {
-  generateSecret, totp, verifyTOTP, otpauthUrl, base32Encode, base32Decode,
-  generateRecoveryCodes, normalizeRecoveryCode, matchRecoveryCode,
+  generateSecret,
+  totp,
+  verifyTOTP,
+  otpauthUrl,
+  base32Encode,
+  base32Decode,
+  generateRecoveryCodes,
+  normalizeRecoveryCode,
+  matchRecoveryCode,
 };

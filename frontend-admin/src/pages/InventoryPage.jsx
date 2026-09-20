@@ -212,7 +212,7 @@ export default function InventoryPage({ onLogout }) {
     const products = Object.entries(perProduct)
       .map(([pid, e]) => {
         const inv = (inventory.items || []).find(
-          (it) => (it.product?.id ?? it.id) === Number(pid)
+          (it) => (it.product?.id ?? it.id) === Number(pid),
         );
         return {
           id: Number(pid),
@@ -426,7 +426,7 @@ export default function InventoryPage({ onLogout }) {
               const expiry = expiryEntry ? expiryMeta(expiryEntry.expiry_date) : null;
               return (
                 <TableRow key={item.product.id} sx={{
-                  backgroundColor: below ? 'rgba(249,168,37,0.08)' : 'inherit'
+                  backgroundColor: below ? 'rgba(249,168,37,0.08)' : 'inherit',
                 }}>
                   <TableCell>{item.product.name}</TableCell>
                   {locs.map(loc => <TableCell key={loc.name}>{item.locations[loc.name] ?? 0}</TableCell>)}

@@ -73,14 +73,14 @@ for (const side of [sqlite, npmfree]) {
 
     const aliceList = await call(side.url, '/api/order-inquiries', { token: alice.token });
     assert.strictEqual(aliceList.status, 200);
-    const aliceIds = aliceList.json.map((o) => o.id);
+    const aliceIds = aliceList.json.map(o => o.id);
     assert.ok(aliceIds.includes(aliceOrder), `${label}: alice sees her own stamped order`);
     assert.ok(aliceIds.includes(aliceLegacy), `${label}: alice sees the legacy guest order carrying her email`);
     assert.ok(!aliceIds.includes(bobOrder), `${label}: alice does NOT see bob's order`);
     assert.ok(!aliceIds.includes(strangerOrder), `${label}: alice does NOT see the unrelated guest order`);
 
     const bobList = await call(side.url, '/api/order-inquiries', { token: bob.token });
-    const bobIds = bobList.json.map((o) => o.id);
+    const bobIds = bobList.json.map(o => o.id);
     assert.ok(bobIds.includes(bobOrder), `${label}: bob sees his own order`);
     assert.ok(!bobIds.includes(aliceOrder), `${label}: bob does NOT see alice's order`);
     assert.ok(!bobIds.includes(aliceLegacy), `${label}: bob does NOT see alice's legacy order`);
@@ -95,7 +95,7 @@ for (const side of [sqlite, npmfree]) {
 
     const adminList = await call(side.url, '/api/order-inquiries', { token: side.token.admin });
     assert.strictEqual(adminList.status, 200);
-    const adminIds = adminList.json.map((o) => o.id);
+    const adminIds = adminList.json.map(o => o.id);
     assert.ok(adminIds.includes(own), `${label}: admin sees the owned order`);
     assert.ok(adminIds.includes(legacy), `${label}: admin sees the legacy order`);
     assert.ok(adminIds.includes(stranger), `${label}: admin sees the unrelated guest order`);
@@ -117,7 +117,9 @@ for (const side of [sqlite, npmfree]) {
 
     // Admin approves Alice's order → her feed gains an "approved" card.
     const approve = await call(side.url, `/api/order-inquiries/${aliceOrder}`, {
-      method: 'PUT', token: side.token.admin, body: { status: 'approved' },
+      method: 'PUT',
+      token: side.token.admin,
+      body: { status: 'approved' },
     });
     assert.strictEqual(approve.status, 200, `${label}: admin approves alice's order`);
 
@@ -131,9 +133,9 @@ for (const side of [sqlite, npmfree]) {
 
     // Screen derivation: flatten status_history into cards, skipping the
     // initial 'placed' event unless it's all there is.
-    const derive = (rows) => {
+    const derive = rows => {
       const events = [];
-      rows.forEach((o) => {
+      rows.forEach(o => {
         let history = [];
         try {
           const parsed = JSON.parse(o.status_history || '[]');
@@ -141,22 +143,22 @@ for (const side of [sqlite, npmfree]) {
         } catch {}
         if (history.length === 0) history = [{ status: o.status, at: o.created_at }];
         const shown = history.length > 1 ? history.slice(1) : history;
-        shown.forEach((e) => events.push({ orderId: o.id, status: e.status, name: o.customer_name }));
+        shown.forEach(e => events.push({ orderId: o.id, status: e.status, name: o.customer_name }));
       });
       return events;
     };
     const aliceCards = derive(aliceRows);
     const bobCards = derive(bobRows);
 
-    const aliceCardOrders = new Set(aliceCards.map((c) => c.orderId));
-    const bobCardOrders = new Set(bobCards.map((c) => c.orderId));
+    const aliceCardOrders = new Set(aliceCards.map(c => c.orderId));
+    const bobCardOrders = new Set(bobCards.map(c => c.orderId));
 
     // Alice's feed: her own order (with the approved card) + her legacy order.
     assert.ok(aliceCardOrders.has(aliceOrder), `${label}: alice feed includes her own order`);
     assert.ok(aliceCardOrders.has(aliceLegacy), `${label}: alice feed includes her legacy order`);
     assert.ok(!aliceCardOrders.has(bobOrder), `${label}: alice feed has NO card for bob's order`);
     assert.ok(
-      aliceCards.some((c) => c.orderId === aliceOrder && c.status === 'approved'),
+      aliceCards.some(c => c.orderId === aliceOrder && c.status === 'approved'),
       `${label}: alice feed shows the approved card for her order`
     );
 
@@ -174,31 +176,41 @@ for (const side of [sqlite, npmfree]) {
 
     // Alice marks HER OWN order paid → 200 (the checkout flow depends on this).
     const ownPay = await call(side.url, `/api/order-inquiries/${aliceOrder}/payment`, {
-      method: 'PUT', token: alice.token, body: { payment_status: 'paid' },
+      method: 'PUT',
+      token: alice.token,
+      body: { payment_status: 'paid' },
     });
     assert.strictEqual(ownPay.status, 200, `${label}: customer can pay their own order`);
 
     // Alice marks BOB's order paid → 403.
     const crossPay = await call(side.url, `/api/order-inquiries/${bobOrder}/payment`, {
-      method: 'PUT', token: alice.token, body: { payment_status: 'paid' },
+      method: 'PUT',
+      token: alice.token,
+      body: { payment_status: 'paid' },
     });
     assert.strictEqual(crossPay.status, 403, `${label}: customer cannot pay another account's order`);
 
     // Alice changes BOB's status → 403 (status updates are admin-only).
     const crossStatus = await call(side.url, `/api/order-inquiries/${bobOrder}`, {
-      method: 'PUT', token: alice.token, body: { status: 'approved' },
+      method: 'PUT',
+      token: alice.token,
+      body: { status: 'approved' },
     });
     assert.strictEqual(crossStatus.status, 403, `${label}: customer cannot change another account's status`);
 
     // Alice cannot change her OWN status either (admin-only).
     const ownStatus = await call(side.url, `/api/order-inquiries/${aliceOrder}`, {
-      method: 'PUT', token: alice.token, body: { status: 'approved' },
+      method: 'PUT',
+      token: alice.token,
+      body: { status: 'approved' },
     });
     assert.strictEqual(ownStatus.status, 403, `${label}: status updates are admin-only even on own order`);
 
     // Admin CAN change either order's status.
     const adminStatus = await call(side.url, `/api/order-inquiries/${bobOrder}`, {
-      method: 'PUT', token: side.token.admin, body: { status: 'approved' },
+      method: 'PUT',
+      token: side.token.admin,
+      body: { status: 'approved' },
     });
     assert.strictEqual(adminStatus.status, 200, `${label}: admin can update any order`);
   });

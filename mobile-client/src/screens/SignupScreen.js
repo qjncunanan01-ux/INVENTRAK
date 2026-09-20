@@ -42,7 +42,7 @@ export default function SignupScreen({ navigation }) {
   const checks = useMemo(() => passwordErrors(password), [password]);
   const allMet = checks.every(([, ok]) => ok);
 
-  const handleSignup = async () => {
+  const handleSignup = async() => {
     const uname = username.trim();
     const mail = email.trim();
     const ph = phone.trim().replace(/\s+/g, '');
@@ -69,7 +69,7 @@ export default function SignupScreen({ navigation }) {
     if (!consent) {
       Alert.alert(
         'Consent Required',
-        'Please agree to the Data Privacy Act notice to create your account.'
+        'Please agree to the Data Privacy Act notice to create your account.',
       );
       return;
     }
@@ -101,7 +101,7 @@ export default function SignupScreen({ navigation }) {
     } catch (err) {
       Alert.alert(
         'Sign Up Failed',
-        err.message || 'Please try again.'
+        err.message || 'Please try again.',
       );
     } finally {
       setLoading(false);
@@ -235,58 +235,58 @@ export default function SignupScreen({ navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, justifyContent: 'center', padding: 28 },
-  title: { fontSize: 28, fontWeight: '800', textAlign: 'center', color: colors.textPrimary, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 },
-  label: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 6, marginTop: 6 },
-  hint: { fontSize: 11, color: colors.textSecondary, marginTop: -8, marginBottom: 10, paddingHorizontal: 4 },
-  input: {
-    backgroundColor: colors.surface,
-    padding: 14,
-    marginBottom: 14,
-    borderRadius: 12,
-    color: colors.textPrimary,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  checklist: { marginBottom: 14, paddingHorizontal: 4 },
+  button: { alignItems: 'center', borderRadius: 14, marginTop: 6, paddingVertical: 16 },
+  checkBad: { color: colors.textSecondary },
   checkItem: { fontSize: 13, marginBottom: 3 },
   checkOk: { color: colors.success },
-  checkBad: { color: colors.textSecondary },
-  consentBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#f0f7ff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#cfe3f7',
-    padding: 12,
-    marginBottom: 16,
-  },
   checkbox: {
-    width: 22,
-    height: 22,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#7ba7d0',
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#7ba7d0',
+    height: 22,
+    justifyContent: 'center',
     marginRight: 10,
     marginTop: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
+    width: 22,
   },
-  checkboxOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
   checkboxMark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  checkboxOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
+  checklist: { marginBottom: 14, paddingHorizontal: 4 },
+  consentBody: { color: colors.textSecondary, fontSize: 12, lineHeight: 17 },
+  consentBox: {
+    alignItems: 'flex-start',
+    backgroundColor: '#f0f7ff',
+    borderColor: '#cfe3f7',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: 16,
+    padding: 12,
+  },
   consentTextWrap: { flex: 1 },
-  consentTitle: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
-  consentBody: { fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
-  button: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 6 },
+  consentTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '700', marginBottom: 4 },
+  container: { flexGrow: 1, justifyContent: 'center', padding: 28 },
+  flex: { backgroundColor: colors.background, flex: 1 },
+  hint: { color: colors.textSecondary, fontSize: 11, marginBottom: 10, marginTop: -8, paddingHorizontal: 4 },
+  input: {
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(0,0,0,0.06)',
+    borderRadius: 12,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    fontSize: 16,
+    marginBottom: 14,
+    padding: 14,
+  },
+  label: { color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 6 },
+  linkRow: { alignItems: 'center', marginTop: 18 },
+  linkStrong: { color: colors.brandPrimary, fontWeight: '700' },
+  linkText: { color: colors.textSecondary, fontSize: 14 },
   primary: { backgroundColor: colors.brandPrimary },
   primaryText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   spinner: { marginTop: 18 },
-  linkRow: { marginTop: 18, alignItems: 'center' },
-  linkText: { fontSize: 14, color: colors.textSecondary },
-  linkStrong: { color: colors.brandPrimary, fontWeight: '700' },
+  subtitle: { color: colors.textSecondary, fontSize: 14, marginBottom: 24, textAlign: 'center' },
+  title: { color: colors.textPrimary, fontSize: 28, fontWeight: '800', marginBottom: 4, textAlign: 'center' },
 });

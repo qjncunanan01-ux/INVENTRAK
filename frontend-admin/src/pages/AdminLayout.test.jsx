@@ -37,7 +37,7 @@ function renderLayout() {
           <div>page content</div>
         </AdminLayout>
       </ThemeProvider>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
@@ -93,7 +93,7 @@ describe('AdminLayout responsive sidebar', () => {
     expect(Number.parseFloat(getComputedStyle(container.querySelector('aside')).width)).toBe(76);
   });
 
-  test('mobile: no fixed sidebar; hamburger opens a temporary drawer with the full nav', async () => {
+  test('mobile: no fixed sidebar; hamburger opens a temporary drawer with the full nav', async() => {
     setViewport(false);
     const { container } = renderLayout();
 

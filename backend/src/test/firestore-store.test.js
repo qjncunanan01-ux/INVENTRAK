@@ -45,14 +45,27 @@ test('firestore driver persists the approval-workflow datasets (adjustments + tr
   await fsStore.init();
 
   const adjustment = {
-    id: 1, product_id: 1, location_id: 1, new_qty: 150,
-    reason: 'physical count', status: 'approved',
-    created_at: '2026-08-07T00:00:00.000Z', decided_at: '2026-08-07T00:01:00.000Z', decided_by: 'admin',
+    id: 1,
+    product_id: 1,
+    location_id: 1,
+    new_qty: 150,
+    reason: 'physical count',
+    status: 'approved',
+    created_at: '2026-08-07T00:00:00.000Z',
+    decided_at: '2026-08-07T00:01:00.000Z',
+    decided_by: 'admin',
   };
   const transfer = {
-    id: 1, product_id: 1, src_location: 2, dst_location: 3, qty: 10,
-    reason: 'restock', status: 'pending',
-    created_at: '2026-08-07T00:00:00.000Z', decided_at: null, decided_by: null,
+    id: 1,
+    product_id: 1,
+    src_location: 2,
+    dst_location: 3,
+    qty: 10,
+    reason: 'restock',
+    status: 'pending',
+    created_at: '2026-08-07T00:00:00.000Z',
+    decided_at: null,
+    decided_by: null,
   };
   fsStore.write('stock_adjustments.json', [adjustment]);
   fsStore.write('stock_transfers.json', [transfer]);
@@ -93,12 +106,8 @@ test('firestore driver persists verification + password-reset codes so they surv
   assert.strictEqual(fsStore.collectionFor('@verificationCodes'), 'verificationCodes');
   assert.strictEqual(fsStore.collectionFor('@resetTokens'), 'resetTokens');
 
-  fsStore.write('@verificationCodes', [
-    { code_hash: 'vhash123', user_id: 15, expires_at: '2026-08-15T15:20:00.000Z' },
-  ]);
-  fsStore.write('@resetTokens', [
-    { code_hash: 'rhash456', user_id: 15, expires_at: '2026-08-15T15:20:00.000Z' },
-  ]);
+  fsStore.write('@verificationCodes', [{ code_hash: 'vhash123', user_id: 15, expires_at: '2026-08-15T15:20:00.000Z' }]);
+  fsStore.write('@resetTokens', [{ code_hash: 'rhash456', user_id: 15, expires_at: '2026-08-15T15:20:00.000Z' }]);
   await fsStore.flush();
 
   const vDoc = [...fake._cols.get('verificationCodes').values()][0];
@@ -145,9 +154,9 @@ test('firestore driver sanitizes nulls to empty strings (Firestore rejects null)
 test('firestore driver persists product arrays with position-based ids', async () => {
   const store = await freshFirestoreStore();
   const products = [
-    { 'Product Name': 'A', 'Price': 10 },
-    { 'Product Name': 'B', 'Price': 20 },
-    { 'Product Name': 'C', 'Price': 30 },
+    { 'Product Name': 'A', Price: 10 },
+    { 'Product Name': 'B', Price: 20 },
+    { 'Product Name': 'C', Price: 30 },
   ];
   store.write('products.json', products);
   await store.flush();
@@ -195,16 +204,13 @@ test('firestore driver auto-seeds an empty project from the local JSON catalog',
   const fs = require('node:fs');
   const path = require('node:path');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-store-'));
-  fs.writeFileSync(
-    path.join(tmp, 'products.json'),
-    JSON.stringify([{ 'Product Name': 'Demo', 'Price': 42 }])
-  );
+  fs.writeFileSync(path.join(tmp, 'products.json'), JSON.stringify([{ 'Product Name': 'Demo', Price: 42 }]));
   const prev = process.env.INVENTRAK_DATA_DIR;
   process.env.INVENTRAK_DATA_DIR = tmp;
   try {
     fsStore._setDb(makeFakeDb());
     await fsStore.init();
-    assert.deepStrictEqual(fsStore.read('products.json'), [{ 'Product Name': 'Demo', 'Price': 42 }]);
+    assert.deepStrictEqual(fsStore.read('products.json'), [{ 'Product Name': 'Demo', Price: 42 }]);
   } finally {
     if (prev === undefined) delete process.env.INVENTRAK_DATA_DIR;
     else process.env.INVENTRAK_DATA_DIR = prev;
@@ -224,8 +230,13 @@ test('json and firestore drivers agree on the stored shape (value parity)', asyn
   // The repo file already holds data; assert the firestore roundtrip matches
   // whatever the JSON driver reads for the SAME key when seeded identically.
   // (Simple sanity: both expose the same collection-of-shapes.)
-  const shapes = (v) =>
-    Array.isArray(v) ? v.map((r) => Object.keys(r).sort().join(',')).sort().join(';') : 'null';
+  const shapes = v =>
+    Array.isArray(v)
+      ? v
+          .map(r => Object.keys(r).sort().join(','))
+          .sort()
+          .join(';')
+      : 'null';
   assert.deepStrictEqual(
     shapes(firestore.read('order_inquiries.json')),
     shapes(rows),
@@ -278,7 +289,7 @@ test('firestore driver throws a clear error when Firebase is not configured', as
   try {
     await assert.rejects(
       () => clean.init(),
-      (err) => /FIREBASE|Firestore|firebase-admin/i.test(err.message),
+      err => /FIREBASE|Firestore|firebase-admin/i.test(err.message),
       'should throw a clear message about missing Firebase config'
     );
   } finally {

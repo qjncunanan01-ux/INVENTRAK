@@ -9,7 +9,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // The notify log line is `[notify] email (...) :: {"to":...,"text":"..."}`
 // with the payload JSON.stringify'd (newlines as literal \n escapes). Parse
@@ -45,7 +45,7 @@ test('reset: a code older than the TTL is rejected as expired on BOTH backends',
       body: { username: user, password: 'OldPass!123', email: `${user}@example.com`, phone: '09171234567' },
     });
 
-    let lines = [];
+    const lines = [];
     const orig = console.log;
     console.log = (...args) => {
       const line = args.join(' ');
@@ -81,6 +81,10 @@ test('reset: a code older than the TTL is rejected as expired on BOTH backends',
       method: 'POST',
       body: { username: user, password: 'OldPass!123' },
     });
-    assert.strictEqual(login.status, 200, `${side === sqlite ? 'sqlite' : 'npmfree'} original password intact after expiry`);
+    assert.strictEqual(
+      login.status,
+      200,
+      `${side === sqlite ? 'sqlite' : 'npmfree'} original password intact after expiry`
+    );
   }
 });

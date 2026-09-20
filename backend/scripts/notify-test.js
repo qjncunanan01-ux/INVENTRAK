@@ -37,7 +37,11 @@ async function main() {
   if (emailKey) {
     configured += 1;
     if (!testEmail) {
-      results.push({ channel: 'email', ok: false, detail: 'TEST_EMAIL not set — set it to the address to receive the test' });
+      results.push({
+        channel: 'email',
+        ok: false,
+        detail: 'TEST_EMAIL not set — set it to the address to receive the test',
+      });
     } else {
       hr();
       console.log(`[notify:test] sending test EMAIL to ${testEmail} via Resend...`);
@@ -56,7 +60,11 @@ async function main() {
   if (smsConfigured) {
     configured += 1;
     if (!testPhone) {
-      results.push({ channel: 'sms', ok: false, detail: 'TEST_PHONE not set — set it to the PH mobile number to receive the test' });
+      results.push({
+        channel: 'sms',
+        ok: false,
+        detail: 'TEST_PHONE not set — set it to the PH mobile number to receive the test',
+      });
     } else {
       hr();
       console.log(`[notify:test] sending test SMS to ${testPhone} via ${semaphoreKey ? 'Semaphore' : 'Twilio'}...`);
@@ -79,7 +87,9 @@ async function main() {
   }
   hr();
   if (failed > 0) {
-    console.log(`[notify:test] ${failed} channel(s) failed — check the provider error logged above and the keys in the env.`);
+    console.log(
+      `[notify:test] ${failed} channel(s) failed — check the provider error logged above and the keys in the env.`
+    );
     process.exit(1);
   }
   if (configured === 0) process.exit(2);
@@ -87,7 +97,7 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error(`[notify:test] unexpected error: ${err && err.stack}`);
   process.exit(1);
 });

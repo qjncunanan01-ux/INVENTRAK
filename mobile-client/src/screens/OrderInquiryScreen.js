@@ -49,7 +49,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
   // page or the recommendation bundle) into cart entries — not rendered.
   // listAllProducts pages past the 100-row clamp so ids beyond the first
   // page (e.g. a recommendation bundle deep-link) still resolve.
-  const fetchCatalog = useCallback(async () => {
+  const fetchCatalog = useCallback(async() => {
     try {
       const data = await listAllProducts();
       setCatalog(data.data || (Array.isArray(data) ? data : []));
@@ -91,7 +91,6 @@ export default function OrderInquiryScreen({ route, navigation }) {
     } else if (preselectId) {
       addOnce(catalog.find((c) => Number(c.id) === Number(preselectId)));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectId, bundleIds, catalog, isLoggedIn]);
 
   // Logged-in customers get their account details prefilled (name, email and
@@ -129,12 +128,12 @@ export default function OrderInquiryScreen({ route, navigation }) {
         subtotal: Math.round(price * i.qty * 100) / 100,
       };
     }),
-    [items]
+    [items],
   );
 
   const estimatedCost = subtotal;
 
-  const submit = async () => {
+  const submit = async() => {
     // Checkout gate: buying requires an account (browsing does not).
     if (!isLoggedIn) {
       setShowAuthGate(true);
@@ -428,87 +427,87 @@ export default function OrderInquiryScreen({ route, navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 16, color: colors.textPrimary },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginVertical: 12, color: colors.textSecondary },
-  input: { backgroundColor: colors.surface, padding: 12, borderRadius: 10, marginBottom: 12, color: colors.textPrimary, fontSize: 15 },
-  addressInput: { minHeight: 68, textAlignVertical: 'top' },
-  paymentRow: { flexDirection: 'row', marginBottom: 14, gap: 10 },
-  paymentChip: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.08)',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  paymentChipActive: { borderColor: colors.brandPrimary, backgroundColor: '#e9f7ee' },
-  paymentChipLabel: { fontWeight: '700', color: colors.textPrimary, fontSize: 15 },
-  paymentChipLabelActive: { color: colors.brandPrimary },
-  paymentChipHint: { fontSize: 10, color: colors.textSecondary, marginTop: 2 },
-  paymentChipHintActive: { color: colors.brandPrimary },
-  emptyCart: { backgroundColor: colors.surface, borderRadius: 12, padding: 20, alignItems: 'center' },
-  emptyCartTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-  emptyCartSub: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 6, lineHeight: 19 },
-  browseBtn: { marginTop: 14, backgroundColor: colors.brandPrimary, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 24 },
-  browseBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  cartRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, padding: 12, marginBottom: 10 },
-  cartThumb: { width: 52, height: 52, borderRadius: 8, backgroundColor: colors.background, marginRight: 12 },
-  cartThumbPlaceholder: { backgroundColor: '#e3eeda' },
-  cartInfo: { flex: 1, marginRight: 8 },
-  cartName: { fontWeight: '600', color: colors.textPrimary, fontSize: 14 },
-  cartPrice: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
-  stepper: { flexDirection: 'row', alignItems: 'center', marginTop: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)', borderRadius: 8, backgroundColor: colors.background },
-  stepBtn: { paddingHorizontal: 10, paddingVertical: 4 },
-  stepText: { fontSize: 15, fontWeight: '700', color: colors.brandPrimary },
-  qtyText: { minWidth: 26, textAlign: 'center', fontWeight: '700', color: colors.textPrimary, fontSize: 14 },
-  cartRight: { alignItems: 'flex-end' },
-  lineTotal: { color: colors.brandPrimary, fontWeight: '800', fontSize: 14 },
-  removeText: { color: colors.error, fontSize: 12, marginTop: 6 },
   addMoreBtn: { alignItems: 'center', paddingVertical: 10 },
-  addMoreText: { color: colors.brandPrimary, fontWeight: '700', fontSize: 14 },
-  estimate: { fontSize: 18, fontWeight: '600', marginBottom: 12, color: colors.textPrimary },
-  message: { marginTop: 16, color: colors.success, textAlign: 'center' },
+  addMoreText: { color: colors.brandPrimary, fontSize: 14, fontWeight: '700' },
+  addressInput: { minHeight: 68, textAlignVertical: 'top' },
+  browseBtn: { backgroundColor: colors.brandPrimary, borderRadius: 10, marginTop: 14, paddingHorizontal: 24, paddingVertical: 12 },
+  browseBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  cartInfo: { flex: 1, marginRight: 8 },
+  cartName: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
+  cartPrice: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  cartRight: { alignItems: 'flex-end' },
+  cartRow: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, flexDirection: 'row', marginBottom: 10, padding: 12 },
+  cartThumb: { backgroundColor: colors.background, borderRadius: 8, height: 52, marginRight: 12, width: 52 },
+  cartThumbPlaceholder: { backgroundColor: '#e3eeda' },
+  center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
+  container: { backgroundColor: colors.background, flex: 1, padding: 20 },
+  emptyCart: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, padding: 20 },
+  emptyCartSub: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 6, textAlign: 'center' },
+  emptyCartTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '700' },
+  estimate: { color: colors.textPrimary, fontSize: 18, fontWeight: '600', marginBottom: 12 },
   guestBanner: {
     backgroundColor: '#fff4e0',
-    borderWidth: 1,
     borderColor: '#f0c36d',
     borderRadius: 10,
-    padding: 12,
+    borderWidth: 1,
     marginBottom: 12,
+    padding: 12,
   },
   guestBannerText: { color: '#7a5c00', fontSize: 13, lineHeight: 19 },
+  input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, fontSize: 15, marginBottom: 12, padding: 12 },
+  lineTotal: { color: colors.brandPrimary, fontSize: 14, fontWeight: '800' },
+  message: { color: colors.success, marginTop: 16, textAlign: 'center' },
   modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    flex: 1,
     justifyContent: 'center',
     padding: 28,
   },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 380,
-    alignItems: 'center',
-  },
-  modalGlyph: { fontSize: 34, marginBottom: 8 },
-  modalTitle: { fontSize: 19, fontWeight: '800', color: colors.textPrimary },
   modalBody: {
-    fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
+    fontSize: 14,
     lineHeight: 20,
-    marginTop: 8,
     marginBottom: 18,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  modalBtn: { width: '100%', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  modalBtn: { alignItems: 'center', borderRadius: 12, marginBottom: 10, paddingVertical: 14, width: '100%' },
   modalBtnPrimary: { backgroundColor: colors.brandPrimary },
   modalBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  modalBtnSecondary: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: colors.brandPrimary },
+  modalBtnSecondary: { backgroundColor: '#fff', borderColor: colors.brandPrimary, borderWidth: 1.5 },
   modalBtnSecondaryText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
   modalCancel: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
+  modalCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    maxWidth: 380,
+    padding: 24,
+    width: '100%',
+  },
+  modalGlyph: { fontSize: 34, marginBottom: 8 },
+  modalTitle: { color: colors.textPrimary, fontSize: 19, fontWeight: '800' },
+  paymentChip: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(0,0,0,0.08)',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    flex: 1,
+    paddingVertical: 12,
+  },
+  paymentChipActive: { backgroundColor: '#e9f7ee', borderColor: colors.brandPrimary },
+  paymentChipHint: { color: colors.textSecondary, fontSize: 10, marginTop: 2 },
+  paymentChipHintActive: { color: colors.brandPrimary },
+  paymentChipLabel: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  paymentChipLabelActive: { color: colors.brandPrimary },
+  paymentRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  qtyText: { color: colors.textPrimary, fontSize: 14, fontWeight: '700', minWidth: 26, textAlign: 'center' },
+  removeText: { color: colors.error, fontSize: 12, marginTop: 6 },
+  sectionTitle: { color: colors.textSecondary, fontSize: 16, fontWeight: '600', marginVertical: 12 },
+  stepBtn: { paddingHorizontal: 10, paddingVertical: 4 },
+  stepText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
+  stepper: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: colors.background, borderColor: 'rgba(0,0,0,0.1)', borderRadius: 8, borderWidth: 1, flexDirection: 'row', marginTop: 8 },
+  title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: 16 },
 });

@@ -183,7 +183,7 @@ export default function OrderInquiriesPage({ onLogout }) {
     setConfirmDialog({ open: true, id: orderId, status });
   };
 
-  const executeAction = async () => {
+  const executeAction = async() => {
     try {
       await apiPut(`/api/order-inquiries/${confirmDialog.id}`, { status: confirmDialog.status });
       setSnackbar({ open: true, message: `Order marked ${confirmDialog.status}`, severity: 'success' });

@@ -154,29 +154,41 @@ test('contract: products list, pagination, search, categories, by-id, 404', asyn
 test('contract: product CRUD lifecycle', async () => {
   const payload = { name: 'Contract Widget', category: 'Contract', price: 42 };
   const s = await call(sqlite.url, '/api/products', {
-    method: 'POST', token: sqlite.token.admin, body: payload,
+    method: 'POST',
+    token: sqlite.token.admin,
+    body: payload,
   });
   const n = await call(npmfree.url, '/api/products', {
-    method: 'POST', token: npmfree.token.admin, body: payload,
+    method: 'POST',
+    token: npmfree.token.admin,
+    body: payload,
   });
   assert.strictEqual(s.status, 201, 'sqlite create product');
   assert.strictEqual(n.status, 201, 'npmfree create product');
   assert.strictEqual(shapeOf(s.json), shapeOf(n.json), 'create product shapes');
 
   const sPut = await call(sqlite.url, `/api/products/${s.json.id}`, {
-    method: 'PUT', token: sqlite.token.admin, body: { name: 'Contract Widget v2', category: 'Contract', price: 50, status: 'active' },
+    method: 'PUT',
+    token: sqlite.token.admin,
+    body: { name: 'Contract Widget v2', category: 'Contract', price: 50, status: 'active' },
   });
   const nPut = await call(npmfree.url, `/api/products/${n.json.id}`, {
-    method: 'PUT', token: npmfree.token.admin, body: { name: 'Contract Widget v2', category: 'Contract', price: 50, status: 'active' },
+    method: 'PUT',
+    token: npmfree.token.admin,
+    body: { name: 'Contract Widget v2', category: 'Contract', price: 50, status: 'active' },
   });
   assert.strictEqual(shapeOf(sPut.json), shapeOf(nPut.json), 'update product shapes');
 
   // A partial PUT (no price/status) must null those columns identically.
   const sPut2 = await call(sqlite.url, `/api/products/${s.json.id}`, {
-    method: 'PUT', token: sqlite.token.admin, body: { name: 'Contract Widget v3' },
+    method: 'PUT',
+    token: sqlite.token.admin,
+    body: { name: 'Contract Widget v3' },
   });
   const nPut2 = await call(npmfree.url, `/api/products/${n.json.id}`, {
-    method: 'PUT', token: npmfree.token.admin, body: { name: 'Contract Widget v3' },
+    method: 'PUT',
+    token: npmfree.token.admin,
+    body: { name: 'Contract Widget v3' },
   });
   assert.strictEqual(shapeOf(sPut2.json), shapeOf(nPut2.json), 'partial update shapes');
   const sGet2 = await call(sqlite.url, `/api/products/${s.json.id}`);
@@ -197,10 +209,13 @@ test('contract: product CRUD lifecycle', async () => {
 
 test('contract: product auth enforcement (401 without token, 403 for customer)', async () => {
   await both('POST /api/products (no token)', '/api/products', {
-    method: 'POST', body: { name: 'X', category: 'Y', price: 1 },
+    method: 'POST',
+    body: { name: 'X', category: 'Y', price: 1 },
   });
   await both('POST /api/products (customer)', '/api/products', {
-    method: 'POST', auth: 'customer', body: { name: 'X', category: 'Y', price: 1 },
+    method: 'POST',
+    auth: 'customer',
+    body: { name: 'X', category: 'Y', price: 1 },
   });
 });
 
@@ -209,10 +224,14 @@ test('contract: bulk price update matches by name and id identically on both bac
   // unambiguous (the seeded catalog has thousands of rows on the shared files).
   const uname = `Bulk ${Date.now().toString(36)}`;
   const s = await call(sqlite.url, '/api/products', {
-    method: 'POST', token: sqlite.token.admin, body: { name: uname, category: 'Contract', price: 1 },
+    method: 'POST',
+    token: sqlite.token.admin,
+    body: { name: uname, category: 'Contract', price: 1 },
   });
   const n = await call(npmfree.url, '/api/products', {
-    method: 'POST', token: npmfree.token.admin, body: { name: uname, category: 'Contract', price: 1 },
+    method: 'POST',
+    token: npmfree.token.admin,
+    body: { name: uname, category: 'Contract', price: 1 },
   });
   assert.strictEqual(s.status, 201);
   assert.strictEqual(n.status, 201);
@@ -233,7 +252,11 @@ test('contract: bulk price update matches by name and id identically on both bac
   ];
   const body = { prices };
   const sRes = await call(sqlite.url, '/api/products/bulk-prices', { method: 'POST', token: sqlite.token.admin, body });
-  const nRes = await call(npmfree.url, '/api/products/bulk-prices', { method: 'POST', token: npmfree.token.admin, body: { prices: prices.map((p, i) => i === 5 ? { ...p, id: n.json.id } : p) } });
+  const nRes = await call(npmfree.url, '/api/products/bulk-prices', {
+    method: 'POST',
+    token: npmfree.token.admin,
+    body: { prices: prices.map((p, i) => (i === 5 ? { ...p, id: n.json.id } : p)) },
+  });
   assert.strictEqual(sRes.status, 200);
   assert.strictEqual(nRes.status, 200);
   assert.strictEqual(shapeOf(sRes.json), shapeOf(nRes.json), 'bulk price result shapes');
@@ -255,14 +278,27 @@ test('contract: bulk price update matches by name and id identically on both bac
   assert.strictEqual(nGet.json.price, 888, 'npmfree final price');
 
   // Validation errors: non-array / empty / oversized batches 400 identically.
-  await both('bulk not an array', '/api/products/bulk-prices', { method: 'POST', auth: 'admin', body: { prices: 'nope' } });
+  await both('bulk not an array', '/api/products/bulk-prices', {
+    method: 'POST',
+    auth: 'admin',
+    body: { prices: 'nope' },
+  });
   await both('bulk empty', '/api/products/bulk-prices', { method: 'POST', auth: 'admin', body: { prices: [] } });
-  await both('bulk no token', '/api/products/bulk-prices', { method: 'POST', body: { prices: [{ name: 'x', price: 1 }] } });
-  await both('bulk customer forbidden', '/api/products/bulk-prices', { method: 'POST', auth: 'customer', body: { prices: [{ name: 'x', price: 1 }] } });
+  await both('bulk no token', '/api/products/bulk-prices', {
+    method: 'POST',
+    body: { prices: [{ name: 'x', price: 1 }] },
+  });
+  await both('bulk customer forbidden', '/api/products/bulk-prices', {
+    method: 'POST',
+    auth: 'customer',
+    body: { prices: [{ name: 'x', price: 1 }] },
+  });
 
   // A negative price is skipped (never aborts), identically on both.
   const neg = await both('bulk negative price', '/api/products/bulk-prices', {
-    method: 'POST', auth: 'admin', body: { prices: [{ name: uname, price: -5 }] },
+    method: 'POST',
+    auth: 'admin',
+    body: { prices: [{ name: uname, price: -5 }] },
   });
   assert.strictEqual(neg.a.json.updated, 0);
   assert.strictEqual(neg.b.json.updated, 0);
@@ -275,10 +311,14 @@ test('contract: inventory list + low-stock + location filter', async () => {
   await both('GET /api/inventory', '/api/inventory');
   // A freshly created product has 0 stock, so low_stock is non-empty on both.
   const s = await call(sqlite.url, '/api/products', {
-    method: 'POST', token: sqlite.token.admin, body: { name: 'Low Stock Item', category: 'Contract', price: 9 },
+    method: 'POST',
+    token: sqlite.token.admin,
+    body: { name: 'Low Stock Item', category: 'Contract', price: 9 },
   });
   const n = await call(npmfree.url, '/api/products', {
-    method: 'POST', token: npmfree.token.admin, body: { name: 'Low Stock Item', category: 'Contract', price: 9 },
+    method: 'POST',
+    token: npmfree.token.admin,
+    body: { name: 'Low Stock Item', category: 'Contract', price: 9 },
   });
   assert.strictEqual(s.status, 201);
   assert.strictEqual(n.status, 201);
@@ -296,7 +336,9 @@ test('contract: locations list/create/duplicate/delete', async () => {
   assert.strictEqual(shapeOf(s.json), shapeOf(n.json), 'create location shapes');
 
   await both('POST /api/locations (duplicate)', '/api/locations', {
-    method: 'POST', auth: 'admin', body: { name },
+    method: 'POST',
+    auth: 'admin',
+    body: { name },
   });
 
   const sDel = await call(sqlite.url, `/api/locations/${s.json.id}`, { method: 'DELETE', token: sqlite.token.admin });
@@ -311,16 +353,23 @@ test('contract: locations list/create/duplicate/delete', async () => {
 
 test('contract: stock movements + lots', async () => {
   await both('POST /api/stock-movement (stock-in)', '/api/stock-movement', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, qty: 10, type: 'stock-in', dst_location: 1, notes: 'contract' },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, qty: 10, type: 'stock-in', dst_location: 1, notes: 'contract' },
   });
   await both('POST /api/stock-movement (invalid type)', '/api/stock-movement', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, qty: 1, type: 'bogus', dst_location: 1 },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, qty: 1, type: 'bogus', dst_location: 1 },
   });
   await both('POST /api/stock-movement (insufficient stock)', '/api/stock-movement', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, qty: 999999, type: 'stock-out', src_location: 1 },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, qty: 999999, type: 'stock-out', src_location: 1 },
   });
   await both('POST /api/stock-movement (no token)', '/api/stock-movement', {
-    method: 'POST', body: { product_id: 1, qty: 1, type: 'stock-in', dst_location: 1 },
+    method: 'POST',
+    body: { product_id: 1, qty: 1, type: 'stock-in', dst_location: 1 },
   });
   await both('GET /api/stock-movements', '/api/stock-movements');
   await both('GET /api/stock-movements?page=1&limit=2', '/api/stock-movements?page=1&limit=2');
@@ -334,15 +383,13 @@ test('contract: rejected stock-out leaves no movement record on either backend',
   for (const side of [sqlite, npmfree]) {
     const before = await call(side.url, '/api/stock-movements');
     const res = await call(side.url, '/api/stock-movement', {
-      method: 'POST', token: side.token.admin,
+      method: 'POST',
+      token: side.token.admin,
       body: { product_id: 1, qty: 999999999, type: 'stock-out', src_location: 1 },
     });
     assert.strictEqual(res.status, 400, 'insufficient stock must 400');
     const after = await call(side.url, '/api/stock-movements');
-    assert.strictEqual(
-      after.json.length, before.json.length,
-      'rejected stock-out must not append a movement record'
-    );
+    assert.strictEqual(after.json.length, before.json.length, 'rejected stock-out must not append a movement record');
   }
 });
 
@@ -358,22 +405,40 @@ test('contract: order inquiries lifecycle', async () => {
   };
   // Place the inquiry WITH the customer token on both backends so it is
   // stamped with its owner (per-account history scoping).
-  await both('POST /api/order-inquiries (owner)', '/api/order-inquiries', { method: 'POST', auth: 'customer', body: payload });
+  await both('POST /api/order-inquiries (owner)', '/api/order-inquiries', {
+    method: 'POST',
+    auth: 'customer',
+    body: payload,
+  });
   await both('POST /api/order-inquiries (missing email)', '/api/order-inquiries', {
-    method: 'POST', body: { customer_name: 'No Email' },
+    method: 'POST',
+    body: { customer_name: 'No Email' },
   });
 
   // customer_phone value parity: submit WITH a phone (as the owner), then both
   // backends must return the same phone (locks the npmfree read-normalization).
-  const phonePayload = { ...payload, customer_name: 'Phone Customer', customer_email: 'customer@example.com', customer_phone: '+639171234567' };
-  const sp = await call(sqlite.url, '/api/order-inquiries', { method: 'POST', token: sqlite.token.customer, body: phonePayload });
-  const np = await call(npmfree.url, '/api/order-inquiries', { method: 'POST', token: npmfree.token.customer, body: phonePayload });
+  const phonePayload = {
+    ...payload,
+    customer_name: 'Phone Customer',
+    customer_email: 'customer@example.com',
+    customer_phone: '+639171234567',
+  };
+  const sp = await call(sqlite.url, '/api/order-inquiries', {
+    method: 'POST',
+    token: sqlite.token.customer,
+    body: phonePayload,
+  });
+  const np = await call(npmfree.url, '/api/order-inquiries', {
+    method: 'POST',
+    token: npmfree.token.customer,
+    body: phonePayload,
+  });
   assert.strictEqual(sp.status, 201);
   assert.strictEqual(np.status, 201);
   const spList = await call(sqlite.url, '/api/order-inquiries', { token: sqlite.token.customer });
   const npList = await call(npmfree.url, '/api/order-inquiries', { token: npmfree.token.customer });
-  const sPhone = spList.json.find((o) => o.customer_email === 'customer@example.com');
-  const nPhone = npList.json.find((o) => o.customer_email === 'customer@example.com');
+  const sPhone = spList.json.find(o => o.customer_email === 'customer@example.com');
+  const nPhone = npList.json.find(o => o.customer_email === 'customer@example.com');
   assert.ok(sPhone, 'sqlite owner sees the phone order');
   assert.ok(nPhone, 'npmfree owner sees the phone order');
   assert.strictEqual(sPhone.customer_phone, '+639171234567', 'sqlite stores phone');
@@ -385,17 +450,27 @@ test('contract: order inquiries lifecycle', async () => {
   for (const side of [sqlite, npmfree]) {
     const uname = `other_${Date.now().toString(36)}_${side === sqlite ? 's' : 'n'}`;
     const reg = await call(side.url, '/api/auth/register', {
-      method: 'POST', body: { username: uname, password: 'Test123!', email: `${uname}@example.com`, phone: '09171234567' },
+      method: 'POST',
+      body: { username: uname, password: 'Test123!', email: `${uname}@example.com`, phone: '09171234567' },
     });
     assert.strictEqual(reg.status, 200);
-    const login = await call(side.url, '/api/auth/login', { method: 'POST', body: { username: uname, password: 'Test123!' } });
+    const login = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: uname, password: 'Test123!' },
+    });
     const otherList = await call(side.url, '/api/order-inquiries', { token: login.json.token });
     assert.strictEqual(otherList.status, 200);
-    assert.strictEqual(otherList.json.length, 0, `${side === sqlite ? 'sqlite' : 'npmfree'}: a different account sees no orders`);
+    assert.strictEqual(
+      otherList.json.length,
+      0,
+      `${side === sqlite ? 'sqlite' : 'npmfree'}: a different account sees no orders`
+    );
   }
 
   await both('GET /api/order-inquiries (customer)', '/api/order-inquiries', { auth: 'customer' });
-  await both('GET /api/order-inquiries?status=pending (customer)', '/api/order-inquiries?status=pending', { auth: 'customer' });
+  await both('GET /api/order-inquiries?status=pending (customer)', '/api/order-inquiries?status=pending', {
+    auth: 'customer',
+  });
   await both('GET /api/order-inquiries (no token)', '/api/order-inquiries');
 
   const s = await call(sqlite.url, '/api/order-inquiries', { token: sqlite.token.customer });
@@ -406,10 +481,14 @@ test('contract: order inquiries lifecycle', async () => {
   const nId = n.json[0].id;
 
   const sPut = await call(sqlite.url, `/api/order-inquiries/${sId}`, {
-    method: 'PUT', token: sqlite.token.admin, body: { status: 'approved' },
+    method: 'PUT',
+    token: sqlite.token.admin,
+    body: { status: 'approved' },
   });
   const nPut = await call(npmfree.url, `/api/order-inquiries/${nId}`, {
-    method: 'PUT', token: npmfree.token.admin, body: { status: 'approved' },
+    method: 'PUT',
+    token: npmfree.token.admin,
+    body: { status: 'approved' },
   });
   assert.strictEqual(sPut.status, nPut.status, 'inquiry update status');
   assert.strictEqual(shapeOf(sPut.json), shapeOf(nPut.json), 'inquiry update shapes');
@@ -418,20 +497,29 @@ test('contract: order inquiries lifecycle', async () => {
   // backends ('placed' event from created_at, then the new status).
   for (const side of [sqlite, npmfree]) {
     const after = await call(side.url, '/api/order-inquiries', { token: side.token.admin });
-    const row = after.json.find((o) => o.id === (side === sqlite ? sId : nId));
+    const row = after.json.find(o => o.id === (side === sqlite ? sId : nId));
     assert.ok(row, `${side === sqlite ? 'sqlite' : 'npmfree'} updated row found`);
     const history = JSON.parse(row.status_history);
-    assert.ok(Array.isArray(history) && history.length >= 2, `${side === sqlite ? 'sqlite' : 'npmfree'} timeline has placed + approved`);
+    assert.ok(
+      Array.isArray(history) && history.length >= 2,
+      `${side === sqlite ? 'sqlite' : 'npmfree'} timeline has placed + approved`
+    );
     assert.strictEqual(history[0].status, 'pending');
     assert.strictEqual(history[history.length - 1].status, 'approved');
-    assert.ok(history.every((h) => h.at && !Number.isNaN(Date.parse(h.at))), 'every timeline step has a timestamp');
+    assert.ok(
+      history.every(h => h.at && !Number.isNaN(Date.parse(h.at))),
+      'every timeline step has a timestamp'
+    );
   }
 
   await both('PUT /api/order-inquiries/99999 (404)', '/api/order-inquiries/99999', {
-    method: 'PUT', auth: 'admin', body: { status: 'approved' },
+    method: 'PUT',
+    auth: 'admin',
+    body: { status: 'approved' },
   });
   await both('PUT /api/order-inquiries (no token)', `/api/order-inquiries/${sId}`, {
-    method: 'PUT', body: { status: 'approved' },
+    method: 'PUT',
+    body: { status: 'approved' },
   });
 });
 
@@ -462,10 +550,13 @@ test('contract: analytics summary + exports', async () => {
 
 test('contract: sales + users', async () => {
   await both('POST /api/sales', '/api/sales', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, qty: 2, customer_name: 'Buyer' },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, qty: 2, customer_name: 'Buyer' },
   });
   await both('POST /api/sales (no token)', '/api/sales', {
-    method: 'POST', body: { product_id: 1, qty: 2 },
+    method: 'POST',
+    body: { product_id: 1, qty: 2 },
   });
   await both('GET /api/sales', '/api/sales', { auth: 'admin' });
   await both('GET /api/sales (no token)', '/api/sales');
@@ -482,10 +573,26 @@ test('contract: input validation + edge cases behave identically', async () => {
   const cases = [
     ['POST /api/sales qty="abc"', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 1, qty: 'abc' } }],
     ['POST /api/sales qty=-5', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 1, qty: -5 } }],
-    ['POST /api/sales product_id="abc"', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 'abc', qty: 2 } }],
-    ['POST /api/products no price', '/api/products', { method: 'POST', auth: 'admin', body: { name: 'NoPrice', category: 'X' } }],
-    ['POST /api/products price="abc"', '/api/products', { method: 'POST', auth: 'admin', body: { name: 'BadPrice', category: 'X', price: 'abc' } }],
-    ['POST /api/products price=-5', '/api/products', { method: 'POST', auth: 'admin', body: { name: 'NegPrice', category: 'X', price: -5 } }],
+    [
+      'POST /api/sales product_id="abc"',
+      '/api/sales',
+      { method: 'POST', auth: 'admin', body: { product_id: 'abc', qty: 2 } },
+    ],
+    [
+      'POST /api/products no price',
+      '/api/products',
+      { method: 'POST', auth: 'admin', body: { name: 'NoPrice', category: 'X' } },
+    ],
+    [
+      'POST /api/products price="abc"',
+      '/api/products',
+      { method: 'POST', auth: 'admin', body: { name: 'BadPrice', category: 'X', price: 'abc' } },
+    ],
+    [
+      'POST /api/products price=-5',
+      '/api/products',
+      { method: 'POST', auth: 'admin', body: { name: 'NegPrice', category: 'X', price: -5 } },
+    ],
     ['GET /api/alerts?status=resolved', '/api/alerts?status=resolved', { auth: 'admin' }],
     ['GET /api/alerts?status=bogus', '/api/alerts?status=bogus', { auth: 'admin' }],
     ['GET /api/products?page=abc', '/api/products?page=abc'],
@@ -495,7 +602,11 @@ test('contract: input validation + edge cases behave identically', async () => {
     ['DELETE /api/locations/1/x', '/api/locations/1/x', { method: 'DELETE', auth: 'admin' }],
     ['GET /api/products/1/2', '/api/products/1/2'],
     ['PUT /api/products/1/2', '/api/products/1/2', { method: 'PUT', auth: 'admin', body: { name: 'x' } }],
-    ['PUT /api/order-inquiries/1/2', '/api/order-inquiries/1/2', { method: 'PUT', auth: 'admin', body: { status: 'approved' } }],
+    [
+      'PUT /api/order-inquiries/1/2',
+      '/api/order-inquiries/1/2',
+      { method: 'PUT', auth: 'admin', body: { status: 'approved' } },
+    ],
     ['GET /api/products?status=inactive', '/api/products?status=inactive'],
   ];
   for (const [label, p, opts] of cases) {
@@ -505,7 +616,11 @@ test('contract: input validation + edge cases behave identically', async () => {
   // Deactivating a product then selling it must 404 on both backends.
   await call(sqlite.url, '/api/products/2', { method: 'DELETE', token: sqlite.token.admin });
   await call(npmfree.url, '/api/products/2', { method: 'DELETE', token: npmfree.token.admin });
-  await both('POST /api/sales inactive product', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 2, qty: 2 } });
+  await both('POST /api/sales inactive product', '/api/sales', {
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 2, qty: 2 },
+  });
 
   // Malformed JSON must be a 400 client error on both, never a 500.
   for (const side of [sqlite, npmfree]) {
@@ -531,10 +646,14 @@ test('contract: alerts are empty, then created by low-stock movement, then resol
 
   // Drive product 1 / location 1 below the 80-unit threshold on both backends.
   await both('POST /api/stock-movement (adjust low)', '/api/stock-movement', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, qty: 5, type: 'adjustment', dst_location: 1 },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, qty: 5, type: 'adjustment', dst_location: 1 },
   });
   await both('POST /api/stock-movement (drain)', '/api/stock-movement', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, qty: 5, type: 'stock-out', src_location: 1 },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, qty: 5, type: 'stock-out', src_location: 1 },
   });
 
   const s = await call(sqlite.url, '/api/alerts', { token: sqlite.token.admin });
@@ -544,13 +663,20 @@ test('contract: alerts are empty, then created by low-stock movement, then resol
   assert.ok(s.json.length > 0, 'sqlite should have an active alert');
   assert.ok(n.json.length > 0, 'npmfree should have an active alert');
 
-  const sResolve = await call(sqlite.url, `/api/alerts/${s.json[0].id}/resolve`, { method: 'PUT', token: sqlite.token.admin });
-  const nResolve = await call(npmfree.url, `/api/alerts/${n.json[0].id}/resolve`, { method: 'PUT', token: npmfree.token.admin });
+  const sResolve = await call(sqlite.url, `/api/alerts/${s.json[0].id}/resolve`, {
+    method: 'PUT',
+    token: sqlite.token.admin,
+  });
+  const nResolve = await call(npmfree.url, `/api/alerts/${n.json[0].id}/resolve`, {
+    method: 'PUT',
+    token: npmfree.token.admin,
+  });
   assert.strictEqual(sResolve.status, nResolve.status, 'resolve alert status');
   assert.strictEqual(shapeOf(sResolve.json), shapeOf(nResolve.json), 'resolve alert shapes');
 
   await both('PUT /api/alerts/99999/resolve (404)', '/api/alerts/99999/resolve', {
-    method: 'PUT', auth: 'admin',
+    method: 'PUT',
+    auth: 'admin',
   });
   await both('GET /api/alerts (after resolve)', '/api/alerts', { auth: 'admin' });
 });
@@ -589,7 +715,15 @@ test('contract: deterministic seed means VALUES match, not just shapes', async (
   const s = await call(sqlite.url, '/api/analytics/summary', { token: sqlite.token.admin });
   const n = await call(npmfree.url, '/api/analytics/summary', { token: npmfree.token.admin });
   assert.strictEqual(s.status, n.status);
-  for (const k of ['totalProducts', 'totalStock', 'lowStockItems', 'totalLocations', 'totalSales', 'totalMovements', 'pendingInquiries']) {
+  for (const k of [
+    'totalProducts',
+    'totalStock',
+    'lowStockItems',
+    'totalLocations',
+    'totalSales',
+    'totalMovements',
+    'pendingInquiries',
+  ]) {
     assert.strictEqual(s.json[k], n.json[k], `analytics ${k}: sqlite=${s.json[k]} npmfree=${n.json[k]}`);
   }
 
@@ -661,7 +795,7 @@ test('contract: product images serve on both backends without crashing the serve
   // answers).
   const p = await call(sqlite.url, '/api/products?limit=200');
   const items = p.json.data || p.json;
-  const withImg = items.find((x) => x.image);
+  const withImg = items.find(x => x.image);
   assert.ok(withImg, 'catalog has a product with an image');
 
   for (const side of [sqlite, npmfree]) {
@@ -719,7 +853,11 @@ test('contract: admin-only write routes reject a CUSTOMER token with 403 on both
       ['POST /api/products', '/api/products', { method: 'POST', body: { name: 'Hack', category: 'X', price: 1 } }],
       ['PUT /api/products/:id', '/api/products/1', { method: 'PUT', body: { name: 'Hack' } }],
       ['DELETE /api/products/:id', '/api/products/1', { method: 'DELETE' }],
-      ['POST /api/stock-movement', '/api/stock-movement', { method: 'POST', body: { product_id: 1, qty: 1, type: 'in' } }],
+      [
+        'POST /api/stock-movement',
+        '/api/stock-movement',
+        { method: 'POST', body: { product_id: 1, qty: 1, type: 'in' } },
+      ],
       ['POST /api/locations', '/api/locations', { method: 'POST', body: { name: 'Hack Site' } }],
       ['PUT /api/order-inquiries/:id', '/api/order-inquiries/1', { method: 'PUT', body: { status: 'approved' } }],
       ['POST /api/sales', '/api/sales', { method: 'POST', body: { product_id: 1, qty: 1 } }],
@@ -733,10 +871,17 @@ test('contract: admin-only write routes reject a CUSTOMER token with 403 on both
     // The customer's OWN flows still work: place an inquiry (201) and read
     // the inquiry list back (200 — the mobile history screen relies on this
     // GET staying customer-accessible on BOTH backends).
-    const own = await call(side.url, '/api/order-inquiries', { method: 'POST', token: customerToken, body: {
-      customer_name: uname, customer_email: `${uname}@example.com`, customer_phone: '09171234567',
-      products: ['Widget x1'], estimated_cost: 100,
-    } });
+    const own = await call(side.url, '/api/order-inquiries', {
+      method: 'POST',
+      token: customerToken,
+      body: {
+        customer_name: uname,
+        customer_email: `${uname}@example.com`,
+        customer_phone: '09171234567',
+        products: ['Widget x1'],
+        estimated_cost: 100,
+      },
+    });
     assert.strictEqual(own.status, 201, 'customer can still place an inquiry');
     const hist = await call(side.url, '/api/order-inquiries', { token: customerToken });
     assert.strictEqual(hist.status, 200, `${side === sqlite ? 'sqlite' : 'npmfree'} customer can read inquiry history`);
@@ -754,8 +899,8 @@ test('contract: deal-priced line items are recorded with prices on both backends
     customer_email: 'deal@example.com',
     customer_phone: '09171234567',
     products: [
-      { name: 'Butterscotch', qty: 2, price: 368, original_price: 460 },  // deal: 2 x 368 = 736
-      { name: 'Acc Caramel Syrup', qty: 1, price: 420 },                  // regular: 420
+      { name: 'Butterscotch', qty: 2, price: 368, original_price: 460 }, // deal: 2 x 368 = 736
+      { name: 'Acc Caramel Syrup', qty: 1, price: 420 }, // regular: 420
     ],
     // A deliberately WRONG submitted total — the backend must recompute it
     // from the priced lines (736 + 420 = 1156), never trust the client.
@@ -764,25 +909,27 @@ test('contract: deal-priced line items are recorded with prices on both backends
     payment_method: 'cod',
   };
   const posted = await both('POST /api/order-inquiries (deal lines)', '/api/order-inquiries', {
-    method: 'POST', auth: 'customer', body,
+    method: 'POST',
+    auth: 'customer',
+    body,
   });
   assert.strictEqual(posted.a.status, 201);
   assert.strictEqual(posted.b.status, 201);
 
   for (const side of [sqlite, npmfree]) {
     const list = await call(side.url, '/api/order-inquiries?limit=50', { token: side.token.customer });
-    const mine = (list.json.data || list.json).find((o) => o.customer_email === 'deal@example.com');
+    const mine = (list.json.data || list.json).find(o => o.customer_email === 'deal@example.com');
     assert.ok(mine, `${side === sqlite ? 'sqlite' : 'npmfree'} deal order found`);
 
     // The stored products array is the NORMALIZED line shape (not the raw
     // strings of the past), with per-line deal + original prices.
     const lines = JSON.parse(mine.products);
     assert.ok(Array.isArray(lines) && lines.length === 2, `${side}: two normalized lines`);
-    const deal = lines.find((l) => l.name === 'Butterscotch');
+    const deal = lines.find(l => l.name === 'Butterscotch');
     assert.strictEqual(deal.unit_price, 368, `${side}: deal unit price recorded`);
     assert.strictEqual(deal.original_price, 460, `${side}: original price recorded`);
     assert.strictEqual(deal.subtotal, 736, `${side}: deal line subtotal`);
-    const regular = lines.find((l) => l.name === 'Acc Caramel Syrup');
+    const regular = lines.find(l => l.name === 'Acc Caramel Syrup');
     assert.strictEqual(regular.unit_price, 420, `${side}: regular unit price`);
     assert.strictEqual(regular.original_price, null, `${side}: no original for non-deal`);
 
@@ -793,7 +940,7 @@ test('contract: deal-priced line items are recorded with prices on both backends
     // The response also carries products_detail for direct rendering.
     assert.ok(Array.isArray(mine.products_detail), `${side}: products_detail present`);
     assert.strictEqual(mine.products_detail.length, 2, `${side}: products_detail lines`);
-    const d2 = mine.products_detail.find((l) => l.name === 'Butterscotch');
+    const d2 = mine.products_detail.find(l => l.name === 'Butterscotch');
     assert.strictEqual(d2.unit_price, 368, `${side}: detail deal price`);
     assert.strictEqual(d2.original_price, 460, `${side}: detail original price`);
   }
@@ -801,14 +948,20 @@ test('contract: deal-priced line items are recorded with prices on both backends
   // Legacy payloads (plain strings, no prices) must keep working: the lines
   // are normalized to objects WITHOUT prices and the submitted total is kept.
   const legacy = await both('POST /api/order-inquiries (legacy strings)', '/api/order-inquiries', {
-    method: 'POST', auth: 'customer',
-    body: { customer_name: 'Legacy Cust', customer_email: 'legacy@example.com', products: ['Widget x3'], estimated_cost: 150 },
+    method: 'POST',
+    auth: 'customer',
+    body: {
+      customer_name: 'Legacy Cust',
+      customer_email: 'legacy@example.com',
+      products: ['Widget x3'],
+      estimated_cost: 150,
+    },
   });
   assert.strictEqual(legacy.a.status, 201);
   assert.strictEqual(legacy.b.status, 201);
   for (const side of [sqlite, npmfree]) {
     const list = await call(side.url, '/api/order-inquiries?limit=50', { token: side.token.customer });
-    const mine = (list.json.data || list.json).find((o) => o.customer_email === 'legacy@example.com');
+    const mine = (list.json.data || list.json).find(o => o.customer_email === 'legacy@example.com');
     const lines = JSON.parse(mine.products);
     assert.strictEqual(lines.length, 1, `${side}: legacy line normalized`);
     assert.strictEqual(lines[0].name, 'Widget', `${side}: legacy name parsed`);
@@ -827,17 +980,24 @@ test('contract: checkout fields (delivery_address + payment_method) are stored a
 
   for (const side of [sqlite, npmfree]) {
     const login = await call(side.url, '/api/auth/login', {
-      method: 'POST', body: { username: uname, password: 'Test123!' },
+      method: 'POST',
+      body: { username: uname, password: 'Test123!' },
     });
     const token = login.json.token;
 
     // Place an order with checkout info.
     const posted = await call(side.url, '/api/order-inquiries', {
-      method: 'POST', token,
+      method: 'POST',
+      token,
       body: {
-        customer_name: uname, customer_email: `${uname}@example.com`, customer_phone: '09171234567',
-        products: ['Widget x2'], estimated_cost: 200, notes: 'checkout test',
-        delivery_address: '123 Mabini St, Brgy. San Isidro, Manila', payment_method: 'gcash',
+        customer_name: uname,
+        customer_email: `${uname}@example.com`,
+        customer_phone: '09171234567',
+        products: ['Widget x2'],
+        estimated_cost: 200,
+        notes: 'checkout test',
+        delivery_address: '123 Mabini St, Brgy. San Isidro, Manila',
+        payment_method: 'gcash',
       },
     });
     assert.strictEqual(posted.status, 201);
@@ -846,7 +1006,7 @@ test('contract: checkout fields (delivery_address + payment_method) are stored a
     const list = await call(side.url, '/api/order-inquiries', { token });
     assert.strictEqual(list.status, 200);
     const rows = list.json.data || list.json;
-    const mine = rows.find((r) => r.customer_name === uname);
+    const mine = rows.find(r => r.customer_name === uname);
     assert.ok(mine, `${side === sqlite ? 'sqlite' : 'npmfree'} inquiry found`);
     assert.strictEqual(mine.delivery_address, '123 Mabini St, Brgy. San Isidro, Manila');
     assert.strictEqual(mine.payment_method, 'gcash');
@@ -879,7 +1039,9 @@ test('contract: promote is admin-only and promotes a customer identically on bot
       body: { username: uname, password: 'Test123!' },
     });
     const res = await call(side.url, '/api/admin/promote', {
-      method: 'POST', token: login.json.token, body: { username: uname },
+      method: 'POST',
+      token: login.json.token,
+      body: { username: uname },
     });
     assert.strictEqual(res.status, 403, 'customer token cannot promote');
   }
@@ -888,7 +1050,9 @@ test('contract: promote is admin-only and promotes a customer identically on bot
   // can log in and reach the users list.
   for (const side of [sqlite, npmfree]) {
     const prom = await call(side.url, '/api/admin/promote', {
-      method: 'POST', token: side.token.admin, body: { username: uname },
+      method: 'POST',
+      token: side.token.admin,
+      body: { username: uname },
     });
     assert.strictEqual(prom.status, 200, `${side === sqlite ? 'sqlite' : 'npmfree'} admin can promote`);
     assert.strictEqual(prom.json.user.role, 'admin');
@@ -904,7 +1068,9 @@ test('contract: promote is admin-only and promotes a customer identically on bot
 
   // Promoting again (already an admin) 404s identically.
   await both('promote again -> 404', '/api/admin/promote', {
-    method: 'POST', body: { username: uname }, auth: 'admin',
+    method: 'POST',
+    body: { username: uname },
+    auth: 'admin',
   });
 });
 
@@ -958,26 +1124,39 @@ test('contract: COD checkout returns no payment step', async () => {
 
 test('contract: mark own inquiry paid identically', async () => {
   const created = await both('create for payment', '/api/order-inquiries', {
-    method: 'POST', auth: 'customer',
-    body: { customer_name: 'Paid Test', customer_email: 'paid@test.com', products: ['x1'], payment_method: 'gcash', estimated_cost: 100 },
+    method: 'POST',
+    auth: 'customer',
+    body: {
+      customer_name: 'Paid Test',
+      customer_email: 'paid@test.com',
+      products: ['x1'],
+      payment_method: 'gcash',
+      estimated_cost: 100,
+    },
   });
   const idA = created.a.json.id;
   const idB = created.b.json.id;
 
   // Each side marks its OWN inquiry paid (ids may differ between servers).
   const res = await both('PUT payment paid', `/api/order-inquiries/${idA}/payment`, {
-    method: 'PUT', auth: 'customer', body: { payment_status: 'paid' },
+    method: 'PUT',
+    auth: 'customer',
+    body: { payment_status: 'paid' },
   });
   assert.strictEqual(res.a.json.payment_status, 'paid');
   const resB = await call(npmfree.url, `/api/order-inquiries/${idB}/payment`, {
-    method: 'PUT', token: npmfree.token.customer, body: { payment_status: 'paid' },
+    method: 'PUT',
+    token: npmfree.token.customer,
+    body: { payment_status: 'paid' },
   });
   assert.strictEqual(resB.status, 200);
   assert.strictEqual(resB.json.payment_status, 'paid');
 
   // Invalid payment_status -> identical 400 on both.
   await both('PUT payment invalid', `/api/order-inquiries/${idA}/payment`, {
-    method: 'PUT', auth: 'customer', body: { payment_status: 'confirmed' },
+    method: 'PUT',
+    auth: 'customer',
+    body: { payment_status: 'confirmed' },
   });
 });
 
@@ -989,15 +1168,21 @@ test('contract: delivered status accepted identically', async () => {
   const idA = created.a.json.id;
   const idB = created.b.json.id;
   await both('PUT delivered', `/api/order-inquiries/${idA}`, {
-    method: 'PUT', auth: 'admin', body: { status: 'delivered' },
+    method: 'PUT',
+    auth: 'admin',
+    body: { status: 'delivered' },
   });
   const resB = await call(npmfree.url, `/api/order-inquiries/${idB}`, {
-    method: 'PUT', token: npmfree.token.admin, body: { status: 'delivered' },
+    method: 'PUT',
+    token: npmfree.token.admin,
+    body: { status: 'delivered' },
   });
   assert.strictEqual(resB.status, 200);
   // Invalid status still 400s identically.
   await both('PUT invalid status', `/api/order-inquiries/${idA}`, {
-    method: 'PUT', auth: 'admin', body: { status: 'shipped' },
+    method: 'PUT',
+    auth: 'admin',
+    body: { status: 'shipped' },
   });
 });
 
@@ -1014,7 +1199,9 @@ test('contract: OCR validation rejects bad payloads identically', async () => {
 test('contract: stock adjustments + transfers approval workflow is identical', async () => {
   // Create a pending adjustment on both backends.
   const adj = await both('POST /api/stock-adjustments', '/api/stock-adjustments', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, location_id: 1, new_qty: 150, reason: 'physical count' },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, location_id: 1, new_qty: 150, reason: 'physical count' },
   });
   assert.strictEqual(adj.a.status, 201);
   assert.strictEqual(adj.b.status, 201);
@@ -1023,25 +1210,39 @@ test('contract: stock adjustments + transfers approval workflow is identical', a
   // Both pending queues expose the same shape and one pending row.
   const q1 = await both('GET /api/approvals (after adjustment)', '/api/approvals', { auth: 'admin' });
   assert.strictEqual(shapeOf(q1.a.json), shapeOf(q1.b.json), 'approvals shape parity');
-  assert.ok(Array.isArray(q1.a.json.adjustments) && q1.a.json.adjustments.length >= 1, 'sqlite has a pending adjustment');
-  assert.ok(Array.isArray(q1.b.json.adjustments) && q1.b.json.adjustments.length >= 1, 'npmfree has a pending adjustment');
+  assert.ok(
+    Array.isArray(q1.a.json.adjustments) && q1.a.json.adjustments.length >= 1,
+    'sqlite has a pending adjustment'
+  );
+  assert.ok(
+    Array.isArray(q1.b.json.adjustments) && q1.b.json.adjustments.length >= 1,
+    'npmfree has a pending adjustment'
+  );
 
   // Create a pending transfer on both backends.
   const tr = await both('POST /api/stock-transfers', '/api/stock-transfers', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, src_location: 2, dst_location: 3, qty: 10, reason: 'restock showroom' },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, src_location: 2, dst_location: 3, qty: 10, reason: 'restock showroom' },
   });
   assert.strictEqual(tr.a.status, 201);
   assert.strictEqual(shapeOf(tr.a.json), shapeOf(tr.b.json), 'create transfer shapes');
 
   // Invalid inputs 400 identically.
   await both('POST /api/stock-adjustments (bad qty)', '/api/stock-adjustments', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, location_id: 1, new_qty: -5 },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, location_id: 1, new_qty: -5 },
   });
   await both('POST /api/stock-transfers (same location)', '/api/stock-transfers', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, src_location: 1, dst_location: 1, qty: 5 },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, src_location: 1, dst_location: 1, qty: 5 },
   });
   await both('POST /api/stock-transfers (bad product)', '/api/stock-transfers', {
-    method: 'POST', auth: 'admin', body: { product_id: 99999, src_location: 1, dst_location: 2, qty: 5 },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 99999, src_location: 1, dst_location: 2, qty: 5 },
   });
 
   // Approve the adjustment on each side (each side has its own id).
@@ -1052,14 +1253,16 @@ test('contract: stock adjustments + transfers approval workflow is identical', a
   assert.strictEqual(shapeOf(listA.json[0]), shapeOf(listB.json[0]), 'adjustment row shape parity');
 
   const appr = await both('POST approve adjustment', `/api/stock-adjustments/${idA}/approve`, {
-    method: 'POST', auth: 'admin',
+    method: 'POST',
+    auth: 'admin',
   });
   assert.strictEqual(appr.a.status, 200);
   await call(npmfree.url, `/api/stock-adjustments/${idB}/approve`, { method: 'POST', token: npmfree.token.admin });
 
   // Approving an approved adjustment 400s identically.
   await both('POST approve adjustment (already decided)', `/api/stock-adjustments/${idA}/approve`, {
-    method: 'POST', auth: 'admin',
+    method: 'POST',
+    auth: 'admin',
   });
 
   // Approve the transfer per-side.
@@ -1069,7 +1272,8 @@ test('contract: stock adjustments + transfers approval workflow is identical', a
   const tidA = tlistA.json[0].id;
   const tidB = tlistB.json[0].id;
   await both('POST approve transfer', `/api/stock-transfers/${tidA}/approve`, {
-    method: 'POST', auth: 'admin',
+    method: 'POST',
+    auth: 'admin',
   });
   await call(npmfree.url, `/api/stock-transfers/${tidB}/approve`, { method: 'POST', token: npmfree.token.admin });
 
@@ -1081,14 +1285,20 @@ test('contract: stock adjustments + transfers approval workflow is identical', a
   // Reject flow on a fresh request (product 3 stays active in this suite;
   // product 2 was soft-deleted by an earlier contract test).
   await both('POST /api/stock-transfers (reject me)', '/api/stock-transfers', {
-    method: 'POST', auth: 'admin', body: { product_id: 3, src_location: 1, dst_location: 3, qty: 3, reason: 'cancel' },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 3, src_location: 1, dst_location: 3, qty: 3, reason: 'cancel' },
   });
   const rlistA = await call(sqlite.url, '/api/stock-transfers?status=pending', { token: sqlite.token.admin });
   const rlistB = await call(npmfree.url, '/api/stock-transfers?status=pending', { token: npmfree.token.admin });
   await both('POST reject transfer', `/api/stock-transfers/${rlistA.json[0].id}/reject`, {
-    method: 'POST', auth: 'admin',
+    method: 'POST',
+    auth: 'admin',
   });
-  await call(npmfree.url, `/api/stock-transfers/${rlistB.json[0].id}/reject`, { method: 'POST', token: npmfree.token.admin });
+  await call(npmfree.url, `/api/stock-transfers/${rlistB.json[0].id}/reject`, {
+    method: 'POST',
+    token: npmfree.token.admin,
+  });
 
   // Status filter + full list still parity.
   await both('GET /api/stock-adjustments?status=approved', '/api/stock-adjustments?status=approved', { auth: 'admin' });
@@ -1103,14 +1313,18 @@ test('contract: approving a stale request (inactive product / gone location) 400
   await call(npmfree.url, '/api/products/1', { method: 'DELETE', token: npmfree.token.admin });
 
   const stale = await both('POST /api/stock-adjustments (stale product)', '/api/stock-adjustments', {
-    method: 'POST', auth: 'admin', body: { product_id: 1, location_id: 1, new_qty: 999, reason: 'stale test' },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 1, location_id: 1, new_qty: 999, reason: 'stale test' },
   });
   assert.strictEqual(stale.a.status, 404, 'inactive product 404s on create (sqlite)');
   assert.strictEqual(stale.b.status, 404, 'inactive product 404s on create (npmfree)');
 
   // Create against an active product, THEN deactivate it, then try to approve.
   const created = await both('POST /api/stock-adjustments (will go stale)', '/api/stock-adjustments', {
-    method: 'POST', auth: 'admin', body: { product_id: 3, location_id: 1, new_qty: 250, reason: 'stale approve test' },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 3, location_id: 1, new_qty: 250, reason: 'stale approve test' },
   });
   assert.strictEqual(created.a.status, 201);
   assert.strictEqual(created.b.status, 201);
@@ -1120,8 +1334,14 @@ test('contract: approving a stale request (inactive product / gone location) 400
   const listA = await call(sqlite.url, '/api/stock-adjustments?status=pending', { token: sqlite.token.admin });
   const listB = await call(npmfree.url, '/api/stock-adjustments?status=pending', { token: npmfree.token.admin });
   assert.strictEqual(shapeOf(listA.json), shapeOf(listB.json), 'pending adjustment list shape parity');
-  const apprA = await call(sqlite.url, `/api/stock-adjustments/${listA.json[0].id}/approve`, { method: 'POST', token: sqlite.token.admin });
-  const apprB = await call(npmfree.url, `/api/stock-adjustments/${listB.json[0].id}/approve`, { method: 'POST', token: npmfree.token.admin });
+  const apprA = await call(sqlite.url, `/api/stock-adjustments/${listA.json[0].id}/approve`, {
+    method: 'POST',
+    token: sqlite.token.admin,
+  });
+  const apprB = await call(npmfree.url, `/api/stock-adjustments/${listB.json[0].id}/approve`, {
+    method: 'POST',
+    token: npmfree.token.admin,
+  });
   assert.strictEqual(apprA.status, 400, 'sqlite: stale approve 400');
   assert.strictEqual(apprB.status, 400, 'npmfree: stale approve 400');
   assert.strictEqual(shapeOf(apprA.json), shapeOf(apprB.json), 'stale approve error shapes');
@@ -1130,7 +1350,9 @@ test('contract: approving a stale request (inactive product / gone location) 400
 test('contract: deleting a location referenced by adjustments/transfers 400s identically', async () => {
   // Create an adjustment on location 1, then attempt to delete location 1.
   await both('POST /api/stock-adjustments (loc guard)', '/api/stock-adjustments', {
-    method: 'POST', auth: 'admin', body: { product_id: 4, location_id: 1, new_qty: 100, reason: 'location guard' },
+    method: 'POST',
+    auth: 'admin',
+    body: { product_id: 4, location_id: 1, new_qty: 100, reason: 'location guard' },
   });
   const delA = await call(sqlite.url, '/api/locations/1', { method: 'DELETE', token: sqlite.token.admin });
   const delB = await call(npmfree.url, '/api/locations/1', { method: 'DELETE', token: npmfree.token.admin });

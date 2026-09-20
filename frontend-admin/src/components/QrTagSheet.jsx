@@ -72,13 +72,13 @@ export default function QrTagSheet({ open, onClose, locations = [], products = [
             ))}
             {includeProducts
               ? products.map((product) => (
-                  <Tag
-                    key={`prod-${product.id}`}
-                    payload={productQrPayload(product)}
-                    caption={product.name}
-                    sub={productQrPayload(product)}
-                  />
-                ))
+                <Tag
+                  key={`prod-${product.id}`}
+                  payload={productQrPayload(product)}
+                  caption={product.name}
+                  sub={productQrPayload(product)}
+                />
+              ))
               : null}
           </Box>
         )}

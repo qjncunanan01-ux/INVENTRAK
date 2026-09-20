@@ -107,7 +107,7 @@ export function ThemeProvider({ children }) {
 
   const value = useMemo(
     () => ({ dark, colors: dark ? darkColors : lightColors, toggleDark }),
-    [dark]
+    [dark],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

@@ -120,7 +120,14 @@ function createLoginLockout(opts = {}) {
     }
   }
 
-  return { check, recordFailure, recordSuccess, clearAccount, _buckets: buckets, _defaults: { maxFailures, windowMs, baseLockoutMs, maxLockoutMs } };
+  return {
+    check,
+    recordFailure,
+    recordSuccess,
+    clearAccount,
+    _buckets: buckets,
+    _defaults: { maxFailures, windowMs, baseLockoutMs, maxLockoutMs },
+  };
 }
 
 module.exports = { createLoginLockout, DEFAULTS };

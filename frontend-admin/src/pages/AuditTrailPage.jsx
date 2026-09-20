@@ -74,7 +74,7 @@ export default function AuditTrailPage({ onLogout }) {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const loadLogs = async () => {
+  const loadLogs = async() => {
     setLoading(true);
 
     try {

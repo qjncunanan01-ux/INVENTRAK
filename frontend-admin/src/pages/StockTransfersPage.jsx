@@ -19,7 +19,7 @@ export default function StockTransfersPage({ onLogout }) {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [form, setForm] = useState({ product_id: '', src_location: '', dst_location: '', qty: '', reason: '' });
 
-  const loadData = async () => {
+  const loadData = async() => {
     setLoading(true);
     try {
       const [trRes, prodRes, locRes] = await Promise.all([
@@ -39,7 +39,7 @@ export default function StockTransfersPage({ onLogout }) {
 
   useEffect(() => { loadData(); }, [statusFilter]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async() => {
     if (!form.product_id || !form.src_location || !form.dst_location || !form.qty) {
       setSnackbar({ open: true, message: 'Select product, both locations, and enter quantity', severity: 'warning' });
       return;
@@ -71,7 +71,7 @@ export default function StockTransfersPage({ onLogout }) {
     }
   };
 
-  const decide = async (id, action) => {
+  const decide = async(id, action) => {
     try {
       const result = await apiPost(`/api/stock-transfers/${id}/${action}`, {});
       setSnackbar({ open: true, message: result.message, severity: 'success' });

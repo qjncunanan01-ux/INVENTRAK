@@ -20,7 +20,11 @@ const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 const SETTINGS_FILE = path.join(process.env.INVENTRAK_DATA_DIR, 'settings.json');
 
 function resetSettingsFile() {
-  try { fs.unlinkSync(SETTINGS_FILE); } catch { /* absent = defaults */ }
+  try {
+    fs.unlinkSync(SETTINGS_FILE);
+  } catch {
+    /* absent = defaults */
+  }
 }
 
 test.before(bootBoth);
@@ -50,13 +54,17 @@ test('settings: RBAC — admin reads, admin cannot write, owner writes, staff/cu
 
     // Admin writes: refused (management only).
     const adminPut = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.admin, body: { fsn_window_days: 30 },
+      method: 'PUT',
+      token: side.token.admin,
+      body: { fsn_window_days: 30 },
     });
     assert.strictEqual(adminPut.status, 403, 'admin cannot WRITE settings');
 
     // Super admin writes: allowed (management tier).
     const superPut = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.superadmin, body: { fsn_window_days: 30 },
+      method: 'PUT',
+      token: side.token.superadmin,
+      body: { fsn_window_days: 30 },
     });
     assert.strictEqual(superPut.status, 200, 'super admin can write');
 
@@ -64,7 +72,9 @@ test('settings: RBAC — admin reads, admin cannot write, owner writes, staff/cu
     const staffGet = await call(side.url, '/api/settings', { token: side.token.staff });
     assert.strictEqual(staffGet.status, 403, 'staff refused');
     const staffPut = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.staff, body: { fsn_window_days: 30 },
+      method: 'PUT',
+      token: side.token.staff,
+      body: { fsn_window_days: 30 },
     });
     assert.strictEqual(staffPut.status, 403, 'staff cannot write');
     const custGet = await call(side.url, '/api/settings', { token: side.token.customer });
@@ -77,20 +87,26 @@ test('settings: PUT validates and clamps values identically', async () => {
   for (const side of [sqlite, npmfree]) {
     // Out-of-range window → 400 with details.
     const bad = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.owner, body: { fsn_window_days: 9999 },
+      method: 'PUT',
+      token: side.token.owner,
+      body: { fsn_window_days: 9999 },
     });
     assert.strictEqual(bad.status, 400);
     assert.ok(Array.isArray(bad.json.details) && bad.json.details.length > 0);
 
     // Non-numeric multiplier → 400.
     const nan = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.owner, body: { low_stock_multiplier: 'soon' },
+      method: 'PUT',
+      token: side.token.owner,
+      body: { low_stock_multiplier: 'soon' },
     });
     assert.strictEqual(nan.status, 400);
 
     // Boolean field must be boolean.
     const notBool = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.owner, body: { demo_accounts_disabled: 'yes' },
+      method: 'PUT',
+      token: side.token.owner,
+      body: { demo_accounts_disabled: 'yes' },
     });
     assert.strictEqual(notBool.status, 400);
   }
@@ -100,7 +116,9 @@ test('settings: fsn_window_days LIVE-affects the FSN endpoint default', async ()
   for (const side of [sqlite, npmfree]) {
     // Narrow the default window to 7 days.
     const put = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.owner, body: { fsn_window_days: 7 },
+      method: 'PUT',
+      token: side.token.owner,
+      body: { fsn_window_days: 7 },
     });
     assert.strictEqual(put.status, 200);
 
@@ -108,7 +126,7 @@ test('settings: fsn_window_days LIVE-affects the FSN endpoint default', async ()
     // become impossible beyond the window length — assert the window echoed).
     const fsn = await call(side.url, '/api/optimization/fsn', { token: side.token.admin });
     assert.strictEqual(fsn.status, 200);
-    const rows = Array.isArray(fsn.json) ? fsn.json : (fsn.json.data || fsn.json.items || []);
+    const rows = Array.isArray(fsn.json) ? fsn.json : fsn.json.data || fsn.json.items || [];
     if (Array.isArray(rows) && rows.length > 0 && rows[0].windowDays !== undefined) {
       assert.strictEqual(rows[0].windowDays, 7, 'FSN default window follows the setting');
     }
@@ -119,7 +137,9 @@ test('settings: fsn_window_days LIVE-affects the FSN endpoint default', async ()
 test('settings: demo_accounts_disabled LIVE-blocks demo logins (generic error)', async () => {
   for (const side of [sqlite, npmfree]) {
     const put = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.owner, body: { demo_accounts_disabled: true },
+      method: 'PUT',
+      token: side.token.owner,
+      body: { demo_accounts_disabled: true },
     });
     assert.strictEqual(put.status, 200);
 
@@ -134,7 +154,9 @@ test('settings: demo_accounts_disabled LIVE-blocks demo logins (generic error)',
 
     // Flip back — the same login works again (no restart needed).
     const undo = await call(side.url, '/api/settings', {
-      method: 'PUT', token: side.token.owner, body: { demo_accounts_disabled: false },
+      method: 'PUT',
+      token: side.token.owner,
+      body: { demo_accounts_disabled: false },
     });
     assert.strictEqual(undo.status, 200);
     const ok = await call(side.url, '/api/auth/login', {

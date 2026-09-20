@@ -37,7 +37,7 @@ export default function MotiCard({
   useEffect(() => {
     progress.value = withDelay(
       delay,
-      withTiming(1, { duration: 400 })
+      withTiming(1, { duration: 400 }),
     );
   }, []);
 
@@ -45,7 +45,7 @@ export default function MotiCard({
     const p = progress.value;
 
     let translateY = 0;
-    let translateX = 0;
+    const translateX = 0;
     let scaleVal = 1;
     let opacity = 1;
 

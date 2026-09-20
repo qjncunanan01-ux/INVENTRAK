@@ -29,7 +29,7 @@ async function captureAudit(fn) {
   } finally {
     console.log = orig;
   }
-  return lines.filter((l) => l.startsWith('[audit] ')).map((l) => JSON.parse(l.slice('[audit] '.length)));
+  return lines.filter(l => l.startsWith('[audit] ')).map(l => JSON.parse(l.slice('[audit] '.length)));
 }
 
 test('failed and successful logins are audited on both backends', async () => {
@@ -40,7 +40,7 @@ test('failed and successful logins are audited on both backends', async () => {
         body: { username: 'nobody-here', password: 'Wrong!Pass1' },
       })
     );
-    const failEvent = failed.find((e) => e.event === 'auth.login.failed');
+    const failEvent = failed.find(e => e.event === 'auth.login.failed');
     assert.ok(failEvent, 'failed login emits auth.login.failed');
     assert.strictEqual(failEvent.username, 'nobody-here');
     assert.ok(failEvent.t, 'timestamp present');
@@ -51,7 +51,7 @@ test('failed and successful logins are audited on both backends', async () => {
         body: { username: 'customer', password: 'customer123' },
       })
     );
-    const okEvent = ok.find((e) => e.event === 'auth.login.success');
+    const okEvent = ok.find(e => e.event === 'auth.login.success');
     assert.ok(okEvent, 'successful login emits auth.login.success');
     assert.strictEqual(okEvent.username, 'customer');
   }

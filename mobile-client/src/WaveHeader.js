@@ -50,44 +50,44 @@ function WaveSVG({ color }) {
 
 const waveStyles = StyleSheet.create({
   container: {
-    width: '100%',
     height: 40,
     overflow: 'hidden',
+    width: '100%',
   },
   curve1: {
-    position: 'absolute',
-    top: 10,
-    left: -20,
-    right: -20,
-    height: 50,
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
+    height: 50,
+    left: -20,
+    position: 'absolute',
+    right: -20,
+    top: 10,
   },
   curve2: {
-    position: 'absolute',
-    top: 20,
-    left: -10,
-    right: -10,
-    height: 40,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
+    height: 40,
+    left: -10,
+    position: 'absolute',
+    right: -10,
+    top: 20,
   },
 });
 
 const createStyles = (colors, height) =>
   StyleSheet.create({
-    wrapper: {
-      width: '100%',
-      overflow: 'hidden',
-    },
     gradient: {
       minHeight: height,
+      paddingBottom: 30,
       paddingHorizontal: 16,
       paddingTop: 18,
-      paddingBottom: 30,
     },
     waveContainer: {
       marginTop: -20,
       zIndex: 10,
+    },
+    wrapper: {
+      overflow: 'hidden',
+      width: '100%',
     },
   });

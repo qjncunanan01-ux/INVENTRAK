@@ -30,7 +30,7 @@ after(() => {
 async function sampleRefs(url) {
   const products = await call(url, '/api/products');
   const locations = await call(url, '/api/locations');
-  const product = products.json.find((p) => p.status === 'active') || products.json[0];
+  const product = products.json.find(p => p.status === 'active') || products.json[0];
   const locs = locations.json.slice(0, 2);
   return { product, src: locs[0], dst: locs[1] };
 }
@@ -71,7 +71,9 @@ test('reports and analytics exports are revenue: admin tier only, never staff', 
   const staffReports = await both('staff reports', '/api/reports?days=14', { auth: 'staff' });
   assert.strictEqual(staffReports.a.status, 403, 'staff reports must be 403');
 
-  const staffExport = await both('staff analytics export', '/api/analytics/export/products?format=csv', { auth: 'staff' });
+  const staffExport = await both('staff analytics export', '/api/analytics/export/products?format=csv', {
+    auth: 'staff',
+  });
   assert.strictEqual(staffExport.a.status, 403, 'staff analytics export must be 403');
 
   const customerReports = await both('customer reports', '/api/reports?days=14', { auth: 'customer' });

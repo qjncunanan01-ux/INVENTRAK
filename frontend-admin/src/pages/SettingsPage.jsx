@@ -30,7 +30,7 @@ export default function SettingsPage({ user, onLogout }) {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async() => {
     try {
       const data = await getSettings();
       setForm(data);
@@ -48,7 +48,7 @@ export default function SettingsPage({ user, onLogout }) {
 
   const change = (key, value) => setForm((f) => ({ ...f, [key]: value, _dirty: true }));
 
-  const save = async () => {
+  const save = async() => {
     if (!form) return;
     setSaving(true);
     setError('');

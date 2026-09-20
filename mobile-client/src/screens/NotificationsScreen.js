@@ -33,7 +33,7 @@ export default function NotificationsScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async() => {
     try {
       const data = await listOrderInquiries({ limit: 100 });
       setInquiries(data.data || (Array.isArray(data) ? data : []));
@@ -62,7 +62,7 @@ export default function NotificationsScreen({ navigation }) {
       try {
         const parsed = JSON.parse(o.status_history || '[]');
         if (Array.isArray(parsed)) history = parsed;
-      } catch {}
+      } catch (_) {}
       if (history.length === 0) history = [{ status: o.status, at: o.created_at }];
       // Skip the initial 'placed' event (not a notification) unless it's all
       // there is (then it IS the update the customer should see).
@@ -163,38 +163,38 @@ export default function NotificationsScreen({ navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 24 },
-  title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
-  subtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 14 },
+  body: { flex: 1 },
+  card: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    flexDirection: 'row',
+    marginBottom: 10,
+    padding: 14,
+  },
+  cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  cardTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' },
+  center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: 24 },
+  container: { backgroundColor: colors.background, flex: 1, padding: 16 },
+  glyph: { marginRight: 12 },
+  guestBtnPrimary: { backgroundColor: colors.brandPrimary, borderRadius: 12, marginBottom: 10, paddingHorizontal: 48, paddingVertical: 14 },
+  guestBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  guestBtnSecondary: { borderColor: colors.brandPrimary, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 48, paddingVertical: 14 },
+  guestBtnSecondaryText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
+  guestGlyph: { color: colors.brandPrimary, fontSize: 40, fontWeight: '700', marginBottom: 12 },
+  guestSub: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginBottom: 24, marginTop: 6, paddingHorizontal: 32, textAlign: 'center' },
+  guestTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  list: { paddingBottom: 24 },
   searchInput: {
     backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
     borderRadius: 10,
     color: colors.textPrimary,
     fontSize: 15,
     marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  list: { paddingBottom: 24 },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-  },
-  glyph: { marginRight: 12 },
-  body: { flex: 1 },
-  cardTitle: { fontWeight: '700', color: colors.textPrimary, fontSize: 15 },
-  cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  subtitle: { color: colors.textSecondary, fontSize: 13, marginBottom: 14 },
   time: { color: colors.textSecondary, fontSize: 11, marginLeft: 8 },
-  guestGlyph: { fontSize: 40, color: colors.brandPrimary, fontWeight: '700', marginBottom: 12 },
-  guestTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
-  guestSub: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: 24, paddingHorizontal: 32, lineHeight: 19 },
-  guestBtnPrimary: { backgroundColor: colors.brandPrimary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 48, marginBottom: 10 },
-  guestBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  guestBtnSecondary: { borderWidth: 1.5, borderColor: colors.brandPrimary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 48 },
-  guestBtnSecondaryText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
+  title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: 4 },
 });

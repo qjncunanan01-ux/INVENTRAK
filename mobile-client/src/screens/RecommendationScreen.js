@@ -47,7 +47,7 @@ export default function RecommendationScreen({ navigation }) {
   // onRefresh (matches Home) and the flash section degrades like Home when
   // the ABC call fails: .catch(() => []) lets buildFlashPicks top up from
   // the photo pool instead of showing an empty carousel.
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async() => {
     try {
       const [abcData, prodItems, inv] = await Promise.all([
         getOptimizationAbc().catch(() => []),
@@ -92,7 +92,7 @@ export default function RecommendationScreen({ navigation }) {
       navigation.navigate('OrdersTab', {
         screen: 'OrderInquiry',
         params: { bundleIds: bundle.map((b) => b.id) },
-      })
+      }),
     );
   };
 
@@ -241,64 +241,64 @@ export default function RecommendationScreen({ navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 4, color: colors.textPrimary },
-  subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 16 },
+  container: { backgroundColor: colors.background, flex: 1, padding: 16 },
+  center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
+  title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: 4 },
+  subtitle: { color: colors.textSecondary, fontSize: 14, marginBottom: 16 },
   list: { paddingBottom: 24 },
   rankedTitle: {
+    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textPrimary,
+    marginBottom: 10,
     marginLeft: 16,
     marginTop: 6,
-    marginBottom: 10,
   },
-  bundleCard: { backgroundColor: '#fff8e1', borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#f0c36d' },
-  bundleTitle: { fontWeight: '700', fontSize: 15, color: colors.textPrimary, marginBottom: 10 },
-  bundleItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  bundleThumb: { width: 32, height: 32, borderRadius: 6, marginRight: 8, backgroundColor: colors.background },
-  bundleName: { flex: 1, fontSize: 13, color: colors.textPrimary, fontWeight: '600' },
-  bundlePrice: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
-  bundleTotal: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.08)' },
+  bundleCard: { backgroundColor: '#fff8e1', borderColor: '#f0c36d', borderRadius: 14, borderWidth: 1, marginBottom: 14, padding: 14 },
+  bundleTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 10 },
+  bundleItem: { alignItems: 'center', flexDirection: 'row', marginBottom: 6 },
+  bundleThumb: { backgroundColor: colors.background, borderRadius: 6, height: 32, marginRight: 8, width: 32 },
+  bundleName: { color: colors.textPrimary, flex: 1, fontSize: 13, fontWeight: '600' },
+  bundlePrice: { color: colors.textPrimary, fontSize: 13, fontWeight: '700' },
+  bundleTotal: { borderTopColor: 'rgba(0,0,0,0.08)', borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 8 },
   bundleTotalLabel: { color: colors.textSecondary, fontSize: 13 },
-  bundleTotalValue: { fontWeight: '800', fontSize: 16, color: colors.brandPrimary },
-  orderBtn: { marginTop: 10, backgroundColor: colors.brandPrimary, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  orderBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  bundleTotalValue: { color: colors.brandPrimary, fontSize: 16, fontWeight: '800' },
+  orderBtn: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 10, marginTop: 10, paddingVertical: 12 },
+  orderBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   // position: relative so the absolutely-positioned rank badge anchors to
   // the card (works on native and react-native-web alike).
-  card: { position: 'relative', flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, padding: 12, borderRadius: 12, marginBottom: 10 },
-  cardThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: colors.background },
+  card: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, flexDirection: 'row', marginBottom: 10, padding: 12, position: 'relative' },
+  cardThumb: { backgroundColor: colors.background, borderRadius: 10, height: 56, width: 56 },
   cardThumbPlaceholder: { backgroundColor: '#e3eeda' },
   rankBadge: {
-    position: 'absolute',
-    top: 6,
-    left: 6,
-    zIndex: 1,
     backgroundColor: colors.brandPrimary,
     borderRadius: 8,
+    elevation: 2,
+    left: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
+    position: 'absolute',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 2,
+    top: 6,
+    zIndex: 1,
   },
   rankText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   cardBody: { flex: 1, marginLeft: 12 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
-  productName: { fontWeight: '700', fontSize: 15, color: colors.textPrimary, flex: 1 },
+  cardHeader: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  productName: { color: colors.textPrimary, flex: 1, fontSize: 15, fontWeight: '700' },
   meta: { color: colors.textSecondary, fontSize: 13, marginTop: 4 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 8 },
+  badge: { borderRadius: 6, marginLeft: 8, paddingHorizontal: 8, paddingVertical: 3 },
   stockChip: {
     alignSelf: 'flex-start',
-    marginTop: 6,
-    borderWidth: 1,
     borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 6,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
   stockChipText: { fontSize: 10, fontWeight: '800' },
-  empty: { marginTop: 20, textAlign: 'center', color: colors.textSecondary },
+  empty: { color: colors.textSecondary, marginTop: 20, textAlign: 'center' },
 });

@@ -126,9 +126,7 @@ async function buildPaymentStep({ id, amount, description, email, paymentMethod 
       payment_status: 'unpaid',
       payment_reference: session.reference || reference,
       payment_url: session.checkout_url,
-      payment_qr: qrImageUrl(
-        `PAYMENT ${session.reference || reference} AMOUNT PHP ${Number(amount || 0).toFixed(2)}`
-      ),
+      payment_qr: qrImageUrl(`PAYMENT ${session.reference || reference} AMOUNT PHP ${Number(amount || 0).toFixed(2)}`),
       payment_provider: session.provider,
     };
   }

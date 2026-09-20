@@ -3,13 +3,8 @@
  * @description Centralized configuration constants for INVENTRAK backend.
  * Every magic number in the codebase lives here so it can be found, changed,
  * and understood in one place. Import as:
- *   const { LOW_STOCK_THRESHOLD } = require('./config');
+ *   const { TOKEN_TTL_MS } = require('./config');
  */
-
-// ================= INVENTORY =================
-
-/** Units below which a location entry is considered "low stock". */
-const LOW_STOCK_THRESHOLD = 80;
 
 // ================= AUTH =================
 
@@ -62,7 +57,6 @@ const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 
 module.exports = {
-  LOW_STOCK_THRESHOLD,
   TOKEN_TTL_MS,
   MFA_TOKEN_TTL_MS,
   RESET_CODE_TTL_MS,

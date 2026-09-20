@@ -25,9 +25,12 @@ const port = emulatorPort();
 
 // Pre-flight: fail fast with a friendly message when the emulator isn't up.
 function emulatorUp(host, portNum) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const sock = net.connect({ host, port: portNum });
-    sock.once('connect', () => { sock.destroy(); resolve(true); });
+    sock.once('connect', () => {
+      sock.destroy();
+      resolve(true);
+    });
     sock.once('error', () => resolve(false));
   });
 }
@@ -46,7 +49,7 @@ function emulatorUp(host, portNum) {
   const { start } = require('../src/server_npmfree');
   await start();
   console.log(`[firestore:emulator] npm-free backend running on ${process.env.PORT}`);
-})().catch((err) => {
+})().catch(err => {
   console.error(`[firestore:emulator] failed to start: ${err.message}`);
   process.exit(1);
 });

@@ -104,7 +104,9 @@ test('verifyGoogleIdToken rejects malformed and non-RS256 tokens', async () => {
 });
 
 test('verifyGoogleIdToken reports unavailable when the JWKS fetch fails', async () => {
-  const failFetch = async () => { throw new Error('network down'); };
+  const failFetch = async () => {
+    throw new Error('network down');
+  };
   const res = await verifyGoogleIdToken(makeToken(), { clientIds: ['test-client'], fetchImpl: failFetch });
   assert.strictEqual(res.reason, 'unavailable');
 });

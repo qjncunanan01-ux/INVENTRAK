@@ -19,7 +19,7 @@
 
 // ---- Configuration ----
 const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_ENTRIES = 200;              // LRU cap to prevent memory leaks
+const MAX_ENTRIES = 200; // LRU cap to prevent memory leaks
 const PRUNE_INTERVAL_MS = 60 * 1000; // Check for expired entries every minute
 
 // ---- Storage ----
@@ -152,9 +152,7 @@ function stats() {
     totalMisses,
     totalSets,
     totalEvictions,
-    hitRate: totalHits + totalMisses > 0
-      ? ((totalHits / (totalHits + totalMisses)) * 100).toFixed(1) + '%'
-      : '0%',
+    hitRate: totalHits + totalMisses > 0 ? ((totalHits / (totalHits + totalMisses)) * 100).toFixed(1) + '%' : '0%',
     topEntries: entries.slice(0, 10),
   };
 }

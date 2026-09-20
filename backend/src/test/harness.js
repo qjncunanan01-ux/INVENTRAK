@@ -30,10 +30,7 @@ process.env.AUDIT_LOG_FILE = path.join(tmpDir, 'audit.log');
 process.env.DB_DRIVER = 'json';
 fs.mkdirSync(process.env.INVENTRAK_DATA_DIR, { recursive: true });
 // Share the same product catalog with the SQLite seeder.
-fs.copyFileSync(
-  path.join(dataDir, 'products.json'),
-  path.join(process.env.INVENTRAK_DATA_DIR, 'products.json')
-);
+fs.copyFileSync(path.join(dataDir, 'products.json'), path.join(process.env.INVENTRAK_DATA_DIR, 'products.json'));
 fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'order_inquiries.json'), '[]');
 fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'stock_movements.json'), '[]');
 
@@ -43,8 +40,14 @@ const { createServer } = require('../server_npmfree');
 
 // `token.<role>` is populated for every seeded demo account so suites can
 // exercise the four-role RBAC split (see backend/src/roles.js).
-let sqlite = { url: '', token: { admin: null, customer: null, staff: null, owner: null, superadmin: null, invalid: 'not-a-real-token' } };
-let npmfree = { url: '', token: { admin: null, customer: null, staff: null, owner: null, superadmin: null, invalid: 'not-a-real-token' } };
+const sqlite = {
+  url: '',
+  token: { admin: null, customer: null, staff: null, owner: null, superadmin: null, invalid: 'not-a-real-token' },
+};
+const npmfree = {
+  url: '',
+  token: { admin: null, customer: null, staff: null, owner: null, superadmin: null, invalid: 'not-a-real-token' },
+};
 let sqliteServer;
 let npmfreeServer;
 
@@ -88,10 +91,16 @@ async function bootBoth() {
 }
 
 function teardown() {
-  try { sqliteServer && sqliteServer.close(); } catch {}
-  try { npmfreeServer && npmfreeServer.close(); } catch {}
+  try {
+    sqliteServer && sqliteServer.close();
+  } catch {}
+  try {
+    npmfreeServer && npmfreeServer.close();
+  } catch {}
   // Release the SQLite file handle before deleting the temp dir (Windows).
-  try { db.close(); } catch {}
+  try {
+    db.close();
+  } catch {}
   fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
@@ -105,7 +114,9 @@ async function call(url, pathname, { method = 'GET', token, body } = {}) {
   });
   const text = await res.text();
   let json = null;
-  try { json = JSON.parse(text); } catch {}
+  try {
+    json = JSON.parse(text);
+  } catch {}
   return { status: res.status, json, text, contentType: res.headers.get('content-type') || '' };
 }
 
@@ -121,15 +132,14 @@ function shapeOf(v) {
   }
   if (typeof v === 'object') {
     const keys = Object.keys(v).sort();
-    return `{${keys.map((k) => `${k}:${shapeOf(v[k])}`).join(',')}}`;
+    return `{${keys.map(k => `${k}:${shapeOf(v[k])}`).join(',')}}`;
   }
   return typeof v;
 }
 
 // Fires the same request at both backends and asserts status + body shape match.
 async function both(label, pathname, { method = 'GET', auth = null, body } = {}) {
-  const doCall = async (side) =>
-    call(side.url, pathname, { method, body, token: auth ? side.token[auth] : null });
+  const doCall = async side => call(side.url, pathname, { method, body, token: auth ? side.token[auth] : null });
   const a = await doCall(sqlite);
   const b = await doCall(npmfree);
   if (a.status !== b.status) {

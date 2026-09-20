@@ -63,10 +63,12 @@ function parseFsnWindow(raw, opts = {}) {
 function classifyFsn(txns, product, windowDays = FSN_WINDOW_DAYS, opts = {}) {
   const now = opts.now ? opts.now.getTime() : Date.now();
   const windowMs = windowDays * 86400000;
-  const rows = (Array.isArray(txns) ? txns : []).filter((t) => {
-    const d = new Date(t && t.transaction_date).getTime();
-    return Number.isFinite(d) && d >= now - windowMs;
-  }).map((t) => ({ d: new Date(t.transaction_date).getTime(), qty: Number(t.qty) || 0 }));
+  const rows = (Array.isArray(txns) ? txns : [])
+    .filter(t => {
+      const d = new Date(t && t.transaction_date).getTime();
+      return Number.isFinite(d) && d >= now - windowMs;
+    })
+    .map(t => ({ d: new Date(t.transaction_date).getTime(), qty: Number(t.qty) || 0 }));
 
   const id = product && product.id !== undefined && product.id !== null ? Number(product.id) : null;
   const name = product && product.name !== undefined ? product.name : '';
@@ -90,7 +92,7 @@ function classifyFsn(txns, product, windowDays = FSN_WINDOW_DAYS, opts = {}) {
 
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
   const valueSold = rows.reduce((s, r) => s + r.qty * price, 0);
-  const recencyMs = now - Math.max(...rows.map((r) => r.d));
+  const recencyMs = now - Math.max(...rows.map(r => r.d));
   const recencyDays = Math.floor(recencyMs / 86400000);
   // Average interval between sales: window divided by txn count, capped at 1
   // when sales are at least daily (can't be faster than one per day).
@@ -134,10 +136,11 @@ function classifyFsnCatalog(products, sales, opts = {}) {
 
   const rank = { N: 0, S: 1, F: 2 };
   return (Array.isArray(products) ? products : [])
-    .map((p) => classifyFsn(byProduct.get(Number(p.id)) || [], p, windowDays, opts))
-    .sort((a, b) =>
-      (rank[a.classification] - rank[b.classification]) ||
-      ((a.recencyDays === null ? Infinity : a.recencyDays) - (b.recencyDays === null ? Infinity : b.recencyDays))
+    .map(p => classifyFsn(byProduct.get(Number(p.id)) || [], p, windowDays, opts))
+    .sort(
+      (a, b) =>
+        rank[a.classification] - rank[b.classification] ||
+        (a.recencyDays === null ? Infinity : a.recencyDays) - (b.recencyDays === null ? Infinity : b.recencyDays)
     );
 }
 

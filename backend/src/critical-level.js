@@ -26,6 +26,22 @@
 // tests cover this.
 
 const { classifyFsnCatalog, FSN_WINDOW_DAYS } = require('./fsn');
+const { db } = require('./db');
+
+// Memoized critical levels map (1 minute TTL)
+let criticalCache = { at: 0, map: new Map() };
+
+function criticalLevels(now = Date.now()) {
+  if (criticalCache.map.size && now - criticalCache.at < 60000) return criticalCache.map;
+  const products = db.prepare('SELECT id, name, price FROM products').all();
+  const sales = db.prepare('SELECT product_id, transaction_date, qty FROM sales_transactions').all();
+  criticalCache = { at: now, map: criticalLevelMap(products, sales) };
+  return criticalCache.map;
+}
+
+function criticalLevelOf(productId) {
+  return criticalLevelFromMap(criticalLevels(), productId);
+}
 
 // Supplier lead time (days) assumed per movement class.
 const LEAD_TIME_DAYS = { F: 7, S: 14, N: 30 };
@@ -126,12 +142,14 @@ function stockStatus(qty, criticalLevel, lowStockMultiplier = 1.5) {
  * @param {string} status Output of stockStatus().
  */
 function stockStatusLabel(status) {
-  return {
-    out_of_stock: 'Out of Stock',
-    critical: 'Critical',
-    low_stock: 'Low Stock',
-    in_stock: 'In Stock',
-  }[status] || 'In Stock';
+  return (
+    {
+      out_of_stock: 'Out of Stock',
+      critical: 'Critical',
+      low_stock: 'Low Stock',
+      in_stock: 'In Stock',
+    }[status] || 'In Stock'
+  );
 }
 
 module.exports = {
@@ -144,6 +162,8 @@ module.exports = {
   criticalLevelFor,
   criticalLevelFromMap,
   criticalLevelMap,
+  criticalLevels,
+  criticalLevelOf,
   stockStatus,
   stockStatusLabel,
 };

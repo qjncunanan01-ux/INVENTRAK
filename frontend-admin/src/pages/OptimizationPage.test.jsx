@@ -74,7 +74,7 @@ function renderPage() {
       <ThemeProvider theme={createAppTheme()}>
         <OptimizationPage onLogout={() => {}} />
       </ThemeProvider>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
@@ -92,7 +92,7 @@ describe('OptimizationPage FSN analysis', () => {
     polyfillDom();
   });
 
-  test('fetches /api/optimization/fsn with the default 90-day window', async () => {
+  test('fetches /api/optimization/fsn with the default 90-day window', async() => {
     mockResponses();
     renderPage();
     await waitFor(() => {
@@ -100,7 +100,7 @@ describe('OptimizationPage FSN analysis', () => {
     });
   });
 
-  test('renders class chips with counts and both FSN rows (Non-moving first)', async () => {
+  test('renders class chips with counts and both FSN rows (Non-moving first)', async() => {
     mockResponses();
     renderPage();
 
@@ -125,7 +125,7 @@ describe('OptimizationPage FSN analysis', () => {
     expect(within(table).getAllByText('—').length).toBeGreaterThan(0); // null metrics for N rows
   });
 
-  test('the Days/Weeks/Months/Quarterly/Annually filter re-fetches the algorithm', async () => {
+  test('the Days/Weeks/Months/Quarterly/Annually filter re-fetches the algorithm', async() => {
     mockResponses();
     renderPage();
     await waitFor(() => {
@@ -159,7 +159,7 @@ describe('OptimizationPage FSN analysis', () => {
     });
   });
 
-  test('ABC row tooltip shows rank, cumulative share, and the rule that earned the class', async () => {
+  test('ABC row tooltip shows rank, cumulative share, and the rule that earned the class', async() => {
     // A tooltip left open by a previous test must not leak into this one.
     document.body.innerHTML = '';
     mockResponses();
@@ -191,7 +191,7 @@ describe('OptimizationPage FSN analysis', () => {
     expect(screen.getAllByText(/cumulative share = /).length).toBeGreaterThan(0);
   });
 
-  test('FSN row tooltip shows transactions, frequency, recency, and the fired rule', async () => {
+  test('FSN row tooltip shows transactions, frequency, recency, and the fired rule', async() => {
     mockResponses();
     renderPage();
     await waitFor(() => {
@@ -212,7 +212,7 @@ describe('OptimizationPage FSN analysis', () => {
     expect(screen.getByText(/rule: zero sales in window/)).toBeInTheDocument();
   });
 
-  test('money surfaces stay masked in tooltips for roles without revenue visibility', async () => {
+  test('money surfaces stay masked in tooltips for roles without revenue visibility', async() => {
     apiGet.mockImplementation((url) => {
       if (url.startsWith('/api/optimization/fsn')) return Promise.resolve(fsnData);
       if (url === '/api/optimization/abc') return Promise.resolve(abcData);
@@ -240,7 +240,7 @@ describe('OptimizationPage FSN analysis', () => {
     expect(screen.queryByText(/₱540/)).not.toBeInTheDocument();
   });
 
-  test('search filters both the ABC and FSN tables consistently', async () => {
+  test('search filters both the ABC and FSN tables consistently', async() => {
     mockResponses();
     renderPage();
     await waitFor(() => {

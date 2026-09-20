@@ -76,7 +76,10 @@ function matchTemplatePath(concrete) {
     let ok = true;
     for (let i = 0; i < parts.length; i++) {
       const isParam = /^\{[^}]+\}$/.test(cParts[i]);
-      if (!isParam && cParts[i] !== parts[i]) { ok = false; break; }
+      if (!isParam && cParts[i] !== parts[i]) {
+        ok = false;
+        break;
+      }
     }
     if (ok) return candidate;
   }
@@ -124,10 +127,7 @@ async function assertConform(label, side, method, pathname, { auth = null, body,
   if (checkRequest && body !== undefined && rb && rb.schema) {
     const v = validatorFor(rb.schema);
     const ok = v(body);
-    assert.ok(
-      ok,
-      `${label} (${side.name}): request body violates ${method} ${pathname} schema:\n${errorsText(v)}`
-    );
+    assert.ok(ok, `${label} (${side.name}): request body violates ${method} ${pathname} schema:\n${errorsText(v)}`);
   }
 
   // 3. The response body must conform to the documented schema for that status.
@@ -171,7 +171,10 @@ test('openapi: every operation in the spec has an operationId', () => {
 });
 
 test('openapi: both servers serve the identical, valid spec document', async () => {
-  for (const side of [{ ...sqlite, name: 'sqlite' }, { ...npmfree, name: 'npmfree' }]) {
+  for (const side of [
+    { ...sqlite, name: 'sqlite' },
+    { ...npmfree, name: 'npmfree' },
+  ]) {
     const res = await call(side.url, '/api/openapi.json');
     assert.strictEqual(res.status, 200, `${side.name} serves spec`);
     assert.deepStrictEqual(res.json, spec, `${side.name} serves the committed spec`);
@@ -192,7 +195,8 @@ test('openapi: register validates request + response', async () => {
     body: { username, password: 'Test123!', email: `${username}@example.com`, phone: '09171234567' },
   });
   await bothConform('register invalid', 'POST', '/api/auth/register', {
-    body: { username: 'x', password: '123' }, checkRequest: false,
+    body: { username: 'x', password: '123' },
+    checkRequest: false,
   });
 });
 
@@ -208,19 +212,26 @@ test('openapi: login happy path + failure', async () => {
 test('openapi: admin OCR stock check enforces auth + payload per the spec', async () => {
   // 401 without a token (documented); the body deliberately has no image.
   await bothConform('ocr/stock no token', 'POST', '/api/ocr/stock', {
-    body: {}, checkRequest: false,
+    body: {},
+    checkRequest: false,
   });
   // 403 for a non-admin (customer) token (documented).
   await bothConform('ocr/stock customer token', 'POST', '/api/ocr/stock', {
-    auth: 'customer', body: {}, checkRequest: false,
+    auth: 'customer',
+    body: {},
+    checkRequest: false,
   });
   // 400 for a missing image (documented BadRequest shape).
   await bothConform('ocr/stock missing image', 'POST', '/api/ocr/stock', {
-    auth: 'admin', body: {}, checkRequest: false,
+    auth: 'admin',
+    body: {},
+    checkRequest: false,
   });
   // 400 for a non-base64 image.
   await bothConform('ocr/stock non-base64', 'POST', '/api/ocr/stock', {
-    auth: 'admin', body: { image: 'not base64 !!!' }, checkRequest: false,
+    auth: 'admin',
+    body: { image: 'not base64 !!!' },
+    checkRequest: false,
   });
 });
 
@@ -229,10 +240,12 @@ test('openapi: google auth conforms on both backends (missing + garbage)', async
   // GOOGLE_CLIENT_IDS is set -> 501 (NotImplemented). Both documented.
   // checkRequest: false — the missing field is the point of the test.
   await bothConform('google auth missing token', 'POST', '/api/auth/google', {
-    body: {}, checkRequest: false,
+    body: {},
+    checkRequest: false,
   });
   await bothConform('google auth garbage token', 'POST', '/api/auth/google', {
-    body: { idToken: 'abc.def.ghi' }, checkRequest: false,
+    body: { idToken: 'abc.def.ghi' },
+    checkRequest: false,
   });
 });
 
@@ -246,13 +259,15 @@ test('openapi: login lockout 429 conforms to LockoutError on both backends', asy
   // deliberately invalid, not a request-shape violation.
   for (let i = 0; i < 6; i++) {
     const { a, b } = await bothConform('lockout attempt', 'POST', '/api/auth/login', {
-      body: bad, checkRequest: false,
+      body: bad,
+      checkRequest: false,
     });
     assert.strictEqual(a.status, 401, `attempt ${i + 1} is 401`);
     assert.strictEqual(b.status, 401, `npmfree attempt ${i + 1} is 401`);
   }
   const { a, b } = await bothConform('lockout 429', 'POST', '/api/auth/login', {
-    body: bad, checkRequest: false,
+    body: bad,
+    checkRequest: false,
   });
   assert.strictEqual(a.status, 429, 'sqlite lockout 429');
   assert.strictEqual(b.status, 429, 'npmfree lockout 429');
@@ -278,10 +293,12 @@ test('openapi: products list (array + paginated), categories, by-id, 404', async
 test('openapi: product CRUD + auth enforcement', async () => {
   const payload = { name: 'OpenAPI Widget', category: 'OpenAPI', price: 42 };
   const s = await assertConform('create product', { ...sqlite, name: 'sqlite' }, 'POST', '/api/products', {
-    auth: 'admin', body: payload,
+    auth: 'admin',
+    body: payload,
   });
   const n = await assertConform('create product', { ...npmfree, name: 'npmfree' }, 'POST', '/api/products', {
-    auth: 'admin', body: payload,
+    auth: 'admin',
+    body: payload,
   });
   assert.strictEqual(s.status, 201);
   assert.strictEqual(n.status, 201);
@@ -301,9 +318,14 @@ test('openapi: bulk price update conforms to spec on both backends', async () =>
   // Create a uniquely-named product so the name match is unambiguous, then
   // batch-update it by name and verify the response + resulting product
   // conform to the documented schemas.
-  for (const side of [{ ...sqlite, name: 'sqlite' }, { ...npmfree, name: 'npmfree' }]) {
+  for (const side of [
+    { ...sqlite, name: 'sqlite' },
+    { ...npmfree, name: 'npmfree' },
+  ]) {
     const created = await call(side.url, '/api/products', {
-      method: 'POST', token: side.token.admin, body: { name: uname, category: 'OpenAPI', price: 1 },
+      method: 'POST',
+      token: side.token.admin,
+      body: { name: uname, category: 'OpenAPI', price: 1 },
     });
     assert.strictEqual(created.status, 201);
   }
@@ -325,17 +347,22 @@ test('openapi: bulk price update conforms to spec on both backends', async () =>
 
   // Invalid batches (non-array, empty) conform to BadRequest on both.
   await bothConform('bulk not array', 'POST', '/api/products/bulk-prices', {
-    auth: 'admin', body: { prices: 'nope' }, checkRequest: false,
+    auth: 'admin',
+    body: { prices: 'nope' },
+    checkRequest: false,
   });
   await bothConform('bulk empty', 'POST', '/api/products/bulk-prices', {
-    auth: 'admin', body: { prices: [] }, checkRequest: false,
+    auth: 'admin',
+    body: { prices: [] },
+    checkRequest: false,
   });
   // Auth: no token -> 401, customer -> 403 (documented).
   await bothConform('bulk no token', 'POST', '/api/products/bulk-prices', {
     body: { prices: [{ name: 'x', price: 1 }] },
   });
   await bothConform('bulk customer forbidden', 'POST', '/api/products/bulk-prices', {
-    auth: 'customer', body: { prices: [{ name: 'x', price: 1 }] },
+    auth: 'customer',
+    body: { prices: [{ name: 'x', price: 1 }] },
   });
 });
 
@@ -351,10 +378,12 @@ test('openapi: locations list/create/duplicate/delete', async () => {
   await bothConform('locations', 'GET', '/api/locations');
   const name = `OpenAPI Loc ${Date.now()}`;
   const s = await assertConform('create location', { ...sqlite, name: 'sqlite' }, 'POST', '/api/locations', {
-    auth: 'admin', body: { name },
+    auth: 'admin',
+    body: { name },
   });
   const n = await assertConform('create location', { ...npmfree, name: 'npmfree' }, 'POST', '/api/locations', {
-    auth: 'admin', body: { name },
+    auth: 'admin',
+    body: { name },
   });
   assert.strictEqual(s.status, 201);
   assert.strictEqual(n.status, 201);
@@ -367,13 +396,17 @@ test('openapi: locations list/create/duplicate/delete', async () => {
 
 test('openapi: stock movement + movements list + lots', async () => {
   await bothConform('stock-in', 'POST', '/api/stock-movement', {
-    auth: 'admin', body: { product_id: 1, qty: 10, type: 'stock-in', dst_location: 1, notes: 'openapi' },
+    auth: 'admin',
+    body: { product_id: 1, qty: 10, type: 'stock-in', dst_location: 1, notes: 'openapi' },
   });
   await bothConform('invalid type', 'POST', '/api/stock-movement', {
-    auth: 'admin', body: { product_id: 1, qty: 1, type: 'bogus', dst_location: 1 }, checkRequest: false,
+    auth: 'admin',
+    body: { product_id: 1, qty: 1, type: 'bogus', dst_location: 1 },
+    checkRequest: false,
   });
   await bothConform('insufficient stock', 'POST', '/api/stock-movement', {
-    auth: 'admin', body: { product_id: 1, qty: 999999, type: 'stock-out', src_location: 1 },
+    auth: 'admin',
+    body: { product_id: 1, qty: 999999, type: 'stock-out', src_location: 1 },
   });
   await bothConform('movement no token', 'POST', '/api/stock-movement', {
     body: { product_id: 1, qty: 1, type: 'stock-in', dst_location: 1 },
@@ -398,7 +431,8 @@ test('openapi: order inquiries lifecycle', async () => {
   // (per-account history scoping keeps the owner's list populated).
   await bothConform('create inquiry', 'POST', '/api/order-inquiries', { auth: 'customer', body: payload });
   await bothConform('inquiry missing email', 'POST', '/api/order-inquiries', {
-    body: { customer_name: 'No Email' }, checkRequest: false,
+    body: { customer_name: 'No Email' },
+    checkRequest: false,
   });
   await bothConform('inquiries list', 'GET', '/api/order-inquiries', { auth: 'customer' });
   await bothConform('inquiries by status', 'GET', '/api/order-inquiries?status=pending', { auth: 'customer' });
@@ -410,10 +444,12 @@ test('openapi: order inquiries lifecycle', async () => {
   const sId = s.json[0].id;
   const nId = n.json[0].id;
   await bothConform('update inquiry', 'PUT', `/api/order-inquiries/${sId}`, {
-    auth: 'admin', body: { status: 'approved' },
+    auth: 'admin',
+    body: { status: 'approved' },
   });
   await bothConform('update inquiry 404', 'PUT', '/api/order-inquiries/99999', {
-    auth: 'admin', body: { status: 'approved' },
+    auth: 'admin',
+    body: { status: 'approved' },
   });
   // nId used only to keep parity with the contract suite's shape checks.
   void nId;
@@ -449,7 +485,8 @@ test('openapi: analytics summary + exports', async () => {
 
 test('openapi: sales + users', async () => {
   await bothConform('create sale', 'POST', '/api/sales', {
-    auth: 'admin', body: { product_id: 1, qty: 2, customer_name: 'Buyer' },
+    auth: 'admin',
+    body: { product_id: 1, qty: 2, customer_name: 'Buyer' },
   });
   await bothConform('sale no token', 'POST', '/api/sales', {
     body: { product_id: 1, qty: 2 },
@@ -468,10 +505,12 @@ test('openapi: alerts lifecycle conforms', async () => {
 
   // Drive product 1 / location 1 below the 80-unit threshold on both backends.
   await bothConform('adjust low', 'POST', '/api/stock-movement', {
-    auth: 'admin', body: { product_id: 1, qty: 5, type: 'adjustment', dst_location: 1 },
+    auth: 'admin',
+    body: { product_id: 1, qty: 5, type: 'adjustment', dst_location: 1 },
   });
   await bothConform('drain', 'POST', '/api/stock-movement', {
-    auth: 'admin', body: { product_id: 1, qty: 5, type: 'stock-out', src_location: 1 },
+    auth: 'admin',
+    body: { product_id: 1, qty: 5, type: 'stock-out', src_location: 1 },
   });
 
   const s = await call(sqlite.url, '/api/alerts', { token: sqlite.token.admin });

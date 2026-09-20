@@ -30,7 +30,7 @@ function makeDataDir(mutate) {
   return dir;
 }
 
-const dbPathFor = (name) => path.join(tmpDir, `${name}-${Math.random().toString(36).slice(2)}.db`);
+const dbPathFor = name => path.join(tmpDir, `${name}-${Math.random().toString(36).slice(2)}.db`);
 
 test('fresh seed + transform reproduces the committed catalog (the CI pass case)', () => {
   const result = checkCatalog({ dbPath: dbPathFor('pass'), dataDir: DATA_DIR });
@@ -44,20 +44,23 @@ test('fresh seed + transform reproduces the committed catalog (the CI pass case)
 });
 
 test('tampering a committed inventory quantity fails the check', () => {
-  const dataDir = makeDataDir((dir) => {
+  const dataDir = makeDataDir(dir => {
     const inv = JSON.parse(fs.readFileSync(path.join(dir, 'inventory.json'), 'utf8'));
     inv.items[0].locations['Showroom'] = 9999; // diverges from the deterministic seed draw
     fs.writeFileSync(path.join(dir, 'inventory.json'), JSON.stringify(inv, null, 2));
   });
   const result = checkCatalog({ dbPath: dbPathFor('inv'), dataDir });
   assert.strictEqual(result.ok, false);
-  assert.ok(result.diffs.some((d) => d.dataset === 'inventory.json' && d.path.includes('Showroom')), JSON.stringify(result.diffs));
+  assert.ok(
+    result.diffs.some(d => d.dataset === 'inventory.json' && d.path.includes('Showroom')),
+    JSON.stringify(result.diffs)
+  );
 });
 
 test('adding a product to products.json without an inventory entry fails the check', () => {
-  const dataDir = makeDataDir((dir) => {
+  const dataDir = makeDataDir(dir => {
     const products = JSON.parse(fs.readFileSync(path.join(dir, 'products.json'), 'utf8'));
-    products.push({ 'Product Name': 'Ghost Product', 'Category': 'Legacy', 'Size': '1 L', 'Price': 1 });
+    products.push({ 'Product Name': 'Ghost Product', Category: 'Legacy', Size: '1 L', Price: 1 });
     fs.writeFileSync(path.join(dir, 'products.json'), JSON.stringify(products, null, 2));
     // inventory.json deliberately NOT updated — the migration would push a
     // product the committed inventory doesn't know about.
@@ -68,28 +71,38 @@ test('adding a product to products.json without an inventory entry fails the che
   // product surfaces as an inventory.json items count mismatch (N+1 vs N).
   const expectedPlusOne = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'products.json'), 'utf8')).length + 1;
   assert.ok(
-    result.diffs.some((d) => d.dataset === 'inventory.json' && d.path === '$.items' && d.actual === `array[${expectedPlusOne}]`),
+    result.diffs.some(
+      d => d.dataset === 'inventory.json' && d.path === '$.items' && d.actual === `array[${expectedPlusOne}]`
+    ),
     JSON.stringify(result.diffs)
   );
 });
 
 test('normalizeProductRow maps a sparse committed row to the transform shape', () => {
   const { normalizeProductRow } = require('../../scripts/check-migration-catalog');
-  const sparse = { 'Product Name': 'Butterscotch Sauce', 'Category': 'Da Vinci Gourmet Sauces', 'Size': '2 L', 'Price': 1070 };
+  const sparse = {
+    'Product Name': 'Butterscotch Sauce',
+    Category: 'Da Vinci Gourmet Sauces',
+    Size: '2 L',
+    Price: 1070,
+  };
   const normalized = normalizeProductRow(sparse);
   assert.deepStrictEqual(normalized, {
     'Product Name': 'Butterscotch Sauce',
-    'Category': 'Da Vinci Gourmet Sauces',
-    'Brand': '',
-    'Description': '',
-    'Size': '2 L',
-    'Unit': '',
-    'Price': 1070,
-    'Image': '',
+    Category: 'Da Vinci Gourmet Sauces',
+    Brand: '',
+    Description: '',
+    Size: '2 L',
+    Unit: '',
+    Price: 1070,
+    Image: '',
   });
   assert.ok(!('status' in normalized), 'active products carry no status key');
   assert.strictEqual(normalizeProductRow({ ...sparse, status: 'inactive' }).status, 'inactive');
   // A row with an Image key maps it through unchanged (catalog products carry
   // '/images/<file>' paths that must survive the transform).
-  assert.strictEqual(normalizeProductRow({ ...sparse, Image: '/images/butterscotch.jpg' }).Image, '/images/butterscotch.jpg');
+  assert.strictEqual(
+    normalizeProductRow({ ...sparse, Image: '/images/butterscotch.jpg' }).Image,
+    '/images/butterscotch.jpg'
+  );
 });

@@ -35,7 +35,7 @@ export default function InquiryHistoryScreen({ navigation }) {
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState('');
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async() => {
     try {
       const data = await listOrderInquiries();
       setInquiries(data.data || (Array.isArray(data) ? data : []));
@@ -54,7 +54,7 @@ export default function InquiryHistoryScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       if (isLoggedIn) fetchData();
-    }, [isLoggedIn, fetchData])
+    }, [isLoggedIn, fetchData]),
   );
 
   const onRefresh = useCallback(() => {
@@ -64,11 +64,11 @@ export default function InquiryHistoryScreen({ navigation }) {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'approved': return colors.info;
-      case 'fulfilled': return colors.success;
-      case 'delivered': return colors.success;
-      case 'rejected': return colors.error;
-      default: return colors.warning;
+    case 'approved': return colors.info;
+    case 'fulfilled': return colors.success;
+    case 'delivered': return colors.success;
+    case 'rejected': return colors.error;
+    default: return colors.warning;
     }
   };
 
@@ -279,48 +279,48 @@ export default function InquiryHistoryScreen({ navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  searchWrap: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: colors.surface },
+  card: { backgroundColor: colors.surface, borderRadius: 12, marginBottom: 12, padding: 14 },
+  cardHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
+  container: { backgroundColor: colors.background, flex: 1 },
+  countBadge: { backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 9, marginLeft: 6, paddingHorizontal: 6, paddingVertical: 1 },
+  countBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
+  countText: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
+  countTextActive: { color: '#fff' },
+  date: { color: colors.textSecondary, fontSize: 12, marginTop: 6 },
+  detail: { color: colors.textSecondary, fontSize: 13, marginBottom: 3 },
+  guestBtnPrimary: { backgroundColor: colors.brandPrimary, borderRadius: 12, marginBottom: 10, paddingHorizontal: 48, paddingVertical: 14 },
+  guestBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  guestBtnSecondary: { borderColor: colors.brandPrimary, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 48, paddingVertical: 14 },
+  guestBtnSecondaryText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
+  guestGlyph: { color: colors.brandPrimary, fontSize: 40, fontWeight: '700', marginBottom: 12 },
+  guestSub: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginBottom: 24, marginTop: 6, paddingHorizontal: 32, textAlign: 'center' },
+  guestTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  itemTitle: { color: colors.textPrimary, flex: 1, fontSize: 16, fontWeight: '700' },
+  listContent: { padding: 16 },
+  newInquiry: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 12, marginBottom: 20, marginHorizontal: 16, paddingVertical: 14 },
+  newInquiryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   searchInput: {
     backgroundColor: colors.background,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
     borderRadius: 10,
     color: colors.textPrimary,
     fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  tabs: { paddingVertical: 10, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' },
-  tab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, marginHorizontal: 4, borderRadius: 18, backgroundColor: colors.background },
-  tabActive: { backgroundColor: colors.brandPrimary },
-  tabText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-  tabTextActive: { color: '#fff' },
-  countBadge: { marginLeft: 6, backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 9, paddingHorizontal: 6, paddingVertical: 1 },
-  countBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-  countText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
-  countTextActive: { color: '#fff' },
-  listContent: { padding: 16 },
-  card: { backgroundColor: colors.surface, padding: 14, borderRadius: 12, marginBottom: 12 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  itemTitle: { fontWeight: '700', fontSize: 16, color: colors.textPrimary, flex: 1 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  searchWrap: { backgroundColor: colors.surface, paddingHorizontal: 16, paddingTop: 12 },
+  statusBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { color: '#fff', fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
-  detail: { color: colors.textSecondary, marginBottom: 3, fontSize: 13 },
-  date: { marginTop: 6, color: colors.textSecondary, fontSize: 12 },
-  timeline: { marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
-  timelineStep: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
-  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.12)', marginTop: 4, marginRight: 8 },
-  timelineDotActive: { backgroundColor: colors.brandPrimary },
+  tab: { alignItems: 'center', backgroundColor: colors.background, borderRadius: 18, flexDirection: 'row', marginHorizontal: 4, paddingHorizontal: 14, paddingVertical: 8 },
+  tabActive: { backgroundColor: colors.brandPrimary },
+  tabText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: '#fff' },
+  tabs: { backgroundColor: colors.surface, borderBottomColor: 'rgba(0,0,0,0.06)', borderBottomWidth: 1, paddingVertical: 10 },
+  timeline: { borderTopColor: 'rgba(0,0,0,0.05)', borderTopWidth: 1, marginTop: 10, paddingTop: 8 },
   timelineBody: { flex: 1 },
-  timelineLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, textTransform: 'capitalize' },
-  timelineDate: { fontSize: 11, color: colors.textSecondary },
-  newInquiry: { marginHorizontal: 16, marginBottom: 20, backgroundColor: colors.brandPrimary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  newInquiryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  guestGlyph: { fontSize: 40, color: colors.brandPrimary, fontWeight: '700', marginBottom: 12 },
-  guestTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
-  guestSub: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: 24, paddingHorizontal: 32, lineHeight: 19 },
-  guestBtnPrimary: { backgroundColor: colors.brandPrimary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 48, marginBottom: 10 },
-  guestBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  guestBtnSecondary: { borderWidth: 1.5, borderColor: colors.brandPrimary, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 48 },
-  guestBtnSecondaryText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
+  timelineDate: { color: colors.textSecondary, fontSize: 11 },
+  timelineDot: { backgroundColor: 'rgba(0,0,0,0.12)', borderRadius: 5, height: 10, marginRight: 8, marginTop: 4, width: 10 },
+  timelineDotActive: { backgroundColor: colors.brandPrimary },
+  timelineLabel: { color: colors.textPrimary, fontSize: 13, fontWeight: '600', textTransform: 'capitalize' },
+  timelineStep: { alignItems: 'flex-start', flexDirection: 'row', marginBottom: 6 },
 });

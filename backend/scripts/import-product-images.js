@@ -19,12 +19,8 @@ const path = require('path');
 
 const SRC_FLAG = process.argv.indexOf('--src');
 const DEST_FLAG = process.argv.indexOf('--dest');
-const SRC = SRC_FLAG >= 0
-  ? process.argv[SRC_FLAG + 1]
-  : 'C:/Users/Jico/Downloads/INVENTRAK-main (2)/images';
-const DEST = DEST_FLAG >= 0
-  ? process.argv[DEST_FLAG + 1]
-  : path.join(__dirname, '..', 'images');
+const SRC = SRC_FLAG >= 0 ? process.argv[SRC_FLAG + 1] : 'C:/Users/Jico/Downloads/INVENTRAK-main (2)/images';
+const DEST = DEST_FLAG >= 0 ? process.argv[DEST_FLAG + 1] : path.join(__dirname, '..', 'images');
 
 // Sniff real image type from magic bytes (some files lack extensions).
 function sniffExt(buf) {
@@ -84,7 +80,7 @@ function main() {
     const categorySlug = slug((parts[0] || 'misc').replace(/ ?_ .*/, ''));
     const base = path.basename(src);
     const extMatch = base.match(/\.(jpe?g|png|gif|webp)$/i);
-    let name = path.basename(src, extMatch ? '.' + extMatch[1] : '');
+    const name = path.basename(src, extMatch ? '.' + extMatch[1] : '');
     let ext = extMatch ? '.' + extMatch[1].toLowerCase() : '';
     const head = fs.readFileSync(src);
     if (!/^\.(jpe?g|png|gif|webp)$/.test(ext)) ext = sniffExt(head); // recover missing/odd extensions
@@ -114,7 +110,7 @@ function main() {
     const categorySlug = slug((parts[0] || 'misc').replace(/ ?_ .*/, ''));
     const base = path.basename(srcRel);
     const extMatch = base.match(/\.(jpe?g|png|gif|webp)$/i);
-    let name = path.basename(base, extMatch ? '.' + extMatch[1] : '');
+    const name = path.basename(base, extMatch ? '.' + extMatch[1] : '');
     let ext = extMatch ? '.' + extMatch[1].toLowerCase() : '';
     if (!/^\.(jpe?g|png|gif|webp)$/.test(ext)) ext = sniffExt(fs.readFileSync(srcPath));
     const destName = `${categorySlug}--${slug(name)}${ext}`;
@@ -123,12 +119,19 @@ function main() {
 
   const manifestPath = path.join(__dirname, '..', 'data', 'product-images.json');
   fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  fs.writeFileSync(manifestPath, JSON.stringify({
-    generatedAt: new Date().toISOString(),
-    source: SRC,
-    products,
-    totalFiles: destByName.size,
-  }, null, 2));
+  fs.writeFileSync(
+    manifestPath,
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        source: SRC,
+        products,
+        totalFiles: destByName.size,
+      },
+      null,
+      2
+    )
+  );
 
   console.log(`Copied ${copied} (${skipped} non-images skipped) -> ${DEST}`);
   console.log(`Total image files: ${destByName.size}`);

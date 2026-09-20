@@ -26,10 +26,18 @@ let WARMUP = 5;
 let CONCURRENCY = 5;
 
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--runs' && args[i + 1]) { RUNS = parseInt(args[i + 1], 10); i++; }
-  else if (args[i] === '--warmup' && args[i + 1]) { WARMUP = parseInt(args[i + 1], 10); i++; }
-  else if (args[i] === '--concurrency' && args[i + 1]) { CONCURRENCY = parseInt(args[i + 1], 10); i++; }
-  else if (!args[i].startsWith('--')) { BASE_URL = args[i]; }
+  if (args[i] === '--runs' && args[i + 1]) {
+    RUNS = parseInt(args[i + 1], 10);
+    i++;
+  } else if (args[i] === '--warmup' && args[i + 1]) {
+    WARMUP = parseInt(args[i + 1], 10);
+    i++;
+  } else if (args[i] === '--concurrency' && args[i + 1]) {
+    CONCURRENCY = parseInt(args[i + 1], 10);
+    i++;
+  } else if (!args[i].startsWith('--')) {
+    BASE_URL = args[i];
+  }
 }
 
 const client = BASE_URL.startsWith('https') ? https : http;
@@ -40,9 +48,11 @@ function fetch(path) {
   return new Promise((resolve, reject) => {
     const url = new URL(path, BASE_URL);
     const start = process.hrtime.bigint();
-    const req = client.get(url.href, { timeout: 30000 }, (res) => {
+    const req = client.get(url.href, { timeout: 30000 }, res => {
       let body = '';
-      res.on('data', (chunk) => { body += chunk; });
+      res.on('data', chunk => {
+        body += chunk;
+      });
       res.on('end', () => {
         const ns = Number(process.hrtime.bigint() - start);
         const ms = ns / 1e6;
@@ -50,7 +60,10 @@ function fetch(path) {
       });
     });
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('timeout'));
+    });
   });
 }
 
@@ -59,21 +72,30 @@ function fetchPost(path, body) {
     const url = new URL(path, BASE_URL);
     const data = JSON.stringify(body);
     const start = process.hrtime.bigint();
-    const req = client.request(url.href, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
-      timeout: 30000,
-    }, (res) => {
-      let rbody = '';
-      res.on('data', (chunk) => { rbody += chunk; });
-      res.on('end', () => {
-        const ns = Number(process.hrtime.bigint() - start);
-        const ms = ns / 1e6;
-        resolve({ status: res.statusCode, ms, body: rbody, headers: res.headers });
-      });
-    });
+    const req = client.request(
+      url.href,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+        timeout: 30000,
+      },
+      res => {
+        let rbody = '';
+        res.on('data', chunk => {
+          rbody += chunk;
+        });
+        res.on('end', () => {
+          const ns = Number(process.hrtime.bigint() - start);
+          const ms = ns / 1e6;
+          resolve({ status: res.statusCode, ms, body: rbody, headers: res.headers });
+        });
+      }
+    );
     req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('timeout'));
+    });
     req.write(data);
     req.end();
   });
@@ -99,7 +121,7 @@ function stats(times) {
 }
 
 function formatMs(ms) {
-  if (ms < 1) return `<1ms`;
+  if (ms < 1) return '<1ms';
   if (ms < 10) return `${ms.toFixed(1)}ms`;
   return `${Math.round(ms)}ms`;
 }
@@ -166,8 +188,14 @@ async function runConcurrencyBurst(endpoint, totalRequests, concurrency, token) 
     for (let i = 0; i < batchSize; i++) {
       promises.push(
         fetch(endpoint.path)
-          .then(res => { times.push(res.ms); completed++; })
-          .catch(() => { times.push(30000); completed++; })
+          .then(res => {
+            times.push(res.ms);
+            completed++;
+          })
+          .catch(() => {
+            times.push(30000);
+            completed++;
+          })
       );
     }
 
@@ -203,7 +231,7 @@ async function main() {
     console.log('');
   } catch (err) {
     console.error(`  ❌ Cannot reach backend: ${err.message}`);
-    console.error(`     Start the backend first: cd backend && npm start`);
+    console.error('     Start the backend first: cd backend && npm start');
     process.exit(1);
   }
 
@@ -211,7 +239,9 @@ async function main() {
   console.log('─── Step 2: Cache Warmup ───');
   for (const ep of ENDPOINTS) {
     for (let i = 0; i < WARMUP; i++) {
-      try { await fetch(ep.path); } catch {}
+      try {
+        await fetch(ep.path);
+      } catch {}
     }
   }
   console.log(`  ✅ Warmed up ${ENDPOINTS.length} endpoints × ${WARMUP} requests`);
@@ -264,7 +294,9 @@ async function main() {
 
   const maxBurstAvg = Math.max(...burstResults.map(r => r.avg));
   for (const r of burstResults) {
-    console.log(`  ${r.name.padEnd(25)} Avg: ${formatMs(r.avg).padStart(6)}  P95: ${formatMs(r.p95).padStart(6)}  ${bar(r.avg, maxBurstAvg || 1)}`);
+    console.log(
+      `  ${r.name.padEnd(25)} Avg: ${formatMs(r.avg).padStart(6)}  P95: ${formatMs(r.p95).padStart(6)}  ${bar(r.avg, maxBurstAvg || 1)}`
+    );
   }
   console.log('');
 
@@ -281,14 +313,20 @@ async function main() {
       const statsUrl = new URL('/api/cache/stats', BASE_URL);
       const statsData = await new Promise((resolve, reject) => {
         const mod = statsUrl.protocol === 'https:' ? https : http;
-        const req = mod.get(statsUrl.href, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000,
-        }, (res) => {
-          let body = '';
-          res.on('data', (c) => { body += c; });
-          res.on('end', () => resolve(JSON.parse(body)));
-        });
+        const req = mod.get(
+          statsUrl.href,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 10000,
+          },
+          res => {
+            let body = '';
+            res.on('data', c => {
+              body += c;
+            });
+            res.on('end', () => resolve(JSON.parse(body)));
+          }
+        );
         req.on('error', reject);
       });
 
@@ -317,8 +355,8 @@ async function main() {
   const publicResults = results.filter(r => !r.auth);
   const overallAvg = publicResults.reduce((s, r) => s + r.avg, 0) / publicResults.length;
   const overallP95 = Math.max(...publicResults.map(r => r.p95));
-  const fastest = publicResults.reduce((a, b) => a.p50 < b.p50 ? a : b);
-  const slowest = publicResults.reduce((a, b) => a.p95 > b.p95 ? a : b);
+  const fastest = publicResults.reduce((a, b) => (a.p50 < b.p50 ? a : b));
+  const slowest = publicResults.reduce((a, b) => (a.p95 > b.p95 ? a : b));
 
   console.log(`  Overall avg response:  ${formatMs(overallAvg)}`);
   console.log(`  Overall P95:           ${formatMs(overallP95)}`);
@@ -330,9 +368,11 @@ async function main() {
   console.log('  ┌─────────────────────────────────────────────────────────┐');
   console.log('  │  Cache Performance Impact (estimated)                   │');
   console.log('  ├─────────────────────────────────────────────────────────┤');
-  console.log(`  │  Without cache (Supabase round-trip):  ~50-200ms avg    │`);
+  console.log('  │  Without cache (Supabase round-trip):  ~50-200ms avg    │');
   console.log(`  │  With cache (in-memory Map):           ${formatMs(overallAvg).padStart(6)} avg        │`);
-  console.log(`  │  Speedup:                              ~${Math.round(100 / Math.max(1, overallAvg))}x faster           │`);
+  console.log(
+    `  │  Speedup:                              ~${Math.round(100 / Math.max(1, overallAvg))}x faster           │`
+  );
   console.log('  └─────────────────────────────────────────────────────────┘');
   console.log('');
 

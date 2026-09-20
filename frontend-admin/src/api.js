@@ -1,4 +1,4 @@
- // Thin facade over the OpenAPI-generated client (api.generated.js).
+// Thin facade over the OpenAPI-generated client (api.generated.js).
 //
 // The generated module (regenerated from backend/openapi.json via
 // `npm run client:generate`) is the single source of truth for every API
@@ -19,7 +19,7 @@ export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localh
 export function getToken() {
   return sessionStorage.getItem('inventrak_token');
 }
- // Set token in sessionStorage
+// Set token in sessionStorage
 export function setToken(token) {
   sessionStorage.setItem('inventrak_token', token);
 }

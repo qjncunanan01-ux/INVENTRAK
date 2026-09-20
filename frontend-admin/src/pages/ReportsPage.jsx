@@ -27,7 +27,7 @@ export default function ReportsPage({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const load = async (q) => {
+  const load = async(q) => {
     setLoading(true);
     setError('');
     try {

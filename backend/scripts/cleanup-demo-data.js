@@ -30,14 +30,12 @@ const APPLY = process.argv.includes('--apply');
 const SA_FLAG = process.argv.indexOf('--sa');
 const SA_PATH = SA_FLAG >= 0 ? process.argv[SA_FLAG + 1] : null;
 const PROJ_FLAG = process.argv.indexOf('--project');
-const PROJECT_ID = PROJ_FLAG >= 0
-  ? process.argv[PROJ_FLAG + 1]
-  : process.env.FIREBASE_PROJECT_ID;
+const PROJECT_ID = PROJ_FLAG >= 0 ? process.argv[PROJ_FLAG + 1] : process.env.FIREBASE_PROJECT_ID;
 
 // Expected test artifacts: doc id -> { collection, matcher (field/value or /re/) }
 const TARGETS = [
   { col: 'products', id: '9', field: 'Product Name', match: /Live Test Product/ },
-  { col: 'inventory', id: '9', field: 'product', match: (v) => v && v.id === 9 },
+  { col: 'inventory', id: '9', field: 'product', match: v => v && v.id === 9 },
   { col: 'inquiries', id: '4', field: 'customer_name', match: /E2E Tester/ },
   { col: 'inquiries', id: '5', field: 'customer_name', match: /Guest Demo/ },
   { col: 'inquiries', id: '6', field: 'customer_name', match: /Demo Walkthrough/ },
@@ -52,9 +50,7 @@ const TARGETS = [
 function matches(target, doc) {
   // Raw Firestore docs use the JSON-file key shape ('Product Name'), but
   // some collections are written with lowercase API keys — fall back.
-  const v = target.field === 'product'
-    ? doc.product
-    : doc[target.field] !== undefined ? doc[target.field] : doc.name;
+  const v = target.field === 'product' ? doc.product : doc[target.field] !== undefined ? doc[target.field] : doc.name;
   if (typeof target.match === 'function') return target.match(v);
   if (v === undefined || v === null) return false;
   if (target.match instanceof RegExp) return target.match.test(String(v));
@@ -71,7 +67,9 @@ async function main() {
   else if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) cred = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
   else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) cred = require(process.env.GOOGLE_APPLICATION_CREDENTIALS);
   else {
-    console.error('No credentials — pass --sa <path> or set FIREBASE_SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS.');
+    console.error(
+      'No credentials — pass --sa <path> or set FIREBASE_SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS.'
+    );
     process.exit(1);
   }
 
@@ -97,7 +95,9 @@ async function main() {
       skipped.push(`${target.col}/${target.id} (NO MATCH: ${JSON.stringify(data[target.field] || data)} — left alone)`);
       continue;
     }
-    console.log(`${APPLY ? 'DELETING' : 'would delete'}  ${target.col}/${target.id}  (${data[target.field] && data[target.field].name || data[target.field] || ''})`);
+    console.log(
+      `${APPLY ? 'DELETING' : 'would delete'}  ${target.col}/${target.id}  (${(data[target.field] && data[target.field].name) || data[target.field] || ''})`
+    );
     if (APPLY) {
       await ref.delete();
       deleted.push(`${target.col}/${target.id}`);
@@ -107,12 +107,12 @@ async function main() {
   console.log(`\n${APPLY ? 'Deleted' : 'Would delete'}: ${deleted.length} | skipped/kept: ${skipped.length}`);
   if (!APPLY) {
     console.log('Dry run only — re-run with --apply to commit.');
-    skipped.forEach((s) => console.log('  keep:', s));
+    skipped.forEach(s => console.log('  keep:', s));
   }
   process.exit(0);
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error('Cleanup failed:', err.message);
   process.exit(1);
 });

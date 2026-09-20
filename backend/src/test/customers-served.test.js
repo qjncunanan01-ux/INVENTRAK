@@ -110,7 +110,7 @@ test('analytics summary: customersServed follows the same real-customer rule', a
   for (const side of [sqlite, npmfree]) {
     const res = await call(side.url, '/api/analytics/summary', { token: side.token.admin });
     assert.strictEqual(res.status, 200);
-    assert.ok(Number.isFinite(res.json.customersServed), `customersServed finite`);
+    assert.ok(Number.isFinite(res.json.customersServed), 'customersServed finite');
     assert.ok(Number.isFinite(res.json.customersPaid), 'customersPaid exposed for the Reports page');
     // The reports payload carries the snake_case mirrors of the same rule.
     const reports = await call(side.url, '/api/reports', { token: side.token.admin });
@@ -136,11 +136,7 @@ test('customers_registered is the raw account base — rises on signup, orders o
       before.customers_registered + 1,
       'registration raises the account base by exactly one'
     );
-    assert.strictEqual(
-      after.customers_served,
-      before.customers_served,
-      '…but never touches the ordered-from count'
-    );
+    assert.strictEqual(after.customers_served, before.customers_served, '…but never touches the ordered-from count');
   }
 });
 

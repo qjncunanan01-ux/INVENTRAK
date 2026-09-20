@@ -22,24 +22,24 @@ export default function BackButton({ navigation, label = 'Back', dark = false, s
 
 const createStyles = (colors) => StyleSheet.create({
   btn: {
-    position: 'absolute',
-    top: 52,
-    left: 14,
     borderRadius: 20,
+    borderWidth: 1,
+    left: 14,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderWidth: 1,
+    position: 'absolute',
+    top: 52,
     zIndex: 10,
-  },
-  btnLight: {
-    backgroundColor: colors.surface,
-    borderColor: 'rgba(0,0,0,0.08)',
   },
   btnDark: {
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderColor: 'rgba(255,255,255,0.35)',
   },
+  btnLight: {
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(0,0,0,0.08)',
+  },
   text: { fontSize: 15, fontWeight: '700' },
-  textLight: { color: colors.textPrimary },
   textDark: { color: '#fff' },
+  textLight: { color: colors.textPrimary },
 });

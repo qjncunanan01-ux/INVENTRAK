@@ -28,7 +28,7 @@ function extractCode(line) {
 
 // Registers a user and returns { res, code } where code came from the email.
 async function registerCapturing(side, body) {
-  let lines = [];
+  const lines = [];
   const orig = console.log;
   console.log = (...args) => {
     const line = args.join(' ');
@@ -46,7 +46,7 @@ async function registerCapturing(side, body) {
 
 let user;
 
-before(async () => {
+before(async() => {
   await bootBoth();
   user = `verify_${Date.now().toString(36)}`;
 });
@@ -55,7 +55,7 @@ after(() => {
   teardown();
 });
 
-test('verify: phone is REQUIRED at registration (400 without it) on both backends', async () => {
+test('verify: phone is REQUIRED at registration (400 without it) on both backends', async() => {
   const { a, b } = await both('register without phone', '/api/auth/register', {
     method: 'POST',
     body: { username: `nophone_${Date.now()}`, password: 'Test123!', email: 'x@y.com' },
@@ -65,7 +65,7 @@ test('verify: phone is REQUIRED at registration (400 without it) on both backend
   assert.ok(Array.isArray(a.json.details) && Array.isArray(b.json.details));
 });
 
-test('verify: an invalid mobile number is rejected with 400 on both backends', async () => {
+test('verify: an invalid mobile number is rejected with 400 on both backends', async() => {
   const { a, b } = await both('register bad phone', '/api/auth/register', {
     method: 'POST',
     body: { username: `badphone_${Date.now()}`, password: 'Test123!', email: 'x@y.com', phone: 'not-a-number' },
@@ -75,7 +75,7 @@ test('verify: an invalid mobile number is rejected with 400 on both backends', a
   assert.ok(Array.isArray(a.json.details) && Array.isArray(b.json.details));
 });
 
-test('verify: registering emails a 6-digit code and starts the account UNVERIFIED (both backends, parity)', async () => {
+test('verify: registering emails a 6-digit code and starts the account UNVERIFIED (both backends, parity)', async() => {
   for (const side of [sqlite, npmfree]) {
     const uname = `${user}_${side === sqlite ? 's' : 'n'}`;
     const { res, code } = await registerCapturing(side, {
@@ -100,7 +100,7 @@ test('verify: registering emails a 6-digit code and starts the account UNVERIFIE
   }
 });
 
-test('verify: wrong code is 401 and the real code verifies the account on BOTH backends', async () => {
+test('verify: wrong code is 401 and the real code verifies the account on BOTH backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const uname = `${user}_ok_${side === sqlite ? 's' : 'n'}`;
     const { res, code } = await registerCapturing(side, {
@@ -141,7 +141,7 @@ test('verify: wrong code is 401 and the real code verifies the account on BOTH b
   }
 });
 
-test('verify: the stored code hash is HMAC-keyed, not plain SHA-256 (SQLite at-rest lock)', async () => {
+test('verify: the stored code hash is HMAC-keyed, not plain SHA-256 (SQLite at-rest lock)', async() => {
   // A plain SHA-256 of a 6-digit code is offline-brute-forceable in seconds
   // from a leaked database; the stored hash must be HMAC-SHA256 keyed with the
   // token secret. Assert against the ACTUAL persisted row (the harness exposes
@@ -169,7 +169,7 @@ test('verify: the stored code hash is HMAC-keyed, not plain SHA-256 (SQLite at-r
   assert.strictEqual(row.code_hash, keyed, 'stored hash is HMAC-SHA256 keyed with the token secret');
 });
 
-test('verify: resend-verification mails a NEW code redeemable on both backends', async () => {
+test('verify: resend-verification mails a NEW code redeemable on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const uname = `${user}_resend_${side === sqlite ? 's' : 'n'}`;
     await registerCapturing(side, {
@@ -179,7 +179,7 @@ test('verify: resend-verification mails a NEW code redeemable on both backends',
       phone: '09171234567',
     });
 
-    let lines = [];
+    const lines = [];
     const orig = console.log;
     console.log = (...args) => {
       const line = args.join(' ');
@@ -207,9 +207,9 @@ test('verify: resend-verification mails a NEW code redeemable on both backends',
   }
 });
 
-test('verify: resend for a VERIFIED (or unknown) email sends nothing but still 200 (no oracle)', async () => {
+test('verify: resend for a VERIFIED (or unknown) email sends nothing but still 200 (no oracle)', async() => {
   for (const side of [sqlite, npmfree]) {
-    let lines = [];
+    const lines = [];
     const orig = console.log;
     console.log = (...args) => {
       const line = args.join(' ');
@@ -236,7 +236,7 @@ test('verify: resend for a VERIFIED (or unknown) email sends nothing but still 2
   }
 });
 
-test('verify: /api/auth/me exposes email_verified on both backends', async () => {
+test('verify: /api/auth/me exposes email_verified on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const me = await call(side.url, '/api/auth/me', { token: side.token.admin });
     assert.strictEqual(me.status, 200);
@@ -244,7 +244,7 @@ test('verify: /api/auth/me exposes email_verified on both backends', async () =>
   }
 });
 
-test('verify: /api/users includes email_verified on both backends (shape parity)', async () => {
+test('verify: /api/users includes email_verified on both backends (shape parity)', async() => {
   const a = await call(sqlite.url, '/api/users', { token: sqlite.token.admin });
   const b = await call(npmfree.url, '/api/users', { token: npmfree.token.admin });
   assert.strictEqual(a.status, 200);

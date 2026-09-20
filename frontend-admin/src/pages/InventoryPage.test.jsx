@@ -104,7 +104,7 @@ function hoverChip(rowText) {
   return chip;
 }
 
-test('shows the nearest expiry per product with the urgency chip', async () => {
+test('shows the nearest expiry per product with the urgency chip', async() => {
   mockResponses();
   renderPage();
 
@@ -130,10 +130,10 @@ test('shows the nearest expiry per product with the urgency chip', async () => {
   expect(within(berylsRow).getByText('—')).toBeInTheDocument();
 });
 
-test('tooltip reveals lot qty, the dated date, and the FEFO note', async () => {
+test('tooltip reveals lot qty, the dated date, and the FEFO note', async() => {
   mockResponses();
   renderPage();
-  await screen.findAllByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
+  await screen.findAllByLabelText(new RegExp('Milklab Milk 1L best before', 'i'));
 
   hoverChip('Milklab Milk 1L');
   await waitFor(() => {
@@ -144,10 +144,10 @@ test('tooltip reveals lot qty, the dated date, and the FEFO note', async () => {
   expect(screen.getByText(/FEFO consumes this lot first/)).toBeInTheDocument();
 });
 
-test('Best-before filter narrows rows (expired / dated / undated)', async () => {
+test('Best-before filter narrows rows (expired / dated / undated)', async() => {
   mockResponses();
   renderPage();
-  await screen.findAllByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
+  await screen.findAllByLabelText(new RegExp('Milklab Milk 1L best before', 'i'));
 
   const selects = screen.getAllByRole('combobox');
   const bestBefore = selects.find((el) => el.closest('.MuiFormControl-root')?.textContent.includes('Best before'));
@@ -168,10 +168,10 @@ test('Best-before filter narrows rows (expired / dated / undated)', async () => 
   expect(within(table).queryByLabelText(/best before/i)).not.toBeInTheDocument();
 });
 
-test('search + expiry filter compose (AND)', async () => {
+test('search + expiry filter compose (AND)', async() => {
   mockResponses();
   renderPage();
-  await screen.findAllByLabelText(new RegExp(`Milklab Milk 1L best before`, 'i'));
+  await screen.findAllByLabelText(new RegExp('Milklab Milk 1L best before', 'i'));
 
   const selects = screen.getAllByRole('combobox');
   const bestBefore = selects.find((el) => el.closest('.MuiFormControl-root')?.textContent.includes('Best before'));
@@ -187,11 +187,11 @@ test('search + expiry filter compose (AND)', async () => {
   expect(screen.getByText('Torani Vanilla Syrup')).toBeInTheDocument();
   const tableAfterSearch = document.querySelector('table');
   expect(
-    within(tableAfterSearch).getByLabelText(new RegExp(`Torani Vanilla Syrup best before`, 'i'))
+    within(tableAfterSearch).getByLabelText(new RegExp('Torani Vanilla Syrup best before', 'i')),
   ).toBeInTheDocument();
 });
 
-test('Expiring-within-30-days card aggregates the nearest lots and lists the products', async () => {
+test('Expiring-within-30-days card aggregates the nearest lots and lists the products', async() => {
   mockResponses();
   renderPage();
 
@@ -210,7 +210,7 @@ test('Expiring-within-30-days card aggregates the nearest lots and lists the pro
   expect(within(card).queryByText(/Beryls Compound/)).not.toBeInTheDocument();
 });
 
-test('Expiring-within-30-days card shows the empty state when nothing is dated', async () => {
+test('Expiring-within-30-days card shows the empty state when nothing is dated', async() => {
   apiGet.mockImplementation((url) => {
     if (url.startsWith('/api/inventory')) return Promise.resolve(inventory);
     if (url.startsWith('/api/stock-lots')) return Promise.resolve([]); // no dated lots at all
@@ -221,6 +221,6 @@ test('Expiring-within-30-days card shows the empty state when nothing is dated',
   const card = await screen.findByLabelText('Expiring within 30 days summary');
   await waitFor(() => expect(within(card).getByText('0')).toBeInTheDocument());
   expect(
-    within(card).getByText(/Nothing dated expires in the next 30 days/)
+    within(card).getByText(/Nothing dated expires in the next 30 days/),
   ).toBeInTheDocument();
 });

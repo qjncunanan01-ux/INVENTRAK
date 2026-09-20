@@ -23,22 +23,22 @@ export default function EmptyState({ glyph, title, sub, actionLabel, onAction, s
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  wrap: { alignItems: 'center', paddingHorizontal: 32, paddingVertical: 40 },
-  glyph: { fontSize: 44, marginBottom: 12 },
-  title: { fontSize: 17, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
-  sub: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 19,
-  },
   btn: {
-    marginTop: 18,
     backgroundColor: colors.brandPrimary,
     borderRadius: 12,
-    paddingVertical: 13,
+    marginTop: 18,
     paddingHorizontal: 28,
+    paddingVertical: 13,
   },
   btnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  glyph: { fontSize: 44, marginBottom: 12 },
+  sub: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  title: { color: colors.textPrimary, fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  wrap: { alignItems: 'center', paddingHorizontal: 32, paddingVertical: 40 },
 });

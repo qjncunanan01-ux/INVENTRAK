@@ -58,20 +58,37 @@ function normalizeLine(entry, index) {
 function normalizeLines(raw) {
   const entries = Array.isArray(raw) ? raw : [];
   const lines = entries.map(normalizeLine);
-  const priced = lines.filter((l) => l.subtotal !== null);
+  const priced = lines.filter(l => l.subtotal !== null);
   const hasPrices = priced.length > 0;
-  const total = hasPrices
-    ? Math.round(priced.reduce((sum, l) => sum + l.subtotal, 0) * 100) / 100
-    : null;
+  const total = hasPrices ? Math.round(priced.reduce((sum, l) => sum + l.subtotal, 0) * 100) / 100 : null;
   return { lines, total, hasPrices };
 }
 
 // Friendly one-line-per-product rendering used by the mobile history screen
 // and the admin table for legacy rows that predate structured lines.
 function summarizeLines(lines) {
-  return lines
-    .map((l) => (l.qty > 1 ? `${l.name} x${l.qty}` : l.name))
-    .join(', ');
+  return lines.map(l => (l.qty > 1 ? `${l.name} x${l.qty}` : l.name)).join(', ');
 }
 
-module.exports = { normalizeLines, summarizeLines };
+// Friendly summary for a RAW products value, which may be the canonical line
+// objects, a JSON string of them, legacy plain strings ("Widget x2"), or a
+// JSON string of those. Notification bodies get the stored value as-is;
+// joining line OBJECTS directly rendered "[object Object]" in customer
+// emails, so every raw shape is normalized to a line first. Always returns a
+// non-empty string so a body never reads "Your order inquiry () is now APPROVED".
+function summarizeProducts(raw) {
+  let value = raw;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      // Not JSON — a legacy free-text value; show it verbatim.
+      return value;
+    }
+  }
+  const entries = Array.isArray(value) ? value : [];
+  const text = summarizeLines(entries.map((entry, index) => normalizeLine(entry, index)));
+  return text || 'your items';
+}
+
+module.exports = { normalizeLines, summarizeLines, summarizeProducts };

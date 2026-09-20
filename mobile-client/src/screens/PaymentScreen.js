@@ -45,7 +45,7 @@ export default function PaymentScreen({ route, navigation }) {
     }
   };
 
-  const confirmPaid = async () => {
+  const confirmPaid = async() => {
     setBusy(true);
     try {
       await updateInquiryPayment({ id: inquiryId }, { payment_status: 'paid' });
@@ -107,7 +107,7 @@ export default function PaymentScreen({ route, navigation }) {
       ) : null}
 
       <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={confirmPaid} disabled={busy}>
-        <Text style={styles.btnPrimaryText}>{busy ? 'Confirming...' : "I've paid — confirm"}</Text>
+        <Text style={styles.btnPrimaryText}>{busy ? 'Confirming...' : 'I\'ve paid — confirm'}</Text>
       </TouchableOpacity>
       <Text style={styles.hint}>In demo mode no real charge is made — tap confirm to continue.</Text>
 
@@ -126,29 +126,29 @@ export default function PaymentScreen({ route, navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: colors.background },
-  title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, marginBottom: 6, textAlign: 'center' },
-  subtitle: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, textAlign: 'center', marginBottom: 20 },
-  bigGlyph: { fontSize: 44, color: colors.success, fontWeight: '700', marginBottom: 10 },
+  bigGlyph: { color: colors.success, fontSize: 44, fontWeight: '700', marginBottom: 10 },
+  btn: { alignItems: 'center', borderRadius: 12, marginBottom: 10, paddingVertical: 14 },
+  btnLink: { borderColor: colors.info, borderWidth: 1.5 },
+  btnLinkText: { color: colors.info, fontSize: 15, fontWeight: '700' },
+  btnPrimary: { backgroundColor: colors.brandPrimary },
+  btnPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: 24 },
+  container: { backgroundColor: colors.background, flex: 1, padding: 20 },
+  hint: { color: colors.textSecondary, fontSize: 12, marginTop: 4, textAlign: 'center' },
+  qr: { borderRadius: 8, height: 220, width: 220 },
   qrCard: {
     alignSelf: 'center',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.06)',
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 16,
   },
-  qr: { width: 220, height: 220, borderRadius: 8 },
-  refCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 16, alignItems: 'center' },
-  refLabel: { fontSize: 12, color: colors.textSecondary },
-  refCode: { fontSize: 20, fontWeight: '800', color: colors.textPrimary, marginVertical: 4, letterSpacing: 1 },
-  refHint: { fontSize: 12, color: colors.textSecondary },
-  btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
-  btnPrimary: { backgroundColor: colors.brandPrimary },
-  btnPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  btnLink: { borderWidth: 1.5, borderColor: colors.info },
-  btnLinkText: { color: colors.info, fontSize: 15, fontWeight: '700' },
-  hint: { textAlign: 'center', color: colors.textSecondary, fontSize: 12, marginTop: 4 },
+  refCard: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, marginBottom: 16, padding: 14 },
+  refCode: { color: colors.textPrimary, fontSize: 20, fontWeight: '800', letterSpacing: 1, marginVertical: 4 },
+  refHint: { color: colors.textSecondary, fontSize: 12 },
+  refLabel: { color: colors.textSecondary, fontSize: 12 },
+  subtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 20, textAlign: 'center' },
+  title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
 });

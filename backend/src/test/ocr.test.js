@@ -3,7 +3,18 @@
 // and is only exercised live / via the deployed server).
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { matchProducts, normalize, matchScore, handleOcr, handleOcrStock, attachStock, filterOcrText, matchByFilename, basenameOf, stemOf } = require('../ocr');
+const {
+  matchProducts,
+  normalize,
+  matchScore,
+  handleOcr,
+  handleOcrStock,
+  attachStock,
+  filterOcrText,
+  matchByFilename,
+  basenameOf,
+  stemOf,
+} = require('../ocr');
 
 const PRODUCTS = [
   { id: 1, name: 'Butterscotch Sauce', price: 1070, image: '/images/a.jpg' },
@@ -58,7 +69,7 @@ test('house-brand tokens are non-discriminating (logo-only scans never match)', 
   const matches = matchProducts('TORANI VANILLA SYRUP SYLVER', BRANDED);
   assert.strictEqual(matches[0].id, 3);
   assert.strictEqual(matches[0].score, 1);
-  assert.ok(!matches.some((m) => m.id === 1 || m.id === 2));
+  assert.ok(!matches.some(m => m.id === 1 || m.id === 2));
 });
 
 test('a typo in a real label still finds the right product', () => {
@@ -77,17 +88,16 @@ test('matchProducts ranks best matches first and filters below threshold', () =>
 test('a one-word scan never matches a product (only specific names do)', () => {
   // "SYRUP" describes a category, not a product — with no second distinctive
   // token it must be an honest miss instead of a confident wrong pick.
-  assert.deepStrictEqual(matchProducts('SYRUP', [
-    { id: 1, name: 'Vanilla Syrup 1 L' },
-    { id: 2, name: 'Chocolate Syrup 1 L' },
-  ]), []);
-  assert.deepStrictEqual(matchProducts('VANILLA', [
-    { id: 1, name: 'Vanilla Syrup 1 L' },
-  ]), []);
+  assert.deepStrictEqual(
+    matchProducts('SYRUP', [
+      { id: 1, name: 'Vanilla Syrup 1 L' },
+      { id: 2, name: 'Chocolate Syrup 1 L' },
+    ]),
+    []
+  );
+  assert.deepStrictEqual(matchProducts('VANILLA', [{ id: 1, name: 'Vanilla Syrup 1 L' }]), []);
   // A logo/brand-only read is also a miss.
-  assert.deepStrictEqual(matchProducts('TORANI', [
-    { id: 1, name: 'Torani Vanilla Syrup' },
-  ]), []);
+  assert.deepStrictEqual(matchProducts('TORANI', [{ id: 1, name: 'Torani Vanilla Syrup' }]), []);
 });
 
 test('two distinctive tokens are enough to identify a specific product', () => {
@@ -220,7 +230,10 @@ test('filterOcrText drops pure-digit lines and long paragraphs', () => {
 test('filterOcrText drops glued nutrition rows and hallucinated barcode runs', () => {
   // tesseract often glues the value to the label ("Total Fat0 g") and reads
   // barcode bars as vowel-less alphanumeric noise ("AQNN1929AER720N").
-  const filtered = filterOcrText('TORANI\nTotal Fat0 g\nSodium5mg\nAQNN1929AER720N\nVanilla Syrup 750 ml', LABEL_PRODUCTS);
+  const filtered = filterOcrText(
+    'TORANI\nTotal Fat0 g\nSodium5mg\nAQNN1929AER720N\nVanilla Syrup 750 ml',
+    LABEL_PRODUCTS
+  );
   assert.strictEqual(filtered, 'TORANI\nVanilla Syrup 750 ml');
 });
 
@@ -257,7 +270,10 @@ test('matchProducts respects limit and minScore', () => {
 
 test('handleOcr validates the payload before touching the engine', async () => {
   const fakeRes = { status: 0, body: null };
-  const sendJson = (res, status, body) => { res.status = status; res.body = body; };
+  const sendJson = (res, status, body) => {
+    res.status = status;
+    res.body = body;
+  };
 
   // Missing image -> 400.
   await handleOcr({ body: {} }, fakeRes, sendJson, PRODUCTS);
@@ -280,10 +296,11 @@ test('attachStock adds per-location stock, total and low/out status', () => {
     { id: 2, name: 'Classic Caramel Sauce', score: 0.8 },
     { id: 3, name: 'Matcha Green Tea Powder', score: 0.6 },
   ];
-  const lookup = (id) => ({
-    1: { locations: { Main: 120, Branch: 40 }, total: 160 },
-    2: { locations: { Main: 30 }, total: 30 },
-  }[id] || { locations: {}, total: 0 });
+  const lookup = id =>
+    ({
+      1: { locations: { Main: 120, Branch: 40 }, total: 160 },
+      2: { locations: { Main: 30 }, total: 30 },
+    })[id] || { locations: {}, total: 0 };
   const withStock = attachStock(matches, lookup);
   assert.deepStrictEqual(withStock[0].stock, { locations: { Main: 120, Branch: 40 }, total: 160, status: 'ok' });
   assert.deepStrictEqual(withStock[1].stock, { locations: { Main: 30 }, total: 30, status: 'low' });
@@ -292,7 +309,10 @@ test('attachStock adds per-location stock, total and low/out status', () => {
 
 test('handleOcrStock validates the payload before touching the engine', async () => {
   const fakeRes = { status: 0, body: null };
-  const sendJson = (res, status, body) => { res.status = status; res.body = body; };
+  const sendJson = (res, status, body) => {
+    res.status = status;
+    res.body = body;
+  };
   const lookup = () => ({ locations: {}, total: 0 });
 
   await handleOcrStock({ body: {} }, fakeRes, sendJson, PRODUCTS, lookup);

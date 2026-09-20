@@ -21,7 +21,7 @@ const CODE_RE = /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 // The SQLite backend hashes with HMAC-SHA256 keyed by JWT_SECRET (public
 // fallback in tests). Reproduce it to prove codes are stored only hashed.
 const TEST_JWT_SECRET = 'inventrak-secret-key-2024';
-const hashOf = (norm) => crypto.createHmac('sha256', TEST_JWT_SECRET).update(norm).digest('hex');
+const hashOf = norm => crypto.createHmac('sha256', TEST_JWT_SECRET).update(norm).digest('hex');
 
 // Enrolls the admin (setup -> confirm). Returns { secret, recoveryCodes }.
 async function enroll(side) {
@@ -146,7 +146,10 @@ test('regenerating recovery codes invalidates the old set (both backends)', asyn
 
 test('recovery-codes endpoint is admin-only on both backends', async () => {
   for (const side of [sqlite, npmfree]) {
-    const customer = await call(side.url, '/api/auth/mfa/recovery-codes', { method: 'POST', token: side.token.customer });
+    const customer = await call(side.url, '/api/auth/mfa/recovery-codes', {
+      method: 'POST',
+      token: side.token.customer,
+    });
     assert.strictEqual(customer.status, 403);
     const anon = await call(side.url, '/api/auth/mfa/recovery-codes', { method: 'POST' });
     assert.strictEqual(anon.status, 401);

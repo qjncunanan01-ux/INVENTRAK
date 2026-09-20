@@ -14,11 +14,7 @@
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 function isIsoDay(value) {
-  return (
-    typeof value === 'string' &&
-    ISO_DAY.test(value) &&
-    !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
-  );
+  return typeof value === 'string' && ISO_DAY.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
 function toIsoDay(date) {
@@ -29,9 +25,7 @@ function parseDateRange(query = {}, { defaultDays = 30, maxDays = 1826 } = {}) {
   const to = isIsoDay(query.to) ? query.to : toIsoDay(new Date());
 
   if (isIsoDay(query.from)) {
-    const span = Math.round(
-      (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${query.from}T00:00:00Z`)) / 86400000
-    );
+    const span = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${query.from}T00:00:00Z`)) / 86400000);
     if (span >= 0 && span <= maxDays) return { from: query.from, to };
   }
 
@@ -42,9 +36,7 @@ function parseDateRange(query = {}, { defaultDays = 30, maxDays = 1826 } = {}) {
 
 /** Inclusive day-count label for a resolved window (never below 1). */
 function rangeDays({ from, to }) {
-  const span = Math.round(
-    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000
-  );
+  const span = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
   return Math.max(1, span + 1);
 }
 

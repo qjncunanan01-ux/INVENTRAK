@@ -51,25 +51,33 @@ test('preprocessImage caps huge images so OCR stays fast', async () => {
   assert.ok(out.length > 0);
 });
 
-test('ocrImage reads a readable label and matchProducts finds the product', async () => {
-  const label = await makeLabel();
-  const b64 = label.toString('base64');
-  const { text } = await ocrImage(b64);
-  // The label text must come through (tolerating minor OCR noise).
-  const lower = text.toLowerCase();
-  assert.ok(lower.includes('torani'), 'brand read: ' + JSON.stringify(text));
-  assert.ok(lower.includes('vanilla'), 'product read: ' + JSON.stringify(text));
+test(
+  'ocrImage reads a readable label and matchProducts finds the product',
+  async () => {
+    const label = await makeLabel();
+    const b64 = label.toString('base64');
+    const { text } = await ocrImage(b64);
+    // The label text must come through (tolerating minor OCR noise).
+    const lower = text.toLowerCase();
+    assert.ok(lower.includes('torani'), 'brand read: ' + JSON.stringify(text));
+    assert.ok(lower.includes('vanilla'), 'product read: ' + JSON.stringify(text));
 
-  const filtered = filterOcrText(text, PRODUCTS);
-  const matches = matchProducts(filtered, PRODUCTS);
-  assert.ok(matches.length >= 1, 'a match must be found');
-  assert.strictEqual(matches[0].id, 1, 'exact product tops the list');
-  assert.ok(matches[0].score >= 0.5);
-}, { timeout: 120000 });
+    const filtered = filterOcrText(text, PRODUCTS);
+    const matches = matchProducts(filtered, PRODUCTS);
+    assert.ok(matches.length >= 1, 'a match must be found');
+    assert.strictEqual(matches[0].id, 1, 'exact product tops the list');
+    assert.ok(matches[0].score >= 0.5);
+  },
+  { timeout: 120000 }
+);
 
-test('ocrImage degrades gracefully on an unreadable image (no throw)', async () => {
-  const img = await Jimp.read('images/torani--vanilla-syrup-750ml.jpg');
-  const b64 = (await img.getBufferAsync(Jimp.MIME_JPEG)).toString('base64');
-  const { text } = await ocrImage(b64);
-  assert.strictEqual(typeof text, 'string');
-}, { timeout: 120000 });
+test(
+  'ocrImage degrades gracefully on an unreadable image (no throw)',
+  async () => {
+    const img = await Jimp.read('images/torani--vanilla-syrup-750ml.jpg');
+    const b64 = (await img.getBufferAsync(Jimp.MIME_JPEG)).toString('base64');
+    const { text } = await ocrImage(b64);
+    assert.strictEqual(typeof text, 'string');
+  },
+  { timeout: 120000 }
+);

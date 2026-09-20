@@ -17,13 +17,13 @@ const BASE = 'http://localhost:4001';
 // Capture what the generated client sends, without hitting the network.
 function captureFetch() {
   const calls = [];
-  global.fetch = async (url, opts) => {
+  global.fetch = async(url, opts) => {
     calls.push({ url: String(url), method: (opts && opts.method) || 'GET', headers: (opts && opts.headers) || {} });
     return {
       ok: true,
       status: 200,
-      text: async () => '[]',
-      json: async () => [],
+      text: async() => '[]',
+      json: async() => [],
     };
   };
   return calls;
@@ -39,7 +39,7 @@ describe('admin API auth scoping (real generated client)', () => {
     vi.restoreAllMocks();
   });
 
-  test('order-inquiries fetch carries the stored admin token (Bearer)', async () => {
+  test('order-inquiries fetch carries the stored admin token (Bearer)', async() => {
     const calls = captureFetch();
     const client = makeClient(() => 'admin-token-abc');
     await client.listOrderInquiries();
@@ -49,7 +49,7 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-abc');
   });
 
-  test('order-inquiries fetch sends NO token when none is stored (would 401 → dashboard zeros)', async () => {
+  test('order-inquiries fetch sends NO token when none is stored (would 401 → dashboard zeros)', async() => {
     const calls = captureFetch();
     const client = makeClient(() => null);
     await client.listOrderInquiries();
@@ -59,7 +59,7 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].headers.Authorization).toBeUndefined();
   });
 
-  test('the generic apiGet path helper also attaches the token on the same endpoint', async () => {
+  test('the generic apiGet path helper also attaches the token on the same endpoint', async() => {
     const calls = captureFetch();
     const client = makeClient(() => 'admin-token-xyz');
     // DashboardPage calls apiGet('/api/order-inquiries') through this helper.
@@ -70,7 +70,7 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-xyz');
   });
 
-  test('admin status update (PUT) also carries the token — never unauthenticated', async () => {
+  test('admin status update (PUT) also carries the token — never unauthenticated', async() => {
     const calls = captureFetch();
     const client = makeClient(() => 'admin-token-789');
     await client.updateOrderInquiry({ id: 5 }, { status: 'approved' });
@@ -81,7 +81,7 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-789');
   });
 
-  test('Scan & Stock (ocrStockCheck → POST /api/ocr/stock) carries the admin token', async () => {
+  test('Scan & Stock (ocrStockCheck → POST /api/ocr/stock) carries the admin token', async() => {
     const calls = captureFetch();
     const client = makeClient(() => 'admin-token-scan');
     // ScanStockPage sends the base64 image through this typed endpoint.
@@ -93,7 +93,7 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-scan');
   });
 
-  test('Reports (apiGet /api/reports?days=N) carries the admin token', async () => {
+  test('Reports (apiGet /api/reports?days=N) carries the admin token', async() => {
     const calls = captureFetch();
     const client = makeClient(() => 'admin-token-reports');
     // ReportsPage calls apiGet(`/api/reports?days=${d}`) through the helper.
@@ -104,7 +104,7 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-reports');
   });
 
-  test('every admin-only read is authenticated: users, sales, alerts, approvals, exports', async () => {
+  test('every admin-only read is authenticated: users, sales, alerts, approvals, exports', async() => {
     const calls = captureFetch();
     const client = makeClient(() => 'admin-token-all');
     // One request per admin-only endpoint used by the dashboard/pages.

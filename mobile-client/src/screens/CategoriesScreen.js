@@ -46,7 +46,7 @@ export default function CategoriesScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async() => {
     try {
       const [catData, products] = await Promise.all([
         listCategories(),
@@ -54,10 +54,10 @@ export default function CategoriesScreen({ navigation }) {
       ]);
       const apiCats = Array.isArray(catData) ? catData : [];
 
-const cats = [
-  ...DEFAULT_CATEGORIES,
-  ...apiCats.filter((cat) => !DEFAULT_CATEGORIES.includes(cat)),
-];
+      const cats = [
+        ...DEFAULT_CATEGORIES,
+        ...apiCats.filter((cat) => !DEFAULT_CATEGORIES.includes(cat)),
+      ];
       const c = {};
       cats.forEach((name) => { c[name] = 0; });
       products.forEach((p) => {
@@ -88,8 +88,8 @@ const cats = [
   };
 
   const tiles = useMemo(() => {
-  return [...categories];
-}, [categories]);
+    return [...categories];
+  }, [categories]);
 
   if (loading && !refreshing) {
     return (
@@ -128,35 +128,35 @@ const cats = [
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  title: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: colors.textSecondary, marginBottom: 16 },
+  container: { backgroundColor: colors.background, flex: 1, padding: 16 },
+  center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
+  title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: 4 },
+  subtitle: { color: colors.textSecondary, fontSize: 14, marginBottom: 16 },
   // Full-width row + gap + flex:1 tiles — see ProductScreen.rowWrap note.
-  rowWrap: { width: '100%', gap: 12 },
+  rowWrap: { gap: 12, width: '100%' },
   listContent: { paddingBottom: 24 },
   tile: {
-    flex: 1,
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 14,
-    padding: 18,
+    elevation: 2,
+    flex: 1,
     marginBottom: 12,
-    alignItems: 'center',
+    padding: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
-    elevation: 2,
   },
   tileIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
     alignItems: 'center',
+    borderRadius: 28,
+    height: 56,
     justifyContent: 'center',
     marginBottom: 10,
+    width: 56,
   },
-  tileName: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
-  tileCount: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
-  empty: { marginTop: 24, textAlign: 'center', color: colors.textSecondary },
+  tileName: { color: colors.textPrimary, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  tileCount: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
+  empty: { color: colors.textSecondary, marginTop: 24, textAlign: 'center' },
 });

@@ -41,12 +41,13 @@ function testSide(side, label) {
 // ============================================================
 
 describe('Health & Connectivity', () => {
-  for (const side of [sqlite, npmfree]) {      it(`${side.label || 'backend'}: GET /api/health returns 200 with correct shape`, async () => {
-        const res = await call(side.url, '/api/health');
-        assert.equal(res.status, 200);
-        assert.equal(res.json.ok, true);
-        assert.ok(typeof res.json.time === 'string');
-      });
+  for (const side of [sqlite, npmfree]) {
+    it(`${side.label || 'backend'}: GET /api/health returns 200 with correct shape`, async () => {
+      const res = await call(side.url, '/api/health');
+      assert.equal(res.status, 200);
+      assert.equal(res.json.ok, true);
+      assert.ok(typeof res.json.time === 'string');
+    });
 
     it(`${side.label || 'backend'}: GET /api/openapi.json returns valid OpenAPI spec`, async () => {
       const res = await call(side.url, '/api/openapi.json');
@@ -257,10 +258,12 @@ describe('Product Catalog', () => {
         const products = res.json.data || res.json;
         assert.ok(products.length > 0);
         // Search matches name, category, or brand
-        assert.ok(products.every(p => {
-          const haystack = `${p.name} ${p.category} ${p.brand}`.toLowerCase();
-          return haystack.includes('chocolate');
-        }));
+        assert.ok(
+          products.every(p => {
+            const haystack = `${p.name} ${p.category} ${p.brand}`.toLowerCase();
+            return haystack.includes('chocolate');
+          })
+        );
       });
 
       it('GET /api/products/categories returns category list', async () => {

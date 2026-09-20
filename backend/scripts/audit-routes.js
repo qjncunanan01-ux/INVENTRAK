@@ -34,14 +34,53 @@ function templateMatches(template, concrete) {
   return t.every((seg, i) => seg === c[i] || /^\{[^}]+\}$/.test(seg));
 }
 
-// --- Express route extraction (app.js) ---
-function expressRoutes(src) {
+// --- Express route extraction (app.js + src/routes/*.js) ---
+//
+// The backend was refactored so routes live in per-domain Express Routers
+// mounted in app.js (app.use('/api/auth', authRoutes) + router.post('/login'))
+// rather than flat app.get('/api/auth/login', ...) calls. The extractor now
+// parses BOTH shapes:
+//   1. flat registrations:      app.get('/api/x', ...)
+//   2. mounted routers:         app.use('/api/auth', xRoutes) combined with
+//                               xRoutes = express.Router(); router.post('/login')
+// Router files are located by the require() in app.js that binds the mount to
+// the routes variable, so a router added to app.js is picked up automatically.
+function expressRoutes(appSrc) {
+  const routesDir = path.join(backendDir, 'src', 'routes');
   const routes = [];
-  const re = /app\.(get|post|put|delete)\s*\(\s*(['"`])([^'"`]+)\2/g;
+
+  // 1. Flat app-level registrations.
+  const flatRe = /app\.(get|post|put|delete)\s*\(\s*(['"`])([^'"`]+)\2/g;
   let m;
-  while ((m = re.exec(src)) !== null) {
+  while ((m = flatRe.exec(appSrc)) !== null) {
     routes.push({ method: m[1].toUpperCase(), path: normalize(m[3]) });
   }
+
+  // 2. Mounted routers. Map `const xRoutes = require('./routes/x')` to its
+  //    mount path from `app.use('<mount>', xRoutes)`.
+  const requireRe = /const\s+(\w+)\s*=\s*require\(\s*['"]\.\/routes\/([\w-]+)['"]\s*\)/g;
+  const varToFile = {};
+  while ((m = requireRe.exec(appSrc)) !== null) {
+    varToFile[m[1]] = m[2];
+  }
+
+  const mountRe = /app\.use\(\s*['"]([^'"]+)['"]\s*,\s*(\w+)\s*\)/g;
+  while ((m = mountRe.exec(appSrc)) !== null) {
+    const mountPath = m[1];
+    const routerFile = varToFile[m[2]];
+    if (!routerFile) continue; // non-router mount (static, middleware)
+    const routerPath = path.join(routesDir, routerFile + '.js');
+    if (!fs.existsSync(routerPath)) continue;
+    const routerSrc = fs.readFileSync(routerPath, 'utf8');
+    const reRe = /router\.(get|post|put|delete|patch)\s*\(\s*(['"`])([^'"`]+)\2/g;
+    let rm;
+    while ((rm = reRe.exec(routerSrc)) !== null) {
+      const sub = rm[3];
+      const full = mountPath + (sub === '/' ? '' : sub);
+      routes.push({ method: rm[1].toUpperCase(), path: normalize(full) });
+    }
+  }
+
   return routes;
 }
 
@@ -51,8 +90,7 @@ function expressRoutes(src) {
 // intentionally cover every deeper documented path.
 function npmfreeLiterals(src) {
   const literals = new Set();
-  const re =
-    /url\s*(?:\.startsWith\(|\.endsWith\(|\.split\('\?'\)\[0\]\s*===|===)\s*'([^']+)'/g;
+  const re = /url\s*(?:\.startsWith\(|\.endsWith\(|\.split\('\?'\)\[0\]\s*===|===)\s*'([^']+)'/g;
   let m;
   while ((m = re.exec(src)) !== null) {
     // Strip an accidental trailing query marker ('/api/products?').
@@ -80,9 +118,7 @@ function main() {
   // (a2) Every npm-free literal must be consistent with a documented path
   // (equal, a prefix of it, or a prefix of the literal).
   for (const lit of npmfree) {
-    const ok = specPaths.some(
-      (p) => p === lit || p.startsWith(lit) || lit.startsWith(p)
-    );
+    const ok = specPaths.some(p => p === lit || p.startsWith(lit) || lit.startsWith(p));
     if (!ok) {
       errors.push(`npm-free matcher '${lit}' matches no documented path in openapi.json`);
     }
@@ -91,8 +127,8 @@ function main() {
   // (b) Every documented path must be served by Express (exact or template)
   // AND reachable from the npm-free fallback (exact or prefix literal).
   for (const p of specPaths) {
-    const inExpress = express.some((r) => r.path === p || templateMatches(r.path, p));
-    const inNpmfree = npmfree.some((lit) => p === lit || p.startsWith(lit));
+    const inExpress = express.some(r => r.path === p || templateMatches(r.path, p));
+    const inNpmfree = npmfree.some(lit => p === lit || p.startsWith(lit));
     if (!inExpress) errors.push(`Path ${p} (openapi.json) has no matching Express route`);
     if (!inNpmfree) errors.push(`Path ${p} (openapi.json) is not reachable in the npm-free fallback`);
   }
@@ -102,7 +138,9 @@ function main() {
     for (const e of errors) console.error(`   - ${e}`);
     process.exit(1);
   }
-  console.log(`✓ audit: ${express.length} Express routes + ${npmfree.length} npm-free matchers ↔ ${specPaths.length} documented paths all covered`);
+  console.log(
+    `✓ audit: ${express.length} Express routes + ${npmfree.length} npm-free matchers ↔ ${specPaths.length} documented paths all covered`
+  );
 }
 
 main();

@@ -104,7 +104,7 @@ function persistWebSession() {
         email: sessionEmail,
         verified: sessionVerified,
         role: sessionRole,
-      })
+      }),
     );
   } catch {}
 }
@@ -185,6 +185,13 @@ export function setSessionUsername(name) {
 // staff + the whole admin tier — the tier order is least → most privileged.
 export const STAFF_TOOLS_ROLES = ['staff', 'admin', 'super_admin', 'owner'];
 
+export const ROLE_LABELS = {
+  staff: 'Staff',
+  admin: 'Admin',
+  super_admin: 'Super Admin',
+  owner: 'Owner',
+};
+
 export function setSessionDetails({ email, verified, role }) {
   sessionEmail = email || null;
   sessionVerified = !!verified;
@@ -230,7 +237,7 @@ export function useSessionUsername(fallback) {
   const [name, setName] = useState(getSessionUsername() || fallback || null);
   useEffect(
     () => subscribeSession((u) => setName(u || fallback || null)),
-    [fallback]
+    [fallback],
   );
   return name;
 }
@@ -291,7 +298,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const client = {};
 for (const key of Object.keys(rawClient)) {
-  client[key] = async (...args) => {
+  client[key] = async(...args) => {
     let lastErr;
     // Up to 3 attempts on network-level failures with 1.5s / 3s backoff. The
     // common case: the instance was asleep, attempt 1 dies, attempts 2-3 land

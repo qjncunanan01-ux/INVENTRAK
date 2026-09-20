@@ -69,15 +69,10 @@ let ready = false;
 // show. firebase.json is the single source of truth (same file the launchers
 // read the emulator port from), with env overrides on top.
 function emulatorProjectId() {
-  const envId =
-    process.env.FIREBASE_PROJECT_ID ||
-    process.env.GCLOUD_PROJECT ||
-    process.env.GOOGLE_CLOUD_PROJECT;
+  const envId = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
   if (envId) return envId;
   try {
-    const cfg = JSON.parse(
-      fs.readFileSync(path.join(__dirname, '..', 'firebase.json'), 'utf8')
-    );
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'firebase.json'), 'utf8'));
     if (cfg && cfg.project) return cfg.project;
   } catch {}
   return 'demo-inventrak'; // last-resort fallback for zero-config runs
@@ -120,15 +115,15 @@ function _setDb(instance) {
 async function readCollection(colName, file) {
   const snap = await db.collection(colName).orderBy('__idx').get();
   const docs = [];
-  snap.forEach((d) => docs.push(d));
+  snap.forEach(d => docs.push(d));
   if (docs.length === 0) return null; // absent dataset (matches JSON "file missing")
   if (file === 'inventory.json') {
-    const metaDoc = docs.find((d) => d.id === '_meta');
+    const metaDoc = docs.find(d => d.id === '_meta');
     const locations = (metaDoc && metaDoc.data() && metaDoc.data().locations) || [];
     const items = docs
-      .filter((d) => d.id !== '_meta')
+      .filter(d => d.id !== '_meta')
       .sort((a, b) => a.data().__idx - b.data().__idx)
-      .map((d) => {
+      .map(d => {
         const { __idx, ...rest } = d.data();
         return rest;
       });
@@ -136,7 +131,7 @@ async function readCollection(colName, file) {
   }
   return docs
     .sort((a, b) => a.data().__idx - b.data().__idx)
-    .map((d) => {
+    .map(d => {
       const { __idx, ...rest } = d.data();
       return rest;
     });
@@ -193,7 +188,7 @@ async function syncCollection(colName, file, rows) {
     });
   }
 
-  existingRefs.forEach((ref) => {
+  existingRefs.forEach(ref => {
     if (!wantIds.has(ref.id)) batch.delete(ref);
   });
 
@@ -323,7 +318,7 @@ async function syncWithRetry(colName, file, rows, attempts = 3) {
         console.error(`[firestore] sync of ${colName} failed after ${attempts} attempts: ${err && err.message}`);
         return false;
       }
-      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+      await new Promise(resolve => setTimeout(resolve, 250 * attempt));
     }
   }
   return false;

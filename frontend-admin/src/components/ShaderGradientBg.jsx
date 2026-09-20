@@ -34,7 +34,7 @@ const ShaderGradientScene = React.lazy(() =>
         </mod.ShaderGradientCanvas>
       );
     },
-  }))
+  })),
 );
 
 /**

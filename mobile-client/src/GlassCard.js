@@ -68,10 +68,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
   },
-  gradient: {
+  content: {
     flex: 1,
   },
-  content: {
+  gradient: {
     flex: 1,
   },
 });

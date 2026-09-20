@@ -113,7 +113,7 @@ export default function LoginScreen({ navigation }) {
     setPassword(account.password);
   };
 
-  const handleLogin = async () => {
+  const handleLogin = async() => {
     if (lockoutLeft > 0) return;
     if (!username.trim()) {
       Alert.alert('Validation', 'Please enter a username');
@@ -133,12 +133,12 @@ export default function LoginScreen({ navigation }) {
           'Too Many Attempts',
           secs
             ? `Too many failed logins. Try again in ${secs}s.`
-            : 'Too many failed login attempts. Try again later.'
+            : 'Too many failed login attempts. Try again later.',
         );
       } else {
         Alert.alert(
           'Login Failed',
-          err.message || 'Please check your credentials.'
+          err.message || 'Please check your credentials.',
         );
       }
     } finally {
@@ -149,7 +149,7 @@ export default function LoginScreen({ navigation }) {
   // Google path: open the backend relay in a browser. The backend redirects
   // to Google, exchanges the code with the web client's secret, and deep-links
   // back here with a session token (plus the account identity).
-  const handleGoogleRelay = async () => {
+  const handleGoogleRelay = async() => {
     setLoading(true);
     try {
       // Browser build: full-page navigation (no in-app browser session). The
@@ -178,13 +178,13 @@ export default function LoginScreen({ navigation }) {
                 email_verified: params.email_verified !== '0',
               },
             },
-            params.username || 'customer'
+            params.username || 'customer',
           );
           return;
         }
         Alert.alert(
           'Google Sign-In Failed',
-          params.error ? `Google error: ${params.error}` : 'No token returned. Please try again.'
+          params.error ? `Google error: ${params.error}` : 'No token returned. Please try again.',
         );
       } else if (result.type === 'cancel') {
         // User backed out of the Google page — stay on the login screen.
@@ -207,83 +207,83 @@ export default function LoginScreen({ navigation }) {
       style={styles.container}
     >
       <AnimatedEntry delay={0}>
-      {/* Top-left back pill — escaping the login screen is one obvious tap
+        {/* Top-left back pill — escaping the login screen is one obvious tap
           (the old bottom link was easy to miss). */}
-      <BackButton navigation={navigation} label="Back to store" />
-      <Text style={styles.title}>INVENTRAK</Text>
-      <Text style={styles.subtitle}>Customer Portal</Text>
-      <TextInput
-        style={styles.input}
-        value={username}
-        onChangeText={setUsername}
-        placeholder="Username"
-        autoCapitalize="none"
-        editable={!loading}
-      />
-      <TextInput
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-        placeholder="Password"
-        secureTextEntry
-        editable={!loading}
-      />
-      {/* Quick-fill: one tap per demo role — buyer and on-phone staff. */}
-      <View style={styles.demoRow}>
-        {DEMO_ACCOUNTS.map((account) => (
-          <TouchableOpacity
-            key={account.username}
-            style={styles.demoBtn}
-            onPress={() => fillDemo(account)}
-            disabled={loading}
-            activeOpacity={0.85}
-            accessibilityLabel={`Fill ${account.label} demo account`}
-          >
-            <MaterialCommunityIcons name={account.icon} size={18} color={colors.brandPrimary} />
-            <View style={{ flexShrink: 1 }}>
-              <Text style={styles.demoBtnText}>Fill {account.label}</Text>
-              <Text style={styles.demoBtnNote}>{account.note}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-      {loading ? (
-        <ActivityIndicator size="large" color={colors.brandPrimary} />
-      ) : (
-        <Button
-          title={lockoutLeft > 0 ? `Locked — try again in ${lockoutLeft}s` : 'Login'}
-          onPress={handleLogin}
-          color={colors.brandPrimary}
-          disabled={lockoutLeft > 0}
+        <BackButton navigation={navigation} label="Back to store" />
+        <Text style={styles.title}>INVENTRAK</Text>
+        <Text style={styles.subtitle}>Customer Portal</Text>
+        <TextInput
+          style={styles.input}
+          value={username}
+          onChangeText={setUsername}
+          placeholder="Username"
+          autoCapitalize="none"
+          editable={!loading}
         />
-      )}
-
-      <View style={styles.googleWrap}>
-        <View style={styles.dividerRow}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>or continue with</Text>
-          <View style={styles.divider} />
+        <TextInput
+          style={styles.input}
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Password"
+          secureTextEntry
+          editable={!loading}
+        />
+        {/* Quick-fill: one tap per demo role — buyer and on-phone staff. */}
+        <View style={styles.demoRow}>
+          {DEMO_ACCOUNTS.map((account) => (
+            <TouchableOpacity
+              key={account.username}
+              style={styles.demoBtn}
+              onPress={() => fillDemo(account)}
+              disabled={loading}
+              activeOpacity={0.85}
+              accessibilityLabel={`Fill ${account.label} demo account`}
+            >
+              <MaterialCommunityIcons name={account.icon} size={18} color={colors.brandPrimary} />
+              <View style={{ flexShrink: 1 }}>
+                <Text style={styles.demoBtnText}>Fill {account.label}</Text>
+                <Text style={styles.demoBtnNote}>{account.note}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
-        <GoogleSignInButton onPress={handleGoogleRelay} disabled={loading} styles={styles} />
-      </View>
+        {loading ? (
+          <ActivityIndicator size="large" color={colors.brandPrimary} />
+        ) : (
+          <Button
+            title={lockoutLeft > 0 ? `Locked — try again in ${lockoutLeft}s` : 'Login'}
+            onPress={handleLogin}
+            color={colors.brandPrimary}
+            disabled={lockoutLeft > 0}
+          />
+        )}
 
-      <TouchableOpacity
-        style={styles.linkRow}
-        onPress={() => navigation.replace('Signup')}
-        disabled={loading}
-      >
-        <Text style={styles.linkText}>
+        <View style={styles.googleWrap}>
+          <View style={styles.dividerRow}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.divider} />
+          </View>
+          <GoogleSignInButton onPress={handleGoogleRelay} disabled={loading} styles={styles} />
+        </View>
+
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => navigation.replace('Signup')}
+          disabled={loading}
+        >
+          <Text style={styles.linkText}>
           Don't have an account? <Text style={styles.linkStrong}>Create one</Text>
-        </Text>
-      </TouchableOpacity>
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.linkRow}
-        onPress={() => navigation.navigate('ForgotPassword')}
-        disabled={loading}
-      >
-        <Text style={styles.linkForgot}>Forgot password?</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => navigation.navigate('ForgotPassword')}
+          disabled={loading}
+        >
+          <Text style={styles.linkForgot}>Forgot password?</Text>
+        </TouchableOpacity>
 
       </AnimatedEntry>
     </LinearGradient>
@@ -292,49 +292,49 @@ export default function LoginScreen({ navigation }) {
 
 const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center', color: '#fff' },
-  subtitle: { fontSize: 16, marginBottom: 8, textAlign: 'center', color: 'rgba(255,255,255,0.85)' },
-  input: { backgroundColor: colors.surface, padding: 14, marginBottom: 16, borderRadius: 10, color: colors.textPrimary, fontSize: 16 },
+  title: { color: '#fff', fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
+  subtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 16, marginBottom: 8, textAlign: 'center' },
+  input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, fontSize: 16, marginBottom: 16, padding: 14 },
   demoRow: {
     flexDirection: 'row',
     gap: 10,
     marginBottom: 16,
   },
   demoBtn: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingVertical: 12,
+    justifyContent: 'center',
     paddingHorizontal: 8,
+    paddingVertical: 12,
   },
-  demoBtnText: { fontSize: 13, fontWeight: '700', color: colors.brandPrimary },
-  demoBtnNote: { fontSize: 11, color: colors.textSecondary },
+  demoBtnText: { color: colors.brandPrimary, fontSize: 13, fontWeight: '700' },
+  demoBtnNote: { color: colors.textSecondary, fontSize: 11 },
   linkRow: { alignItems: 'center', marginTop: 14 },
-  linkText: { fontSize: 14, color: colors.textSecondary },
+  linkText: { color: colors.textSecondary, fontSize: 14 },
   linkStrong: { color: colors.brandPrimary, fontWeight: '700' },
-  linkForgot: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  linkForgot: { color: colors.textSecondary, fontSize: 13, marginTop: 4 },
   // ---- Google sign-in ----
   googleWrap: { marginTop: 20 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  divider: { flex: 1, height: 1, backgroundColor: 'rgba(0,0,0,0.1)' },
-  dividerText: { marginHorizontal: 10, fontSize: 12, color: colors.textSecondary },
+  dividerRow: { alignItems: 'center', flexDirection: 'row', marginBottom: 14 },
+  divider: { backgroundColor: 'rgba(0,0,0,0.1)', flex: 1, height: 1 },
+  dividerText: { color: colors.textSecondary, fontSize: 12, marginHorizontal: 10 },
   googleBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
     backgroundColor: colors.surface,
-    borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
     paddingVertical: 14,
   },
   googleBtnDisabled: { opacity: 0.5 },
-  googleBtnText: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  googleBtnText: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' },
 });

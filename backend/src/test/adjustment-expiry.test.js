@@ -19,11 +19,9 @@ test.after(teardown);
 
 // createStockLots reads /api/stock-lots filtered to product+location.
 async function lotSum(side, productId, locationId) {
-  const res = await call(
-    side.url,
-    `/api/stock-lots?product_id=${productId}&location_id=${locationId}`,
-    { token: side.token.staff }
-  );
+  const res = await call(side.url, `/api/stock-lots?product_id=${productId}&location_id=${locationId}`, {
+    token: side.token.staff,
+  });
   assert.strictEqual(res.status, 200, `stock-lots list must be 200 (${res.status})`);
   const lots = res.json;
   const sum = (Array.isArray(lots) ? lots : []).reduce((acc, l) => acc + Number(l.qty || 0), 0);
@@ -54,7 +52,7 @@ test('best-before: adjustment carries expiry_date through create → row → app
     const list = await call(side.url, '/api/stock-adjustments', auth);
     assert.strictEqual(list.status, 200);
     const rows = Array.isArray(list.json) ? list.json : [];
-    const row = rows.find((r) => Number(r.id) === Number(adjId));
+    const row = rows.find(r => Number(r.id) === Number(adjId));
     assert.ok(row, 'the submitted adjustment is in the list');
     assert.strictEqual(row.expiry_date, '2027-06-30', 'row carries the recorded best-before');
 
@@ -69,7 +67,7 @@ test('best-before: adjustment carries expiry_date through create → row → app
     //    the best-before date — FEFO/best-before alerts can now act on it.
     const { sum, lots } = await lotSum(side, 2, 1);
     assert.strictEqual(sum, 12, 'approved count resets the location stock to 12');
-    const dated = lots.filter((l) => l.expiry_date === '2027-06-30');
+    const dated = lots.filter(l => l.expiry_date === '2027-06-30');
     assert.ok(dated.length >= 1, 'a lot with the recorded expiry exists after approval');
     assert.strictEqual(
       dated.reduce((acc, l) => acc + Number(l.qty || 0), 0),
@@ -91,7 +89,7 @@ test('best-before: rejected/absent expiry never reaches a lot', async () => {
     assert.strictEqual(create.status, 201);
     const list = await call(side.url, '/api/stock-adjustments', { token: side.token.staff });
     const rows = Array.isArray(list.json) ? list.json : [];
-    const row = rows.find((r) => Number(r.id) === Number(create.json.id));
+    const row = rows.find(r => Number(r.id) === Number(create.json.id));
     assert.strictEqual(row.expiry_date, null, 'absent expiry is stored as null, not omitted');
 
     const approve = await call(side.url, `/api/stock-adjustments/${create.json.id}/approve`, {
@@ -102,7 +100,7 @@ test('best-before: rejected/absent expiry never reaches a lot', async () => {
 
     const { lots } = await lotSum(side, 3, 2);
     assert.ok(
-      lots.every((l) => l.expiry_date == null),
+      lots.every(l => l.expiry_date == null),
       'approval without a best-before leaves lots undated'
     );
   }

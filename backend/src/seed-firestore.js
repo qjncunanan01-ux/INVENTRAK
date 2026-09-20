@@ -40,11 +40,46 @@ async function main() {
   const users = store.read('@users');
   if (users === null) {
     store.write('@users', [
-      { id: 1, username: 'admin', password: hashPassword('admin123'), role: 'admin', email: 'admin@inventrak.com', created_at: new Date().toISOString() },
-      { id: 2, username: 'customer', password: hashPassword('customer123'), role: 'customer', email: 'customer@example.com', created_at: new Date().toISOString() },
-      { id: 3, username: 'staff', password: hashPassword('staff123'), role: 'staff', email: 'staff@inventrak.com', created_at: new Date().toISOString() },
-      { id: 4, username: 'owner', password: hashPassword('owner123'), role: 'owner', email: 'owner@inventrak.com', created_at: new Date().toISOString() },
-      { id: 5, username: 'superadmin', password: hashPassword('super123'), role: 'super_admin', email: 'superadmin@inventrak.com', created_at: new Date().toISOString() },
+      {
+        id: 1,
+        username: 'admin',
+        password: hashPassword('admin123'),
+        role: 'admin',
+        email: 'admin@inventrak.com',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        username: 'customer',
+        password: hashPassword('customer123'),
+        role: 'customer',
+        email: 'customer@example.com',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 3,
+        username: 'staff',
+        password: hashPassword('staff123'),
+        role: 'staff',
+        email: 'staff@inventrak.com',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 4,
+        username: 'owner',
+        password: hashPassword('owner123'),
+        role: 'owner',
+        email: 'owner@inventrak.com',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 5,
+        username: 'superadmin',
+        password: hashPassword('super123'),
+        role: 'super_admin',
+        email: 'superadmin@inventrak.com',
+        created_at: new Date().toISOString(),
+      },
     ]);
     console.log('  seeded demo users (admin / customer / staff / owner / superadmin)');
   } else {

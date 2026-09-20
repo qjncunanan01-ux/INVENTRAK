@@ -21,7 +21,7 @@ process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || `lo
 const { main } = require('../src/migrate-firestore');
 main()
   .then(() => process.exit(0))
-  .catch((err) => {
+  .catch(err => {
     console.error('Migration failed:', err && err.message);
     process.exit(1);
   });

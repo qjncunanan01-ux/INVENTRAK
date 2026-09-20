@@ -33,7 +33,7 @@ async function migrateFirestoreUsers(store) {
     return { total: 0, rehashed: 0 };
   }
   let rehashed = 0;
-  const next = users.map((u) => {
+  const next = users.map(u => {
     if (u && u.password !== undefined && !isHashed(u.password)) {
       rehashed += 1;
       return { ...u, password: hashPassword(u.password) };
@@ -57,7 +57,7 @@ async function main() {
     await store.init();
     const before = store.read('@users') || [];
     if (dryRun) {
-      const plain = before.filter((u) => u && u.password !== undefined && !isHashed(u.password)).length;
+      const plain = before.filter(u => u && u.password !== undefined && !isHashed(u.password)).length;
       console.log(`[dry-run] Firestore '@users': ${before.length} total, ${plain} plaintext (would be re-hashed)`);
       return;
     }
@@ -82,7 +82,10 @@ async function main() {
     }
     if (dryRun) {
       const total = db.prepare('SELECT COUNT(*) as c FROM users').get().c;
-      const plaintext = db.prepare('SELECT password FROM users').all().filter((r) => !isHashed(r.password)).length;
+      const plaintext = db
+        .prepare('SELECT password FROM users')
+        .all()
+        .filter(r => !isHashed(r.password)).length;
       console.log(`[dry-run] ${dbPath}: ${total} users, ${plaintext} plaintext (would be re-hashed)`);
       return;
     }
@@ -96,7 +99,7 @@ async function main() {
 if (require.main === module) {
   main()
     .then(() => process.exit(0))
-    .catch((err) => {
+    .catch(err => {
       console.error('Password migration failed:', err && err.message);
       process.exit(1);
     });

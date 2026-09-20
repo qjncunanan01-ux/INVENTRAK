@@ -39,7 +39,7 @@ function extractCode(line) {
 // Fires a request while capturing any password-reset email the notify layer
 // logs (it logs the payload, code included, when no provider key is set).
 async function callCapturingReset(side, body) {
-  let lines = [];
+  const lines = [];
   const orig = console.log;
   console.log = (...args) => {
     const line = args.join(' ');
@@ -192,7 +192,10 @@ test('reset: case-insensitive email lookup finds the account on both backends', 
     const { res, lines } = await callCapturingReset(side, { email: `${user.toUpperCase()}@EXAMPLE.COM` });
     assert.strictEqual(res.status, 200);
     const code = extractCode(lines[0]);
-    assert.ok(/^\d{6}$/.test(code || ''), `${side === sqlite ? 'sqlite' : 'npmfree'} emailed a code for mixed-case email`);
+    assert.ok(
+      /^\d{6}$/.test(code || ''),
+      `${side === sqlite ? 'sqlite' : 'npmfree'} emailed a code for mixed-case email`
+    );
     // Clean up: consume the code so the store holds no outstanding tokens.
     await call(side.url, '/api/auth/reset-password', {
       method: 'POST',

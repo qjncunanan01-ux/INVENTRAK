@@ -167,35 +167,35 @@ test('the staff-app flag is staff-exclusive: admins/owners refused, customers re
 
 test('management tier may grant privileged roles; a plain admin may not', async () => {
   // A plain admin can grant staff/admin …
-  const ownerRole = await both(
-    'admin grants staff',
-    '/api/admin/promote',
-    { method: 'POST', auth: 'admin', body: { username: 'staff', role: 'staff' } }
-  );
+  const ownerRole = await both('admin grants staff', '/api/admin/promote', {
+    method: 'POST',
+    auth: 'admin',
+    body: { username: 'staff', role: 'staff' },
+  });
   assert.strictEqual(ownerRole.a.status, 200, 'admin may re-assign the staff role');
 
   // … but NOT the privileged roles.
-  const denied = await both(
-    'admin grants owner',
-    '/api/admin/promote',
-    { method: 'POST', auth: 'admin', body: { username: 'customer', role: 'owner' } }
-  );
+  const denied = await both('admin grants owner', '/api/admin/promote', {
+    method: 'POST',
+    auth: 'admin',
+    body: { username: 'customer', role: 'owner' },
+  });
   assert.strictEqual(denied.a.status, 403, 'a plain admin must not mint an owner');
 
   // The management tier can.
-  const promoted = await both(
-    'owner grants super_admin',
-    '/api/admin/promote',
-    { method: 'POST', auth: 'owner', body: { username: 'customer', role: 'super_admin' } }
-  );
+  const promoted = await both('owner grants super_admin', '/api/admin/promote', {
+    method: 'POST',
+    auth: 'owner',
+    body: { username: 'customer', role: 'super_admin' },
+  });
   assert.strictEqual(promoted.a.status, 200, 'owner may grant super_admin');
 
   // Unknown roles are rejected outright.
-  const bogus = await both(
-    'owner grants bogus role',
-    '/api/admin/promote',
-    { method: 'POST', auth: 'owner', body: { username: 'customer', role: 'root' } }
-  );
+  const bogus = await both('owner grants bogus role', '/api/admin/promote', {
+    method: 'POST',
+    auth: 'owner',
+    body: { username: 'customer', role: 'root' },
+  });
   assert.strictEqual(bogus.a.status, 400, 'unknown role must be rejected');
 
   // Put the demo customer back so later files in the same process see it.
@@ -218,7 +218,7 @@ test('role changes are audited', async () => {
   assert.strictEqual(trail.a.status, 200);
   const logs = trail.a.json.data || trail.a.json;
   assert.ok(
-    logs.some((entry) => entry.event === 'auth.role_change'),
+    logs.some(entry => entry.event === 'auth.role_change'),
     'a role change must appear in the audit trail'
   );
 });
@@ -294,7 +294,7 @@ test('a recorded scan shows up in the audit trail', async () => {
     const trail = await call(side.url, '/api/audit-trail?limit=50', { token: side.token.owner });
     assert.strictEqual(trail.status, 200);
     const logs = trail.json.data || trail.json;
-    const hit = logs.find((entry) => entry.event === 'scan.qr' && JSON.stringify(entry).includes(marker));
+    const hit = logs.find(entry => entry.event === 'scan.qr' && JSON.stringify(entry).includes(marker));
     assert.ok(hit, `scan.qr audit entry for ${marker} on ${side.url}`);
   }
 });

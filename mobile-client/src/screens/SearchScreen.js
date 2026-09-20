@@ -32,7 +32,7 @@ export default function SearchScreen({ navigation }) {
     return () => clearTimeout(t);
   }, []);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async() => {
     try {
       // Page past the 100-row clamp so searching finds ANY of the 192
       // products, not just the first page.
@@ -51,7 +51,7 @@ export default function SearchScreen({ navigation }) {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     return products.filter((p) =>
-      [p.name, p.category, p.brand].filter(Boolean).some((s) => s.toLowerCase().includes(q))
+      [p.name, p.category, p.brand].filter(Boolean).some((s) => s.toLowerCase().includes(q)),
     );
   }, [products, query]);
 
@@ -135,14 +135,14 @@ export default function SearchScreen({ navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: { backgroundColor: colors.background, flex: 1 },
   searchRow: {
+    alignItems: 'center',
     backgroundColor: colors.brandPrimary,
     flexDirection: 'row',
-    alignItems: 'center',
+    paddingBottom: 12,
     paddingHorizontal: 12,
     paddingTop: 56,
-    paddingBottom: 12,
   },
   searchBar: {
     flex: 1,
@@ -155,45 +155,45 @@ const createStyles = (colors) => StyleSheet.create({
     marginLeft: 118,
   },
   searchGlyph: { marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 9, fontSize: 15, color: colors.textPrimary },
-  clearText: { fontSize: 16, color: colors.textSecondary, fontWeight: '700', paddingLeft: 8 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  searchInput: { color: colors.textPrimary, flex: 1, fontSize: 15, paddingVertical: 9 },
+  clearText: { color: colors.textSecondary, fontSize: 16, fontWeight: '700', paddingLeft: 8 },
+  center: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   // Full-width row + gap + flex:1 cards — see ProductScreen.rowWrap note.
-  rowWrap: { width: '100%', gap: 12 },
+  rowWrap: { gap: 12, width: '100%' },
   listContent: { padding: 16 },
   card: {
-    flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 12,
+    flex: 1,
     marginBottom: 12,
+    padding: 12,
   },
   cardTop: { minHeight: 42 },
   // White tile + 'contain' — see ProductScreen.cardImage note.
-  cardImage: { width: '100%', height: 90, borderRadius: 8, marginBottom: 8, backgroundColor: '#ffffff' },
-  cardName: { fontWeight: '700', fontSize: 14, color: colors.textPrimary, minHeight: 36 },
-  cardMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
-  cardPrice: { fontSize: 15, fontWeight: '800', color: colors.brandPrimary, marginTop: 8 },
+  cardImage: { backgroundColor: '#ffffff', borderRadius: 8, height: 90, marginBottom: 8, width: '100%' },
+  cardName: { color: colors.textPrimary, fontSize: 14, fontWeight: '700', minHeight: 36 },
+  cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
+  cardPrice: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800', marginTop: 8 },
   quickAdd: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
+    alignItems: 'center',
     backgroundColor: colors.brandPrimary,
     borderRadius: 16,
-    width: 28,
+    elevation: 3,
     height: 28,
-    alignItems: 'center',
     justifyContent: 'center',
+    position: 'absolute',
+    right: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 3,
+    top: 4,
+    width: 28,
   },
   quickAddText: { color: '#fff', fontSize: 20, fontWeight: '800', lineHeight: 24 },
-  empty: { marginTop: 32, textAlign: 'center', color: colors.textSecondary },
-  hintWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  empty: { color: colors.textSecondary, marginTop: 32, textAlign: 'center' },
+  hintWrap: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24 },
   hintGlyph: { marginBottom: 12 },
-  hint: { fontSize: 15, color: colors.textSecondary, textAlign: 'center' },
-  hintSub: { fontSize: 13, color: colors.textSecondary, marginTop: 6, opacity: 0.8 },
+  hint: { color: colors.textSecondary, fontSize: 15, textAlign: 'center' },
+  hintSub: { color: colors.textSecondary, fontSize: 13, marginTop: 6, opacity: 0.8 },
 });

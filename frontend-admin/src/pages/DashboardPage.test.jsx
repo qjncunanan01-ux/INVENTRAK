@@ -65,7 +65,7 @@ function renderPage() {
       <ThemeProvider theme={createAppTheme()}>
         <DashboardPage user={{ username: 'admin', role: 'admin' }} onLogout={() => {}} />
       </ThemeProvider>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
@@ -76,7 +76,7 @@ describe('DashboardPage data wiring', () => {
     polyfillDom();
   });
 
-  test('fetches the real order-inquiries endpoint, never the stale /api/inquiries', async () => {
+  test('fetches the real order-inquiries endpoint, never the stale /api/inquiries', async() => {
     mockResponses();
     renderPage();
 
@@ -90,7 +90,7 @@ describe('DashboardPage data wiring', () => {
     expect(apiGet).toHaveBeenCalledWith('/api/alerts');
   });
 
-  test('renders non-zero pending counts derived from the inquiries payload', async () => {
+  test('renders non-zero pending counts derived from the inquiries payload', async() => {
     mockResponses();
     renderPage();
 
@@ -105,7 +105,7 @@ describe('DashboardPage data wiring', () => {
     });
   });
 
-  test('Total Registered Customers card renders the account base from the summary', async () => {
+  test('Total Registered Customers card renders the account base from the summary', async() => {
     // Executive role (owner) — the account base is executive-only, so render
     // as owner to see the raw count. The card shows it verbatim (0 stays 0 —
     // never a payer-name fallback).
@@ -134,7 +134,7 @@ describe('DashboardPage data wiring', () => {
     }, { timeout: 2000 });
   });
 
-  test('Total Registered Customers is masked for a role without executive oversight', async () => {
+  test('Total Registered Customers is masked for a role without executive oversight', async() => {
     mockRole = 'admin'; // admin tier: NOT executive → account base hidden
     apiGet.mockImplementation((url) => {
       const byUrl = {
@@ -167,7 +167,7 @@ describe('DashboardPage data wiring', () => {
   // and the two money charts collapse to "Hidden for your role". Inventory
   // Staff cannot reach this page in the app, so this is the last line of
   // defense — and the regression test for the masking itself.
-  test('money surfaces are masked for a role without revenue visibility', async () => {
+  test('money surfaces are masked for a role without revenue visibility', async() => {
     mockRole = 'staff';
     const thisMonth = new Date().toISOString().slice(0, 7);
     const prevMonth = new Date(Date.now() - 32 * 86400000).toISOString().slice(0, 7);

@@ -11,7 +11,7 @@ export default function ApprovalsPage({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const loadData = async () => {
+  const loadData = async() => {
     setLoading(true);
     try {
       const res = await apiGet('/api/approvals');
@@ -25,7 +25,7 @@ export default function ApprovalsPage({ onLogout }) {
 
   useEffect(() => { loadData(); }, []);
 
-  const decide = async (kind, id, action) => {
+  const decide = async(kind, id, action) => {
     try {
       const result = await apiPost(`/api/stock-${kind === 'adjustment' ? 'adjustments' : 'transfers'}/${id}/${action}`, {});
       setSnackbar({ open: true, message: result.message, severity: 'success' });

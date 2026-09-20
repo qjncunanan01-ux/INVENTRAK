@@ -11,10 +11,10 @@ export default function AnimatedCard({ children, onClick, delay = 0, ...props })
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay, ease: 'easeOut' }}
-      whileHover={{ 
-        y: -4, 
+      whileHover={{
+        y: -4,
         boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
-        transition: { duration: 0.2 }
+        transition: { duration: 0.2 },
       }}
       whileTap={{ scale: 0.98 }}
       style={{ cursor: onClick ? 'pointer' : 'default' }}

@@ -22,6 +22,7 @@ import { getCurrentUser } from '../api';
 import { ADMIN_TIER, STAFF_TIER, MANAGEMENT_TIER, roleMeta } from '../roles';
 import { brandSidebar, colors } from '../theme';
 import Breadcrumbs from '../components/Breadcrumbs';
+import LiquidGlassCard from '../components/LiquidGlassCard';
 
 
 // One flat, always-expanded module list: every module is its own visible row
@@ -161,20 +162,20 @@ function NavContent({ collapsed = false, onNavigate }) {
                 // holds the current page (height stays constant so nothing shifts).
                 ...(collapsed
                   ? {
-                      px: 0,
-                      mb: 0.5,
-                      '&::before': {
-                        content: '""',
-                        display: 'block',
-                        margin: '4px auto 8px',
-                        width: '60%',
-                        height: 2,
-                        borderRadius: 1,
-                        backgroundColor: sectionActive ? colors.brandSecondary : 'rgba(255,255,255,0.25)',
-                        boxShadow: sectionActive ? '0 0 8px rgba(168, 210, 43, 0.6)' : 'none',
-                        transition: theme.transitions.create(['background-color']),
-                      },
-                    }
+                    px: 0,
+                    mb: 0.5,
+                    '&::before': {
+                      content: '""',
+                      display: 'block',
+                      margin: '4px auto 8px',
+                      width: '60%',
+                      height: 2,
+                      borderRadius: 1,
+                      backgroundColor: sectionActive ? colors.brandSecondary : 'rgba(255,255,255,0.25)',
+                      boxShadow: sectionActive ? '0 0 8px rgba(168, 210, 43, 0.6)' : 'none',
+                      transition: theme.transitions.create(['background-color']),
+                    },
+                  }
                   : {}),
               }}
             >

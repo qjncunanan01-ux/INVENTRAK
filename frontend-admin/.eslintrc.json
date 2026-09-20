@@ -1,0 +1,61 @@
+{
+  "env": {
+    "es2022": true,
+    "browser": true,
+    "node": true,
+    "jest": false
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "prettier"
+  ],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
+  "rules": {
+    "indent": ["error", 2],
+    "linebreak-style": ["error", "unix"],
+    "quotes": ["error", "single"],
+    "semi": ["error", "always"],
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "prefer-const": "error",
+    "no-var": "error",
+    "object-shorthand": "error",
+    "prefer-arrow-callback": "error",
+    "arrow-spacing": "error",
+    "no-trailing-spaces": "error",
+    "comma-dangle": ["error", "always-multiline"],
+    "key-spacing": "error",
+    "space-before-function-paren": ["error", "never"],
+    "no-multiple-empty-lines": ["error", { "max": 2, "maxEOF": 1 }],
+    "max-len": ["warn", { "code": 120, "ignoreStrings": true, "ignoreTemplateLiterals": true }],
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
+    "react/jsx-uses-react": "off",
+    "react/jsx-uses-vars": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.jsx", "**/*.test.js"],
+      "env": {
+        "browser": true,
+        "node": true
+      },
+      "rules": {
+        "max-len": "off",
+        "no-console": "off"
+      }
+    }
+  ]
+}

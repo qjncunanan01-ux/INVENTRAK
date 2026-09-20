@@ -37,20 +37,17 @@ function makeFakeDb() {
     collection(name) {
       if (!cols.has(name)) cols.set(name, new Map());
       const map = cols.get(name);
-      const docs = () =>
-        [...map.entries()].map(([id, data]) => ({ id, data: () => ({ ...data }) }));
+      const docs = () => [...map.entries()].map(([id, data]) => ({ id, data: () => ({ ...data }) }));
       return {
         orderBy() {
           return this;
         },
         async get() {
-          const list = docs().sort(
-            (a, b) => (a.data().__idx ?? -1e9) - (b.data().__idx ?? -1e9)
-          );
-          return { forEach: (fn) => list.forEach(fn), docs: list };
+          const list = docs().sort((a, b) => (a.data().__idx ?? -1e9) - (b.data().__idx ?? -1e9));
+          return { forEach: fn => list.forEach(fn), docs: list };
         },
         async listDocuments() {
-          return [...map.keys()].map((id) => ({ id, path: `${name}/${id}` }));
+          return [...map.keys()].map(id => ({ id, path: `${name}/${id}` }));
         },
         doc(id) {
           return { id, path: `${name}/${id}` };

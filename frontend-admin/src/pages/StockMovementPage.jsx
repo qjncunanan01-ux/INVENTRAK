@@ -22,7 +22,7 @@ export default function StockMovementPage({ onLogout }) {
   const [expiringOnly, setExpiringOnly] = useState(false);
   const [form, setForm] = useState({ type: 'stock-in', product_id: '', qty: '', src_location: '', dst_location: '', notes: '', expiry_date: '' });
 
-  const loadData = async () => {
+  const loadData = async() => {
     setLoading(true);
     try {
       const [movRes, prodRes, locRes, lotRes] = await Promise.all([
@@ -31,7 +31,7 @@ export default function StockMovementPage({ onLogout }) {
         apiGet('/api/locations'),
         // FEFO early-warning: when the "expiring soon" toggle is on, only ask
         // for lots expiring within the next 30 days.
-        apiGet(expiringOnly ? '/api/stock-lots?expiring_within=30' : '/api/stock-lots')
+        apiGet(expiringOnly ? '/api/stock-lots?expiring_within=30' : '/api/stock-lots'),
       ]);
       setMovements(movRes.data || movRes);
       setTotalMovements(movRes.pagination?.total || (movRes.data || movRes).length);
@@ -47,7 +47,7 @@ export default function StockMovementPage({ onLogout }) {
 
   useEffect(() => { loadData(); }, [expiringOnly]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async() => {
     if (!form.product_id || !form.qty) {
       setSnackbar({ open: true, message: 'Please select a product and enter quantity', severity: 'warning' });
       return;
@@ -81,7 +81,7 @@ export default function StockMovementPage({ onLogout }) {
         dst_location: form.dst_location,
         notes: form.notes,
         expiry_date: form.expiry_date || null,
-        user: 'admin'
+        user: 'admin',
       });
       setSnackbar({ open: true, message: result.message || 'Movement recorded', severity: 'success' });
       setForm({ type: 'stock-in', product_id: '', qty: '', src_location: '', dst_location: '', notes: '', expiry_date: '' });
@@ -126,65 +126,65 @@ export default function StockMovementPage({ onLogout }) {
   return (
     <AdminLayout title="Stock Movement" onLogout={onLogout}>
       {isStaff ? null : (
-      <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
-        <Typography variant="h6" mb={1}>New stock movement</Typography>
-        <Typography variant="body2" color="text.secondary" mb={2}>
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
+          <Typography variant="h6" mb={1}>New stock movement</Typography>
+          <Typography variant="body2" color="text.secondary" mb={2}>
           Record stock in, stock out, transfers, and adjustments with FEFO tracking — perishable lots (with an expiry date) are always consumed before non-expiring stock.
-        </Typography>
-        <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-          <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-            <InputLabel>Movement type</InputLabel>
-            <Select value={form.type} label="Movement type" onChange={e => setForm({ ...form, type: e.target.value })}>
-              <MenuItem value="stock-in">Stock In</MenuItem>
-              <MenuItem value="stock-out">Stock Out</MenuItem>
-              <MenuItem value="transfer">Transfer</MenuItem>
-              <MenuItem value="adjustment">Adjustment</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-            <InputLabel>Product</InputLabel>
-            <Select value={form.product_id} label="Product" onChange={e => setForm({ ...form, product_id: e.target.value })}>
-              {prodList.map(product => (
-                <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField label="Quantity" type="text" inputMode="decimal" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value.replace(/[^0-9.]/g, '') })} fullWidth />
-          {showSrc && (
-            <FormControl fullWidth>
-              <InputLabel>Source location</InputLabel>
-              <Select value={form.src_location} label="Source location" onChange={e => setForm({ ...form, src_location: e.target.value })}>
-                <MenuItem value="">None</MenuItem>
-                {locList.map(loc => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
+          </Typography>
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
+              <InputLabel>Movement type</InputLabel>
+              <Select value={form.type} label="Movement type" onChange={e => setForm({ ...form, type: e.target.value })}>
+                <MenuItem value="stock-in">Stock In</MenuItem>
+                <MenuItem value="stock-out">Stock Out</MenuItem>
+                <MenuItem value="transfer">Transfer</MenuItem>
+                <MenuItem value="adjustment">Adjustment</MenuItem>
               </Select>
             </FormControl>
-          )}
-          {showDst && (
-            <FormControl fullWidth>
-              <InputLabel>Destination location</InputLabel>
-              <Select value={form.dst_location} label="Destination location" onChange={e => setForm({ ...form, dst_location: e.target.value })}>
-                <MenuItem value="">None</MenuItem>
-                {locList.map(loc => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
+            <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
+              <InputLabel>Product</InputLabel>
+              <Select value={form.product_id} label="Product" onChange={e => setForm({ ...form, product_id: e.target.value })}>
+                {prodList.map(product => (
+                  <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
+                ))}
               </Select>
             </FormControl>
-          )}
-          {showExpiry && (
-            <TextField
-              label="Best before / expiry (optional)"
-              type="date"
-              value={form.expiry_date}
-              onChange={e => setForm({ ...form, expiry_date: e.target.value })}
-              fullWidth
-              sx={{ backgroundColor: colors.surface }}
-              InputLabelProps={{ shrink: true }}
-              helperText="FEFO: this lot is consumed before non-expiring stock — same capture as the staff count form"
-            />
-          )}
-          <TextField label="Notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} multiline rows={2} fullWidth sx={{ backgroundColor: colors.surface }} />
-          <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.qty}>              {saving ? 'Saving…' : 'Submit movement'}
-          </Button>
-        </Box>
-      </Paper>
+            <TextField label="Quantity" type="text" inputMode="decimal" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value.replace(/[^0-9.]/g, '') })} fullWidth />
+            {showSrc && (
+              <FormControl fullWidth>
+                <InputLabel>Source location</InputLabel>
+                <Select value={form.src_location} label="Source location" onChange={e => setForm({ ...form, src_location: e.target.value })}>
+                  <MenuItem value="">None</MenuItem>
+                  {locList.map(loc => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )}
+            {showDst && (
+              <FormControl fullWidth>
+                <InputLabel>Destination location</InputLabel>
+                <Select value={form.dst_location} label="Destination location" onChange={e => setForm({ ...form, dst_location: e.target.value })}>
+                  <MenuItem value="">None</MenuItem>
+                  {locList.map(loc => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )}
+            {showExpiry && (
+              <TextField
+                label="Best before / expiry (optional)"
+                type="date"
+                value={form.expiry_date}
+                onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+                fullWidth
+                sx={{ backgroundColor: colors.surface }}
+                InputLabelProps={{ shrink: true }}
+                helperText="FEFO: this lot is consumed before non-expiring stock — same capture as the staff count form"
+              />
+            )}
+            <TextField label="Notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} multiline rows={2} fullWidth sx={{ backgroundColor: colors.surface }} />
+            <Button variant="contained" color="secondary" onClick={handleSubmit} disabled={saving || !form.product_id || !form.qty}>              {saving ? 'Saving…' : 'Submit movement'}
+            </Button>
+          </Box>
+        </Paper>
       )}
 
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>

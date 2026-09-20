@@ -138,7 +138,7 @@ export default function ProductsPage({ onLogout }) {
 
   useEffect(() => { loadProducts(); }, []);
 
-  const handleDelete = async () => {
+  const handleDelete = async() => {
     if (!confirmDelete) return;
     setSaving(true);
     try {
@@ -169,7 +169,7 @@ export default function ProductsPage({ onLogout }) {
       size: product.size || '',
       unit: product.unit || '',
       price: product.price?.toString() || '',
-      image: product.image || ''
+      image: product.image || '',
     });
     // Scroll to the edit form at the top
     setTimeout(() => {
@@ -177,7 +177,7 @@ export default function ProductsPage({ onLogout }) {
     }, 100);
   };
 
-  const handleCreate = async () => {
+  const handleCreate = async() => {
     if (!form.name || !form.category) {
       setSnackbar({ open: true, message: 'Name and category are required', severity: 'warning' });
       return;
@@ -192,7 +192,7 @@ export default function ProductsPage({ onLogout }) {
         await apiPut(`/api/products/${editingProductId}`, {
           name: form.name, category: form.category, brand: form.brand,
           description: form.description,
-          size: form.size, unit: form.unit, price: parseFloat(form.price) || 0, status: 'active', image: form.image
+          size: form.size, unit: form.unit, price: parseFloat(form.price) || 0, status: 'active', image: form.image,
         });
         setEditingProductId(null);
         setSnackbar({ open: true, message: 'Product updated', severity: 'success' });
@@ -200,7 +200,7 @@ export default function ProductsPage({ onLogout }) {
         await apiPost('/api/products', {
           name: form.name, category: form.category, brand: form.brand,
           description: form.description,
-          size: form.size, unit: form.unit, price: parseFloat(form.price) || 0, status: 'active', image: form.image
+          size: form.size, unit: form.unit, price: parseFloat(form.price) || 0, status: 'active', image: form.image,
         });
         setSnackbar({ open: true, message: 'Product created', severity: 'success' });
       }
@@ -284,7 +284,7 @@ export default function ProductsPage({ onLogout }) {
     });
   };
 
-  const applyBulkPrices = async () => {
+  const applyBulkPrices = async() => {
     if (!bulkRows.length) {
       setSnackbar({ open: true, message: 'Parse the price list first', severity: 'warning' });
       return;
@@ -393,7 +393,7 @@ export default function ProductsPage({ onLogout }) {
               multiline
               minRows={6}
               variant="outlined"
-              placeholder={"Almond Roca,520\nBlueberry,495\nCaramel Syrup (750 ML) - Torani,499"}
+              placeholder={'Almond Roca,520\nBlueberry,495\nCaramel Syrup (750 ML) - Torani,499'}
               value={bulkText}
               onChange={e => setBulkText(e.target.value)}
             />

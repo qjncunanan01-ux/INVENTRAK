@@ -14,7 +14,7 @@ const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness')
 // The notify layer logs the reset email payload (code included) when no
 // provider key is set — parse the JSON payload to redeem the code for real.
 async function requestCode(side, email) {
-  let lines = [];
+  const lines = [];
   const orig = console.log;
   console.log = (...args) => {
     const line = args.join(' ');
@@ -29,13 +29,18 @@ async function requestCode(side, email) {
   }
   assert.strictEqual(res.status, 200);
   const idx = lines[0] && lines[0].indexOf(' :: ');
-  const code = idx > 0 ? (() => {
-    try {
-      const text = JSON.parse(lines[0].slice(idx + 4)).text || '';
-      const m = text.match(/\n\s+(\d{6})\s*\n/);
-      return m && m[1];
-    } catch { return null; }
-  })() : null;
+  const code =
+    idx > 0
+      ? (() => {
+          try {
+            const text = JSON.parse(lines[0].slice(idx + 4)).text || '';
+            const m = text.match(/\n\s+(\d{6})\s*\n/);
+            return m && m[1];
+          } catch {
+            return null;
+          }
+        })()
+      : null;
   assert.ok(/^\d{6}$/.test(code || ''), `expected a 6-digit code, got ${code}`);
   return code;
 }
@@ -92,7 +97,11 @@ test('reset: a successful reset clears the account LOGIN lockout on BOTH backend
       method: 'POST',
       body: { username: uname, password: 'BrandNew!456' },
     });
-    assert.strictEqual(fresh.status, 200, `${side === sqlite ? 'sqlite' : 'npmfree'} login works after reset clears the lockout`);
+    assert.strictEqual(
+      fresh.status,
+      200,
+      `${side === sqlite ? 'sqlite' : 'npmfree'} login works after reset clears the lockout`
+    );
   }
 });
 

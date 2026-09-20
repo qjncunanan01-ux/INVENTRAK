@@ -19,32 +19,82 @@ const fsStore = require('../store-firestore');
 // Seed a small but representative database: active + inactive products, two
 // locations, stock across them, a stock-in movement with a NULL source
 // location (the common case), an inquiry with a phone, a sale, and an alert.
-db.prepare('INSERT INTO users (id, username, password, role, email, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-  .run(1, 'admin', 'admin123', 'admin', 'admin@inventrak.com', '2024-01-01T00:00:00.000Z');
-db.prepare('INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-  .run(1, 'Butterscotch Sauce', 'Da Vinci Gourmet Sauces', 'Da Vinci', '', '2 L', 'pcs', 1070, 'active', '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
-db.prepare('INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-  .run(2, 'Matcha Powder', 'Matcha', 'Da Vinci', '', '1 KG', 'pcs', 1175, 'active', '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
-db.prepare('INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-  .run(3, 'Old Stock', 'Legacy', '', '', '', '', 10, 'inactive', '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
-db.prepare('INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-  .run(4, 'Nulled Status', 'Legacy', '', '', '', '', 5, null, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
+db.prepare('INSERT INTO users (id, username, password, role, email, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+  1,
+  'admin',
+  'admin123',
+  'admin',
+  'admin@inventrak.com',
+  '2024-01-01T00:00:00.000Z'
+);
+db.prepare(
+  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+).run(
+  1,
+  'Butterscotch Sauce',
+  'Da Vinci Gourmet Sauces',
+  'Da Vinci',
+  '',
+  '2 L',
+  'pcs',
+  1070,
+  'active',
+  '2024-01-01T00:00:00.000Z',
+  '2024-01-01T00:00:00.000Z'
+);
+db.prepare(
+  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+).run(
+  2,
+  'Matcha Powder',
+  'Matcha',
+  'Da Vinci',
+  '',
+  '1 KG',
+  'pcs',
+  1175,
+  'active',
+  '2024-01-01T00:00:00.000Z',
+  '2024-01-01T00:00:00.000Z'
+);
+db.prepare(
+  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+).run(3, 'Old Stock', 'Legacy', '', '', '', '', 10, 'inactive', '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
+db.prepare(
+  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+).run(4, 'Nulled Status', 'Legacy', '', '', '', '', 5, null, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
 db.prepare('INSERT INTO locations (id, name) VALUES (?, ?)').run(1, 'Main');
 db.prepare('INSERT INTO locations (id, name) VALUES (?, ?)').run(2, 'Backup');
 db.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, ?)').run(1, 1, 50);
 db.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, ?)').run(1, 2, 30);
 db.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, ?)').run(2, 1, 40);
-db.prepare('INSERT INTO stock_movements (id, product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-  .run(1, 1, 10, 'stock-in', null, 1, 'restock', '2024-02-01T00:00:00.000Z', 'admin');
-db.prepare('INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-  .run(1, 'Ana', 'ana@example.com', '+639171234567', '["Butterscotch Sauce x1"]', 1070, 'urgent', 'pending', '2024-02-02T00:00:00.000Z');
-db.prepare('INSERT INTO sales_transactions (id, product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?, ?)')
-  .run(1, 1, 2, 1070, 2140, '2024-02-03T00:00:00.000Z', 'Ana');
-db.prepare('INSERT INTO inventory_alerts (id, product_id, location_id, alert_type, threshold, current_qty, status, created_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-  .run(1, 1, 1, 'low_stock', 80, 50, 'active', '2024-02-04T00:00:00.000Z', null);
+db.prepare(
+  'INSERT INTO stock_movements (id, product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+).run(1, 1, 10, 'stock-in', null, 1, 'restock', '2024-02-01T00:00:00.000Z', 'admin');
+db.prepare(
+  'INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+).run(
+  1,
+  'Ana',
+  'ana@example.com',
+  '+639171234567',
+  '["Butterscotch Sauce x1"]',
+  1070,
+  'urgent',
+  'pending',
+  '2024-02-02T00:00:00.000Z'
+);
+db.prepare(
+  'INSERT INTO sales_transactions (id, product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?, ?)'
+).run(1, 1, 2, 1070, 2140, '2024-02-03T00:00:00.000Z', 'Ana');
+db.prepare(
+  'INSERT INTO inventory_alerts (id, product_id, location_id, alert_type, threshold, current_qty, status, created_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+).run(1, 1, 1, 'low_stock', 80, 50, 'active', '2024-02-04T00:00:00.000Z', null);
 
 after(() => {
-  try { db.close(); } catch {}
+  try {
+    db.close();
+  } catch {}
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -65,7 +115,11 @@ test('transformSnapshot maps a SQLite snapshot into store-shaped datasets', () =
   assert.strictEqual(datasets['products.json'][0]['Price'], 1070);
   assert.ok(!('status' in datasets['products.json'][0]), 'active products carry no status key');
   assert.strictEqual(datasets['products.json'][2]['status'], 'inactive');
-  assert.strictEqual(datasets['products.json'][3]['status'], 'inactive', 'null status is migrated as inactive, never active');
+  assert.strictEqual(
+    datasets['products.json'][3]['status'],
+    'inactive',
+    'null status is migrated as inactive, never active'
+  );
 
   // Inventory: locations array + per-product items with live stock + totals.
   assert.deepStrictEqual(datasets['inventory.json'].locations, ['Main', 'Backup']);
@@ -127,12 +181,12 @@ test('npm-free server serves migrated Firestore data end-to-end', async () => {
   try {
     const prods = await (await fetch(`${base}/api/products`)).json();
     assert.strictEqual(prods.length, 2, 'active list excludes inactive AND nulled-status products');
-    assert.ok(!prods.some((p) => p.name === 'Nulled Status'), 'nulled-status product must not be active');
+    assert.ok(!prods.some(p => p.name === 'Nulled Status'), 'nulled-status product must not be active');
     assert.strictEqual(prods[0].name, 'Butterscotch Sauce');
 
     const inv = await (await fetch(`${base}/api/inventory`)).json();
     assert.strictEqual(inv.locations.length, 2);
-    const bs = inv.items.find((i) => i.product.name === 'Butterscotch Sauce');
+    const bs = inv.items.find(i => i.product.name === 'Butterscotch Sauce');
     assert.strictEqual(bs.total, 80);
     assert.deepStrictEqual(bs.locations, { Main: 50, Backup: 30 });
 
@@ -151,9 +205,11 @@ test('npm-free server serves migrated Firestore data end-to-end', async () => {
     assert.strictEqual(mv[0].src_location, null);
     assert.strictEqual(mv[0].notes, 'restock');
 
-    const al = await (await fetch(`${base}/api/alerts`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })).json();
+    const al = await (
+      await fetch(`${base}/api/alerts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    ).json();
     assert.strictEqual(al[0].product_name, 'Butterscotch Sauce');
     assert.strictEqual(al[0].resolved_at, null);
   } finally {

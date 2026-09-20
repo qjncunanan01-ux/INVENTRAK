@@ -42,14 +42,14 @@ export function CartProvider({ children }) {
       setHydrated(true);
       return undefined;
     }
-    (async () => {
+    (async() => {
       try {
         const raw = await AsyncStorage.getItem(storageKey);
         if (!cancelled && raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
             const clean = parsed.filter(
-              (i) => i && i.product && i.product.id != null && Number(i.qty) > 0
+              (i) => i && i.product && i.product.id != null && Number(i.qty) > 0,
             );
             setItems(clean);
           }
@@ -86,7 +86,7 @@ export function CartProvider({ children }) {
         return prev.map((i) =>
           Number(i.product.id) === Number(product.id)
             ? { ...i, qty: i.qty + q, price: i.price ?? unit, original_price: i.original_price ?? original }
-            : i
+            : i,
         );
       }
       return [...prev, { product, qty: q, price: unit, original_price: original }];

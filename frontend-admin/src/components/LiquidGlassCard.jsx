@@ -5,10 +5,10 @@ import { Box } from '@mui/material';
  * Modern glass card wrapper. Uses pure CSS backdrop-filter glassmorphism
  * to guarantee pixel-perfect flex/grid alignment across all browsers and screen sizes.
  */
-const LiquidGlassCard = React.forwardRef(function LiquidGlassCard(
+const LiquidGlassCard = React.forwardRef((
   { children, intensity = 'medium', color = 'rgba(255, 255, 255, 0.75)', ...props },
-  ref
-) {
+  ref,
+) => {
   const blurMap = {
     low: '8px',
     medium: '16px',

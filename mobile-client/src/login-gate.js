@@ -10,7 +10,7 @@ import { useThemeColors } from './theme-context';
 // one hook call and render {gateModal} once at the end of their tree.
 export function useLoginGate(
   navigation,
-  { title = 'Log in to add to cart', body = 'Browsing is free, but adding products to your cart is a member feature. Create a free account or log in to start ordering.' } = {}
+  { title = 'Log in to add to cart', body = 'Browsing is free, but adding products to your cart is a member feature. Create a free account or log in to start ordering.' } = {},
 ) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -76,34 +76,34 @@ export function useLoginGate(
 
 const createStyles = (colors) => StyleSheet.create({
   backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    flex: 1,
     justifyContent: 'center',
     padding: 28,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 380,
-    alignItems: 'center',
-  },
-  glyph: { fontSize: 34, marginBottom: 8 },
-  title: { fontSize: 19, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
   body: {
-    fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
+    fontSize: 14,
     lineHeight: 20,
-    marginTop: 8,
     marginBottom: 18,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  btn: { width: '100%', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  btn: { alignItems: 'center', borderRadius: 12, marginBottom: 10, paddingVertical: 14, width: '100%' },
+  btnGhost: { backgroundColor: colors.surface, borderColor: colors.brandPrimary, borderWidth: 1.5 },
+  btnGhostText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
   btnPrimary: { backgroundColor: colors.brandPrimary },
   btnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  btnGhost: { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.brandPrimary },
-  btnGhostText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
   cancel: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
+  card: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    maxWidth: 380,
+    padding: 24,
+    width: '100%',
+  },
+  glyph: { fontSize: 34, marginBottom: 8 },
+  title: { color: colors.textPrimary, fontSize: 19, fontWeight: '800', textAlign: 'center' },
 });

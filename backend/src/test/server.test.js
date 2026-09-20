@@ -26,7 +26,9 @@ before(() => {
 
 after(() => {
   server.close();
-  try { db.close(); } catch {}
+  try {
+    db.close();
+  } catch {}
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
@@ -82,7 +84,12 @@ test('POST /api/auth/register creates a new customer user', async () => {
 test('POST /api/auth/register rejects duplicate usernames', async () => {
   const { status } = await request('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username: 'admin', password: 'Test123!', email: 'admin2@example.com', phone: '09171234567' }),
+    body: JSON.stringify({
+      username: 'admin',
+      password: 'Test123!',
+      email: 'admin2@example.com',
+      phone: '09171234567',
+    }),
   });
   assert.strictEqual(status, 409);
 });
@@ -232,7 +239,7 @@ test('stock-ins accumulate without duplicating stock rows', async () => {
   // then absorbed the same UPDATE — corrupting per-location counts and totals.
   const inventoryBefore = await request('/api/inventory?location=1');
   const beforeItem = inventoryBefore.body.items.find(i => i.product.id === 1);
-  const beforeQty = beforeItem ? (beforeItem.locations.Showroom || 0) : 0;
+  const beforeQty = beforeItem ? beforeItem.locations.Showroom || 0 : 0;
 
   // Two stock-ins of 3 each into location 1 for product 1.
   for (let i = 0; i < 2; i++) {

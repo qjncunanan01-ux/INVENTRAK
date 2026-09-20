@@ -38,7 +38,7 @@ const catalog = Array.from({ length: 40 }, (_, i) => ({
 // A photo-less product (must be excluded from eligible picks).
 catalog[5].image = null;
 // An out-of-stock product (must be excluded via the stock map).
-catalog[10].image = `/images/p11.jpg`;
+catalog[10].image = '/images/p11.jpg';
 const abc = catalog
   .map((p) => ({ id: p.id, name: p.name, value: (40 - p.id) * 1000, annualQty: 1 }))
   .sort((a, b) => b.value - a.value);
@@ -64,7 +64,7 @@ describe('flash-sale parity (admin mirrors mobile)', () => {
       assert.deepStrictEqual(
         adminFs.dealPricing(pick, now),
         mobileFs.dealPricing(pick, now),
-        `dealPricing diverged for product ${pick.id}`
+        `dealPricing diverged for product ${pick.id}`,
       );
     }
   });
@@ -73,7 +73,7 @@ describe('flash-sale parity (admin mirrors mobile)', () => {
     assert.strictEqual(adminFs.daySeed(now), mobileFs.daySeed(now));
     assert.strictEqual(
       adminFs.msUntilDailyRefresh(now),
-      mobileFs.msUntilDailyRefresh(now)
+      mobileFs.msUntilDailyRefresh(now),
     );
   });
 

@@ -10,11 +10,11 @@
 function stripHtml(input) {
   if (typeof input !== 'string') return input;
   return input
-    .replace(/<[^>]*>/g, '')           // strip all HTML tags
-    .replace(/&/g, '&amp;')            // encode ampersands
-    .replace(/"/g, '&quot;')           // encode double quotes
-    .replace(/'/g, '&#x27;')           // encode single quotes
-    .replace(/\//g, '&#x2F;')          // encode forward slashes
+    .replace(/<[^>]*>/g, '') // strip all HTML tags
+    .replace(/&/g, '&amp;') // encode ampersands
+    .replace(/"/g, '&quot;') // encode double quotes
+    .replace(/'/g, '&#x27;') // encode single quotes
+    .replace(/\//g, '&#x2F;') // encode forward slashes
     .trim();
 }
 

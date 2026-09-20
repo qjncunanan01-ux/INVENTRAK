@@ -139,7 +139,10 @@ test('MFA challenge verify is brute-force throttled', async () => {
         method: 'POST',
         body: { mfaToken: challenge.json.mfaToken, code: '000000' },
       });
-      if (r.status === 429) { saw429 = true; break; }
+      if (r.status === 429) {
+        saw429 = true;
+        break;
+      }
       assert.strictEqual(r.status, 401, 'wrong codes are rejected before the throttle engages');
     }
     assert.strictEqual(saw429, true, '5 wrong codes must trip the per-IP throttle');

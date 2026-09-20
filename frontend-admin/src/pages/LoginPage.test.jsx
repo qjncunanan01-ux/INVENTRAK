@@ -43,7 +43,7 @@ function okSession(user) {
   return {
     ok: true,
     status: 200,
-    json: async () => ({ token: 'tok-123', user }),
+    json: async() => ({ token: 'tok-123', user }),
   };
 }
 
@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 describe('portal gate: the web admin is admin-tier only', () => {
-  test('the login request carries portal: "admin"', async () => {
+  test('the login request carries portal: "admin"', async() => {
     fetchMock.mockResolvedValueOnce(okSession({ id: 4, username: 'owner', role: 'owner' }));
     render(<LoginPage onLogin={() => {}} />);
     fillAndSubmit('owner', 'owner123');
@@ -73,11 +73,11 @@ describe('portal gate: the web admin is admin-tier only', () => {
     expect(body.username).toBe('owner');
   });
 
-  test('a backend 403 portal_mobile_only refusal is shown as a mobile pointer', async () => {
+  test('a backend 403 portal_mobile_only refusal is shown as a mobile pointer', async() => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 403,
-      json: async () => ({
+      json: async() => ({
         error: 'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
         code: 'portal_mobile_only',
       }),
@@ -91,11 +91,11 @@ describe('portal gate: the web admin is admin-tier only', () => {
     expect(setToken).not.toHaveBeenCalled();
   });
 
-  test('a non-admin-tier session (old backend) is blocked client-side', async () => {
+  test('a non-admin-tier session (old backend) is blocked client-side', async() => {
     // An older backend without the portal flag would hand back a normal
     // staff session — the client gate must still stop it.
     fetchMock.mockResolvedValueOnce(
-      okSession({ id: 3, username: 'staff', role: 'staff' })
+      okSession({ id: 3, username: 'staff', role: 'staff' }),
     );
     render(<LoginPage onLogin={() => {}} />);
     fillAndSubmit('staff', 'staff123');
@@ -105,7 +105,7 @@ describe('portal gate: the web admin is admin-tier only', () => {
     expect(setToken).not.toHaveBeenCalled();
   });
 
-  test('admin-tier roles still sign in normally', async () => {
+  test('admin-tier roles still sign in normally', async() => {
     for (const user of [
       { id: 4, username: 'owner', role: 'owner' },
       { id: 5, username: 'superadmin', role: 'super_admin' },

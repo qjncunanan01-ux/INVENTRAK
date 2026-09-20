@@ -7,20 +7,14 @@
 // and the npm-free fallback (the same parity bar every other endpoint meets).
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
-const {
-  FSN_WINDOW_DAYS,
-  parseFsnWindow,
-  classifyFsn,
-  classifyFsnCatalog,
-  summarizeFsn,
-} = require('../fsn');
+const { FSN_WINDOW_DAYS, parseFsnWindow, classifyFsn, classifyFsnCatalog, summarizeFsn } = require('../fsn');
 const { sqlite, npmfree, bootBoth, teardown, call, both, shapeOf } = require('./harness');
 
 // Fixed clock: 2026-09-10T12:00:00Z. All relative dates below are computed
 // from this instant so the classifier's output never drifts with real time.
 const NOW = new Date('2026-09-10T12:00:00Z');
 
-const daysAgo = (n) => new Date(NOW.getTime() - n * 86400000).toISOString();
+const daysAgo = n => new Date(NOW.getTime() - n * 86400000).toISOString();
 
 // ===== Part 1: unit tests (injected clock, deterministic) =====
 
@@ -36,24 +30,18 @@ test('fsn: no sales in the window classifies Non-moving (N)', () => {
 });
 
 test('fsn: out-of-window sales do not count (treated as non-moving)', () => {
-  const r = classifyFsn(
-    [{ transaction_date: daysAgo(120), qty: 5 }],
-    { id: 1, name: 'Old Stock', price: 50 },
-    90,
-    { now: NOW }
-  );
+  const r = classifyFsn([{ transaction_date: daysAgo(120), qty: 5 }], { id: 1, name: 'Old Stock', price: 50 }, 90, {
+    now: NOW,
+  });
   assert.strictEqual(r.classification, 'N');
 });
 
 test('fsn: sale within the recency grace period is Fast even with a sparse history', () => {
   // One sale 3 days ago: frequency (90) is above the threshold but recency
   // rescues it — a genuinely active product must not be labelled Slow.
-  const r = classifyFsn(
-    [{ transaction_date: daysAgo(3), qty: 2 }],
-    { id: 2, name: 'Recent Seller', price: 10 },
-    90,
-    { now: NOW }
-  );
+  const r = classifyFsn([{ transaction_date: daysAgo(3), qty: 2 }], { id: 2, name: 'Recent Seller', price: 10 }, 90, {
+    now: NOW,
+  });
   assert.strictEqual(r.classification, 'F');
   assert.strictEqual(r.recencyDays, 3);
   assert.strictEqual(r.transactions, 1);
@@ -70,7 +58,7 @@ test('fsn: weekly seller classifies Fast by frequency', () => {
 
 test('fsn: sporadic seller with old last sale classifies Slow (S)', () => {
   // 3 sales at ~day 40-60: frequency 30 > 7, recency 40 > 7 => Slow.
-  const txns = [daysAgo(40), daysAgo(50), daysAgo(60)].map((d) => ({ transaction_date: d, qty: 1 }));
+  const txns = [daysAgo(40), daysAgo(50), daysAgo(60)].map(d => ({ transaction_date: d, qty: 1 }));
   const r = classifyFsn(txns, { id: 4, name: 'Trickler', price: 5 }, 90, { now: NOW });
   assert.strictEqual(r.classification, 'S');
   assert.strictEqual(r.frequencyDays, 30);
@@ -86,7 +74,10 @@ test('fsn: daily+ sellers cap frequency at 1', () => {
 
 test('fsn: monetary + rate stats are computed over the window only', () => {
   const r = classifyFsn(
-    [{ transaction_date: daysAgo(1), qty: 4 }, { transaction_date: daysAgo(2), qty: 1 }],
+    [
+      { transaction_date: daysAgo(1), qty: 4 },
+      { transaction_date: daysAgo(2), qty: 1 },
+    ],
     { id: 6, name: 'Priced', price: 2.5 },
     90,
     { now: NOW }
@@ -119,15 +110,24 @@ test('fsn: catalog sort puts Non-moving first, then Slow, then Fast', () => {
     // product 2 never sold.
   ];
   const result = classifyFsnCatalog(products, sales, { now: NOW });
-  assert.deepStrictEqual(result.map((r) => r.classification), ['N', 'S', 'F']);
-  assert.deepStrictEqual(result.map((r) => r.name), ['Dead Product', 'Slow Product', 'Fast Product']);
+  assert.deepStrictEqual(
+    result.map(r => r.classification),
+    ['N', 'S', 'F']
+  );
+  assert.deepStrictEqual(
+    result.map(r => r.name),
+    ['Dead Product', 'Slow Product', 'Fast Product']
+  );
 });
 
 test('fsn: summarizeFsn reports counts and percentage mix', () => {
   const items = [
-    { classification: 'F' }, { classification: 'F' },
+    { classification: 'F' },
+    { classification: 'F' },
     { classification: 'S' },
-    { classification: 'N' }, { classification: 'N' }, { classification: 'N' },
+    { classification: 'N' },
+    { classification: 'N' },
+    { classification: 'N' },
   ];
   const s = summarizeFsn(items);
   assert.deepStrictEqual(s.counts, { F: 2, S: 1, N: 3 });
@@ -160,23 +160,35 @@ test('contract: FSN endpoint returns all three classes on seeded data', async ()
 
     const shape = shapeOf(res.json);
     assert.ok(shape.includes('classification:string'), 'unexpected row shape: ' + shape);
-    const required = ['id', 'name', 'classification', 'transactions', 'ratePerDay', 'totalQty', 'valueSold', 'windowDays'];
+    const required = [
+      'id',
+      'name',
+      'classification',
+      'transactions',
+      'ratePerDay',
+      'totalQty',
+      'valueSold',
+      'windowDays',
+    ];
     for (const key of required) {
-      assert.ok(res.json.every((r) => key in r), `missing FsnItem key: ${key}`);
+      assert.ok(
+        res.json.every(r => key in r),
+        `missing FsnItem key: ${key}`
+      );
     }
 
-    const classes = new Set(res.json.map((r) => r.classification));
+    const classes = new Set(res.json.map(r => r.classification));
     assert.deepStrictEqual(
       [...classes].sort(),
       ['F', 'N', 'S'],
       'seeded catalog should exercise all three FSN classes'
     );
-    assert.ok(res.json.every((r) => typeof r.name === 'string' && r.name.length > 0));
-    assert.ok(res.json.every((r) => r.windowDays === 90));
+    assert.ok(res.json.every(r => typeof r.name === 'string' && r.name.length > 0));
+    assert.ok(res.json.every(r => r.windowDays === 90));
     // Sorted Non-moving first (the actionable dead stock surfaces on top).
-    const firstIdx = res.json.findIndex((r) => r.classification !== 'N');
+    const firstIdx = res.json.findIndex(r => r.classification !== 'N');
     assert.ok(
-      firstIdx === -1 || res.json.slice(0, firstIdx).every((r) => r.classification === 'N'),
+      firstIdx === -1 || res.json.slice(0, firstIdx).every(r => r.classification === 'N'),
       'Non-moving items must sort first'
     );
   }
@@ -187,7 +199,10 @@ test('contract: FSN window query param is honored identically (7-day window isol
   for (const side of [sqlite, npmfree]) {
     const res = await call(side.url, '/api/optimization/fsn?window=7');
     assert.strictEqual(res.status, 200);
-    assert.ok(res.json.every((r) => r.windowDays === 7), 'windowDays must echo the clamped param');
+    assert.ok(
+      res.json.every(r => r.windowDays === 7),
+      'windowDays must echo the clamped param'
+    );
   }
 });
 
@@ -202,8 +217,8 @@ test('contract: FSN window clamping is identical on both backends', async () => 
   }
   const tiny = await call(sqlite.url, '/api/optimization/fsn?window=3');
   const huge = await call(npmfree.url, '/api/optimization/fsn?window=99999');
-  assert.ok(tiny.json.every((r) => r.windowDays === 7));
-  assert.ok(huge.json.every((r) => r.windowDays === 730));
+  assert.ok(tiny.json.every(r => r.windowDays === 7));
+  assert.ok(huge.json.every(r => r.windowDays === 730));
 });
 
 test('contract: FSN classifications agree with ABC on the same catalog (same ids, both backends)', async () => {
@@ -215,7 +230,7 @@ test('contract: FSN classifications agree with ABC on the same catalog (same ids
     const abcRes = await call(side.url, '/api/optimization/abc');
     assert.strictEqual(fsnRes.status, 200);
     assert.strictEqual(abcRes.status, 200);
-    const abcIds = new Set(abcRes.json.map((r) => r.id));
+    const abcIds = new Set(abcRes.json.map(r => r.id));
     for (const row of fsnRes.json) {
       assert.ok(abcIds.has(row.id), `fsn row ${row.id} (${row.name}) missing from ABC output`);
     }

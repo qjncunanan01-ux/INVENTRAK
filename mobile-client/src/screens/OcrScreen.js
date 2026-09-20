@@ -97,7 +97,7 @@ export default function OcrScreen({ navigation }) {
 
   // Staff submit: for every location whose counted qty differs from the
   // current stock, create a pending adjustment (owner approves later).
-  const submitCount = useCallback(async () => {
+  const submitCount = useCallback(async() => {
     if (!isStaff || !topMatch) return;
     const changes = Object.keys(topMatch.stock?.locations || {}).filter((loc) => {
       const current = Number(topMatch.stock.locations[loc]) || 0;
@@ -133,7 +133,7 @@ export default function OcrScreen({ navigation }) {
     if (done > 0) {
       setSubmitMsg(
         `${done} correction(s) submitted — the owner will approve them before stock updates.`
-        + (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : '')
+        + (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : ''),
       );
       setReason('');
     } else {
@@ -176,12 +176,12 @@ export default function OcrScreen({ navigation }) {
     navigation.navigate('Products', { focusId: match.id });
   };
 
-  const requestPermission = async () => {
+  const requestPermission = async() => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     return perm.granted;
   };
 
-  const pickImage = async (useCamera) => {
+  const pickImage = async(useCamera) => {
     setError('');
     if (useCamera) {
       const ok = await requestPermission();
@@ -197,13 +197,13 @@ export default function OcrScreen({ navigation }) {
       // anyway: the backend reads the whole label.
       const result = useCamera
         ? await ImagePicker.launchCameraAsync({
-            base64: true,
-            quality: 0.8,
-          })
+          base64: true,
+          quality: 0.8,
+        })
         : await ImagePicker.launchImageLibraryAsync({
-            base64: true,
-            quality: 0.8,
-          });
+          base64: true,
+          quality: 0.8,
+        });
 
       if (result.canceled || !result.assets || !result.assets[0]) return;
       const asset = result.assets[0];
@@ -229,7 +229,7 @@ export default function OcrScreen({ navigation }) {
             { grayscale: {} },
             { contrast: 1.6 },
           ],
-          { base64: true, compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+          { base64: true, compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
         );
         payload = processed.base64 || asset.base64;
       } catch (preErr) {
@@ -250,7 +250,7 @@ export default function OcrScreen({ navigation }) {
     }
   };
 
-  const runOcr = async (base64, filename) => {
+  const runOcr = async(base64, filename) => {
     setBusy(true);
     setError('');
     try {
@@ -272,7 +272,7 @@ export default function OcrScreen({ navigation }) {
           // foreign/unknown label must say so instead of staying silent.
           setError(
             'No SYLVER product detected — this label doesn\u2019t match anything in the catalog. ' +
-            'Only products in the SYLVER supply catalog can be scanned.'
+            'Only products in the SYLVER supply catalog can be scanned.',
           );
         }
       }
@@ -417,109 +417,109 @@ export default function OcrScreen({ navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: colors.background },
-  title: { fontSize: 24, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
-  subtitle: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginBottom: 16 },
+  container: { backgroundColor: colors.background, flex: 1, padding: 20 },
+  title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: 4 },
+  subtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 16 },
   btnRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  btn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  btn: { alignItems: 'center', borderRadius: 12, flex: 1, paddingVertical: 14 },
   btnPrimary: { backgroundColor: colors.brandPrimary },
   btnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  btnGhost: { borderWidth: 1.5, borderColor: colors.brandPrimary },
+  btnGhost: { borderColor: colors.brandPrimary, borderWidth: 1.5 },
   btnGhostText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
   qrBtn: {
-    borderWidth: 1.5,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
     borderColor: colors.brandSecondary,
     borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: 'center',
+    borderWidth: 1.5,
     marginBottom: 16,
-    backgroundColor: colors.surface,
+    paddingVertical: 13,
   },
   qrBtnText: { color: colors.brandSecondary, fontSize: 14, fontWeight: '700' },
   busy: { alignItems: 'center', paddingVertical: 24 },
-  busyText: { marginTop: 10, color: colors.textSecondary, fontSize: 14 },
-  preview: { width: '100%', height: 200, borderRadius: 12, marginBottom: 12, backgroundColor: colors.surface },
-  error: { color: colors.error, fontSize: 13, marginBottom: 10, lineHeight: 18 },
-  textCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 16 },
-  textCardTitle: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, marginBottom: 6 },
+  busyText: { color: colors.textSecondary, fontSize: 14, marginTop: 10 },
+  preview: { backgroundColor: colors.surface, borderRadius: 12, height: 200, marginBottom: 12, width: '100%' },
+  error: { color: colors.error, fontSize: 13, lineHeight: 18, marginBottom: 10 },
+  textCard: { backgroundColor: colors.surface, borderRadius: 12, marginBottom: 16, padding: 14 },
+  textCardTitle: { color: colors.textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 6 },
   recognized: { color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.textPrimary, marginBottom: 10 },
+  sectionTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '700', marginBottom: 10 },
   matchCard: {
-    flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 12,
-    padding: 12,
+    flexDirection: 'row',
     marginBottom: 10,
+    padding: 12,
   },
-  matchThumb: { width: 48, height: 48, borderRadius: 8, marginRight: 12, backgroundColor: colors.background },
+  matchThumb: { backgroundColor: colors.background, borderRadius: 8, height: 48, marginRight: 12, width: 48 },
   matchInfo: { flex: 1 },
-  matchName: { fontWeight: '700', color: colors.textPrimary, fontSize: 15 },
+  matchName: { color: colors.textPrimary, fontSize: 15, fontWeight: '700' },
   matchMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
-  matchCta: { color: colors.brandPrimary, fontWeight: '800', fontSize: 15 },
+  matchCta: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
   // ---- Staff verify-and-count panel ----
   countCard: {
-    marginTop: 8,
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1.5,
     borderColor: colors.brandSecondary,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginTop: 8,
+    padding: 14,
   },
-  countTitle: { fontSize: 15, fontWeight: '800', color: colors.textPrimary },
-  countSub: { fontSize: 12, color: colors.textSecondary, lineHeight: 18, marginTop: 4 },
-  countStrong: { fontWeight: '800', color: colors.textPrimary },
+  countTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  countSub: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  countStrong: { color: colors.textPrimary, fontWeight: '800' },
   countRows: { marginTop: 10 },
-  countRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  countLoc: { flex: 1, fontSize: 13, fontWeight: '600', color: colors.textPrimary, paddingRight: 8 },
+  countRow: { alignItems: 'center', flexDirection: 'row', marginBottom: 8 },
+  countLoc: { color: colors.textPrimary, flex: 1, fontSize: 13, fontWeight: '600', paddingRight: 8 },
   countInput: {
-    width: 74,
     backgroundColor: colors.background,
+    borderColor: 'rgba(0,0,0,0.1)',
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderWidth: 1,
     color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '700',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     textAlign: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+    width: 74,
   },
-  countCurrent: { fontSize: 11, color: colors.textSecondary, marginLeft: 8, width: 52 },
+  countCurrent: { color: colors.textSecondary, fontSize: 11, marginLeft: 8, width: 52 },
   reasonInput: {
     backgroundColor: colors.background,
+    borderColor: 'rgba(0,0,0,0.1)',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderWidth: 1,
     color: colors.textPrimary,
     fontSize: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
     marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   countBtn: {
+    alignItems: 'center',
     backgroundColor: colors.brandSecondary,
     borderRadius: 10,
     paddingVertical: 12,
-    alignItems: 'center',
   },
   countBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  countOk: { color: colors.success, fontSize: 12, marginTop: 8, lineHeight: 17 },
-  countErr: { color: colors.error, fontSize: 12, marginTop: 8, lineHeight: 17 },
-  lockWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
+  countOk: { color: colors.success, fontSize: 12, lineHeight: 17, marginTop: 8 },
+  countErr: { color: colors.error, fontSize: 12, lineHeight: 17, marginTop: 8 },
+  lockWrap: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 28 },
   lockGlyph: { fontSize: 44, marginBottom: 12 },
-  lockTitle: { fontSize: 19, fontWeight: '800', color: colors.textPrimary, textAlign: 'center' },
+  lockTitle: { color: colors.textPrimary, fontSize: 19, fontWeight: '800', textAlign: 'center' },
   lockBody: {
-    fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
+    fontSize: 14,
     lineHeight: 20,
-    marginTop: 8,
     marginBottom: 20,
+    marginTop: 8,
+    textAlign: 'center',
   },
-  lockBtn: { width: '100%', maxWidth: 320, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 10 },
+  lockBtn: { alignItems: 'center', borderRadius: 12, marginBottom: 10, maxWidth: 320, paddingVertical: 14, width: '100%' },
   lockBtnPrimary: { backgroundColor: colors.brandPrimary },
   lockBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  lockBtnGhost: { borderWidth: 1.5, borderColor: colors.brandPrimary },
+  lockBtnGhost: { borderColor: colors.brandPrimary, borderWidth: 1.5 },
   lockBtnGhostText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
 });

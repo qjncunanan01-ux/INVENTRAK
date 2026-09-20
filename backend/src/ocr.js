@@ -25,14 +25,15 @@ const IMAGE_MAGIC = [
 ];
 function isDecodedImage(buf) {
   if (!Buffer.isBuffer(buf) || buf.length < 8) return false;
-  return IMAGE_MAGIC.some((sig) => sig.every((byte, i) => buf[i] === byte));
+  return IMAGE_MAGIC.some(sig => sig.every((byte, i) => buf[i] === byte));
 }
 
 // Pure size/unit tokens carry no discrimination power ("750 ML", "1 L", "1L",
 // "950 g" are on every size variant of a product) — dropping them keeps them
 // from inflating the match denominator, so a label that reads the exact
 // product name scores 1.0 instead of being diluted by the size tokens.
-const SIZE_TOKEN_PATTERN = /^(ml|l|g|kg|oz|lb|pcs|pack|box|jar|bottle|sachet|liters?|litres?|milliliters?|kilograms?|grams?|ounces?|pounds?)$/;
+const SIZE_TOKEN_PATTERN =
+  /^(ml|l|g|kg|oz|lb|pcs|pack|box|jar|bottle|sachet|liters?|litres?|milliliters?|kilograms?|grams?|ounces?|pounds?)$/;
 // Glued number+unit reads ("750ml", "1000g", "1L") — tesseract drops the
 // space on small labels, so drop the whole token: it's still just a size.
 const GLUED_SIZE_PATTERN = /^[0-9]+(ml|l|g|kg|oz|lb|pcs)$/;
@@ -45,26 +46,58 @@ function normalize(text) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
     .filter(Boolean)
-    .filter((t) => !PURE_NUMBER.test(t) && !SIZE_TOKEN_PATTERN.test(t) && !GLUED_SIZE_PATTERN.test(t));
+    .filter(t => !PURE_NUMBER.test(t) && !SIZE_TOKEN_PATTERN.test(t) && !GLUED_SIZE_PATTERN.test(t));
 }
 
 // Label lines that never help match a catalog product — nutrition facts,
 // ingredient paragraphs, logistics/legal boilerplate, contact info. If a
 // line starts with any of these it is dropped before matching/display.
 const NOISE_PREFIXES = [
-  'ingredient', 'nutrition', 'serving', 'manufactured', 'distributed',
-  'imported', 'made in', 'product of', 'expiry', 'expiration', 'best before',
-  'best-by', 'use by', 'storage', 'store in', 'keep', 'allergen', 'contains',
-  'batch', 'lot no', 'barcode', 'tel', 'phone', 'email', 'www.', 'http',
-  'facebook', 'instagram', 'tiktok', 'net content', 'net wt', 'net weight',
-  'all rights', 'copyright', 'recipe', 'how to use', 'directions',
+  'ingredient',
+  'nutrition',
+  'serving',
+  'manufactured',
+  'distributed',
+  'imported',
+  'made in',
+  'product of',
+  'expiry',
+  'expiration',
+  'best before',
+  'best-by',
+  'use by',
+  'storage',
+  'store in',
+  'keep',
+  'allergen',
+  'contains',
+  'batch',
+  'lot no',
+  'barcode',
+  'tel',
+  'phone',
+  'email',
+  'www.',
+  'http',
+  'facebook',
+  'instagram',
+  'tiktok',
+  'net content',
+  'net wt',
+  'net weight',
+  'all rights',
+  'copyright',
+  'recipe',
+  'how to use',
+  'directions',
 ];
 
 // Nutrition-fact rows like "Total Fat 0 g" / "Protein 5 g" — dropped only
 // when a NUMBER follows (so a genuine product line like "Protein Powder" or
 // "Vanilla Sugar" can never be filtered out). Whitespace is optional because
 // tesseract often glues the unit to the value ("Total Fat0 g").
-const NUTRITION_PATTERN = /^(total\s*fat|total\s*carb|total\s*carbohydrate|sodium|protein|calories|cholesterol|dietary\s*fiber|sugars?|vitamin|calcium|iron)\s*[0-9]/i;
+const NUTRITION_PATTERN =
+  /^(total\s*fat|total\s*carb|total\s*carbohydrate|sodium|protein|calories|cholesterol|dietary\s*fiber|sugars?|vitamin|calcium|iron)\s*[0-9]/i;
 
 // Keep only the lines that can actually match the catalog — the text a scan
 // needs. Drops barcodes, price tags, nutrition facts, ingredient paragraphs,
@@ -81,8 +114,8 @@ function filterOcrText(text, products = []) {
 
   return String(text || '')
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => {
+    .map(line => line.trim())
+    .filter(line => {
       if (!line) return false;
       if (line.length > 80) return false; // ingredient/legal paragraphs
       if (!/[a-z]/i.test(line)) return false; // pure digits/symbols (barcodes)
@@ -91,10 +124,10 @@ function filterOcrText(text, products = []) {
       if (digits / (letters + digits) > 0.7) return false; // price tags / lot numbers
       if (/@|https?:|www\./i.test(line)) return false; // emails / URLs
       if (NUTRITION_PATTERN.test(line)) return false; // "Total Fat 0 g" rows
-      if (NOISE_PREFIXES.some((p) => line.toLowerCase().startsWith(p))) return false;
+      if (NOISE_PREFIXES.some(p => line.toLowerCase().startsWith(p))) return false;
       // Catalog-relevance: hide lines whose words appear in no product name.
       const tokens = normalize(line);
-      if (vocab.size > 0 && !tokens.some((t) => vocab.has(t))) return false;
+      if (vocab.size > 0 && !tokens.some(t => vocab.has(t))) return false;
       return true;
     })
     .filter((line, i, arr) => arr.indexOf(line) === i) // dedupe repeated reads
@@ -106,12 +139,10 @@ function filterOcrText(text, products = []) {
 // not float up the three products whose names contain it), plus corporate
 // boilerplate. Excluded from BOTH sides of the score — a logo-only scan then
 // yields zero distinctive tokens and simply reports no match.
-const GENERIC_TOKENS = new Set([
-  'sylver', 'inc', 'corporation', 'company', 'ltd', 'llc', 'enterprises', 'brand',
-]);
+const GENERIC_TOKENS = new Set(['sylver', 'inc', 'corporation', 'company', 'ltd', 'llc', 'enterprises', 'brand']);
 
 function distinctive(tokens) {
-  return tokens.filter((t) => !GENERIC_TOKENS.has(t));
+  return tokens.filter(t => !GENERIC_TOKENS.has(t));
 }
 
 // Classic Levenshtein distance (pure JS, zero deps) for typo-tolerant
@@ -154,7 +185,7 @@ function matchScore(ocrTokens, productName) {
   const productTokens = distinctive(normalize(productName));
   const ocr = distinctive(ocrTokens);
   if (productTokens.length === 0) return 0;
-  const hit = productTokens.filter((t) => ocr.some((o) => tokensMatch(o, t))).length;
+  const hit = productTokens.filter(t => ocr.some(o => tokensMatch(o, t))).length;
   return hit / productTokens.length;
 }
 
@@ -174,7 +205,7 @@ function loadTesseract() {
       const mod = require('tesseract.js');
       const worker = await mod.createWorker('eng');
       return { worker, mod };
-    })().catch((err) => {
+    })().catch(err => {
       tesseractPromise = null; // allow retry on next call
       throw err;
     });
@@ -191,7 +222,7 @@ function loadJimp() {
     jimpPromise = (async () => {
       const mod = require('jimp');
       return mod;
-    })().catch((err) => {
+    })().catch(err => {
       jimpPromise = null; // allow retry on next call
       throw err;
     });
@@ -239,14 +270,14 @@ async function ocrImage(base64) {
   const { PSM } = mod;
   const buf = await preprocessImage(Buffer.from(base64.replace(/\s+/g, ''), 'base64'));
 
-  const read = async (psm) => {
+  const read = async psm => {
     await worker.setParameters({ tessedit_pageseg_mode: psm });
     const { data } = await worker.recognize(buf);
     return ((data && data.text) || '').split(/\r?\n/);
   };
 
   const lines = await read(PSM.AUTO);
-  const joined = lines.filter((l) => l.trim()).join(' ');
+  const joined = lines.filter(l => l.trim()).join(' ');
   // AUTO found almost nothing (a blank / logo-only read): retry with sparse
   // text segmentation, which is much better at scattered label text, and
   // merge any lines it adds.
@@ -266,7 +297,7 @@ async function ocrImage(base64) {
 function matchedTokenCount(ocrTokens, productName) {
   const productTokens = distinctive(normalize(productName));
   if (productTokens.length === 0) return -1;
-  return productTokens.filter((t) => ocrTokens.some((o) => tokensMatch(o, t))).length;
+  return productTokens.filter(t => ocrTokens.some(o => tokensMatch(o, t))).length;
 }
 
 // Match extracted OCR text against the product catalog. Returns up to
@@ -294,7 +325,7 @@ function matchProducts(text, products, { limit = 5, minScore = 0.5 } = {}) {
       matched: matchedTokenCount(tokens, p.name || p['Product Name']),
       score: matchScore(tokens, p.name || p['Product Name']),
     }))
-    .filter((m) => m.name && m.matched >= MIN_DISTINCT_HITS && m.score >= minScore)
+    .filter(m => m.name && m.matched >= MIN_DISTINCT_HITS && m.score >= minScore)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }
@@ -306,7 +337,7 @@ const LOW_STOCK_THRESHOLD = 80;
 // Attach a live stock snapshot to each match: per-location quantities, total
 // and a status string. `stockLookup(productId)` returns { locations, total }.
 function attachStock(matches, stockLookup) {
-  return matches.map((m) => {
+  return matches.map(m => {
     const stock = stockLookup(m.id) || {};
     const locations = stock.locations || {};
     const total = Number(stock.total) || 0;
@@ -323,7 +354,11 @@ function attachStock(matches, stockLookup) {
 // names still resolve. `matchedBy: 'filename'` marks these matches so the UI
 // can tell a file-name hit from a genuine OCR read.
 function basenameOf(value) {
-  return String(value || '').split(/[\\/]/).pop() || '';
+  return (
+    String(value || '')
+      .split(/[\\/]/)
+      .pop() || ''
+  );
 }
 function stemOf(filename) {
   return basenameOf(filename).replace(/\.[a-z0-9]+$/i, '');
@@ -335,7 +370,7 @@ function matchByFilename(filename, products, { limit = 5, minScore = 0.5 } = {})
   const tokens = distinctive(normalize(stem));
 
   // 1) Exact: the uploaded file name IS a product's image file name.
-  const exactIndex = products.findIndex((p) => {
+  const exactIndex = products.findIndex(p => {
     const img = stemOf(p.image || p.Image || '');
     return img && img.toLowerCase() === stem.toLowerCase();
   });
@@ -370,7 +405,7 @@ function matchByFilename(filename, products, { limit = 5, minScore = 0.5 } = {})
         matchedBy: 'filename',
       };
     })
-    .filter((m) => m.name && m.matched >= MIN_DISTINCT_HITS && m.score >= minScore)
+    .filter(m => m.name && m.matched >= MIN_DISTINCT_HITS && m.score >= minScore)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }
@@ -504,4 +539,19 @@ async function handleOcrStock(req, res, sendJson, products, stockLookup) {
   return sendJson(res, 200, { text, matches });
 }
 
-module.exports = { ocrImage, preprocessImage, terminateOcr, matchProducts, handleOcr, handleOcrStock, attachStock, normalize, matchScore, filterOcrText, matchByFilename, basenameOf, stemOf, isDecodedImage };
+module.exports = {
+  ocrImage,
+  preprocessImage,
+  terminateOcr,
+  matchProducts,
+  handleOcr,
+  handleOcrStock,
+  attachStock,
+  normalize,
+  matchScore,
+  filterOcrText,
+  matchByFilename,
+  basenameOf,
+  stemOf,
+  isDecodedImage,
+};

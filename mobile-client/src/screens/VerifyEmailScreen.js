@@ -34,7 +34,7 @@ export default function VerifyEmailScreen({ route, navigation }) {
   const deliveryFailed = notify && !notify.email && !notify.sms;
   const smsFailed = notify && notify.email && !notify.sms;
 
-  const handleVerify = async () => {
+  const handleVerify = async() => {
     if (!/^\d{6}$/.test(code.trim())) {
       Alert.alert('Validation', 'Please enter the 6-digit code.');
       return;
@@ -53,7 +53,7 @@ export default function VerifyEmailScreen({ route, navigation }) {
     }
   };
 
-  const handleResend = async () => {
+  const handleResend = async() => {
     setResending(true);
     try {
       const res = await resendVerification({ email });
@@ -127,7 +127,7 @@ export default function VerifyEmailScreen({ route, navigation }) {
 
         <TouchableOpacity style={styles.linkRow} onPress={handleResend} disabled={loading || resending}>
           <Text style={styles.linkResend}>
-            {resending ? 'Sending…' : "Didn't get it? Resend code"}
+            {resending ? 'Sending…' : 'Didn\'t get it? Resend code'}
           </Text>
         </TouchableOpacity>
 
@@ -140,39 +140,39 @@ export default function VerifyEmailScreen({ route, navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, justifyContent: 'center', padding: 28 },
-  emoji: { fontSize: 44, textAlign: 'center', marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '800', textAlign: 'center', color: colors.textPrimary, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
-  subtitleStrong: { color: colors.textPrimary, fontWeight: '700' },
-  label: { fontSize: 13, fontWeight: '600', color: colors.textSecondary, marginBottom: 6 },
+  button: { alignItems: 'center', borderRadius: 14, marginTop: 4, paddingVertical: 16 },
   codeInput: {
     backgroundColor: colors.surface,
-    padding: 16,
-    marginBottom: 16,
+    borderColor: 'rgba(0,0,0,0.06)',
     borderRadius: 12,
+    borderWidth: 1,
     color: colors.textPrimary,
     fontSize: 24,
     letterSpacing: 10,
+    marginBottom: 16,
+    padding: 16,
     textAlign: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
   },
-  button: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 4 },
+  container: { flexGrow: 1, justifyContent: 'center', padding: 28 },
+  emoji: { fontSize: 44, marginBottom: 8, textAlign: 'center' },
+  flex: { backgroundColor: colors.background, flex: 1 },
+  label: { color: colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 6 },
+  linkResend: { color: colors.info, fontSize: 14, fontWeight: '600' },
+  linkRow: { alignItems: 'center', marginTop: 16 },
+  linkSkip: { color: colors.textSecondary, fontSize: 13, marginTop: 4 },
   primary: { backgroundColor: colors.brandPrimary },
   primaryText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   spinner: { marginTop: 18 },
+  subtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 24, textAlign: 'center' },
+  subtitleStrong: { color: colors.textPrimary, fontWeight: '700' },
+  title: { color: colors.textPrimary, fontSize: 26, fontWeight: '800', marginBottom: 6, textAlign: 'center' },
   warnBanner: {
     backgroundColor: 'rgba(230, 126, 34, 0.12)',
     borderColor: 'rgba(230, 126, 34, 0.4)',
-    borderWidth: 1,
     borderRadius: 10,
-    padding: 12,
+    borderWidth: 1,
     marginBottom: 16,
+    padding: 12,
   },
-  warnText: { fontSize: 13, color: colors.warning, lineHeight: 18 },
-  linkRow: { marginTop: 16, alignItems: 'center' },
-  linkResend: { fontSize: 14, color: colors.info, fontWeight: '600' },
-  linkSkip: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  warnText: { color: colors.warning, fontSize: 13, lineHeight: 18 },
 });

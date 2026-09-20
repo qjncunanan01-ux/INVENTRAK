@@ -11,12 +11,23 @@ const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness')
 
 function makeClock(initial = 1_000_000) {
   let t = initial;
-  return { now: () => t, advance: (ms) => { t += ms; } };
+  return {
+    now: () => t,
+    advance: ms => {
+      t += ms;
+    },
+  };
 }
 
 test('lockout: unit — locks after maxFailures+1 failures and reports retryAfterMs', () => {
   const clock = makeClock();
-  const lk = createLoginLockout({ maxFailures: 3, windowMs: 60_000, baseLockoutMs: 5_000, maxLockoutMs: 40_000, now: clock.now });
+  const lk = createLoginLockout({
+    maxFailures: 3,
+    windowMs: 60_000,
+    baseLockoutMs: 5_000,
+    maxLockoutMs: 40_000,
+    now: clock.now,
+  });
 
   for (let i = 1; i <= 3; i++) {
     const r = lk.recordFailure('bob', '10.0.0.1');
@@ -45,9 +56,15 @@ test('lockout: unit — a single typo never locks; success clears the counter', 
 
 test('lockout: unit — lockout duration doubles per breach (exponential backoff)', () => {
   const clock = makeClock();
-  const lk = createLoginLockout({ maxFailures: 2, windowMs: 600_000, baseLockoutMs: 10_000, maxLockoutMs: 40_000, now: clock.now });
+  const lk = createLoginLockout({
+    maxFailures: 2,
+    windowMs: 600_000,
+    baseLockoutMs: 10_000,
+    maxLockoutMs: 40_000,
+    now: clock.now,
+  });
 
-  const breach = (ip) => {
+  const breach = ip => {
     lk.recordFailure('carol', ip);
     lk.recordFailure('carol', ip);
     return lk.recordFailure('carol', ip); // 3rd -> locked
@@ -60,7 +77,10 @@ test('lockout: unit — lockout duration doubles per breach (exponential backoff
   clock.advance(11_000);
   assert.strictEqual(lk.check('carol', '10.0.0.3').locked, false, 'lockout expires');
   const second = breach('10.0.0.3');
-  assert.ok(second.retryAfterMs > 18_000 && second.retryAfterMs <= 20_000, `second lockout ~2x: ${second.retryAfterMs}`);
+  assert.ok(
+    second.retryAfterMs > 18_000 && second.retryAfterMs <= 20_000,
+    `second lockout ~2x: ${second.retryAfterMs}`
+  );
 
   // Let it expire again -> 4x, but capped at maxLockoutMs.
   clock.advance(21_000);
@@ -181,10 +201,12 @@ test('lockout: a successful login clears the counter (single typo then success i
   // One wrong attempt then a correct login on both.
   for (const side of [sqlite, npmfree]) {
     await call(side.url, '/api/auth/login', {
-      method: 'POST', body: { username: user, password: 'WrongPass1!' },
+      method: 'POST',
+      body: { username: user, password: 'WrongPass1!' },
     });
     const ok = await call(side.url, '/api/auth/login', {
-      method: 'POST', body: { username: user, password: 'Strong!Pass123' },
+      method: 'POST',
+      body: { username: user, password: 'Strong!Pass123' },
     });
     assert.strictEqual(ok.status, 200, 'success after one typo clears the counter');
   }

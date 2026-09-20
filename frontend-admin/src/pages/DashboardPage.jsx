@@ -2,7 +2,7 @@ import {
   Box, Button, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogTitle, Grid, IconButton, InputAdornment,
   Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow,
-  TextField, Tooltip, Typography
+  TextField, Tooltip, Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
@@ -34,7 +34,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend,
   Line, LineChart,
   Pie, PieChart,
-  ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis
+  ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis,
 } from 'recharts';
 import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
@@ -98,7 +98,7 @@ export default function DashboardPage({ user, onLogout }) {
   });
 
   useEffect(() => {
-    const load = async () => {
+    const load = async() => {
       try {
         setLoading(true);
         const [summaryRes, inventoryRes, productsRes, locationsRes, inquiriesRes, salesRes, movementsRes, alertsRes, accountsRes] = await Promise.allSettled([
@@ -110,7 +110,7 @@ export default function DashboardPage({ user, onLogout }) {
           apiGet('/api/sales'),
           apiGet('/api/stock-movements'),
           apiGet('/api/alerts'),
-          apiGet('/api/users')
+          apiGet('/api/users'),
         ]);
 
         const summaryData = summaryRes.status === 'fulfilled' ? (summaryRes.value.data || summaryRes.value) : {};
@@ -155,7 +155,7 @@ export default function DashboardPage({ user, onLogout }) {
         // monthly charts) inherits the filter automatically.
         const inRange = (rows) =>
           (Array.isArray(rows) ? rows : []).filter((r) =>
-            isWithinRange(r.transaction_date || r.created_at || r.date, range)
+            isWithinRange(r.transaction_date || r.created_at || r.date, range),
           );
         const rangeSales = inRange(salesData);
         const rangeMovements = inRange(movementsData);
@@ -209,8 +209,8 @@ export default function DashboardPage({ user, onLogout }) {
         const pendingInquiries = isStaff
           ? (summaryData.pendingInquiries || 0)
           : (Array.isArray(inquiriesData)
-              ? inquiriesData.filter(i => i.status === 'pending').length
-              : (summaryData.pendingInquiries || 0));
+            ? inquiriesData.filter(i => i.status === 'pending').length
+            : (summaryData.pendingInquiries || 0));
 
         // 6. Total sales amount (inside the selected range)
         const sales = rangeSales;
@@ -230,8 +230,8 @@ export default function DashboardPage({ user, onLogout }) {
         const activeAlerts = isStaff
           ? (summaryData.activeAlerts || 0)
           : (Array.isArray(alertsData)
-              ? alertsData.filter(a => a.status === 'active' || !a.status).length
-              : (summaryData.activeAlerts || 0));
+            ? alertsData.filter(a => a.status === 'active' || !a.status).length
+            : (summaryData.activeAlerts || 0));
 
         // 9. This-month sales metrics. Staff use the daily report aggregate
         // (their raw ledger fetch is role-blocked); admins use the ledger.
@@ -276,27 +276,27 @@ export default function DashboardPage({ user, onLogout }) {
         const summaryStatus = summaryData.orderStatusSummary || {};
         const orderStatusCounts = isStaff
           ? {
-              pending: summaryStatus.pending || 0,
-              approved: (summaryStatus.approved || 0) + (summaryStatus.fulfilled || 0),
-              rejected: (summaryStatus.rejected || 0) + (summaryStatus.cancelled || 0),
-            }
+            pending: summaryStatus.pending || 0,
+            approved: (summaryStatus.approved || 0) + (summaryStatus.fulfilled || 0),
+            rejected: (summaryStatus.rejected || 0) + (summaryStatus.cancelled || 0),
+          }
           : {
-              pending: inquiries.filter(i => i.status === 'pending').length,
-              approved: inquiries.filter(i => i.status === 'approved' || i.status === 'fulfilled').length,
-              rejected: inquiries.filter(i => i.status === 'rejected' || i.status === 'cancelled').length,
-            };
+            pending: inquiries.filter(i => i.status === 'pending').length,
+            approved: inquiries.filter(i => i.status === 'approved' || i.status === 'fulfilled').length,
+            rejected: inquiries.filter(i => i.status === 'rejected' || i.status === 'cancelled').length,
+          };
 
         // 12. Top products by stock value
         const topProductsLive = items.length > 0
           ? items
-              .map(item => ({
-                id: item.product?.id || item.id,
-                name: item.product?.name || item.name || '',
-                stock_value: (item.total || 0) * (item.product?.price || item.price || 0)
-              }))
-              .filter(p => p.stock_value > 0)
-              .sort((a, b) => b.stock_value - a.stock_value)
-              .slice(0, 5)
+            .map(item => ({
+              id: item.product?.id || item.id,
+              name: item.product?.name || item.name || '',
+              stock_value: (item.total || 0) * (item.product?.price || item.price || 0),
+            }))
+            .filter(p => p.stock_value > 0)
+            .sort((a, b) => b.stock_value - a.stock_value)
+            .slice(0, 5)
           : (summaryData.topProducts || []);
 
         // 13. Monthly movements for chart
@@ -311,8 +311,8 @@ export default function DashboardPage({ user, onLogout }) {
         });
         const monthlyMovementsLive = Object.values(monthTypeMapLive).length > 0
           ? Object.values(monthTypeMapLive)
-              .sort((a, b) => a.month.localeCompare(b.month))
-              .slice(-12)
+            .sort((a, b) => a.month.localeCompare(b.month))
+            .slice(-12)
           : (summaryData.monthlyMovements || []);
 
         // 14. Fast-moving & slow-moving products (by qty sold). Staff use the
@@ -451,7 +451,7 @@ export default function DashboardPage({ user, onLogout }) {
         setModalData(
           dailySales
             .filter(d => (d.date || '').startsWith(thisMonth))
-            .map(d => ({ id: d.date, product_name: `${d.transactions} transaction(s)`, qty: d.transactions, total_amount: d.value, transaction_date: d.date, customer_name: '—' }))
+            .map(d => ({ id: d.date, product_name: `${d.transactions} transaction(s)`, qty: d.transactions, total_amount: d.value, transaction_date: d.date, customer_name: '—' })),
         );
       } else {
         setModalData([]);
@@ -534,7 +534,7 @@ export default function DashboardPage({ user, onLogout }) {
                 message,
                 created_at: a.created_at,
               };
-            })
+            }),
         );
       } else {
         const lowEntries = [];
@@ -564,7 +564,7 @@ export default function DashboardPage({ user, onLogout }) {
     let list = products
       .map(item => ({
         name: item.name || '',
-        value: Math.round((Number(item.price) || 0) * (Number(item.stock || item.quantity || item.total) || 0))
+        value: Math.round((Number(item.price) || 0) * (Number(item.stock || item.quantity || item.total) || 0)),
       }))
       .filter(p => p.value > 0)
       .sort((a, b) => b.value - a.value)
@@ -573,7 +573,7 @@ export default function DashboardPage({ user, onLogout }) {
     if (list.length === 0 && summary.topProducts) {
       list = summary.topProducts.map(p => ({
         name: p.name?.length > 15 ? p.name.substring(0, 15) + '…' : p.name,
-        value: Math.round(p.stock_value)
+        value: Math.round(p.stock_value),
       }));
     }
     return list;
@@ -602,7 +602,7 @@ export default function DashboardPage({ user, onLogout }) {
   const { fastMovingData, slowMovingData } = useMemo(() => {
     const isStaff = getCurrentUser()?.role === 'staff';
     const sales = (rawData.sales || []).filter(s =>
-      isWithinRange(s.transaction_date || s.created_at || s.date, velRange)
+      isWithinRange(s.transaction_date || s.created_at || s.date, velRange),
     );
 
     if (isStaff && sales.length === 0) {
@@ -644,10 +644,10 @@ export default function DashboardPage({ user, onLogout }) {
   const { monthlySalesChartData, orderStatusPieData } = useMemo(() => {
     const isStaff = getCurrentUser()?.role === 'staff';
     const sales = (rawData.sales || []).filter(s =>
-      isWithinRange(s.transaction_date || s.created_at || s.date, soRange)
+      isWithinRange(s.transaction_date || s.created_at || s.date, soRange),
     );
     const inquiries = (rawData.inquiries || []).filter(i =>
-      isWithinRange(i.created_at || i.date, soRange)
+      isWithinRange(i.created_at || i.date, soRange),
     );
     const dailySales = rawData.dailySales || [];
 
@@ -705,7 +705,7 @@ export default function DashboardPage({ user, onLogout }) {
   const movRange = useMemo(() => resolveRange(movementRange), [movementRange]);
   const { movementChartData } = useMemo(() => {
     const movements = (rawData.movements || []).filter(m =>
-      isWithinRange(m.created_at || m.transaction_date || m.date, movRange)
+      isWithinRange(m.created_at || m.transaction_date || m.date, movRange),
     );
 
     const monthTypeMap = {};
@@ -877,7 +877,7 @@ export default function DashboardPage({ user, onLogout }) {
                 onClick={handleCardClick}
                 index={index + 4}
                 masked={isMasked}
-                maskLabel={isMasked ? "Executive Only" : ""}
+                maskLabel={isMasked ? 'Executive Only' : ''}
               />
             </Grid>
           );
@@ -1447,56 +1447,56 @@ function StatCard({ panel, loading, onClick, index = 0, masked = false, maskLabe
       whileTap={{ scale: 0.98 }}
       style={{ height: '100%' }}
     >
-      <Tooltip title={masked ? `Restricted: ${maskLabel}` : "Click to view detailed item list"} arrow placement="top">
+      <Tooltip title={masked ? `Restricted: ${maskLabel}` : 'Click to view detailed item list'} arrow placement="top">
         <LiquidGlassCard intensity="low" color="rgba(255, 255, 255, 0.05)">
-        <Paper
-          onClick={() => !masked && onClick(panel)}
-          onKeyDown={(e) => { if (!masked && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(panel); } }}
-          tabIndex={masked ? -1 : 0}
-          role="button"
-          aria-label={`${panel.label}: ${loading ? 'loading' : display}.`}
-          sx={{
-            p: 2.5,
-            height: '100%',
-            backgroundColor: masked ? 'rgba(245, 245, 245, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-            borderRadius: 3,
-            borderLeft: `4px solid ${masked ? '#9e9e9e' : panel.color}`,
-            cursor: masked ? 'default' : 'pointer',
-            transition: 'box-shadow 0.2s ease-in-out',
-            backdropFilter: 'blur(8px)',
-            '&:focus-visible': {
-              outline: '2px solid #1f640e',
-              outlineOffset: '2px',
-            },
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, fontSize: '0.72rem' }}>
-              {panel.label}
+          <Paper
+            onClick={() => !masked && onClick(panel)}
+            onKeyDown={(e) => { if (!masked && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick(panel); } }}
+            tabIndex={masked ? -1 : 0}
+            role="button"
+            aria-label={`${panel.label}: ${loading ? 'loading' : display}.`}
+            sx={{
+              p: 2.5,
+              height: '100%',
+              backgroundColor: masked ? 'rgba(245, 245, 245, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+              borderRadius: 3,
+              borderLeft: `4px solid ${masked ? '#9e9e9e' : panel.color}`,
+              cursor: masked ? 'default' : 'pointer',
+              transition: 'box-shadow 0.2s ease-in-out',
+              backdropFilter: 'blur(8px)',
+              '&:focus-visible': {
+                outline: '2px solid #1f640e',
+                outlineOffset: '2px',
+              },
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, fontSize: '0.72rem' }}>
+                {panel.label}
+              </Typography>
+              <motion.div
+                whileHover={{ rotate: 10, scale: 1.2 }}
+                transition={{ type: 'spring', stiffness: 300 }}
+              >
+                <Box sx={{ color: 'text.secondary', opacity: 0.5 }} aria-hidden="true">{panel.icon}</Box>
+              </motion.div>
+            </Box>
+            <Typography variant="h5" color={masked ? 'text.secondary' : 'text.primary'} sx={{ fontWeight: 700 }}>
+              {loading ? '…' : masked ? (
+                <Box component="span" sx={{ letterSpacing: '0.15em', opacity: 0.65 }}>{panel.prefix ? `${panel.prefix} ***,***` : '***'}</Box>
+              ) : (
+                <AnimatedCounter
+                  target={panel.numericValue ?? 0}
+                  prefix={panel.prefix || ''}
+                  suffix={panel.suffix || ''}
+                  duration={700}
+                />
+              )}
             </Typography>
-            <motion.div
-              whileHover={{ rotate: 10, scale: 1.2 }}
-              transition={{ type: 'spring', stiffness: 300 }}
-            >
-              <Box sx={{ color: 'text.secondary', opacity: 0.5 }} aria-hidden="true">{panel.icon}</Box>
-            </motion.div>
-          </Box>
-          <Typography variant="h5" color={masked ? 'text.secondary' : 'text.primary'} sx={{ fontWeight: 700 }}>
-            {loading ? '…' : masked ? (
-              <Box component="span" sx={{ letterSpacing: '0.15em', opacity: 0.65 }}>{panel.prefix ? `${panel.prefix} ***,***` : '***'}</Box>
-            ) : (
-              <AnimatedCounter
-                target={panel.numericValue ?? 0}
-                prefix={panel.prefix || ''}
-                suffix={panel.suffix || ''}
-                duration={700}
-              />
-            )}
-          </Typography>
-          <Typography variant="caption" color={masked ? 'text.secondary' : 'primary'} sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>
-            {masked ? `🔒 ${maskLabel || 'Restricted'}` : 'Click to inspect →'}
-          </Typography>
-        </Paper>
+            <Typography variant="caption" color={masked ? 'text.secondary' : 'primary'} sx={{ display: 'inline-block', mt: 0.5, fontWeight: 500, opacity: 0.85 }}>
+              {masked ? `🔒 ${maskLabel || 'Restricted'}` : 'Click to inspect →'}
+            </Typography>
+          </Paper>
         </LiquidGlassCard>
       </Tooltip>
     </motion.div>

@@ -20,7 +20,7 @@ function dumpSnapshot(dbPath) {
   const Database = require('better-sqlite3');
   const db = new Database(dbPath, { readonly: true });
   try {
-    const all = (sql) => db.prepare(sql).all();
+    const all = sql => db.prepare(sql).all();
     return {
       users: all('SELECT * FROM users ORDER BY id'),
       products: all('SELECT * FROM products ORDER BY id'),
@@ -61,16 +61,16 @@ function formatProduct(row) {
 // npm-free server reads. Nulls are kept (the store sanitizes them), so the
 // JSON output stays a faithful copy of the database.
 function transformSnapshot(s) {
-  const products = (s.products || []).map((p) => {
+  const products = (s.products || []).map(p => {
     const out = {
       'Product Name': p.name ?? '',
-      'Category': p.category ?? '',
-      'Brand': p.brand ?? '',
-      'Description': p.description ?? '',
-      'Size': p.size ?? '',
-      'Unit': p.unit ?? '',
-      'Price': p.price ?? 0,
-      'Image': p.image ?? '',
+      Category: p.category ?? '',
+      Brand: p.brand ?? '',
+      Description: p.description ?? '',
+      Size: p.size ?? '',
+      Unit: p.unit ?? '',
+      Price: p.price ?? 0,
+      Image: p.image ?? '',
     };
     // Mirror the seed-file convention: active products carry no status key.
     // A NULL status (a partial PUT nulls the column) must NOT become 'active'
@@ -81,16 +81,16 @@ function transformSnapshot(s) {
     return out;
   });
 
-  const locationIdToName = new Map((s.locations || []).map((l) => [l.id, l.name]));
+  const locationIdToName = new Map((s.locations || []).map(l => [l.id, l.name]));
   const stockByProduct = new Map();
-  (s.stock || []).forEach((r) => {
+  (s.stock || []).forEach(r => {
     if (!stockByProduct.has(r.product_id)) stockByProduct.set(r.product_id, []);
     stockByProduct.get(r.product_id).push(r);
   });
-  const items = (s.products || []).map((p) => {
+  const items = (s.products || []).map(p => {
     const rows = stockByProduct.get(p.id) || [];
     const locations = {};
-    rows.forEach((r) => {
+    rows.forEach(r => {
       const name = locationIdToName.get(r.location_id);
       if (name !== undefined) locations[name] = r.quantity;
     });
@@ -101,11 +101,11 @@ function transformSnapshot(s) {
     };
   });
 
-  const productNameById = new Map((s.products || []).map((p) => [p.id, p.name]));
+  const productNameById = new Map((s.products || []).map(p => [p.id, p.name]));
 
   return {
     'products.json': products,
-    'inventory.json': { locations: (s.locations || []).map((l) => l.name), items },
+    'inventory.json': { locations: (s.locations || []).map(l => l.name), items },
     'stock_movements.json': s.stock_movements || [],
     // Approval-workflow datasets ride the same pipeline so a migration carries
     // pending/approved adjustments + transfers too (the catalog check only
@@ -118,7 +118,7 @@ function transformSnapshot(s) {
     '@sales': s.sales_transactions || [],
     // SQLite's GET /api/alerts JOINs product/location names — carry that
     // enrichment so the migrated data matches what the API returns.
-    '@alerts': (s.inventory_alerts || []).map((a) => ({
+    '@alerts': (s.inventory_alerts || []).map(a => ({
       ...a,
       product_name: productNameById.get(a.product_id) || '',
       location_name: locationIdToName.get(a.location_id) || '',
@@ -171,7 +171,7 @@ async function main() {
 if (require.main === module) {
   main()
     .then(() => process.exit(0))
-    .catch((err) => {
+    .catch(err => {
       console.error('Migration failed:', err && err.message);
       process.exit(1);
     });

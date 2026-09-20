@@ -53,12 +53,18 @@ const DATASETS = {
   'order_inquiries.json': { updated: 'created_at' },
   '@users': { updated: 'created_at' },
   '@sales': { updated: 'transaction_date' },
-  '@alerts': { updated: (r) => r.resolved_at || r.created_at },
+  '@alerts': { updated: r => r.resolved_at || r.created_at },
 };
 const ORDER = [
-  'products.json', 'inventory.json', 'stock_movements.json',
-  'stock_adjustments.json', 'stock_transfers.json',
-  'order_inquiries.json', '@users', '@sales', '@alerts',
+  'products.json',
+  'inventory.json',
+  'stock_movements.json',
+  'stock_adjustments.json',
+  'stock_transfers.json',
+  'order_inquiries.json',
+  '@users',
+  '@sales',
+  '@alerts',
 ];
 
 // ---------- canonical helpers ----------
@@ -82,7 +88,7 @@ function stableStringify(v) {
   if (v === null || typeof v !== 'object') return JSON.stringify(v);
   if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
   const keys = Object.keys(v).sort();
-  return '{' + keys.map((k) => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+  return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
 }
 
 function keyOf(row) {
@@ -99,26 +105,28 @@ function canonStatus(s) {
 
 function canonicalFromSqlite(snap) {
   const s = snap || {};
-  const locationNameById = new Map((s.locations || []).map((l) => [l.id, l.name]));
+  const locationNameById = new Map((s.locations || []).map(l => [l.id, l.name]));
 
-  const products = (s.products || []).map((p) => unset({
-    id: p.id,
-    name: p.name,
-    category: p.category,
-    brand: p.brand,
-    description: p.description,
-    size: p.size,
-    unit: p.unit,
-    price: p.price,
-    status: canonStatus(p.status),
-    image: p.image || null,
-    updated_at: p.updated_at,
-  }));
+  const products = (s.products || []).map(p =>
+    unset({
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      brand: p.brand,
+      description: p.description,
+      size: p.size,
+      unit: p.unit,
+      price: p.price,
+      status: canonStatus(p.status),
+      image: p.image || null,
+      updated_at: p.updated_at,
+    })
+  );
 
-  const productById = new Map((s.products || []).map((p) => [p.id, p]));
-  const locations = (s.locations || []).map((l) => l.name);
+  const productById = new Map((s.products || []).map(p => [p.id, p]));
+  const locations = (s.locations || []).map(l => l.name);
   const items = {}; // productId -> { locations: {name: qty} }
-  (s.stock || []).forEach((r) => {
+  (s.stock || []).forEach(r => {
     const name = locationNameById.get(r.location_id);
     if (name === undefined) return;
     if (!items[r.product_id]) items[r.product_id] = { locations: {} };
@@ -131,104 +139,188 @@ function canonicalFromSqlite(snap) {
       locations,
       items,
     },
-    'stock_movements.json': (s.stock_movements || []).map((m) => unset({
-      id: m.id, product_id: m.product_id, qty: m.qty, type: m.type,
-      src_location: m.src_location, dst_location: m.dst_location,
-      notes: m.notes, created_at: m.created_at, user: m.user,
-    })),
-    'stock_adjustments.json': (s.stock_adjustments || []).map((a) => unset({
-      id: a.id, product_id: a.product_id, location_id: a.location_id,
-      new_qty: a.new_qty, reason: a.reason, status: a.status,
-      created_at: a.created_at, decided_at: a.decided_at, decided_by: a.decided_by,
-    })),
-    'stock_transfers.json': (s.stock_transfers || []).map((t) => unset({
-      id: t.id, product_id: t.product_id, src_location: t.src_location,
-      dst_location: t.dst_location, qty: t.qty, reason: t.reason, status: t.status,
-      created_at: t.created_at, decided_at: t.decided_at, decided_by: t.decided_by,
-    })),
-    'order_inquiries.json': (s.order_inquiries || []).map((o) => unset({
-      id: o.id, customer_name: o.customer_name, customer_email: o.customer_email,
-      customer_phone: o.customer_phone, products: o.products,
-      estimated_cost: o.estimated_cost, notes: o.notes,
-      delivery_address: o.delivery_address, payment_method: o.payment_method,
-      payment_status: o.payment_status, payment_reference: o.payment_reference,
-      payment_url: o.payment_url, payment_qr: o.payment_qr, payment_provider: o.payment_provider,
-      user_id: o.user_id, status_history: o.status_history,
-      status: o.status, created_at: o.created_at,
-    })),
-    '@users': (s.users || []).map((u) => unset({
-      id: u.id, username: u.username, password: u.password, role: u.role,
-      email: u.email, email_verified: u.email_verified === 0 ? false : true,
-      phone: u.phone, created_at: u.created_at,
-    })),
-    '@sales': (s.sales_transactions || []).map((t) => unset({
-      id: t.id, product_id: t.product_id, qty: t.qty, unit_price: t.unit_price,
-      total_amount: t.total_amount, transaction_date: t.transaction_date,
-      customer_name: t.customer_name,
-    })),
+    'stock_movements.json': (s.stock_movements || []).map(m =>
+      unset({
+        id: m.id,
+        product_id: m.product_id,
+        qty: m.qty,
+        type: m.type,
+        src_location: m.src_location,
+        dst_location: m.dst_location,
+        notes: m.notes,
+        created_at: m.created_at,
+        user: m.user,
+      })
+    ),
+    'stock_adjustments.json': (s.stock_adjustments || []).map(a =>
+      unset({
+        id: a.id,
+        product_id: a.product_id,
+        location_id: a.location_id,
+        new_qty: a.new_qty,
+        reason: a.reason,
+        status: a.status,
+        created_at: a.created_at,
+        decided_at: a.decided_at,
+        decided_by: a.decided_by,
+      })
+    ),
+    'stock_transfers.json': (s.stock_transfers || []).map(t =>
+      unset({
+        id: t.id,
+        product_id: t.product_id,
+        src_location: t.src_location,
+        dst_location: t.dst_location,
+        qty: t.qty,
+        reason: t.reason,
+        status: t.status,
+        created_at: t.created_at,
+        decided_at: t.decided_at,
+        decided_by: t.decided_by,
+      })
+    ),
+    'order_inquiries.json': (s.order_inquiries || []).map(o =>
+      unset({
+        id: o.id,
+        customer_name: o.customer_name,
+        customer_email: o.customer_email,
+        customer_phone: o.customer_phone,
+        products: o.products,
+        estimated_cost: o.estimated_cost,
+        notes: o.notes,
+        delivery_address: o.delivery_address,
+        payment_method: o.payment_method,
+        payment_status: o.payment_status,
+        payment_reference: o.payment_reference,
+        payment_url: o.payment_url,
+        payment_qr: o.payment_qr,
+        payment_provider: o.payment_provider,
+        user_id: o.user_id,
+        status_history: o.status_history,
+        status: o.status,
+        created_at: o.created_at,
+      })
+    ),
+    '@users': (s.users || []).map(u =>
+      unset({
+        id: u.id,
+        username: u.username,
+        password: u.password,
+        role: u.role,
+        email: u.email,
+        email_verified: u.email_verified === 0 ? false : true,
+        phone: u.phone,
+        created_at: u.created_at,
+      })
+    ),
+    '@sales': (s.sales_transactions || []).map(t =>
+      unset({
+        id: t.id,
+        product_id: t.product_id,
+        qty: t.qty,
+        unit_price: t.unit_price,
+        total_amount: t.total_amount,
+        transaction_date: t.transaction_date,
+        customer_name: t.customer_name,
+      })
+    ),
     // product_name/location_name are derived via JOIN on SQLite; keep them in
     // the canonical so Firestore rows stay comparable, and drop them on the
     // SQLite write (they are not stored columns).
-    '@alerts': (s.inventory_alerts || []).map((a) => unset({
-      id: a.id, product_id: a.product_id, location_id: a.location_id,
-      alert_type: a.alert_type, threshold: a.threshold, current_qty: a.current_qty,
-      status: a.status, created_at: a.created_at, resolved_at: a.resolved_at,
-      product_name: (productById.get(a.product_id) || {}).name,
-      location_name: locationNameById.get(a.location_id),
-    })),
+    '@alerts': (s.inventory_alerts || []).map(a =>
+      unset({
+        id: a.id,
+        product_id: a.product_id,
+        location_id: a.location_id,
+        alert_type: a.alert_type,
+        threshold: a.threshold,
+        current_qty: a.current_qty,
+        status: a.status,
+        created_at: a.created_at,
+        resolved_at: a.resolved_at,
+        product_name: (productById.get(a.product_id) || {}).name,
+        location_name: locationNameById.get(a.location_id),
+      })
+    ),
   };
 }
 
 // ---------- canonicalize Firestore (store.read results) ----------
 
 function canonicalFromFirestore(read) {
-  const products = (read['products.json'] || []).map((r, idx) => unset({
-    id: idx + 1,
-    name: r['Product Name'],
-    category: r['Category'],
-    brand: r['Brand'],
-    description: r['Description'],
-    size: r['Size'],
-    unit: r['Unit'],
-    price: r['Price'],
-    status: canonStatus(r.status),
-    image: r['Image'] || r.image || null,
-    updated_at: r.updated_at,
-  }));
+  const products = (read['products.json'] || []).map((r, idx) =>
+    unset({
+      id: idx + 1,
+      name: r['Product Name'],
+      category: r['Category'],
+      brand: r['Brand'],
+      description: r['Description'],
+      size: r['Size'],
+      unit: r['Unit'],
+      price: r['Price'],
+      status: canonStatus(r.status),
+      image: r['Image'] || r.image || null,
+      updated_at: r.updated_at,
+    })
+  );
 
   const inv = read['inventory.json'] || { locations: [], items: [] };
   const items = {};
-  (inv.items || []).forEach((item) => {
+  (inv.items || []).forEach(item => {
     if (item && item.product && item.product.id !== undefined) {
       items[item.product.id] = { locations: item.locations || {} };
     }
   });
 
-  const mk = (rows, shape) => (rows || []).map((r) => unset(shape(r)));
+  const mk = (rows, shape) => (rows || []).map(r => unset(shape(r)));
 
   return {
     'products.json': products,
     'inventory.json': { locations: inv.locations || [], items },
-    'stock_movements.json': mk(read['stock_movements.json'], (m) => ({
-      id: m.id, product_id: m.product_id, qty: m.qty, type: m.type,
-      src_location: m.src_location, dst_location: m.dst_location,
-      notes: m.notes, created_at: m.created_at, user: m.user,
+    'stock_movements.json': mk(read['stock_movements.json'], m => ({
+      id: m.id,
+      product_id: m.product_id,
+      qty: m.qty,
+      type: m.type,
+      src_location: m.src_location,
+      dst_location: m.dst_location,
+      notes: m.notes,
+      created_at: m.created_at,
+      user: m.user,
     })),
-    'stock_adjustments.json': mk(read['stock_adjustments.json'], (a) => ({
-      id: a.id, product_id: a.product_id, location_id: a.location_id,
-      new_qty: a.new_qty, reason: a.reason, status: a.status,
-      created_at: a.created_at, decided_at: a.decided_at, decided_by: a.decided_by,
+    'stock_adjustments.json': mk(read['stock_adjustments.json'], a => ({
+      id: a.id,
+      product_id: a.product_id,
+      location_id: a.location_id,
+      new_qty: a.new_qty,
+      reason: a.reason,
+      status: a.status,
+      created_at: a.created_at,
+      decided_at: a.decided_at,
+      decided_by: a.decided_by,
     })),
-    'stock_transfers.json': mk(read['stock_transfers.json'], (t) => ({
-      id: t.id, product_id: t.product_id, src_location: t.src_location,
-      dst_location: t.dst_location, qty: t.qty, reason: t.reason, status: t.status,
-      created_at: t.created_at, decided_at: t.decided_at, decided_by: t.decided_by,
+    'stock_transfers.json': mk(read['stock_transfers.json'], t => ({
+      id: t.id,
+      product_id: t.product_id,
+      src_location: t.src_location,
+      dst_location: t.dst_location,
+      qty: t.qty,
+      reason: t.reason,
+      status: t.status,
+      created_at: t.created_at,
+      decided_at: t.decided_at,
+      decided_by: t.decided_by,
     })),
-    'order_inquiries.json': mk(read['order_inquiries.json'], (o) => ({
-      id: o.id, customer_name: o.customer_name, customer_email: o.customer_email,
-      customer_phone: o.customer_phone, products: o.products,
-      estimated_cost: o.estimated_cost, notes: o.notes,
-      delivery_address: o.delivery_address, payment_method: o.payment_method,
+    'order_inquiries.json': mk(read['order_inquiries.json'], o => ({
+      id: o.id,
+      customer_name: o.customer_name,
+      customer_email: o.customer_email,
+      customer_phone: o.customer_phone,
+      products: o.products,
+      estimated_cost: o.estimated_cost,
+      notes: o.notes,
+      delivery_address: o.delivery_address,
+      payment_method: o.payment_method,
       payment_status: o.payment_status === undefined || o.payment_status === '' ? 'unpaid' : o.payment_status,
       payment_reference: o.payment_reference || null,
       payment_url: o.payment_url || null,
@@ -236,23 +328,40 @@ function canonicalFromFirestore(read) {
       payment_provider: o.payment_provider || null,
       user_id: o.user_id === undefined || o.user_id === null || o.user_id === '' ? null : Number(o.user_id),
       status_history: o.status_history || null,
-      status: o.status, created_at: o.created_at,
+      status: o.status,
+      created_at: o.created_at,
     })),
-    '@users': mk(read['@users'], (u) => ({
-      id: u.id, username: u.username, password: u.password, role: u.role,
-      email: u.email, email_verified: u.email_verified !== false, phone: u.phone,
+    '@users': mk(read['@users'], u => ({
+      id: u.id,
+      username: u.username,
+      password: u.password,
+      role: u.role,
+      email: u.email,
+      email_verified: u.email_verified !== false,
+      phone: u.phone,
       created_at: u.created_at,
     })),
-    '@sales': mk(read['@sales'], (t) => ({
-      id: t.id, product_id: t.product_id, qty: t.qty, unit_price: t.unit_price,
-      total_amount: t.total_amount, transaction_date: t.transaction_date,
+    '@sales': mk(read['@sales'], t => ({
+      id: t.id,
+      product_id: t.product_id,
+      qty: t.qty,
+      unit_price: t.unit_price,
+      total_amount: t.total_amount,
+      transaction_date: t.transaction_date,
       customer_name: t.customer_name,
     })),
-    '@alerts': mk(read['@alerts'], (a) => ({
-      id: a.id, product_id: a.product_id, location_id: a.location_id,
-      alert_type: a.alert_type, threshold: a.threshold, current_qty: a.current_qty,
-      status: a.status, created_at: a.created_at, resolved_at: a.resolved_at,
-      product_name: a.product_name, location_name: a.location_name,
+    '@alerts': mk(read['@alerts'], a => ({
+      id: a.id,
+      product_id: a.product_id,
+      location_id: a.location_id,
+      alert_type: a.alert_type,
+      threshold: a.threshold,
+      current_qty: a.current_qty,
+      status: a.status,
+      created_at: a.created_at,
+      resolved_at: a.resolved_at,
+      product_name: a.product_name,
+      location_name: a.location_name,
     })),
   };
 }
@@ -262,16 +371,20 @@ function canonicalFromFirestore(read) {
 // inventory rows are { id: productId, locations, updated_at } so the generic
 // per-row machinery can be reused; totals are derived, never compared.
 function inventoryToRows(inv, updatedById) {
-  return Object.entries(inv.items || {}).map(([pid, v]) => unset({
-    id: Number(pid),
-    locations: v.locations,
-    updated_at: (updatedById.get(Number(pid)) || {}).updated_at,
-  }));
+  return Object.entries(inv.items || {}).map(([pid, v]) =>
+    unset({
+      id: Number(pid),
+      locations: v.locations,
+      updated_at: (updatedById.get(Number(pid)) || {}).updated_at,
+    })
+  );
 }
 
 function rowsToInventory(locations, rows) {
   const items = {};
-  rows.forEach((r) => { items[r.id] = { locations: r.locations || {} }; });
+  rows.forEach(r => {
+    items[r.id] = { locations: r.locations || {} };
+  });
   return { locations, items };
 }
 
@@ -318,10 +431,14 @@ function diffAndMerge(local, remote, { conflict = 'last-write-wins', deletions =
     const cfg = DATASETS[ds];
     const localRows = local[ds] || [];
     const remoteRows = remote[ds] || [];
-    const localMap = new Map(localRows.map((r) => [keyOf(r), r]));
-    const remoteMap = new Map(remoteRows.map((r) => [keyOf(r), r]));
+    const localMap = new Map(localRows.map(r => [keyOf(r), r]));
+    const remoteMap = new Map(remoteRows.map(r => [keyOf(r), r]));
 
-    let added = 0, updated = 0, removed = 0, conflicts = 0, unchanged = 0;
+    let added = 0,
+      updated = 0,
+      removed = 0,
+      conflicts = 0,
+      unchanged = 0;
     // added   = rows only on the LOCAL side (pushed up by default)
     // removed = rows only on the REMOTE side (pulled down by default; dropped
     //           from the target under --deletions=propagate)
@@ -329,15 +446,19 @@ function diffAndMerge(local, remote, { conflict = 'last-write-wins', deletions =
     const outRemote = [];
 
     const keys = new Set([...localMap.keys(), ...remoteMap.keys()]);
-    keys.forEach((k) => {
+    keys.forEach(k => {
       const lr = localMap.get(k);
       const rr = remoteMap.get(k);
       if (lr === undefined) {
         // Only on the remote side.
         removed += 1;
         report.deleted.push({ dataset: ds, id: k, side: 'sqlite-missing' });
-        if (deletions === 'propagate') outLocal.push(rr); // SQLite-mirror plan pulls it; the Firestore-mirror plan drops it
-        else { outLocal.push(rr); outRemote.push(rr); } // union: pull into SQLite
+        if (deletions === 'propagate')
+          outLocal.push(rr); // SQLite-mirror plan pulls it; the Firestore-mirror plan drops it
+        else {
+          outLocal.push(rr);
+          outRemote.push(rr);
+        } // union: pull into SQLite
         return;
       }
       if (rr === undefined) {
@@ -346,7 +467,10 @@ function diffAndMerge(local, remote, { conflict = 'last-write-wins', deletions =
         if (deletions === 'propagate') {
           outRemote.push(lr); // Firestore-mirror plan pushes it; the SQLite-mirror plan drops it
           report.deleted.push({ dataset: ds, id: k, side: 'firestore-missing' });
-        } else { outLocal.push(lr); outRemote.push(lr); } // union: push it up
+        } else {
+          outLocal.push(lr);
+          outRemote.push(lr);
+        } // union: push it up
         return;
       }
       if (stableStringify(lr) === stableStringify(rr)) {
@@ -376,31 +500,38 @@ function diffAndMerge(local, remote, { conflict = 'last-write-wins', deletions =
   // --- inventory (special): union of locations + per-product item merge ---
   const localInv = local['inventory.json'] || { locations: [], items: {} };
   const remoteInv = remote['inventory.json'] || { locations: [], items: {} };
-  const localUpd = new Map((local['products.json'] || []).map((p) => [p.id, p]));
-  const remoteUpd = new Map((remote['products.json'] || []).map((p) => [p.id, p]));
+  const localUpd = new Map((local['products.json'] || []).map(p => [p.id, p]));
+  const remoteUpd = new Map((remote['products.json'] || []).map(p => [p.id, p]));
 
   const locations = [...localInv.locations];
-  remoteInv.locations.forEach((name) => {
+  remoteInv.locations.forEach(name => {
     if (!locations.includes(name)) locations.push(name);
   });
 
   const localRows = inventoryToRows(localInv, localUpd);
   const remoteRows = inventoryToRows(remoteInv, remoteUpd);
-  const localMap = new Map(localRows.map((r) => [r.id, r]));
-  const remoteMap = new Map(remoteRows.map((r) => [r.id, r]));
+  const localMap = new Map(localRows.map(r => [r.id, r]));
+  const remoteMap = new Map(remoteRows.map(r => [r.id, r]));
   const outLocal = [];
   const outRemote = [];
-  let added = 0, updated = 0, removed = 0, conflicts = 0, unchanged = 0;
+  let added = 0,
+    updated = 0,
+    removed = 0,
+    conflicts = 0,
+    unchanged = 0;
 
   const keys = new Set([...localMap.keys(), ...remoteMap.keys()]);
-  keys.forEach((k) => {
+  keys.forEach(k => {
     const lr = localMap.get(k);
     const rr = remoteMap.get(k);
     if (lr === undefined) {
       removed += 1;
       report.deleted.push({ dataset: 'inventory.json', id: k, side: 'sqlite-missing' });
       if (deletions === 'propagate') outLocal.push(rr);
-      else { outLocal.push(rr); outRemote.push(rr); }
+      else {
+        outLocal.push(rr);
+        outRemote.push(rr);
+      }
       return;
     }
     if (rr === undefined) {
@@ -408,7 +539,10 @@ function diffAndMerge(local, remote, { conflict = 'last-write-wins', deletions =
       if (deletions === 'propagate') {
         outRemote.push(lr);
         report.deleted.push({ dataset: 'inventory.json', id: k, side: 'firestore-missing' });
-      } else { outLocal.push(lr); outRemote.push(lr); }
+      } else {
+        outLocal.push(lr);
+        outRemote.push(lr);
+      }
       return;
     }
     if (stableStringify(lr.locations) === stableStringify(rr.locations)) {
@@ -435,7 +569,7 @@ function diffAndMerge(local, remote, { conflict = 'last-write-wins', deletions =
   toRemote['inventory.json'] = rowsToInventory(locations, outRemote);
 
   // Cap the conflict examples printed in reports (never passwords).
-  report.conflicts.forEach((c) => {
+  report.conflicts.forEach(c => {
     if (c.dataset === '@users' && c.local && c.remote) {
       c.local = { ...c.local, password: '***' };
       c.remote = { ...c.remote, password: '***' };
@@ -448,7 +582,7 @@ function diffAndMerge(local, remote, { conflict = 'last-write-wins', deletions =
 // ---------- apply to SQLite ----------
 
 function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
-  const byId = (rows) => rows.filter((r) => r.id !== null);
+  const byId = rows => rows.filter(r => r.id !== null);
 
   // Products: upsert by id (ids stay stable across the sync).
   const upsertProduct = db.prepare(
@@ -461,14 +595,28 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        updated_at=excluded.updated_at`
   );
   for (const p of byId(canonical['products.json'])) {
-    upsertProduct.run(p.id, p.name, p.category, p.brand, p.description, p.size, p.unit, p.price, p.status, p.image || null, p.updated_at);
+    upsertProduct.run(
+      p.id,
+      p.name,
+      p.category,
+      p.brand,
+      p.description,
+      p.size,
+      p.unit,
+      p.price,
+      p.status,
+      p.image || null,
+      p.updated_at
+    );
   }
 
   // Locations: ensure every name exists (never deletes).
   const getLoc = db.prepare('SELECT id FROM locations WHERE name = ?');
   const addLoc = db.prepare('INSERT INTO locations (name) VALUES (?)');
   const inv = canonical['inventory.json'] || { locations: [], items: {} };
-  inv.locations.forEach((name) => { if (!getLoc.get(name)) addLoc.run(name); });
+  inv.locations.forEach(name => {
+    if (!getLoc.get(name)) addLoc.run(name);
+  });
   const locId = new Map(inv.locations.map((name, i) => [name, getLoc.get(name).id]));
 
   // Stock: rebuild for every product present in the merged inventory.
@@ -493,7 +641,17 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        notes=excluded.notes, created_at=excluded.created_at, user=excluded.user`
   );
   for (const m of byId(canonical['stock_movements.json'])) {
-    upsertMovement.run(m.id, m.product_id, m.qty, m.type, m.src_location, m.dst_location, m.notes, m.created_at, m.user);
+    upsertMovement.run(
+      m.id,
+      m.product_id,
+      m.qty,
+      m.type,
+      m.src_location,
+      m.dst_location,
+      m.notes,
+      m.created_at,
+      m.user
+    );
   }
 
   // Adjustments + transfers: upsert by id (approval-workflow datasets).
@@ -507,7 +665,17 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        decided_by=excluded.decided_by`
   );
   for (const a of byId(canonical['stock_adjustments.json'])) {
-    upsertAdjustment.run(a.id, a.product_id, a.location_id, a.new_qty, a.reason, a.status, a.created_at, a.decided_at || null, a.decided_by || null);
+    upsertAdjustment.run(
+      a.id,
+      a.product_id,
+      a.location_id,
+      a.new_qty,
+      a.reason,
+      a.status,
+      a.created_at,
+      a.decided_at || null,
+      a.decided_by || null
+    );
   }
 
   const upsertTransfer = db.prepare(
@@ -520,7 +688,18 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        decided_at=excluded.decided_at, decided_by=excluded.decided_by`
   );
   for (const t of byId(canonical['stock_transfers.json'])) {
-    upsertTransfer.run(t.id, t.product_id, t.src_location, t.dst_location, t.qty, t.reason, t.status, t.created_at, t.decided_at || null, t.decided_by || null);
+    upsertTransfer.run(
+      t.id,
+      t.product_id,
+      t.src_location,
+      t.dst_location,
+      t.qty,
+      t.reason,
+      t.status,
+      t.created_at,
+      t.decided_at || null,
+      t.decided_by || null
+    );
   }
 
   const upsertInquiry = db.prepare(
@@ -538,7 +717,26 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        status=excluded.status, created_at=excluded.created_at`
   );
   for (const o of byId(canonical['order_inquiries.json'])) {
-    upsertInquiry.run(o.id, o.customer_name, o.customer_email, o.customer_phone, o.products, o.estimated_cost, o.notes, o.delivery_address, o.payment_method, o.payment_status || 'unpaid', o.payment_reference || null, o.payment_url || null, o.payment_qr || null, o.payment_provider || null, o.user_id || null, o.status_history || null, o.status, o.created_at);
+    upsertInquiry.run(
+      o.id,
+      o.customer_name,
+      o.customer_email,
+      o.customer_phone,
+      o.products,
+      o.estimated_cost,
+      o.notes,
+      o.delivery_address,
+      o.payment_method,
+      o.payment_status || 'unpaid',
+      o.payment_reference || null,
+      o.payment_url || null,
+      o.payment_qr || null,
+      o.payment_provider || null,
+      o.user_id || null,
+      o.status_history || null,
+      o.status,
+      o.created_at
+    );
   }
 
   const upsertUser = db.prepare(
@@ -575,7 +773,17 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        created_at=excluded.created_at, resolved_at=excluded.resolved_at`
   );
   for (const a of byId(canonical['@alerts'])) {
-    upsertAlert.run(a.id, a.product_id, a.location_id, a.alert_type, a.threshold, a.current_qty, a.status, a.created_at, a.resolved_at);
+    upsertAlert.run(
+      a.id,
+      a.product_id,
+      a.location_id,
+      a.alert_type,
+      a.threshold,
+      a.current_qty,
+      a.status,
+      a.created_at,
+      a.resolved_at
+    );
   }
 
   // Mirror mode (--deletions=propagate, one-way direction): rows absent from
@@ -584,7 +792,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
   // are never auto-deleted (stock safety).
   if (deleteMissing) {
     const delNotIn = (table, rows) => {
-      const ids = byId(rows).map((r) => r.id);
+      const ids = byId(rows).map(r => r.id);
       if (ids.length === 0) {
         db.prepare(`DELETE FROM ${table}`).run();
         return;
@@ -599,7 +807,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
     delNotIn('users', canonical['@users']);
     delNotIn('sales_transactions', canonical['@sales']);
     delNotIn('inventory_alerts', canonical['@alerts']);
-    const productIds = byId(canonical['products.json']).map((r) => r.id);
+    const productIds = byId(canonical['products.json']).map(r => r.id);
     if (productIds.length === 0) {
       db.prepare("UPDATE products SET status = 'inactive'").run();
       db.prepare('DELETE FROM stock').run();
@@ -623,13 +831,13 @@ function sortById(rows) {
 function jsonProduct(p) {
   const out = {
     'Product Name': p.name,
-    'Category': p.category,
-    'Brand': p.brand,
-    'Description': p.description,
-    'Size': p.size,
-    'Unit': p.unit,
-    'Price': p.price,
-    'updated_at': p.updated_at,
+    Category: p.category,
+    Brand: p.brand,
+    Description: p.description,
+    Size: p.size,
+    Unit: p.unit,
+    Price: p.price,
+    updated_at: p.updated_at,
   };
   if (p.status === 'inactive') out['status'] = 'inactive';
   return out;
@@ -665,7 +873,7 @@ function printReport(report) {
   }
   if (report.conflicts.length) {
     console.log(`\nConflicts (${report.conflicts.length}):`);
-    report.conflicts.slice(0, 10).forEach((c) => {
+    report.conflicts.slice(0, 10).forEach(c => {
       console.log(`  ${c.dataset} id=${c.id}`);
       console.log(`    sqlite:    ${JSON.stringify(c.local)}`);
       console.log(`    firestore: ${JSON.stringify(c.remote)}`);
@@ -673,8 +881,10 @@ function printReport(report) {
     if (report.conflicts.length > 10) console.log(`  … and ${report.conflicts.length - 10} more`);
   }
   if (report.deleted.length) {
-    console.log(`\nPresence-only rows (${report.deleted.length}): pulled by default; dropped from the target with --deletions=propagate`);
-    report.deleted.slice(0, 10).forEach((d) => console.log(`  ${d.dataset} id=${d.id} (${d.side})`));
+    console.log(
+      `\nPresence-only rows (${report.deleted.length}): pulled by default; dropped from the target with --deletions=propagate`
+    );
+    report.deleted.slice(0, 10).forEach(d => console.log(`  ${d.dataset} id=${d.id} (${d.side})`));
     if (report.deleted.length > 10) console.log(`  … and ${report.deleted.length - 10} more`);
   }
 }
@@ -683,7 +893,7 @@ async function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes('--dry-run');
   const pick = (flag, fallback) => {
-    const hit = argv.find((a) => a.startsWith(`${flag}=`));
+    const hit = argv.find(a => a.startsWith(`${flag}=`));
     return hit ? hit.slice(flag.length + 1) : fallback;
   };
   const direction = pick('--direction', 'both');
@@ -708,7 +918,7 @@ async function main() {
   // Read the local side. dumpSnapshot opens its own readonly connection from
   // dbPath; no separate connection is needed here.
   const { dumpSnapshot } = require('./migrate-firestore');
-  let local = canonicalFromSqlite(dumpSnapshot(dbPath));
+  const local = canonicalFromSqlite(dumpSnapshot(dbPath));
 
   // Read the cloud side.
   const store = require('./store-firestore');
@@ -719,7 +929,9 @@ async function main() {
 
   const { report, toLocal, toRemote } = diffAndMerge(local, remote, { conflict, deletions });
 
-  console.log(`Sync plan (${direction}, conflict=${conflict}, deletions=${deletions})${dryRun ? ' — DRY RUN, nothing written' : ''}`);
+  console.log(
+    `Sync plan (${direction}, conflict=${conflict}, deletions=${deletions})${dryRun ? ' — DRY RUN, nothing written' : ''}`
+  );
   printReport(report);
 
   if (dryRun) return;
@@ -741,7 +953,7 @@ async function main() {
 if (require.main === module) {
   main()
     .then(() => process.exit(0))
-    .catch((err) => {
+    .catch(err => {
       console.error('Sync failed:', err && err.message);
       process.exit(1);
     });

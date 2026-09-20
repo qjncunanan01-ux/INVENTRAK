@@ -27,11 +27,11 @@ const OUTPUTS = [
 const SKIP_OPERATIONS = new Set(['getDocs', 'getOpenapi']); // HTML / meta endpoints
 
 function pathParamsOf(template) {
-  return [...template.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+  return [...template.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
 }
 
 function queryParamsOf(op) {
-  return (op.parameters || []).filter((p) => p.in === 'query').map((p) => p.name);
+  return (op.parameters || []).filter(p => p.in === 'query').map(p => p.name);
 }
 
 function hasJsonBody(op) {
@@ -46,7 +46,7 @@ function typedFunction(method, template, op) {
   const body = hasJsonBody(op);
 
   // Argument list: ({ id }) or (params) or (body), in a stable order.
-  let args = [];
+  const args = [];
   if (pathParams.length) args.push(`{ ${pathParams.join(', ')} }`);
   if (queryParams.length) args.push('params');
   if (body) args.push('body');
@@ -89,7 +89,9 @@ function generate() {
   lines.push('    const headers = { "Content-Type": "application/json" };');
   lines.push('    const token = getToken();');
   lines.push('    if (token) headers.Authorization = `Bearer ${token}`;');
-  lines.push('    const res = await fetch(url, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });');
+  lines.push(
+    '    const res = await fetch(url, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });'
+  );
   lines.push('    const text = await res.text();');
   lines.push('    let data = text;');
   lines.push('    try { data = JSON.parse(text); } catch (e) { /* non-JSON (e.g. CSV export) */ }');
