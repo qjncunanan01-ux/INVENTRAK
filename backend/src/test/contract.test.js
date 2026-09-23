@@ -15,38 +15,33 @@ after(() => {
   teardown();
 });
 
-// ===== Admin OCR stock check =====
+// ===== QR product lookup (the scan surface's API) =====
 
-test('contract: ocr/stock enforces admin auth and validates identically', async () => {
-  // No token -> 401 on both backends.
-  await both('POST /api/ocr/stock (no token)', '/api/ocr/stock', {
-    method: 'POST',
-    body: {},
-  });
-  // Customer token -> 403 on both (admin-only endpoint).
-  await both('POST /api/ocr/stock (customer token)', '/api/ocr/stock', {
-    method: 'POST',
+test('contract: products/qr enforces auth and validates identically', async () => {
+  // No token -> 401 on both backends; QR tags are identifiers, not credentials.
+  await both('GET /api/products/qr/1 (no token)', '/api/products/qr/1');
+  // Customer token -> 403 on both (staff-only lookup).
+  await both('GET /api/products/qr/1 (customer token)', '/api/products/qr/1', {
     auth: 'customer',
-    body: {},
   });
-  // Admin token + invalid payloads -> 400 with identical shapes (validation
-  // runs before the OCR engine, so no tesseract is needed in CI).
-  await both('POST /api/ocr/stock (missing image)', '/api/ocr/stock', {
-    method: 'POST',
-    auth: 'admin',
-    body: {},
+  // Staff/admin token + unregistered code -> 404 on both (unknown QR).
+  await both('GET /api/products/qr/NOPE (staff token, unknown code)', '/api/products/qr/NOPE', {
+    auth: 'staff',
   });
-  await both('POST /api/ocr/stock (non-base64)', '/api/ocr/stock', {
-    method: 'POST',
-    auth: 'admin',
-    body: { image: 'not base64 !!!' },
+  await both('GET /api/products/qr/999999 (staff token, nonexistent id)', '/api/products/qr/999999', {
+    auth: 'staff',
   });
-  const huge = 'A'.repeat(13 * 1024 * 1024);
-  await both('POST /api/ocr/stock (oversized)', '/api/ocr/stock', {
-    method: 'POST',
-    auth: 'admin',
-    body: { image: huge },
-  });
+});
+
+test('contract: products/qr returns the product + per-location stock on both backends', async () => {
+  // A seeded product id — shape must match the documented QrProductLookup:
+  // { product, qr, stock: { total, status, locations }, lots? }.
+  const a = await call(sqlite.url, '/api/products/qr/1', { token: sqlite.token.staff });
+  assert.strictEqual(a.status, 200, 'known product id resolves');
+  assert.ok(a.json.product && a.json.product.name, 'product object present');
+  assert.ok(a.json.qr && a.json.qr.sku, 'qr block with sku present');
+  assert.ok(a.json.stock && typeof a.json.stock.total === 'number', 'stock total present');
+  assert.ok(a.json.stock.locations && typeof a.json.stock.locations === 'object', 'per-location map present');
 });
 
 // ===== Auth =====
@@ -1188,12 +1183,21 @@ test('contract: delivered status accepted identically', async () => {
   });
 });
 
-// ===== OCR endpoint (validation parity; engine is lazy) =====
+// ===== QR scan-event logging (parity) =====
 
-test('contract: OCR validation rejects bad payloads identically', async () => {
-  await both('OCR missing image', '/api/ocr', { method: 'POST', body: {} });
-  await both('OCR empty image', '/api/ocr', { method: 'POST', body: { image: '' } });
-  await both('OCR non-base64', '/api/ocr', { method: 'POST', body: { image: 'not base64 !!!' } });
+test('contract: scan-events logs accepted QR payloads identically', async () => {
+  // The audit trail of what was pointed at the scanner — same shape on both
+  // backends, and an unknown payload must still be loggable.
+  await both('POST /api/scan-events (valid product payload)', '/api/scan-events', {
+    method: 'POST',
+    auth: 'staff',
+    body: { payload: 'INVENTRAK:PROD:1', kind: 'product', target_id: 1 },
+  });
+  await both('POST /api/scan-events (unknown payload)', '/api/scan-events', {
+    method: 'POST',
+    auth: 'staff',
+    body: { payload: 'https://random-site.example/evil', kind: 'unknown', target_id: null },
+  });
 });
 
 // ===== Stock adjustments / transfers + approvals + reports =====

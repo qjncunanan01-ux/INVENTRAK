@@ -10,7 +10,6 @@ const {
   RESET_CODE_TTL_MS,
   VERIFICATION_CODE_TTL_MS,
   MAX_BODY_BYTES,
-  MAX_OCR_BODY_BYTES,
   READ_CACHE_TTL,
   BULK_PRICES_MAX_ENTRIES,
   PRODUCT_NAME_MAX_LENGTH,
@@ -23,7 +22,7 @@ const { createLoginLockout } = require('./login-lockout');
 const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
 const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./critical-level');
 const { buildPaymentStep } = require('./payments');
-const { handleOcr, handleOcrStock } = require('./ocr');
+const { skuForProductId, isSkuShape, handleQrProductLookup } = require('./qr-codes');
 const { normalizeLines } = require('./product-lines');
 const {
   generateSecret,
@@ -512,6 +511,10 @@ function formatProduct(p, idx) {
     status: pick(p['status'], p.status, 'active'),
     // Firestore maps null -> ''; normalize back to null for SQLite parity.
     image: pick(p['Image'], p.image, '') || null,
+    // QR identification: stored custom SKU wins; otherwise the deterministic
+    // system SKU from the positional id — the same rule the SQLite backfill
+    // and seed use, so both backends surface identical skus.
+    sku: pick(p['Sku'], p.sku, null) || skuForProductId(idx + 1),
     created_at: p.created_at || now,
     updated_at: p.updated_at || now,
   };
@@ -555,6 +558,31 @@ let nextLotId = 1;
 
 function persistLots() {
   if (useFirestore || useSupabase) writeJSON('@lots', stockLots);
+}
+
+// Legacy fallback: lots predating the FEFO ledger (or a fresh boot where
+// nothing has moved yet) synthesize one lot per location from the current
+// stock snapshot, matching the SQLite backend's seeded single-lot shape.
+// Mutates stockLots in place; used by the lots listing and the QR lookup so
+// both surfaces report identical lot data.
+function ensureLotsFromSnapshot(inv) {
+  if (stockLots.length > 0) return;
+  inv.items.forEach(item => {
+    inv.locations.forEach(loc => {
+      const qty = item.locations[loc] || 0;
+      if (qty > 0) {
+        stockLots.push({
+          id: nextLotId++,
+          product_id: item.product.id,
+          location_id: inv.locations.indexOf(loc) + 1,
+          qty,
+          received_at: new Date().toISOString(),
+          expiry_date: null,
+        });
+      }
+    });
+  });
+  persistLots();
 }
 
 function recordLot(productId, locationId, qty, now, expiryDate) {
@@ -835,13 +863,6 @@ function bodyError(res, err) {
 
 function parseBody(req, callback) {
   return parseBodyWithLimit(req, MAX_BODY_BYTES, callback);
-}
-
-// Large-body variant for the OCR endpoint (uploaded photos are base64 and can
-// reach several MB). Deliberately separate from parseBody so the 100 KB cap
-// on every other JSON endpoint stays intact.
-function parseBodyLarge(req, callback) {
-  return parseBodyWithLimit(req, MAX_OCR_BODY_BYTES, callback);
 }
 
 function parseBodyWithLimit(req, limitBytes, callback) {
@@ -1946,6 +1967,32 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, formatted, READ_CACHE_TTL);
   }
 
+  // QR product identification (staff or admin): the scanned tag yields an
+  // identifier, the database resolves it. Same response shape as the SQLite
+  // backend's GET /api/products/qr/:code — contract tests assert parity.
+  if (req.method === 'GET' && url.split('?')[0].startsWith('/api/products/qr/')) {
+    const parts = url.split('?')[0].split('/').filter(Boolean); // [api, products, qr, ...code]
+    const code = parts.slice(3).join('/');
+    const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
+    const inv = getInventory();
+    const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));
+    const stockLookup = productId => {
+      const item = byId.get(Number(productId));
+      return item ? { locations: item.locations || {}, total: item.total || 0 } : { locations: {}, total: 0 }; 
+    };
+    const lotsFor = productId => {
+      ensureLotsFromSnapshot(inv);
+      // Join the location name like the SQLite backend's lotsFor does, so the
+      // response shapes are identical (contract tests assert parity).
+      return stockLots
+        .filter(l => l.qty > 0 && Number(l.product_id) === Number(productId))
+        .map(l => ({ ...l, location_name: inv.locations[Number(l.location_id) - 1] || `Location ${l.location_id}` }));
+    };
+    return requireAuth(req, res, STAFF_TIER, (req, res) =>
+      handleQrProductLookup(req, res, sendJson, { code, products, stockLookup, lotsFor })
+    );
+  }
+
   if (req.method === 'GET' && isParamPath(url, 'api/products', 3)) {
     const id = parseInt(url.split('?')[0].split('/').pop(), 10);
     const products = readJSON(productsFile) || [];
@@ -1980,8 +2027,27 @@ const server = http.createServer((req, res) => {
           });
         }
         const products = readJSON(productsFile) || [];
+        // QR identification: optional custom SKU (same validation/shape rules
+        // as the SQLite backend), else the deterministic system SKU from the
+        // new row's positional id.
+        let skuValue = null;
+        if (obj.sku !== undefined && obj.sku !== null && String(obj.sku).trim() !== '') {
+          const candidate = String(obj.sku).trim().toUpperCase();
+          if (!isSkuShape(candidate)) {
+            return sendJson(res, 400, { error: 'Validation failed', details: ['sku must be 3-32 characters: letters, numbers and dashes only'] });
+          }
+          const clash = products.some(p => {
+            const existing = (p.Sku || p.sku || '').toString().toUpperCase();
+            return existing && existing === candidate;
+          });
+          if (clash) {
+            return sendJson(res, 409, { error: 'Validation failed', details: ['A product with this SKU already exists'] });
+          }
+          skuValue = candidate;
+        }
         // Sanitize user-supplied text fields to prevent XSS in stored data
         const newProduct = {
+          Sku: skuValue,
           'Product Name': sanitizeObject(obj.name),
           Category: sanitizeObject(obj.category),
           Brand: sanitizeObject(obj.brand || ''),
@@ -1993,6 +2059,9 @@ const server = http.createServer((req, res) => {
           Image: obj.image || '',
         };
         products.push(newProduct);
+        if (skuValue === null) {
+          newProduct.Sku = skuForProductId(products.length);
+        }
         writeJSON(productsFile, products);
         cache.invalidate('products');
         cache.invalidate('categories');
@@ -2101,6 +2170,27 @@ const server = http.createServer((req, res) => {
         p['Price'] = obj.price !== undefined ? Number(obj.price) : null;
         p['status'] = obj.status ?? null;
         p['Image'] = obj.image ?? null;
+        // QR identification: optional custom SKU on update, mirroring the
+        // SQLite backend (same validation; absent/blank leaves the stored
+        // SKU untouched so printed labels stay valid).
+        if (obj.sku !== undefined && obj.sku !== null) {
+          if (String(obj.sku).trim() === '') {
+            return sendJson(res, 400, { error: 'Validation failed', details: ['sku cannot be cleared — reprint the tag instead'] });
+          }
+          const candidate = String(obj.sku).trim().toUpperCase();
+          if (!isSkuShape(candidate)) {
+            return sendJson(res, 400, { error: 'Validation failed', details: ['sku must be 3-32 characters: letters, numbers and dashes only'] });
+          }
+          const clash = products.some(pr => {
+            const existing = ((pr.Sku || pr.sku || '') + '').toUpperCase();
+            const at = products.indexOf(pr) + 1;
+            return existing && existing === candidate && at !== id;
+          });
+          if (clash) {
+            return sendJson(res, 409, { error: 'Validation failed', details: ['A product with this SKU already exists'] });
+          }
+          p['Sku'] = candidate;
+        }
         writeJSON(productsFile, products);
         cache.invalidate('products');
         cache.invalidate('categories');
@@ -2289,28 +2379,7 @@ const server = http.createServer((req, res) => {
     }
     const inv = getInventory();
     const products = readJSON(productsFile) || [];
-    // Legacy fallback: lots predating the FEFO ledger (or a fresh boot where
-    // nothing has moved yet) synthesize one lot per location from the current
-    // stock snapshot, matching the SQLite backend's seeded single-lot shape.
-    if (stockLots.length === 0) {
-      inv.items.forEach(item => {
-        inv.locations.forEach(loc => {
-          const qty = item.locations[loc] || 0;
-          if (qty > 0) {
-            stockLots.push({
-              id: nextLotId++,
-              product_id: item.product.id,
-              product_name: item.product.name,
-              location_id: inv.locations.indexOf(loc) + 1,
-              location_name: loc,
-              qty,
-              received_at: new Date().toISOString(),
-              expiry_date: null,
-            });
-          }
-        });
-      });
-    }
+    ensureLotsFromSnapshot(inv);
     const locName = id => inv.locations[Number(id) - 1] || `Location ${id}`;
     const lots = stockLots
       .filter(l => l.qty > 0)
@@ -3228,26 +3297,6 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  // OCR: scan a product photo. Public (guests may scan before creating an
-  // account), large body limit, lazy tesseract engine with graceful 503.
-  if (req.method === 'POST' && url.split('?')[0] === '/api/ocr') {
-    return parseBodyLarge(req, async (err, obj) => {
-      if (err) {
-        return err.status === 413 ? sendJson(res, 413, { error: 'Payload too large' }) : bodyError(res, err);
-      }
-      // Normalize through formatProduct so matches carry REAL ids (positional,
-      // exactly like /api/products) — raw rows have no id, which would make
-      // every OCR match key undefined (React list-key warning) and break the
-      // "View product" deep-link. Mirrors the SQLite backend, whose OCR
-      // handler passes rows that already have ids.
-      const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
-      // parseBody does not mutate req.body (raw dispatcher); expose the parsed
-      // object so the shared OCR handler can read it.
-      req.body = obj;
-      await handleOcr(req, res, sendJson, products);
-    });
-  }
-
   // Record a QR/barcode scan into the audit trail (who scanned what, where and
   // when). Mirrors the SQLite backend exactly — nothing here mutates stock.
   if (req.method === 'POST' && url.split('?')[0] === '/api/scan-events') {
@@ -3280,29 +3329,6 @@ const server = http.createServer((req, res) => {
         };
         audit('scan.qr', event);
         return sendJson(res, 201, { ok: true, event });
-      });
-    });
-  }
-
-  // Stock check: scan a label and get per-location stock — the daily manual-
-  // inventory answer. Staff-or-admin (staff do the daily counting); shares the
-  // OCR pipeline with the public /api/ocr but attaches a live stock snapshot.
-  if (req.method === 'POST' && url.split('?')[0] === '/api/ocr/stock') {
-    return requireAuth(req, res, STAFF_TIER, (req, res) => {
-      return parseBodyLarge(req, async (err, obj) => {
-        if (err) {
-          return err.status === 413 ? sendJson(res, 413, { error: 'Payload too large' }) : bodyError(res, err);
-        }
-        const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
-        // Stock snapshot keyed by the same positional ids formatProduct assigns.
-        const inv = getInventory();
-        const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));
-        const stockLookup = productId => {
-          const item = byId.get(Number(productId));
-          return item ? { locations: item.locations || {}, total: item.total || 0 } : { locations: {}, total: 0 };
-        };
-        req.body = obj;
-        await handleOcrStock(req, res, sendJson, products, stockLookup);
       });
     });
   }

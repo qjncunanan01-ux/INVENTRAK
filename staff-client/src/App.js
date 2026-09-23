@@ -7,7 +7,6 @@ import { StatusBar } from 'expo-status-bar';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import LoginScreen from './screens/LoginScreen';
 import QrScanScreen from './screens/QrScanScreen';
-import LabelScanScreen from './screens/LabelScanScreen';
 import CountScreen from './screens/CountScreen';
 import RequestsScreen from './screens/RequestsScreen';
 import AccountScreen from './screens/AccountScreen';
@@ -24,7 +23,7 @@ function tabIcon(name, { color, size }) {
 
 // One tab per MODULE — each workflow is its own screen, never merged:
 //   Scan Tag  — QR/barcode camera (location stock inline, product count card)
-//   Label Scan — OCR photo → match → count card
+//   Label Scan — merged into the QR tag scanner (OCR retired)
 //   Count     — searchable inventory, no camera
 //   Requests  — my pending/approved/rejected adjustments
 //   Account   — shift identity, dark mode, logout
@@ -51,11 +50,6 @@ function WorkTabsNavigator() {
           tabBarBadge: username ? String(username).slice(0, 8) : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.brandPrimary, color: '#fff', fontSize: 10 },
         }}
-      />
-      <WorkTabs.Screen
-        name="LabelScanTab"
-        component={LabelScanScreen}
-        options={{ tabBarLabel: 'Label Scan', tabBarIcon: (p) => tabIcon('label-outline', p) }}
       />
       <WorkTabs.Screen
         name="CountTab"

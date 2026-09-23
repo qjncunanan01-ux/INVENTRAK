@@ -287,9 +287,9 @@ export const getInventory = client.getInventory;
 export const listLocations = client.listLocations;
 // Stock lots (staff-readable) — best-before/expiry context per product.
 export const listStockLots = client.listStockLots;
-// OCR label scan WITH live per-location stock (staff+ endpoint) — the scan →
-// verify → count flow.
-export const ocrStockCheck = client.ocrStockCheck;
+// QR product lookup (staff+): decode a printed tag server-side to the
+// product + live per-location stock snapshot. Used by the tag scanner.
+export const getProductByQr = client.getProductByQr;
 // Adjustments: staff CREATE (pending) and READ their own requests. Approve /
 // reject are admin-only and are intentionally NOT exposed here.
 export const createStockAdjustment = client.createStockAdjustment;

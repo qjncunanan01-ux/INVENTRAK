@@ -1808,56 +1808,6 @@
         }
       }
     },
-    "/api/ocr": {
-      "post": {
-        "tags": [
-          "OCR"
-        ],
-        "operationId": "scanProductPhoto",
-        "summary": "Scan a product photo: OCR the image and fuzzy-match the catalog",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "image"
-                ],
-                "properties": {
-                  "image": {
-                    "type": "string",
-                    "description": "Base64-encoded image (max ~8 MB)"
-                  },
-                  "filename": {
-                    "type": "string",
-                    "description": "Original file name of the uploaded image (optional). When it resolves to a catalog product (e.g. an image exported from the catalog), the match is returned by file name without running OCR."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OCR text + fuzzy-matched products",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OcrResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "503": {
-            "description": "OCR engine unavailable (tesseract not configured)"
-          }
-        }
-      }
-    },
     "/api/optimization": {
       "get": {
         "tags": [
@@ -1953,12 +1903,6 @@
           }
         ],
         "responses": {
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
           "200": {
             "description": "Dashboard summary",
             "content": {
@@ -1968,6 +1912,12 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         }
       }
@@ -2477,67 +2427,6 @@
         }
       }
     },
-    "/api/ocr/stock": {
-      "post": {
-        "tags": [
-          "OCR"
-        ],
-        "operationId": "ocrStockCheck",
-        "summary": "Admin stock check: OCR a product label and return matches with live per-location stock",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "image"
-                ],
-                "properties": {
-                  "image": {
-                    "type": "string",
-                    "description": "Base64-encoded image (max ~8 MB)"
-                  },
-                  "filename": {
-                    "type": "string",
-                    "description": "Original file name of the uploaded image (optional). When it resolves to a catalog product (e.g. an image exported from the catalog), the match is returned by file name without running OCR."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Filtered OCR text + matched products with stock snapshots",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OcrStockResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "Admin access required"
-          },
-          "503": {
-            "description": "OCR engine unavailable (tesseract not configured)"
-          }
-        }
-      }
-    },
     "/api/auth/google/start": {
       "get": {
         "tags": [
@@ -3001,19 +2890,28 @@
           {
             "name": "status",
             "in": "query",
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) — keeps only entries whose details.status matches"
           },
           {
             "name": "limit",
             "in": "query",
-            "schema": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
             "description": "Page size (default 200, max 1000)"
           },
           {
             "name": "offset",
             "in": "query",
-            "schema": { "type": "integer", "minimum": 0 },
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
             "description": "Skip this many entries (pagination together with limit)"
           }
         ],
@@ -3065,6 +2963,60 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/products/qr/{code}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "getProductByQr",
+        "summary": "QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)",
+        "description": "The single round-trip behind QR product identification. Accepts the tag payload (INVENTRAK:PROD:<id>), a SKU (PRD-000042 or a custom code), or a bare numeric id (legacy barcode fallback). Returns the product, its QR tag data, a live per-location stock snapshot and open FIFO lots. The QR authorizes NOTHING — normal authentication, product status, location, quantity and approval rules all still apply after the scan.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "description": "Scanned QR content: tag payload, SKU or bare product id. URL-encoded when it contains colons."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product identified with live stock and lots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QrProductLookup"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -3131,6 +3083,16 @@
       },
       "NotImplemented": {
         "description": "Feature not configured on this server (e.g. Google OAuth without GOOGLE_CLIENT_IDS)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict",
         "content": {
           "application/json": {
             "schema": {
@@ -3433,6 +3395,11 @@
           },
           "updated_at": {
             "type": "string"
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true,
+            "description": "Stable product identifier encoded in the printed QR tag (system default PRD-000001; custom codes allowed). The QR payload itself is INVENTRAK:PROD:<id> — the sku is display/back-compat only."
           }
         }
       },
@@ -3479,6 +3446,10 @@
             "type": "string",
             "maxLength": 300,
             "description": "Product photo: '/images/<file>' served by the backend, or a full URL"
+          },
+          "sku": {
+            "type": "string",
+            "description": "Custom SKU (3-32 chars: A-Z, 0-9, dashes). Omit to get the deterministic system SKU (PRD-<padded id>). Cannot be cleared once set — reprint the tag instead."
           }
         }
       },
@@ -3819,7 +3790,12 @@
                 },
                 "stock_status": {
                   "type": "string",
-                  "enum": ["out_of_stock", "critical", "low_stock", "in_stock"]
+                  "enum": [
+                    "out_of_stock",
+                    "critical",
+                    "low_stock",
+                    "in_stock"
+                  ]
                 },
                 "critical_level": {
                   "type": "number"
@@ -4811,58 +4787,6 @@
           }
         }
       },
-      "OcrResult": {
-        "type": "object",
-        "required": [
-          "text",
-          "matches"
-        ],
-        "properties": {
-          "text": {
-            "type": "string",
-            "description": "Raw OCR-extracted text from the uploaded image"
-          },
-          "matches": {
-            "type": "array",
-            "description": "Catalog products fuzzy-matched from the OCR text, best first",
-            "items": {
-              "type": "object",
-              "required": [
-                "id",
-                "name",
-                "score"
-              ],
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "price": {
-                  "type": "number"
-                },
-                "image": {
-                  "type": "string",
-                  "nullable": true
-                },
-                "score": {
-                  "type": "number",
-                  "description": "0..1 token-overlap match score"
-                },
-                "matched": {
-                  "type": "integer",
-                  "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
-                },
-                "matchedBy": {
-                  "type": "string",
-                  "description": "How the match was found: 'ocr' (default) or 'filename' (resolved from the uploaded file name without OCR)"
-                }
-              }
-            }
-          }
-        }
-      },
       "BulkOptimization": {
         "type": "object",
         "required": [
@@ -5386,62 +5310,6 @@
           }
         }
       },
-      "OcrStockResponse": {
-        "type": "object",
-        "required": [
-          "text",
-          "matches"
-        ],
-        "properties": {
-          "text": {
-            "type": "string",
-            "description": "Filtered OCR text (only lines that can match the catalog)"
-          },
-          "matches": {
-            "type": "array",
-            "description": "Catalog products fuzzy-matched from the OCR text with live stock, best first",
-            "items": {
-              "type": "object",
-              "required": [
-                "id",
-                "name",
-                "score",
-                "stock"
-              ],
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "price": {
-                  "type": "number"
-                },
-                "image": {
-                  "type": "string",
-                  "nullable": true
-                },
-                "score": {
-                  "type": "number",
-                  "description": "0..1 token-overlap match score"
-                },
-                "matched": {
-                  "type": "integer",
-                  "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
-                },
-                "matchedBy": {
-                  "type": "string",
-                  "description": "How the match was found: 'ocr' (default) or 'filename' (resolved from the uploaded file name without OCR)"
-                },
-                "stock": {
-                  "$ref": "#/components/schemas/StockSnapshot"
-                }
-              }
-            }
-          }
-        }
-      },
       "MfaChallenge": {
         "type": "object",
         "required": [
@@ -5713,6 +5581,72 @@
                   "type": "integer"
                 }
               }
+            }
+          }
+        }
+      },
+      "QrProductLookup": {
+        "type": "object",
+        "required": [
+          "product",
+          "qr",
+          "stock",
+          "lots"
+        ],
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/Product"
+          },
+          "qr": {
+            "type": "object",
+            "required": [
+              "payload",
+              "sku"
+            ],
+            "properties": {
+              "payload": {
+                "type": "string",
+                "description": "INVENTRAK:PROD:<id> — the exact string encoded in the printed tag; handy for reprinting."
+              },
+              "sku": {
+                "type": "string",
+                "description": "SKU shown on the label."
+              }
+            }
+          },
+          "stock": {
+            "type": "object",
+            "required": [
+              "locations",
+              "total",
+              "status"
+            ],
+            "properties": {
+              "locations": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "description": "Quantity per storage-area name (Showroom, Stockroom 1, Stockroom 2)."
+              },
+              "total": {
+                "type": "number"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "low",
+                  "out"
+                ],
+                "description": "Same bands as the Inventory page (total < 80 = low)."
+              }
+            }
+          },
+          "lots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockLot"
             }
           }
         }

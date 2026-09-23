@@ -375,10 +375,12 @@ export const listStockLots = client.listStockLots;
 export const listOrderInquiries = client.listOrderInquiries;
 export const createOrderInquiry = client.createOrderInquiry;
 export const updateInquiryPayment = client.updateInquiryPayment;
-export const scanProductPhoto = client.scanProductPhoto;
-// Staff/admin scan with live per-location stock snapshots (POST /api/ocr/stock
-// is staff+admin only; customers get a 403 from the server).
-export const ocrStockCheck = client.ocrStockCheck;
+// QR product identification (staff/admin Scan & Count): the scanned tag
+// payload / SKU / bare id resolves to one product with live per-location
+// stock + open lots in a single round trip.
+export const getProductByQr = client.getProductByQr;
+// Record a scan in the audit trail (who scanned what, when). Fire-and-forget.
+export const createScanEvent = client.createScanEvent;
 // Staff-scoped operations for the on-phone count flow: proposing a corrected
 // physical quantity creates a PENDING adjustment the owner approves — the
 // same maker-approver queue as the admin dashboard.

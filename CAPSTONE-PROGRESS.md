@@ -13,13 +13,13 @@
 | 2. Authentication & Security | 7 / 8 | 88% |
 | 3. Role-Based Access & Approvals | 4 / 4 | 100% |
 | 4. Inventory & Multi-Location | 4 / 6 | 67% |
-| 5. OCR & QR Scanning | 5 / 6 | 83% |
+| 5. QR Scanning | 6 / 6 | 100% |
 | 6. Decision Support (EOQ/ROP/ABC/FSN) | 4 / 4 | 100% |
 | 7. Customer Mobile App | 5 / 8 | 63% |
 | 8. Notifications | 3 / 4 | 75% |
 | 9. Payments | 1 / 4 | 25% |
 | **10. Paper, Testing & Presentation** | **0 / 8** | **0%** |
-| **TOTAL** | **31 / 50** | **62%** |
+| **TOTAL** | **32 / 50** | **64%** |
 
 ---
 
@@ -60,14 +60,15 @@
 - [ ] Barcode-based stock-in/stock-out receiving (QR scan exists; barcode import pending)
 - [ ] Physical inventory count reconciliation report (variance report)
 
-## 5. OCR & QR Scanning — 5/6
+## 5. QR Scanning — 6/6
 
-- [x] Customer OCR: scan a product label → matched product page (member-only)
-- [x] Staff mobile OCR: scan → verify-and-confirm screen → pending stock count
-- [x] Admin Scan & Stock: OCR with per-location quantity prefill + approval queue
-- [x] SYLVER-only guard + "no product detected" messaging + text filtering
+- [x] QR product identification end-to-end: scan tag → SKU/id → `GET /api/products/qr/{code}` → product
+- [x] Staff mobile scanner: scan → verify-and-count panel → pending stock adjustment
+- [x] Admin Scan & Stock: live QR camera (jsQR) + upload fallback + per-location counts + approval queue
+- [x] Deterministic SKUs (PRD-000001) with UNIQUE index; QR generation/printing local (no third-party service)
 - [x] QR location tags (printable) + in-app QR/barcode scanner routing
-- [ ] OCR accuracy evaluation write-up (sample-size testing for the paper)
+- [x] Scan-event audit trail (unknown payloads logged) + customer product-page redirect
+- [x] OCR engine fully retired (tesseract.js/jimp removed from the dependency tree)
 
 ## 6. Decision Support — 4/4
 

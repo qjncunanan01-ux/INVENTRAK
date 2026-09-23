@@ -30,7 +30,7 @@ const adminRoutes = require('./routes/admin');
 const healthRoutes = require('./routes/health');
 const settingsRoutes = require('./routes/settings');
 const approvalsRoutes = require('./routes/approvals');
-const ocrRoutes = require('./routes/ocr');
+const scanEventsRoutes = require('./routes/scan-events');
 const auditRoutes = require('./routes/audit');
 
 const app = express();
@@ -93,7 +93,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/cache', cacheRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api', approvalsRoutes);
-app.use('/api', ocrRoutes);
+app.use('/api', scanEventsRoutes);
 app.use('/api/audit-trail', auditRoutes);
 
 // Swagger/OpenAPI

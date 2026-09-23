@@ -209,29 +209,24 @@ test('openapi: login happy path + failure', async () => {
   });
 });
 
-test('openapi: admin OCR stock check enforces auth + payload per the spec', async () => {
-  // 401 without a token (documented); the body deliberately has no image.
-  await bothConform('ocr/stock no token', 'POST', '/api/ocr/stock', {
-    body: {},
+test('openapi: QR product lookup conforms on both backends (auth + unknown code)', async () => {
+  // 401 without a token (documented); QR tags are identifiers, not credentials.
+  await bothConform('products/qr no token', 'GET', '/api/products/qr/1', {
     checkRequest: false,
   });
-  // 403 for a non-admin (customer) token (documented).
-  await bothConform('ocr/stock customer token', 'POST', '/api/ocr/stock', {
+  // 403 for a customer token (documented — staff-only lookup).
+  await bothConform('products/qr customer token', 'GET', '/api/products/qr/1', {
     auth: 'customer',
-    body: {},
     checkRequest: false,
   });
-  // 400 for a missing image (documented BadRequest shape).
-  await bothConform('ocr/stock missing image', 'POST', '/api/ocr/stock', {
-    auth: 'admin',
-    body: {},
+  // 404 for an unregistered code (documented Error shape).
+  await bothConform('products/qr unknown code', 'GET', '/api/products/qr/NOPE', {
+    auth: 'staff',
     checkRequest: false,
   });
-  // 400 for a non-base64 image.
-  await bothConform('ocr/stock non-base64', 'POST', '/api/ocr/stock', {
-    auth: 'admin',
-    body: { image: 'not base64 !!!' },
-    checkRequest: false,
+  // 200 for a known product id — response must match QrProductLookup.
+  await bothConform('products/qr known product', 'GET', '/api/products/qr/1', {
+    auth: 'staff',
   });
 });
 

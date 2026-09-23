@@ -48,7 +48,7 @@ INVENTRAK/
 │   │   ├── totp.js             # TOTP MFA implementation
 │   │   ├── audit.js            # Security audit logging
 │   │   ├── google-auth.js      # Google OAuth relay
-│   │   ├── ocr.js              # Product OCR scanning
+│   │   ├── qr-codes.js         # QR tag grammar + product lookup (scan core)
 │   │   ├── fsn.js              # FSN (Fast/Slow/Non-moving) inventory classifier
 │   │   ├── notify.js           # Email + SMS notifications
 │   │   ├── payments.js         # GCash/card payment integration
@@ -161,7 +161,7 @@ INVENTRAK/
 - `GET /api/order-inquiries` — Own order history
 - `POST /api/order-inquiries` — Place order inquiry
 - `GET /api/notifications` — Order status updates
-- `POST /api/ocr/scan` — Product photo recognition
+- `GET /api/products/qr/{code}` — Staff QR lookup: scan a tag → product + stock
 
 ### Staff
 - `GET /api/reports` — Daily sales reports
@@ -202,7 +202,7 @@ INVENTRAK/
 - HSTS on HTTPS connections
 - XSS protection (X-XSS-Protection: 0, modern CSP)
 - Frame options (DENY) prevent clickjacking
-- Request body size limit (100KB, 12MB for OCR)
+- Request body size limit (100KB)
 
 ### Audit Logging
 - All authentication events logged

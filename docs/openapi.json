@@ -259,6 +259,16 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "description": "Forbidden — a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin, code: portal_mobile_only), or a non-staff role attempted to sign in from the staff app (portal=staff, code: staff_app_exclusive).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalDeniedError"
+                }
+              }
+            }
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
           }
@@ -1798,56 +1808,6 @@
         }
       }
     },
-    "/api/ocr": {
-      "post": {
-        "tags": [
-          "OCR"
-        ],
-        "operationId": "scanProductPhoto",
-        "summary": "Scan a product photo: OCR the image and fuzzy-match the catalog",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "image"
-                ],
-                "properties": {
-                  "image": {
-                    "type": "string",
-                    "description": "Base64-encoded image (max ~8 MB)"
-                  },
-                  "filename": {
-                    "type": "string",
-                    "description": "Original file name of the uploaded image (optional). When it resolves to a catalog product (e.g. an image exported from the catalog), the match is returned by file name without running OCR."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OCR text + fuzzy-matched products",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OcrResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "503": {
-            "description": "OCR engine unavailable (tesseract not configured)"
-          }
-        }
-      }
-    },
     "/api/optimization": {
       "get": {
         "tags": [
@@ -2467,67 +2427,6 @@
         }
       }
     },
-    "/api/ocr/stock": {
-      "post": {
-        "tags": [
-          "OCR"
-        ],
-        "operationId": "ocrStockCheck",
-        "summary": "Admin stock check: OCR a product label and return matches with live per-location stock",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "image"
-                ],
-                "properties": {
-                  "image": {
-                    "type": "string",
-                    "description": "Base64-encoded image (max ~8 MB)"
-                  },
-                  "filename": {
-                    "type": "string",
-                    "description": "Original file name of the uploaded image (optional). When it resolves to a catalog product (e.g. an image exported from the catalog), the match is returned by file name without running OCR."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Filtered OCR text + matched products with stock snapshots",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OcrStockResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "Admin access required"
-          },
-          "503": {
-            "description": "OCR engine unavailable (tesseract not configured)"
-          }
-        }
-      }
-    },
     "/api/auth/google/start": {
       "get": {
         "tags": [
@@ -2887,6 +2786,94 @@
         }
       }
     },
+    "/api/settings": {
+      "get": {
+        "operationId": "getSettings",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get runtime system settings (admin tier — read-only)",
+        "description": "Returns the live runtime configuration: demo-account gate, default FSN window, low-stock multiplier, and session token lifetime. Readable by the admin tier; changes only via PUT (Owner/Super Admin).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden — non-admin token"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSettings",
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update runtime system settings (Owner / Super Admin only)",
+        "description": "Partial update — only provided keys change. Every value is validated and clamped server-side; the change is written to the audit trail and takes effect immediately (session TTL applies to tokens issued afterwards).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved — returns the full updated settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "settings": {
+                      "$ref": "#/components/schemas/SystemSettings"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed — details list the offending keys"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden — requires Owner or Super Admin"
+          }
+        }
+      }
+    },
     "/api/audit-trail": {
       "get": {
         "tags": [
@@ -2897,6 +2884,35 @@
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) — keeps only entries whose details.status matches"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "description": "Page size (default 200, max 1000)"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Skip this many entries (pagination together with limit)"
           }
         ],
         "responses": {
@@ -2947,6 +2963,81 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/products/qr/{code}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "getProductByQr",
+        "summary": "QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)",
+        "description": "The single round-trip behind QR product identification. Accepts the tag payload (INVENTRAK:PROD:<id>), a SKU (PRD-000042 or a custom code), or a bare numeric id (legacy barcode fallback). Returns the product, its QR tag data, a live per-location stock snapshot and open FIFO lots. The QR authorizes NOTHING — normal authentication, product status, location, quantity and approval rules all still apply after the scan.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "description": "Scanned QR content: tag payload, SKU or bare product id. URL-encoded when it contains colons."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product identified with live stock and lots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QrProductLookup"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid QR code (not an INVENTRAK product identifier)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/responses/BadRequest"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "QR code is not registered in INVENTRAK (unknown identifier)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/responses/NotFound"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Product is currently inactive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/responses/Conflict"
+                }
+              }
+            }
           }
         }
       }
@@ -3013,6 +3104,16 @@
       },
       "NotImplemented": {
         "description": "Feature not configured on this server (e.g. Google OAuth without GOOGLE_CLIENT_IDS)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict",
         "content": {
           "application/json": {
             "schema": {
@@ -3189,6 +3290,25 @@
           }
         }
       },
+      "PortalDeniedError": {
+        "type": "object",
+        "required": [
+          "error",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable explanation: staff accounts are mobile-only"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "portal_mobile_only"
+            ]
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -3201,6 +3321,14 @@
           },
           "password": {
             "type": "string"
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "staff"
+            ],
+            "description": "Portal flag identifying which app is signing in. portal=admin (web admin): mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only. portal=staff (dedicated staff app): only Inventory Staff is admitted — admins/owners are refused with 403 staff_app_exclusive. Omitted by the customer app."
           }
         }
       },
@@ -3288,6 +3416,11 @@
           },
           "updated_at": {
             "type": "string"
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true,
+            "description": "Stable product identifier encoded in the printed QR tag (system default PRD-000001; custom codes allowed). The QR payload itself is INVENTRAK:PROD:<id> — the sku is display/back-compat only."
           }
         }
       },
@@ -3334,6 +3467,10 @@
             "type": "string",
             "maxLength": 300,
             "description": "Product photo: '/images/<file>' served by the backend, or a full URL"
+          },
+          "sku": {
+            "type": "string",
+            "description": "Custom SKU (3-32 chars: A-Z, 0-9, dashes). Omit to get the deterministic system SKU (PRD-<padded id>). Cannot be cleared once set — reprint the tag instead."
           }
         }
       },
@@ -3671,6 +3808,18 @@
                 },
                 "total": {
                   "type": "number"
+                },
+                "stock_status": {
+                  "type": "string",
+                  "enum": [
+                    "out_of_stock",
+                    "critical",
+                    "low_stock",
+                    "in_stock"
+                  ]
+                },
+                "critical_level": {
+                  "type": "number"
                 }
               }
             }
@@ -3815,6 +3964,57 @@
           }
         }
       },
+      "SystemSettings": {
+        "type": "object",
+        "properties": {
+          "demo_accounts_disabled": {
+            "type": "boolean",
+            "description": "true = seeded demo logins (admin/customer/staff/owner/superadmin) are refused with the generic error. OWASP: no default accounts in production."
+          },
+          "fsn_window_days": {
+            "type": "integer",
+            "minimum": 7,
+            "maximum": 730,
+            "description": "Default FSN / analytics analysis window in days (the UI presets map to this; an explicit ?window= query still wins)."
+          },
+          "low_stock_multiplier": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3,
+            "description": "Low-stock badge widening factor: low_stock when qty ≤ criticalLevel × factor."
+          },
+          "session_token_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 168,
+            "description": "Session token lifetime in hours (applies to tokens issued after the change)."
+          }
+        }
+      },
+      "UpdateSettingsRequest": {
+        "type": "object",
+        "description": "Partial update — only the provided keys are changed.",
+        "properties": {
+          "demo_accounts_disabled": {
+            "type": "boolean"
+          },
+          "fsn_window_days": {
+            "type": "integer",
+            "minimum": 7,
+            "maximum": 730
+          },
+          "low_stock_multiplier": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "session_token_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 168
+          }
+        }
+      },
       "StockAdjustmentInput": {
         "type": "object",
         "required": [
@@ -3839,6 +4039,11 @@
           "reason": {
             "type": "string",
             "maxLength": 300
+          },
+          "expiry_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Optional best-before date read off the label during the physical count. On approval it becomes the reset lot's expiry_date (FEFO + best-before alerts)."
           }
         }
       },
@@ -3881,6 +4086,12 @@
           },
           "reason": {
             "type": "string"
+          },
+          "expiry_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Best-before date recorded during the physical count (null when staff did not record one)."
           },
           "status": {
             "type": "string",
@@ -4254,7 +4465,16 @@
                 "type": "integer"
               },
               "customers_served": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Registered customer accounts with at least one order inquiry"
+              },
+              "customers_paid": {
+                "type": "integer",
+                "description": "Distinct payer names from the sales ledger (walk-ins included)"
+              },
+              "customers_registered": {
+                "type": "integer",
+                "description": "Total registered customer accounts (the account base, ordered or not)"
               },
               "pending_approvals": {
                 "type": "integer"
@@ -4588,58 +4808,6 @@
           }
         }
       },
-      "OcrResult": {
-        "type": "object",
-        "required": [
-          "text",
-          "matches"
-        ],
-        "properties": {
-          "text": {
-            "type": "string",
-            "description": "Raw OCR-extracted text from the uploaded image"
-          },
-          "matches": {
-            "type": "array",
-            "description": "Catalog products fuzzy-matched from the OCR text, best first",
-            "items": {
-              "type": "object",
-              "required": [
-                "id",
-                "name",
-                "score"
-              ],
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "price": {
-                  "type": "number"
-                },
-                "image": {
-                  "type": "string",
-                  "nullable": true
-                },
-                "score": {
-                  "type": "number",
-                  "description": "0..1 token-overlap match score"
-                },
-                "matched": {
-                  "type": "integer",
-                  "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
-                },
-                "matchedBy": {
-                  "type": "string",
-                  "description": "How the match was found: 'ocr' (default) or 'filename' (resolved from the uploaded file name without OCR)"
-                }
-              }
-            }
-          }
-        }
-      },
       "BulkOptimization": {
         "type": "object",
         "required": [
@@ -4928,7 +5096,15 @@
           },
           "customersServed": {
             "type": "integer",
-            "description": "Distinct customers across sales"
+            "description": "Registered customer accounts with at least one order inquiry"
+          },
+          "customersPaid": {
+            "type": "integer",
+            "description": "Distinct payer names from the sales ledger (walk-ins included)"
+          },
+          "customersRegistered": {
+            "type": "integer",
+            "description": "Total registered customer accounts (the account base, ordered or not)"
           },
           "orderStatusSummary": {
             "type": "object",
@@ -5015,6 +5191,11 @@
           },
           "current_qty": {
             "type": "number"
+          },
+          "expiry_date": {
+            "type": "string",
+            "nullable": true,
+            "description": "Best-before date of the affected stock lot (expiry alerts only)."
           },
           "status": {
             "type": "string"
@@ -5147,62 +5328,6 @@
               "out"
             ],
             "description": "ok: >= 80 total, low: < 80, out: 0"
-          }
-        }
-      },
-      "OcrStockResponse": {
-        "type": "object",
-        "required": [
-          "text",
-          "matches"
-        ],
-        "properties": {
-          "text": {
-            "type": "string",
-            "description": "Filtered OCR text (only lines that can match the catalog)"
-          },
-          "matches": {
-            "type": "array",
-            "description": "Catalog products fuzzy-matched from the OCR text with live stock, best first",
-            "items": {
-              "type": "object",
-              "required": [
-                "id",
-                "name",
-                "score",
-                "stock"
-              ],
-              "properties": {
-                "id": {
-                  "type": "integer"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "price": {
-                  "type": "number"
-                },
-                "image": {
-                  "type": "string",
-                  "nullable": true
-                },
-                "score": {
-                  "type": "number",
-                  "description": "0..1 token-overlap match score"
-                },
-                "matched": {
-                  "type": "integer",
-                  "description": "Distinctive OCR tokens matched in the product name (>= 2 required for a match)"
-                },
-                "matchedBy": {
-                  "type": "string",
-                  "description": "How the match was found: 'ocr' (default) or 'filename' (resolved from the uploaded file name without OCR)"
-                },
-                "stock": {
-                  "$ref": "#/components/schemas/StockSnapshot"
-                }
-              }
-            }
           }
         }
       },
@@ -5477,6 +5602,72 @@
                   "type": "integer"
                 }
               }
+            }
+          }
+        }
+      },
+      "QrProductLookup": {
+        "type": "object",
+        "required": [
+          "product",
+          "qr",
+          "stock",
+          "lots"
+        ],
+        "properties": {
+          "product": {
+            "$ref": "#/components/schemas/Product"
+          },
+          "qr": {
+            "type": "object",
+            "required": [
+              "payload",
+              "sku"
+            ],
+            "properties": {
+              "payload": {
+                "type": "string",
+                "description": "INVENTRAK:PROD:<id> — the exact string encoded in the printed tag; handy for reprinting."
+              },
+              "sku": {
+                "type": "string",
+                "description": "SKU shown on the label."
+              }
+            }
+          },
+          "stock": {
+            "type": "object",
+            "required": [
+              "locations",
+              "total",
+              "status"
+            ],
+            "properties": {
+              "locations": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "description": "Quantity per storage-area name (Showroom, Stockroom 1, Stockroom 2)."
+              },
+              "total": {
+                "type": "number"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "low",
+                  "out"
+                ],
+                "description": "Same bands as the Inventory page (total < 80 = low)."
+              }
+            }
+          },
+          "lots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockLot"
             }
           }
         }

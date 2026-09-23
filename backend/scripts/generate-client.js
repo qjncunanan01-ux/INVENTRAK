@@ -22,6 +22,7 @@ const spec = JSON.parse(fs.readFileSync(path.join(backendDir, 'openapi.json'), '
 const OUTPUTS = [
   path.join(backendDir, '..', 'frontend-admin', 'src', 'api.generated.js'),
   path.join(backendDir, '..', 'mobile-client', 'src', 'api.generated.js'),
+  path.join(backendDir, '..', 'staff-client', 'src', 'api.generated.js'),
 ];
 
 const SKIP_OPERATIONS = new Set(['getDocs', 'getOpenapi']); // HTML / meta endpoints

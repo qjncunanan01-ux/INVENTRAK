@@ -450,7 +450,7 @@ function quickActions(isLoggedIn, navigation) {
     ...publicActions,
     { key: 'history', icon: 'clipboard-text-clock-outline', label: 'Order History', tint: { bg: '#e8eaf6', fg: '#3f51b5' }, onPress: () => go('OrdersTab', { screen: 'InquiryHistory' }) },
     { key: 'notif', icon: 'bell-outline', label: 'Notifications', tint: { bg: '#fde8ec', fg: '#e23744' }, onPress: () => go('OrdersTab', { screen: 'Notifications' }) },
-    { key: 'ocr', icon: 'camera-outline', label: 'Scan Product', tint: { bg: '#f3e5f5', fg: '#8e24aa' }, onPress: () => go('CatalogTab', { screen: 'OCR' }) },
+    { key: 'qr', icon: 'qrcode-scan', label: 'Scan QR', tint: { bg: '#f3e5f5', fg: '#8e24aa' }, onPress: () => go('CatalogTab', { screen: 'QrScan' }) },
   ];
 }
 

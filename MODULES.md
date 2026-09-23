@@ -90,7 +90,7 @@ Swagger UI, every endpoint documented and try-able.
 ```bash
 cd backend
 npm test        # 30+ suites, ~330 assertions: contract parity, OpenAPI conformance,
-                # scoping, lockout, MFA, OCR, sync, migration drift guard …
+                # scoping, lockout, MFA, QR lookup, sync, migration drift guard …
 npm run verify  # docs:validate + spec:audit + client:check + npm test (CI-equivalent)
 ```
 
@@ -257,7 +257,7 @@ quantities; the **Stock Availability** screen can be scoped to one location.
   (expiry chips: expired / ≤30 days / long-life) with an
   "expiring within 30 days" filter; `GET /api/stock-lots?expiring_within=N`.
 - **Stock adjustments** — *pending* until the owner approves (RBAC above);
-  created by staff via UI or the OCR verify-and-confirm flow.
+  created by staff via UI or the QR scan verify-and-count flow.
 - **Stock transfers** — dedicated form for moving items between storage rooms,
   also flows through the approval queue.
 
@@ -339,31 +339,36 @@ redaction, all providers mocked (no network).
 
 ---
 
-## 11. OCR — scan a label, match the catalog (`backend/src/ocr.js`, admin `ScanStockPage.jsx`, mobile `OcrScreen.js`)
+## 11. QR product identification (scan a tag, resolve the product) — the project's focus area
 
-**Pipeline:** upload/capture → preprocess (upscale, grayscale, contrast, auto
-retry with SPARSE_TEXT) → tesseract.js extracts text → text-filter keeps only
-brand/product tokens → fuzzy-match against the catalog → ranked matches with
-prices.
+**Pipeline:** staff opens the scanner → camera decodes the printed tag →
+`GET /api/products/qr/{code}` resolves the tag's identifier server-side →
+product + live per-location stock + FIFO/FEFO lots return → staff verifies the
+physical count per location and submits → **pending approval** (owner
+approves). The QR carries only an identifier (`INVENTRAK:PROD:<id>` or a SKU
+like `PRD-000001`) — never quantities, prices or authorization.
 
-- **Mobile (customer):** Scan tab — strong match auto-opens the product;
-  otherwise a match list. Guests see the login gate.
-- **Mobile (staff/admin):** same screen switches to the **stock-aware**
-  endpoint (`/api/ocr/stock`) — matches carry live per-location quantities and
-  a **verify-and-confirm panel** lets staff enter the physically counted qty
-  per location and submit **pending adjustments** (owner approves).
-- **Admin (Scan & Stock page):** upload a label photo or open the device
-  camera → same matching + the confirm-and-correct panel.
-- **Guardrails:** non-SYLVER images → "No SYLVER product detected"; staff-only
-  endpoint returns 400 on a bad payload (validation before the engine), 403
-  for customers.
+- **Backend:** `qr-codes.js` — payload grammar, deterministic SKU
+  (`PRD-000001`, UNIQUE index), shared lookup handler used by both backends
+  (400 invalid / 404 unregistered / 409 inactive product).
+- **Admin (Scan & Stock page):** live QR camera (jsQR) or tag-paste/upload
+  fallback → product card with per-location counts → submit → approval queue.
+- **Mobile (customer app):** Scan tab — product tag opens the product page
+  (members), location tag opens that storage area's stock. Guests see the
+  login gate.
+- **Mobile (staff app):** Scan Tag module — same lookup feeds the
+  verify-and-count card (shared `CountCard`).
+- **Guardrails:** staff-or-admin gate on the lookup (403 for customers),
+  unknown payloads → explicit "not registered" alert + scan-event audit,
+  duplicate-scan lock + cooldown so one tag cannot double-submit.
 
-**Demo:** admin → Scan & Stock → upload a product label photo → matches with
-prices appear → correct the counts → submit → approve as owner. Phone: Scan
-tab → point at a printed label.
+**Demo:** admin → Scan & Stock → point the camera at a printed product tag →
+product identified with live stock → adjust counts → submit → approve as
+owner → stock updates. Phone: Scan tab → point at the tag.
 
-**Test:** `ocr.test.js` (matcher), `ocr-preprocess.test.js` (full engine —
-downloads traineddata on first run), `staff-roles.test.js` (endpoint gates).
+**Test:** `qr-lookup.test.js` (grammar + both-backend lookup contract +
+security), `staff-roles.test.js` (endpoint gates), `frontend-admin/src/qr.test.js`
+(payload builder).
 
 ---
 
@@ -496,7 +501,7 @@ npx vite preview --port 4173   # serve the built bundle
 
 **Pages:** Dashboard · Products · Inventory · Stock Movement · Stock
 Adjustments · Stock Transfers · Order Inquiries · Approvals (admin-only) ·
-Locations (+ QR tags) · Optimization · Scan & Stock (OCR) · Reports ·
+Locations (+ QR tags) · Optimization · Scan & Stock (QR) · Reports ·
 Security (MFA, admin-only) · Audit Trail. Role badge in the top bar
 (ADMIN/STAFF); quick-fill demo-credential buttons with role chips on login.
 
@@ -532,7 +537,7 @@ npx expo export --platform web   # static web bundle for a quick browser demo
 **Screens:** Login (+ Google button, demo quick-fill) · Signup · Verify Email
 · Home · Products/Categories/Search · Product detail · Cart · Order Inquiry ·
 Payment (GCash) · Inquiry History · Notifications · Recommendations · Account
-(+ staff tools) · Scan (OCR) · QR/Barcode scanner · Stock Availability ·
+(+ staff tools) · Scan (QR) · QR/Barcode scanner · Stock Availability ·
 Forgot Password.
 
 **Demo account:** `customer/customer123` (or Google sign-in). Staff features
@@ -573,8 +578,7 @@ npx eas-cli build -p android --profile production    # APK via EAS
 | Module | What it does |
 |---|---|
 | Login | **Staff-exclusive gate:** sends `portal: 'staff'`, which the SERVER enforces — admins/owners/customers are refused with `403 staff_app_exclusive` (client-side role gate as defense in depth). Session persists (AsyncStorage) so shift devices stay signed in. |
-| **Scan Tag** | Live QR/barcode camera ONLY: location tags → that storage area's stock inline; product tags → count card. Every scan is audited server-side. |
-| **Label Scan** | Label-photo OCR ONLY: photo → catalog match → verify → count card. (Shared `CountCard` component with Scan Tag — identical submission logic, separate screens.) |
+| **Scan Tag** | Live QR/barcode camera ONLY: location tags → that storage area's stock inline; product tags → count card. Every scan is audited server-side. (The retired Label-Scan OCR module merged into this module.) |
 | **Count** | No-camera path: searchable inventory list → tap a product → enter per-location physical counts → submit as PENDING adjustments. |
 | **Requests** | The staff member's submitted adjustments with live status (pending / approved / rejected) and decision trail. |
 | Account | Shift identity + role badge, dark mode, logout (revokes the token server-side). |
@@ -582,10 +586,10 @@ npx eas-cli build -p android --profile production    # APK via EAS
 **Same brand palette as the customer app and web admin** — one INVENTRAK look across all three apps (light + dark).
 
 **APIs it may call (the whole surface):** login/logout, `/api/inventory`,
-`/api/locations`, `/api/stock-lots`, `POST /api/ocr/stock`,
-`GET|POST /api/stock-adjustments`, `POST /api/scan-events`. Approve/reject
-endpoints are **not** in the app — approvals live on the web admin (maker-
-approver separation).
+`/api/locations`, `/api/stock-lots`, `GET /api/products/qr/{code}` (QR
+product lookup), `GET|POST /api/stock-adjustments`, `POST /api/scan-events`.
+Approve/reject endpoints are **not** in the app — approvals live on the web
+admin (maker-approver separation).
 
 **Demo:** `staff/staff123`. Admin/owner/customer accounts get "The staff app is
 exclusively for Inventory Staff. Admins and owners use the web admin dashboard."
@@ -678,7 +682,7 @@ backend/src/
   store-json|firestore|supabase.js   # storage drivers (same interface)
   schema.js / db.js      # SQLite DDL + connection (migrations inline)
   config.js              # named tunables (auth, inventory, rate limits, HTTP)
-  ocr.js                 # OCR + fuzzy matcher + preprocessing
+  qr-codes.js            # QR tag grammar + product lookup + SKU rules
   payments.js            # GCash/PayMongo checkout
   notify.js              # email/SMS providers (log-only when unconfigured)
   google-auth.js         # Google OAuth ID-token verify (JWKS)

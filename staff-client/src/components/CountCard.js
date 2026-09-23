@@ -4,7 +4,7 @@ import { createStockAdjustment, listLocations } from '../api';
 import { useThemeColors } from '../theme-context';
 
 // CountCard — the shared "verify & record physical count" form used by BOTH
-// scan modules (QR tag scan and label OCR) AND the Count module. One product
+// scan module (QR tag scan) AND the Count module. One product
 // in focus, one input per storage area, an optional best-before date read off
 // the label, and one submit that creates a PENDING adjustment per changed
 // location (the best-before travels on every row it belongs to). On approval

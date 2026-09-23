@@ -7,8 +7,8 @@ export default function ScanBlockView() {
     <View>
       <Card>
         <CardHeading
-          title="Scan a product label"
-          subtitle="The daily manual-inventory answer: snap or upload a label, and the OCR engine matches it to the catalog with the live stock at every location."
+          title="Scan a product QR tag"
+          subtitle="The daily manual-inventory answer: scan a printed product tag, and the system resolves it to the catalog with the live stock at every location."
         />
 
         <ButtonRow>
@@ -18,8 +18,8 @@ export default function ScanBlockView() {
             onPress={() => {}}
             style={{ marginRight: 8 }}
           />
-          <ActionButton label="Take Photo" onPress={() => {}} style={{ marginRight: 8 }} />
-          <ActionButton label="Upload Image" onPress={() => {}} />
+          <ActionButton label="Paste Tag Payload" onPress={() => {}} style={{ marginRight: 8 }} />
+          <ActionButton label="Upload Tag Image" onPress={() => {}} />
         </ButtonRow>
       </Card>
     </View>

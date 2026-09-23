@@ -30,7 +30,7 @@ const MANAGEMENT_TIER = ['super_admin', 'owner'];
 
 // Daily inventory work — staff plus everyone above them. This is the tier for
 // read/request routes staff legitimately need (stock levels, movements,
-// adjustments, transfers, scanning, OCR).
+// adjustments, transfers, scanning, QR lookup).
 const STAFF_TIER = ['staff', ...ADMIN_TIER];
 
 // Roles an Admin may grant; only management may grant privileged roles.

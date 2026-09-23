@@ -81,15 +81,16 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-789');
   });
 
-  test('Scan & Stock (ocrStockCheck → POST /api/ocr/stock) carries the admin token', async() => {
+  test('Scan & Stock (getProductByQr → GET /api/products/qr/:code) carries the admin token', async() => {
     const calls = captureFetch();
     const client = makeClient(() => 'admin-token-scan');
-    // ScanStockPage sends the base64 image through this typed endpoint.
-    await client.ocrStockCheck({ image: 'aGVsbG8=' });
+    // ScanStockPage sends the scanned tag payload through this typed endpoint.
+    await client.getProductByQr({ code: 'INVENTRAK:PROD:42' });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe(`${BASE}/api/ocr/stock`);
-    expect(calls[0].method).toBe('POST');
+    // The tag payload is URL-encoded into the path parameter.
+    expect(calls[0].url).toBe(`${BASE}/api/products/qr/INVENTRAK%3APROD%3A42`);
+    expect(calls[0].method).toBe('GET');
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-scan');
   });
 

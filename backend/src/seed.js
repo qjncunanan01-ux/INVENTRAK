@@ -2,6 +2,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { db: liveDb } = require('./db');
 const { hashPassword } = require('./password-hash');
+const { skuForProductId } = require('./qr-codes');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 
 const DEFAULT_PRODUCTS_FILE = path.join(__dirname, '..', 'data', 'products.json');
@@ -51,7 +52,7 @@ function seedDatabase({ db: dbOverride, productsFile = DEFAULT_PRODUCTS_FILE } =
 
   if (!products.length) return;
 
-  const insertProduct = conn.prepare('INSERT INTO products (name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const insertProduct = conn.prepare('INSERT INTO products (sku, name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   const getLocation = conn.prepare('SELECT id FROM locations WHERE name = ?');
   const insertLocation = conn.prepare('INSERT INTO locations (name) VALUES (?)');
   const insertStock = conn.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, ?)');
@@ -67,8 +68,13 @@ function seedDatabase({ db: dbOverride, productsFile = DEFAULT_PRODUCTS_FILE } =
     }
 
     const rand = mulberry32(DEMO_SEED);
+    // QR identification: every seeded product gets its deterministic system
+    // SKU (PRD-000001…), derived from the row id — same rule the db.js
+    // backfill uses for legacy databases, so both paths agree.
+    const setSku = conn.prepare('UPDATE products SET sku = ? WHERE id = ?');
     for (const p of products) {
       const result = insertProduct.run(
+        null,
         p['Product Name'] || p.name,
         p['Category'] || p.category,
         p['Brand'] || p.brand || '',
@@ -80,6 +86,7 @@ function seedDatabase({ db: dbOverride, productsFile = DEFAULT_PRODUCTS_FILE } =
         p['Image'] || p.image || null,
       );
       const pid = result.lastInsertRowid;
+      setSku.run(skuForProductId(pid), pid);
 
       for (const name of locations) {
         const locId = getLocation.get(name).id;

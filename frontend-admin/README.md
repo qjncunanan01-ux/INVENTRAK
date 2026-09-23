@@ -1,7 +1,7 @@
 # INVENTRAK Admin Web
 
 Owner/staff dashboard for INVENTRAK: inventory, products, approvals, Scan &
-Stock (OCR), reports, and user management. Built with **Vite + React 18 +
+Stock (QR scanner), reports, and user management. Built with **Vite + React 18 +
 MUI 5 + Recharts + React Router 7**.
 
 ## Run locally

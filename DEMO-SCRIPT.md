@@ -92,9 +92,10 @@ talks to the live backend from any network.
 5. **Order Inquiries** → find the order you just placed on the phone.
    **Approve it** (or Fulfill) → the mobile order history timeline updates
    to "Approved" (show both screens together).
-6. **Scan & Stock** (the capstone highlight) → upload a product label photo →
-   OCR matches the catalog and shows **live stock at every location** — the
-   answer to the company's 5–6-year manual inventory problem.
+6. **Scan & Stock** (the capstone highlight) → point the camera at a printed
+   product QR tag (or paste/upload one) → the tag's identifier resolves
+   server-side and shows the **product with live stock at every location** —
+   the answer to the company's 5–6-year manual inventory problem.
 7. **Optimization** → ABC classification (which products carry the value).
 8. **Reports** → the printable management report (Print / Save PDF).
 
@@ -150,25 +151,29 @@ step 6 completes the flow, so the demo ends with consistent data. If you'd
 rather not change stock, reject the request instead — stock stays untouched
 and the audit trail still shows the decision.*
 
-### Part E — QR location tags, OCR verify-and-confirm & the mobile scanner (2–3 min)
+### Part E — QR tags, the verify-and-count flow & the mobile scanner (2–3 min)
 
 The "digitise the warehouse floor" story: printed QR tags on the storage
-areas, label OCR with a confirm-before-save step, and a camera scanner on
-the phone. Together they answer *"how does the count get from the shelf into
-the system without retyping?"*.
+areas and products, a scanner that identifies the item (never the count),
+and a confirm-before-save step. Together they answer *"how does the count
+get from the shelf into the system without retyping?"*.
 
 1. **Print the location tags (admin)** → **Branch Locations** → **QR tags**
    button. Show the dialog: one QR per storage area (Showroom, Stockroom 1,
    Stockroom 2), each encoding `INVENTRAK:LOC:<id>:<name>`, with a
    **Print tags** button. Say: *"These stick on the physical shelves — the
    scanner below reads them."* (Close the dialog; no need to print on stage.)
-2. **Scan & Stock — verify & confirm** (admin, the reviewer's "staff must
+2. **Scan & Stock — verify & count** (admin, the reviewer's "staff must
    review before stock updates are saved" answer) → **Scan & Stock** →
-   **Upload image** a product label photo. The OCR engine (Tesseract) reads
-   the label and matches the catalog.
-   - Under the match, show the **"Verify & record physical count"** panel:
-     the recognized text + suggested product are shown side by side, and
-     every location has a quantity field pre-filled with the current count.
+   point the camera at a printed **product QR tag** (or paste the payload).
+   The tag's identifier (`INVENTRAK:PROD:<id>` / SKU) resolves server-side
+   and the product appears with its live stock.
+   - Under the product, show the **"Verify & record physical count"** panel:
+     the identified product is shown with its details, and every location
+     has a quantity field pre-filled with the current count.
+   - Say: *"The QR identifies the product — it does NOT count it. Staff
+     still physically verify the quantity; that distinction is deliberate
+     and honest about what the technology does."*
    - Change one quantity, add a reason, **Submit corrections for approval**
      → a green message confirms each change became a **pending adjustment**.
    - Say: *"Nothing is written to stock yet — the scan only proposes. The
@@ -183,10 +188,10 @@ the system without retyping?"*.
      unlocked"** and a **Staff Tools** section with **Scan & Count Stock**.
      The login screen has a **Fill Inventory Staff** quick-fill button so
      nobody types credentials on stage.
-   - Tap it → **Scan a product** → **Take photo** of a label → the match
-     stays on screen (no auto-redirect for staff) with the same
-     **verify & record physical count** panel: enter the counted qty per
-     location, submit → corrections become pending adjustments.
+   - Tap it → **Scan a product** → point the camera at a printed product
+     tag → the product resolves with the **verify & record physical count**
+     panel: enter the counted qty per location, submit → corrections become
+     pending adjustments.
    - Tap **▦ Scan a QR / barcode tag** → point at a printed location tag
      → it opens **Available Supplies filtered to that storage area**
      ("Stock levels at Showroom (scanned tag)"). Scanning a product tag
@@ -199,13 +204,13 @@ the system without retyping?"*.
 
 *Where these features live in the code:*
 - QR tags: `frontend-admin/src/pages/LocationsPage.jsx` (payload + print dialog)
-- Admin verify-and-confirm: `frontend-admin/src/pages/ScanStockPage.jsx`
+- Admin QR scanner + verify-and-count: `frontend-admin/src/pages/ScanStockPage.jsx`
 - Mobile scanner + count flow: `mobile-client/src/screens/QrScanScreen.js`,
-  `mobile-client/src/screens/OcrScreen.js`, `mobile-client/src/screens/AccountScreen.js`
+  `mobile-client/src/screens/AccountScreen.js`
 - Stock badges: `mobile-client/src/screens/ProductScreen.js`,
   `mobile-client/src/screens/RecommendationScreen.js`
-- Backend OCR + matching: `backend/src/ocr.js` (Tesseract, fuzzy match,
-  stock snapshots); adjustments queue: `/api/stock-adjustments`
+- Backend QR lookup: `backend/src/qr-codes.js` (tag grammar, SKU rules,
+  `GET /api/products/qr/{code}`); adjustments queue: `/api/stock-adjustments`
 
 ---
 
@@ -217,8 +222,8 @@ the system without retyping?"*.
 | Login fails "Invalid credentials" | Re-type `admin`/`admin123`; tokens from before the security pass are expired (by design) |
 | Phone order doesn't appear in admin | Check the phone shows a success screen (order #), then refresh the admin Order Inquiries page |
 | Google button errors | It needs the backend env (`GOOGLE_CLIENT_IDS` + `GOOGLE_CLIENT_SECRET`) and the test user approved in Google Cloud. Password login always works as fallback |
-| Camera black on Scan & Stock | Use **Upload image** instead — OCR runs on the photo the same way |
-| Scan & Stock shows "No SYLVER product detected" | The label isn't in the catalog (or the photo is blurry). Only SYLVER catalog products can be scanned — try a clearer, well-lit photo of a known product |
+| Camera black on Scan & Stock | Use **paste the tag payload** instead — the lookup works the same way without the camera |
+| Scan & Stock shows "QR code is not registered" | The tag isn't in the catalog (or points at a deleted product). Only printed INVENTRAK product tags resolve — print a fresh sheet from Products → QR tags and scan that |
 | Phone scanner camera stays black | Allow camera permission when prompted, or use **Take photo / Upload photo** on the Scan screen instead |
 | Staff count submit says "Could not submit" | The phone needs a **staff/admin** account (customers get 403). Log in as `staff`/`staff123` and confirm the backend is up |
 | Verification code never arrives | You likely signed up with an address other than `qjncunanan01@tip.edu.ph` — Resend's free sender only delivers to the owner inbox. Re-register with that email, or log in with the demo customer |
@@ -234,7 +239,8 @@ the system without retyping?"*.
 - **API docs (Swagger):** https://inventrak-api.onrender.com/api/docs
 - **GitHub repo:** https://github.com/qjncunanan01-ux/INVENTRAK
 
-_Last verified: Sep 8, 2026 — backend 330/330 tests, admin 28/28, all live
-endpoints green (incl. staff-role split + role badge), APK link downloadable.
-New in this build: QR location tags, OCR verify-and-confirm on admin + phone,
-QR/barcode mobile scanner, stock badges on the catalog._
+_Last verified: Sep 23, 2026 — backend 369/369 tests, admin 66/66, all live
+endpoints green, APK link downloadable.
+New in this build: full QR product identification (scan → SKU → lookup →
+verify-and-count → approval) on admin + phone, QR location tags, stock
+badges on the catalog. The OCR engine has been retired._

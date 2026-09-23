@@ -140,13 +140,13 @@ export default function AccountScreen({ route, navigation }) {
             <Text style={styles.sectionTitle}>Staff Tools</Text>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => navigation.navigate('CatalogTab', { screen: 'OCR' })}
+              onPress={() => navigation.navigate('CatalogTab', { screen: 'QrScan' })}
             >
-              <MenuIcon name="clipboard-check-outline" tint={{ bg: '#e0f2f1', fg: '#00796b' }} styles={styles} />
+              <MenuIcon name="qrcode-scan" tint={{ bg: '#e0f2f1', fg: '#00796b' }} styles={styles} />
               <View style={styles.menuBody}>
                 <Text style={styles.menuTitle}>Scan & Count Stock</Text>
                 <Text style={styles.menuDesc}>
-                  Scan a label, record the physical count — corrections go to the owner for approval
+                  Scan a product QR code, record the physical count — corrections go to the owner for approval
                 </Text>
               </View>
               <Text style={styles.chevron}>›</Text>

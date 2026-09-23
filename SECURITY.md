@@ -38,7 +38,7 @@ This document maps every OWASP security checklist item to the exact module, endp
 - **Super Admin**: Everything above plus system accounts, roles and permissions
 - **Admin**: Products, prices, inventory, inquiries, approvals, reports, analytics — may grant only staff/admin
 - **Staff**: Read-only inventory, scan stock, propose adjustments (cannot approve, and is denied every money surface: `/api/analytics/summary`, exports, `/api/reports`, `/api/sales`, `/api/alerts`, `/api/users`)
-- **Customer**: Own orders only, product catalog, OCR scanning
+- **Customer**: Own orders only, product catalog (QR scanning is a member feature on the mobile app)
 - **Files**: `backend/src/roles.js` (single source of truth for the tiers), `backend/src/app.js` (`adminOnly`, `managementOnly`, `staffOrAdmin`), `backend/src/server_npmfree.js` (`requireAuth` allowed-roles resolution), `frontend-admin/src/roles.js` + `components/Money.jsx`
 - **Money hiding**: the admin UI masks every peso figure (`••••`) for roles without revenue visibility, and the revenue aggregate itself (`/api/analytics/summary`) is now authenticated — an unauthenticated caller gets 401 rather than total sales
 - **Role-change audit**: every grant writes an `auth.role_change` audit entry (actor, actor role, target, granted role)
@@ -77,11 +77,9 @@ This document maps every OWASP security checklist item to the exact module, endp
 - **Implementation**: Not applicable — INVENTRAK is an inventory management system, not a payment processor
 - **Payment**: PayMongo integration is optional and read-only (checkout sessions)
 
-### 13. Secure File Uploads ✅
-- **Implementation**: File type validation + size limits
-- **File**: `backend/src/ocr.js:13` — `MAX_IMAGE_BYTES = 8 * 1024 * 1024` (8MB)
-- **Validation**: Magic byte sniffing rejects non-image payloads
-- **Pattern**: Base64 decode → check PNG/JPEG magic bytes → reject if invalid
+### 13. Secure File Uploads ✅ (upload surface retired with OCR)
+- **Implementation**: The OCR image-upload surface was removed with the OCR→QR migration — scanning sends only a short tag string now, so there is no user file upload left to validate
+- **QR input surface**: tag payloads are length-capped strings parsed by a strict grammar (`backend/src/qr-codes.js`) — arbitrary payloads (URLs, scripts) never resolve (contract-tested)
 
 ### 14. CSRF Protection ✅
 - **Implementation**: Bearer token authentication (not cookie-based) inherently prevents CSRF

@@ -84,11 +84,13 @@ test('reports and analytics exports are revenue: admin tier only, never staff', 
 });
 
 test('staff can use Scan & Stock; customers cannot', async () => {
-  const staff = await both('staff scan', '/api/ocr/stock', { method: 'POST', auth: 'staff', body: {} });
-  // Empty body hits OCR input validation (400), NOT the role gate (403).
-  assert.strictEqual(staff.a.status, 400, 'staff reaches OCR validation');
-  const customer = await both('customer scan', '/api/ocr/stock', { method: 'POST', auth: 'customer', body: {} });
-  assert.strictEqual(customer.a.status, 403, 'customer is role-blocked from stock scan');
+  // QR lookup is the scan surface: staff reaches product resolution (200),
+  // while a customer token is role-blocked (403) — a QR tag is an
+  // identifier, never authorization.
+  const staff = await both('staff scan', '/api/products/qr/1', { auth: 'staff' });
+  assert.strictEqual(staff.a.status, 200, 'staff resolves the product via QR lookup');
+  const customer = await both('customer scan', '/api/products/qr/1', { auth: 'customer' });
+  assert.strictEqual(customer.a.status, 403, 'customer is role-blocked from the staff QR lookup');
 });
 
 test('staff cannot approve, decide, or touch admin-only modules', async () => {

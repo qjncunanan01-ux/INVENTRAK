@@ -1,4 +1,4 @@
-import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
+import QrCode2Outlined from '@mui/icons-material/QrCode2Outlined';
 import ReplayOutlined from '@mui/icons-material/ReplayOutlined';
 import VideocamOutlined from '@mui/icons-material/VideocamOutlined';
 import {
@@ -7,19 +7,40 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Divider,
   Paper,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiGet, createStockAdjustment, imageUrl, ocrStockCheck } from '../api';
+import { useEffect, useRef, useState } from 'react';
+import jsQR from 'jsqr';
+import {
+  apiGet,
+  createScanEvent,
+  createStockAdjustment,
+  createStockTransfer,
+  getProductByQr,
+  imageUrl,
+} from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
+
+// QR INVENTORY SCANNER — QR identifies the product; the inventory staff member
+// verifies the physical quantity; the transaction lands in the approval queue.
+// (Replaces the OCR label scanner: no text recognition, no fuzzy matching —
+// a tag payload resolves to exactly one catalog product.)
+//
+//   Scan QR → decode identifier → GET /api/products/qr/:code → product
+//   → enter counted quantity / transfer → PENDING APPROVAL → owner approves
+//
+// The QR authorizes nothing: authentication, product status, quantity and the
+// approval workflow are all enforced server-side after the scan.
 
 const STATUS_META = {
   ok: { label: 'In stock', color: 'success' },
@@ -27,100 +48,106 @@ const STATUS_META = {
   out: { label: 'Out of stock', color: 'error' },
 };
 
-// Reads an image file as a base64 data URL (stripping the data:...;base64, prefix).
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const raw = String(reader.result || '');
-      resolve(raw.includes(',') ? raw.split(',')[1] : raw);
-    };
-    reader.onerror = () => reject(new Error('Could not read the image file'));
-    reader.readAsDataURL(file);
-  });
-}
+const LOC_TAG_RE = /^INVENTRAK:LOC:(\d+):(.+)$/i;
+const PROD_TAG_RE = /^INVENTRAK:PROD:(.+)$/i;
 
-// Load an image element with an onload/onerror fallback (img.decode() is
-// unavailable on some older mobile browsers) and a safety timeout so a
-// slow/huge photo can never hang the scanner.
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const timer = setTimeout(() => reject(new Error('Image decode timed out')), 15000);
-    img.onload = () => { clearTimeout(timer); resolve(img); };
-    img.onerror = () => { clearTimeout(timer); reject(new Error('Could not decode image')); };
-    img.src = src;
-  });
-}
+// Record the scan in the audit trail (who scanned what, when). Fire-and-forget
+// so logging never blocks or fails the workflow.
+const logScanEvent = (payload, kind, targetId) => {
+  createScanEvent({ payload: String(payload).slice(0, 300), kind, target_id: targetId ?? null }).catch(() => {});
+};
 
-// In-app live camera preview (getUserMedia). The native file-input capture
-// intent shows a black screen on several phones, so this gives the admin a
-// real on-page preview: start the rear camera, aim, tap Capture, and the
-// frame is drawn to a canvas and scanned — no native camera UI involved.
-// Falls back gracefully: if the browser blocks the stream (permission denied,
-// insecure context, no camera), the error is surfaced and the file-based
-// "Take photo / Upload image" buttons remain the fallback.
-function LiveCamera({ onCapture, onClose }) {
+// Shared live QR camera surface. Draws video frames onto a canvas and decodes
+// with jsQR continuously; the SAME stream renders to <video>. Unmounting it
+// releases the camera — the parent unmounts it the moment a code is accepted
+// (scan paused while the product transaction is processed, and the same tag
+// can never be submitted twice).
+function QrScanner({ onDecode }) {
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
   const streamRef = useRef(null);
+  // Debounce: onBarcodeScanned-style loops fire on every frame while a code is
+  // in view. Same code within one second is ignored; distinct codes always
+  // fire so a batch count of several tags feels immediate.
+  const lastRef = useRef({ data: '', at: 0 });
+  const onDecodeRef = useRef(onDecode);
+  onDecodeRef.current = onDecode;
   const [err, setErr] = useState('');
+  const [starting, setStarting] = useState(true);
 
-  const stop = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-  }, []);
-
-  // Start the stream once on mount; always release it on unmount/close so
-  // the camera light goes off and other apps can use the camera.
   useEffect(() => {
     let alive = true;
-    (async() => {
+    let raf = null;
+    let stream = null;
+
+    const tick = () => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (video && video.videoWidth && canvas) {
+        const w = 480;
+        const h = Math.max(1, Math.round((video.videoHeight / video.videoWidth) * w));
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0, w, h);
+        const img = ctx.getImageData(0, 0, w, h);
+        let code = null;
+        try {
+          code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+        } catch {
+          code = null; // a bad frame must never kill the loop
+        }
+        const now = Date.now();
+        if (code && code.data) {
+          if (!(lastRef.current.data === code.data && now - lastRef.current.at < 1000)) {
+            lastRef.current = { data: code.data, at: now };
+            onDecodeRef.current(code.data);
+          }
+        }
+      }
+      raf = requestAnimationFrame(tick);
+      rafRef.current = raf;
+    };
+
+    (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1920 } },
+        const s = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 } },
           audio: false,
         });
         if (!alive) {
-          stream.getTracks().forEach((t) => t.stop());
+          s.getTracks().forEach((t) => t.stop());
           return;
         }
-        streamRef.current = stream;
+        stream = s;
+        streamRef.current = s;
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+          videoRef.current.srcObject = s;
           await videoRef.current.play().catch(() => {});
         }
+        setStarting(false);
+        raf = requestAnimationFrame(tick);
+        rafRef.current = raf;
       } catch (e) {
         if (alive) {
+          setStarting(false);
           setErr(
             e && e.name === 'NotAllowedError'
-              ? 'Camera permission was denied. Allow camera access in your browser, or use "Take photo" / "Upload image" instead.'
-              : 'Could not start the camera here. Use "Take photo" / "Upload image" instead.',
+              ? 'Camera permission is required to scan QR codes.'
+              : 'Could not start the camera here. Use “Scan QR image” instead.',
           );
         }
       }
     })();
+
     return () => {
       alive = false;
-      stop();
+      if (raf) cancelAnimationFrame(raf);
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     };
-  }, [stop]);
-
-  const capture = () => {
-    const video = videoRef.current;
-    if (!video || !video.videoWidth) {
-      setErr('Camera is not ready yet — wait a moment and tap Capture again.');
-      return;
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    const b64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-    stop();
-    onCapture(b64);
-  };
+  }, []);
 
   return (
     <Box sx={{ mt: 2 }}>
@@ -131,223 +158,241 @@ function LiveCamera({ onCapture, onClose }) {
           overflow: 'hidden',
           backgroundColor: '#000',
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 520,
           aspectRatio: '4/3',
         }}
       >
-        <video
-          ref={videoRef}
-          playsInline
-          muted
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        <video ref={videoRef} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {/* Scan-frame guide */}
+        <Box
+          sx={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: 200,
+            height: 200,
+            transform: 'translate(-50%, -50%)',
+            border: '2px solid rgba(255,255,255,0.85)',
+            borderRadius: 2,
+            pointerEvents: 'none',
+          }}
         />
+        {starting && !err && (
+          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+            <CircularProgress size={28} />
+          </Box>
+        )}
       </Box>
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
       {err ? <Alert severity="warning" sx={{ mt: 1.5 }}>{err}</Alert> : null}
-      <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
-        <Button variant="contained" onClick={capture} sx={{ backgroundColor: colors.brandPrimary }}>
-          Capture & Scan
-        </Button>
-        <Button variant="outlined" onClick={() => { stop(); onClose(); }}>
-          Cancel
-        </Button>
-      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+        Point the camera at a product's QR code — scanning pauses automatically once a tag is identified.
+      </Typography>
     </Box>
   );
-}
-
-// Browser-side image preprocessing before OCR upload — the server's Tesseract
-// reads flat, high-contrast text far better than raw camera shots:
-//   1. normalize the long edge to ~1600px (upscale small labels, downscale
-//      huge phone photos so upload stays fast),
-//   2. grayscale + min/max contrast stretch (kills glare/color noise),
-//   3. re-encode as JPEG.
-// Pure browser canvas — no dependencies. On any decode failure the original
-// image is returned unchanged so a scan is never blocked by this step.
-async function preprocessForOcr(b64, mimeType = 'image/jpeg') {
-  const LONG_EDGE = 1600;
-  const MAX_UPSCALE = 4;
-  try {
-    const safeMime = mimeType && /^image\//.test(mimeType) ? mimeType : 'image/jpeg';
-    const img = await loadImage(`data:${safeMime};base64,${b64}`);
-    const scale = Math.min(MAX_UPSCALE, LONG_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
-    const w = Math.max(1, Math.round(img.naturalWidth * scale));
-    const h = Math.max(1, Math.round(img.naturalHeight * scale));
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, w, h);
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const px = imageData.data;
-    // Grayscale + find min/max luminance for the contrast stretch.
-    let min = 255;
-    let max = 0;
-    for (let i = 0; i < px.length; i += 4) {
-      const g = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-      px[i] = px[i + 1] = px[i + 2] = g;
-      if (g < min) min = g;
-      if (g > max) max = g;
-    }
-    const range = max - min || 1;
-    for (let i = 0; i < px.length; i += 4) {
-      px[i] = px[i + 1] = px[i + 2] = ((px[i] - min) / range) * 255;
-    }
-    ctx.putImageData(imageData, 0, 0);
-    return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-  } catch {
-    return b64;
-  }
 }
 
 export default function ScanStockPage({ onLogout }) {
   usePageTitle('/scan-stock');
   const fileRef = useRef(null);
-  const cameraRef = useRef(null);
+  const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState(null);
-  const [fileName, setFileName] = useState('');
-  const [liveCam, setLiveCam] = useState(false);
-  // Verify-and-confirm state: the scanned product's physical count per
-  // location, a reason, and submission feedback. Corrections are NOT applied
-  // directly — they become pending adjustments the owner approves, so a scan
-  // can never silently overwrite stock.
+  const [notice, setNotice] = useState('');
+  const [result, setResult] = useState(null); // QrProductLookup payload
+  // Verify-and-confirm state: counted quantity per location, transaction type,
+  // transfer destination/reason, and submission feedback. Nothing touches
+  // official stock directly — every submission becomes a PENDING request the
+  // owner approves, so a scan can never silently overwrite inventory.
   const [counts, setCounts] = useState({});
+  const [txType, setTxType] = useState('adjustment');
+  const [dstLocation, setDstLocation] = useState('');
   const [reason, setReason] = useState('');
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [confirmMsg, setConfirmMsg] = useState('');
   const [confirmErr, setConfirmErr] = useState('');
-
-  // Shared result handling: show the match card when there are matches, and
-  // a clear "no product detected" message when the label read text but nothing
-  // in it names a SYLVER catalog product (foreign/unknown labels must not
-  // silently return nothing).
-  const applyResult = (res) => {
-    const body = res && res.data && typeof res.data === 'object' ? res.data : res;
-    const matches = body && Array.isArray(body.matches) ? body.matches : [];
-    setResult(body);
-    if (matches.length === 0) {
-      const recognized = body && body.text && body.text.trim();
-      setError(
-        recognized
-          ? 'No SYLVER product detected — this label doesn\u2019t match anything in the catalog. Only products in the SYLVER supply catalog can be scanned.'
-          : 'No text recognized. Try a clearer, well-lit photo of the label.',
-      );
-    }
-  };
-
-  const runBase64 = async(image) => {
-    setBusy(true);
-    setError('');
-    setResult(null);
-    setFileName('live capture');
-    try {
-      const processed = await preprocessForOcr(image);
-      const res = await ocrStockCheck({ image: processed });
-      applyResult(res);
-    } catch (err) {
-      const detail =
-        (err && err.body && (err.body.details || []).join(' · ')) ||
-        err.message ||
-        'Scan failed. Check that the backend OCR engine is running and try again.';
-      setError(detail);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const pick = (e) => {
-    const file = e.target.files && e.target.files[0];
-    e.target.value = '';
-    if (!file) return;
-    run(file);
-  };
-
-  const run = async(file) => {
-    setBusy(true);
-    setError('');
-    setResult(null);
-    setFileName(file.name);
-    try {
-      const rawImage = await fileToBase64(file);
-      // Preprocess (grayscale/contrast/normalize) so real camera captures read
-      // reliably — the engine is much better on flat, high-contrast text.
-      // Pass the real MIME type: PNG uploads decode correctly (and re-encode
-      // to JPEG here anyway), JPEG/HEIC photos from the camera work too.
-      const image = await preprocessForOcr(rawImage, file.type);
-      // Send the original file name: catalog-image uploads (e.g. the SYLVER
-      // product photos) resolve to the exact product by name on the server,
-      // no OCR needed — those ~300px thumbnails contain no readable text.
-      const res = await ocrStockCheck({ image, filename: file.name });
-      applyResult(res);
-    } catch (err) {
-      // Surface the backend's own message when it has one (e.g. "OCR engine
-      // unavailable") so a failed scan says WHY instead of a generic error.
-      const detail =
-        (err && err.body && (err.body.details || []).join(' · ')) ||
-        err.message ||
-        'Scan failed. Check that the backend OCR engine is running and try again.';
-      setError(detail);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const reset = () => {
-    setResult(null);
-    setError('');
-    setFileName('');
-    setCounts({});
-    setReason('');
-    setConfirmMsg('');
-    setConfirmErr('');
-  };
-
-  const top = result && result.matches && result.matches[0];
-  const others = result && result.matches ? result.matches.slice(1) : [];
-  const locs = top
-    ? Object.keys(top.stock?.locations || {})
-    : [];
-  // Location name -> id map (the adjustment endpoint needs location_id).
   const [locIdByName, setLocIdByName] = useState({});
 
-  // Load the location list once so corrections can address the right
-  // storage area by id.
+  // Location list once, so corrections/transfers address the right area by id.
   useEffect(() => {
     apiGet('/api/locations')
       .then((data) => {
         const list = Array.isArray(data) ? data : (data && data.data) || [];
         const map = {};
-        list.forEach((l) => { if (l && l.id && l.name) map[l.name] = l.id; });
+        list.forEach((l) => {
+          if (l && l.id && l.name) map[l.name] = l.id;
+        });
         setLocIdByName(map);
       })
       .catch(() => {});
   }, []);
 
-  // Reset the verify-and-confirm form whenever a new scan lands.
-  useEffect(() => {
-    if (!top) return;
-    const next = {};
-    (Object.keys(top.stock?.locations || {})).forEach((k) => { next[k] = top.stock.locations[k]; });
-    setCounts(next);
+  const reset = () => {
+    setResult(null);
+    setError('');
+    setNotice('');
+    setCounts({});
     setReason('');
+    setTxType('adjustment');
+    setDstLocation('');
     setConfirmMsg('');
     setConfirmErr('');
-  }, [result && top && top.id]);
+  };
 
-  // Submit the physically-counted quantities as pending stock adjustments.
-  // Each changed location becomes its own adjustment request (the existing
-  // maker-approver queue: staff proposes, owner approves). Nothing is applied
-  // to stock until the owner approves.
-  const submitCorrection = async() => {
+  // A decoded string from the live camera or the uploaded QR image.
+  const handleDecoded = async (raw) => {
+    const code = String(raw || '').trim();
+    if (!code || busy) return;
+    setScanning(false); // pause scanning while the transaction is processed
+    setError('');
+    setNotice('');
+    setResult(null);
+
+    // Location tags are routed, not looked up: they name a storage area for
+    // transfers/counts, not a product.
+    const locTag = code.match(LOC_TAG_RE);
+    if (locTag) {
+      let name = locTag[2];
+      try {
+        name = decodeURIComponent(name);
+      } catch {
+        /* keep the raw value */
+      }
+      logScanEvent(code, 'location', Number(locTag[1]));
+      setNotice(`This is a location tag for “${name}” — location tags identify a storage area. Open the Inventory page to view that area's stock, or scan a product tag to record a count.`);
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const productTag = code.match(PROD_TAG_RE);
+      const codeParam = productTag ? productTag[1] : code;
+      // Unknown/foreign codes are logged too — exactly the scans worth being
+      // able to review in the audit trail later.
+      logScanEvent(code, productTag ? 'product' : 'unknown', null);
+      const data = await getProductByQr({ code: codeParam });
+      if (!data || !data.product) throw new Error('Unexpected response from the product lookup.');
+      setResult(data);
+      // Prefill the count form with the current quantities.
+      const next = {};
+      Object.keys(data.stock?.locations || {}).forEach((k) => {
+        next[k] = data.stock.locations[k];
+      });
+      setCounts(next);
+      setTxType('adjustment');
+      setDstLocation('');
+      setReason('');
+      setConfirmMsg('');
+      setConfirmErr('');
+    } catch (err) {
+      const status = err && err.status;
+      if (status === 400) setError('Invalid QR code. Please scan a valid INVENTRAK QR code.');
+      else if (status === 404) setError('QR code is not registered in INVENTRAK.');
+      else if (status === 409) setError('This product is currently inactive.');
+      else if (status === 401 || status === 403) setError('You are not authorized to perform this inventory action.');
+      else setError('Unable to retrieve product information. Please check your connection.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Fallback for browsers without a camera: upload a photo of the QR tag and
+  // decode it from the still image (same jsQR decoder).
+  const pick = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let code = null;
+        try {
+          code = jsQR(imageData.data, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
+        } catch {
+          code = null;
+        }
+        setBusy(false);
+        if (code && code.data) {
+          handleDecoded(code.data);
+        } else {
+          setError('No QR code found in the image. Try a sharper, well-lit photo of the tag.');
+        }
+      };
+      img.onerror = () => {
+        setBusy(false);
+        setError('Could not read that image file.');
+      };
+      img.src = String(reader.result || '');
+    };
+    reader.onerror = () => {
+      setBusy(false);
+      setError('Could not read that image file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const top = result;
+  const locs = top ? Object.keys(top.stock?.locations || {}) : [];
+  const locationNames = Object.keys(locIdByName);
+
+  const submitTransaction = async () => {
     if (!top) return;
     const changes = locs.filter((loc) => {
       const current = Number(top.stock?.locations?.[loc]) || 0;
       const next = Number(counts[loc]);
       return Number.isFinite(next) && next >= 0 && next !== current;
     });
+
+    if (txType === 'transfer') {
+      const qty = Number(counts.__transferQty);
+      const srcName = locs[0] || Object.keys(locIdByName)[0];
+      const srcId = locIdByName[srcName];
+      const dstId = locIdByName[dstLocation];
+      if (!Number.isFinite(qty) || qty <= 0) {
+        setConfirmErr('Enter the quantity to transfer.');
+        return;
+      }
+      if (!dstId) {
+        setConfirmErr('Choose the destination storage area.');
+        return;
+      }
+      if (dstId === srcId) {
+        setConfirmErr('Source and destination must differ.');
+        return;
+      }
+      setConfirmBusy(true);
+      setConfirmMsg('');
+      setConfirmErr('');
+      try {
+        await createStockTransfer({
+          product_id: Number(top.product.id),
+          src_location: Number(srcId),
+          dst_location: Number(dstId),
+          qty,
+          reason: reason.trim() || `Transfer from QR scan of ${top.product.name}`,
+        });
+        setConfirmMsg('Transfer submitted — PENDING APPROVAL. Stock moves after the owner approves.');
+        setReason('');
+      } catch (err) {
+        setConfirmErr(err?.body?.details?.join(' · ') || err?.message || 'Could not submit the transfer. Try again.');
+      } finally {
+        setConfirmBusy(false);
+      }
+      return;
+    }
+
     if (changes.length === 0) {
-      setConfirmErr('No changes — enter a corrected quantity that differs from the current count.');
+      setConfirmErr('No changes — enter a counted quantity that differs from the current count.');
       setConfirmMsg('');
       return;
     }
@@ -358,13 +403,16 @@ export default function ScanStockPage({ onLogout }) {
     let done = 0;
     for (const loc of changes) {
       const locationId = locIdByName[loc];
-      if (!locationId) { failures.push(loc); continue; }
+      if (!locationId) {
+        failures.push(loc);
+        continue;
+      }
       try {
         await createStockAdjustment({
-          product_id: Number(top.id),
+          product_id: Number(top.product.id),
           location_id: Number(locationId),
           new_qty: Number(counts[loc]),
-          reason: reason.trim() || `Physical count from scan of ${top.name}`,
+          reason: reason.trim() || `Physical count from QR scan of ${top.product.name}`,
         });
         done += 1;
       } catch (err) {
@@ -374,12 +422,12 @@ export default function ScanStockPage({ onLogout }) {
     setConfirmBusy(false);
     if (done > 0) {
       setConfirmMsg(
-        `${done} correction(s) submitted for approval — stock updates after the owner approves.`
-        + (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : ''),
+        `${done} transaction(s) submitted — PENDING APPROVAL. Official stock updates after the owner approves.` +
+          (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : ''),
       );
       setReason('');
     } else {
-      setConfirmErr('Could not submit corrections. Check the product/locations and try again.');
+      setConfirmErr('Could not submit. Check the product/locations and try again.');
     }
   };
 
@@ -388,10 +436,10 @@ export default function ScanStockPage({ onLogout }) {
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt, mb: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <div>
-            <Typography variant="h6">Scan a product label</Typography>
+            <Typography variant="h6">Scan a product QR code</Typography>
             <Typography variant="body2" color="text.secondary">
-              The daily manual-inventory answer: snap or upload a label, and the OCR engine
-              matches it to the catalog with the live stock at every location.
+              QR identifies the product; you verify the physical count and submit it for approval — the
+              owner approves before official stock updates.
             </Typography>
           </div>
           {!result ? (
@@ -399,26 +447,19 @@ export default function ScanStockPage({ onLogout }) {
               <Button
                 variant="contained"
                 startIcon={<VideocamOutlined />}
-                onClick={() => { setError(''); setLiveCam(true); }}
+                onClick={() => {
+                  setError('');
+                  setNotice('');
+                  setScanning((v) => !v);
+                }}
                 disabled={busy}
                 sx={{ backgroundColor: colors.brandPrimary }}
               >
-                {busy ? 'Scanning…' : 'Live camera'}
+                {scanning ? 'Stop camera' : 'Start QR camera'}
+                <QrCode2Outlined sx={{ ml: 1, opacity: 0.8 }} />
               </Button>
-              <Button
-                variant="outlined"
-                startIcon={<CameraAltOutlined />}
-                onClick={() => cameraRef.current && cameraRef.current.click()}
-                disabled={busy}
-              >
-                Take photo
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => fileRef.current && fileRef.current.click()}
-                disabled={busy}
-              >
-                Upload image
+              <Button variant="outlined" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}>
+                Scan QR image
               </Button>
             </Box>
           ) : (
@@ -427,27 +468,10 @@ export default function ScanStockPage({ onLogout }) {
             </Button>
           )}
         </Box>
-        {liveCam && (
-          <LiveCamera
-            onCapture={(b64) => {
-              setLiveCam(false);
-              runBase64(b64);
-            }}
-            onClose={() => setLiveCam(false)}
-          />
-        )}
-        {/* Camera capture: its own input so "Take photo" opens the rear
-            camera on phones. Browsers that ignore `capture` (some desktop
-            Chrome/Safari) fall back to a file picker — still works. */}
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: 'none' }}
-          onChange={pick}
-        />
-        {/* Upload: plain image picker (no capture attribute) — gallery/desktop. */}
+
+        {/* The scanner unmounts on a hit (camera released = scan paused) and
+            remounts when the operator starts it again. */}
+        {scanning && <QrScanner onDecode={handleDecoded} />}
         <input
           ref={fileRef}
           type="file"
@@ -458,35 +482,32 @@ export default function ScanStockPage({ onLogout }) {
         {busy && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2, color: 'text.secondary' }}>
             <CircularProgress size={20} />
-            <Typography variant="body2">Running OCR on the label…</Typography>
+            <Typography variant="body2">Product identified — retrieving details…</Typography>
           </Box>
         )}
+        {notice && <Alert severity="info" sx={{ mt: 2 }}>{notice}</Alert>}
         {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
       </Paper>
 
-      {result && top && (
+      {top && (
         <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
-          {result.text ? (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-              Recognized: {result.text.replace(/\n/g, ' · ').slice(0, 200)}
-            </Typography>
-          ) : null}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
-            {top.image ? (
+            {top.product.image ? (
               <Box
                 component="img"
-                src={imageUrl(top.image)}
-                alt={top.name}
+                src={imageUrl(top.product.image)}
+                alt={top.product.name}
                 sx={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 2, backgroundColor: colors.surface }}
               />
             ) : (
               <Box sx={{ width: 84, height: 84, borderRadius: 2, backgroundColor: colors.surface }} />
             )}
             <Box>
-              <Typography variant="h6">{top.name}</Typography>
+              <Typography variant="h6">{top.product.name}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {top.score >= 0.75 ? `${Math.round(top.score * 100)}% match` : `${Math.round(top.score * 100)}% match`}
-                {top.price != null ? ` · P${top.price}` : ''}
+                {top.qr?.sku} · {top.product.category || 'Uncategorized'}
+                {top.product.unit ? ` · ${top.product.unit}` : ''}
+                {top.product.price != null ? ` · P${top.product.price}` : ''}
               </Typography>
               <Chip
                 size="small"
@@ -497,99 +518,139 @@ export default function ScanStockPage({ onLogout }) {
             </Box>
           </Box>
 
-          <Table size="small" sx={{ maxWidth: 480 }}>
+          <Table size="small" sx={{ maxWidth: 520 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Location</TableCell>
-                <TableCell align="right">Qty</TableCell>
+                <TableCell align="right">Current</TableCell>
+                <TableCell align="right" sx={{ width: 140 }}>Counted</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {locs.length === 0 ? (
-                <TableRow><TableCell colSpan={2}>No stock recorded</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={3}>No stock recorded — enter your count below.</TableCell>
+                </TableRow>
               ) : (
                 locs.map((loc) => (
                   <TableRow key={loc}>
                     <TableCell>{loc}</TableCell>
-                    <TableCell align="right"><strong>{top.stock.locations[loc] ?? 0}</strong></TableCell>
+                    <TableCell align="right">
+                      <strong>{top.stock.locations[loc] ?? 0}</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <TextField
+                        size="small"
+                        type="text"
+                        inputMode="decimal"
+                        value={counts[loc] ?? ''}
+                        onChange={(e) => setCounts({ ...counts, [loc]: e.target.value.replace(/[^0-9.]/g, '') })}
+                        sx={{ width: 120, backgroundColor: colors.surface }}
+                        aria-label={`Counted quantity in ${loc}`}
+                      />
+                    </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
 
-          {/* Verify & confirm — the reviewer requirement: scanned text is shown
-              next to the suggested match and the staff member reviews/confirms
-              the physical count BEFORE any stock update is saved. Corrections
-              become pending adjustments (owner-approval queue), so a scan can
-              never silently overwrite live stock. */}
+          {/* Verify & record — the capstone requirement: the staff member
+              reviews the identified product, enters the physically counted
+              quantity, and submits. Every change becomes a PENDING adjustment
+              (owner-approval queue); nothing is applied to stock directly. */}
           <Box sx={{ mt: 3, pt: 2, borderTop: '1px dashed rgba(0,0,0,0.15)' }}>
-            <Typography variant="h6" sx={{ mb: 0.5 }}>Verify & record physical count</Typography>
+            <Typography variant="h6" sx={{ mb: 0.5 }}>Verify & record inventory transaction</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Compare the recognized label to the suggested product, enter the
-              actual counted quantity per location, and submit. Each change
-              becomes a pending adjustment that the owner approves before it
-              applies to stock.
+              Enter the actual counted quantity per storage area, choose the transaction type, and submit.
+              Submissions stay pending until the owner approves — QR never applies stock on its own.
             </Typography>
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', mb: 1.5 }}>
-              {locs.map((loc) => (
-                <TextField
-                  key={loc}
-                  size="small"
-                  label={`${loc} (current ${top.stock?.locations?.[loc] ?? 0})`}
-                  type="text"
-                  inputMode="decimal"
-                  value={counts[loc] ?? ''}
-                  onChange={(e) => setCounts({ ...counts, [loc]: e.target.value.replace(/[^0-9.]/g, '') })}
-                  sx={{ minWidth: 170, backgroundColor: colors.surface }}
-                />
-              ))}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <TextField
+                size="small"
+                select
+                label="Transaction"
+                value={txType}
+                onChange={(e) => setTxType(e.target.value)}
+                SelectProps={{ native: true }}
+                sx={{ minWidth: 200, backgroundColor: colors.surface }}
+              >
+                <option value="adjustment">Physical count (adjustment)</option>
+                <option value="transfer">Transfer between locations</option>
+              </TextField>
+              {txType === 'transfer' && (
+                <>
+                  <TextField
+                    size="small"
+                    type="text"
+                    inputMode="decimal"
+                    label="Transfer qty"
+                    value={counts.__transferQty ?? ''}
+                    onChange={(e) => setCounts({ ...counts, __transferQty: e.target.value.replace(/[^0-9.]/g, '') })}
+                    sx={{ width: 130, backgroundColor: colors.surface }}
+                  />
+                  <TextField
+                    size="small"
+                    select
+                    label="Destination"
+                    value={dstLocation}
+                    onChange={(e) => setDstLocation(e.target.value)}
+                    SelectProps={{ native: true }}
+                    sx={{ minWidth: 190, backgroundColor: colors.surface }}
+                  >
+                    <option value="">Select destination…</option>
+                    {locationNames.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </TextField>
+                </>
+              )}
               <TextField
                 size="small"
                 label="Reason (optional)"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                sx={{ minWidth: 260, flex: 1, backgroundColor: colors.surface }}
+                sx={{ minWidth: 220, flex: 1, backgroundColor: colors.surface }}
               />
               <Button
                 variant="contained"
                 color="secondary"
-                onClick={submitCorrection}
+                onClick={submitTransaction}
                 disabled={confirmBusy || !top}
                 sx={{ backgroundColor: colors.brandSecondary }}
               >
-                {confirmBusy ? 'Submitting…' : 'Submit corrections for approval'}
+                {confirmBusy ? 'Submitting…' : 'Submit for approval'}
               </Button>
             </Box>
             {confirmMsg ? <Alert severity="success" sx={{ mt: 1.5 }}>{confirmMsg}</Alert> : null}
             {confirmErr ? <Alert severity="error" sx={{ mt: 1.5 }}>{confirmErr}</Alert> : null}
           </Box>
 
-          {others.length > 0 && (
+          {/* Open FIFO/FEFO lots — the expiry info staff need while counting
+              perishable stock (consume soonest expiry first). */}
+          {top.lots && top.lots.length > 0 && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                Other possible matches
+                Open lots (FEFO order — consume soonest expiry first)
               </Typography>
-              {others.map((m) => (
-                <Box key={m.id ?? m.name} sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 1 }}>
-                  <Box
-                    component="img"
-                    src={imageUrl(m.image)}
-                    alt={m.name}
-                    sx={{ width: 36, height: 36, objectFit: 'cover', borderRadius: 1, backgroundColor: colors.surface }}
-                  />
-                  <Typography variant="body2" sx={{ flex: 1 }}>{m.name}</Typography>
-                  <Chip
-                    size="small"
-                    color={STATUS_META[m.stock?.status]?.color}
-                    label={`${m.stock?.total ?? 0} · ${STATUS_META[m.stock?.status]?.label || '?'}`}
-                  />
+              {top.lots.map((lot) => (
+                <Box
+                  key={lot.id ?? `${lot.product_id}-${lot.location_id}-${lot.received_at}`}
+                  sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 1 }}
+                >
+                  <Typography variant="body2">
+                    {lot.location_name || `Location ${lot.location_id}`} · qty {lot.qty}
+                    {lot.expiry_date ? ` · best before ${lot.expiry_date}` : ' · no expiry'}
+                  </Typography>
                 </Box>
               ))}
             </Box>
           )}
+
+          <Divider sx={{ mt: 3, mb: 1 }} />
+          <Typography variant="caption" color="text.secondary">
+            Scanned as {top.qr?.payload} — every scan is recorded in the audit trail.
+          </Typography>
         </Paper>
       )}
     </AdminLayout>

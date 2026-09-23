@@ -1,12 +1,24 @@
 // Security hardening tests: token expiry, registration field tampering, the
-// bot honeypot, OCR upload validation, security response headers, and the
+// bot honeypot, QR lookup security, security response headers, and the
 // HTTPS redirect behind a proxy. Boots BOTH backends through the shared
 // harness so the hardened behaviors stay in parity.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const crypto = require('node:crypto');
 const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness');
-const { isDecodedImage } = require('../ocr');
+const { parseProductQrIdentifier } = require('../qr-codes');
+
+// Test-facing alias: parseProductQrIdentifier returns {kind,value}; normalize
+// to an {ok} contract for these assertions.
+function parseQrPayload(raw) {
+  const parsed = parseProductQrIdentifier(raw);
+  return { ok: !!(parsed && parsed.kind && parsed.kind !== 'unknown') };
+}
+
+// Round-trip helper: the canonical payload for a code.
+function productQrPayload(code) {
+  return `INVENTRAK:PROD:${code}`;
+}
 
 before(async () => {
   await bootBoth();
@@ -91,31 +103,32 @@ test('register and login reject the bot honeypot field', async () => {
   assert.strictEqual(login.b.status, 400);
 });
 
-test('OCR endpoints reject non-image base64 payloads before the engine runs', async () => {
-  // base64 of "definitely not an image" — valid base64, not an image.
-  const junk = Buffer.from('definitely not an image data').toString('base64');
-  const { a, b } = await both('ocr stock junk image', '/api/ocr/stock', {
-    method: 'POST',
-    auth: 'admin',
-    body: { image: junk },
-  });
-  assert.strictEqual(a.status, 400);
-  assert.strictEqual(b.status, 400);
-  assert.match(a.json.details[0], /JPEG|PNG|WebP|GIF|BMP/);
-  assert.match(b.json.details[0], /JPEG|PNG|WebP|GIF|BMP/);
+test('QR payload parser rejects injection and arbitrary payloads', () => {
+  // The parser is the only thing that turns scanned bytes into a lookup —
+  // arbitrary payloads (e.g. URLs from a malicious tag) must never resolve.
+  assert.strictEqual(parseQrPayload('https://evil.example/steal-tokens').ok, false);
+  assert.strictEqual(parseQrPayload('INVENTRAK:PROD:1; DROP TABLE products').ok, false);
+  assert.strictEqual(parseQrPayload('').ok, false);
+  assert.strictEqual(parseQrPayload(null).ok, false);
+  assert.strictEqual(parseQrPayload('INVENTRAK:PROD:<script>').ok, false);
+  // The legit grammar parses: the SKU-form tag resolves as a sku identifier.
+  const ok = parseProductQrIdentifier(productQrPayload('MILK-001'));
+  assert.strictEqual(ok.kind, 'sku');
+  assert.strictEqual(ok.value, 'MILK-001');
 });
 
-test('the image magic-byte gate accepts real images and rejects arbitrary data', () => {
-  const jpeg = Buffer.from([
-    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
-    0x00,
-  ]);
-  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(16)]);
-  assert.strictEqual(isDecodedImage(jpeg), true);
-  assert.strictEqual(isDecodedImage(png), true);
-  assert.strictEqual(isDecodedImage(Buffer.from('definitely not an image data')), false);
-  assert.strictEqual(isDecodedImage(Buffer.alloc(0)), false);
-  assert.strictEqual(isDecodedImage(Buffer.from([0xff, 0xd8, 0xff])), false); // header but too short
+test('QR lookup never leaks sensitive fields and staff gate holds on both backends', async () => {
+  // Lookup returns catalog/stock data only — never cost, supplier, or user PII.
+  const a = await call(sqlite.url, '/api/products/qr/1', { token: sqlite.token.staff });
+  assert.strictEqual(a.status, 200);
+  const serialized = JSON.stringify(a.json);
+  for (const banned of ['"cost"', '"supplier_cost"', '"password"', '"password_hash"']) {
+    assert.ok(!serialized.includes(banned), `QR lookup must not leak ${banned}`);
+  }
+  // The customer must never resolve the staff lookup — identifiers are not
+  // authorization.
+  const asCustomer = await call(sqlite.url, '/api/products/qr/1', { token: sqlite.token.customer });
+  assert.strictEqual(asCustomer.status, 403, 'customer token must not use the staff QR lookup');
 });
 
 test('both backends send security headers on API responses', async () => {

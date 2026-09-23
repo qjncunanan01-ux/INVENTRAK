@@ -120,8 +120,6 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   updateOrderInquiry: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}', { params: { id }, body }),
   // PUT /api/order-inquiries/{id}/payment — Mark an inquiry as paid/unpaid/failed after the GCash step
   updateInquiryPayment: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}/payment', { params: { id }, body }),
-  // POST /api/ocr — Scan a product photo: OCR the image and fuzzy-match the catalog
-  scanProductPhoto: (body) => request('POST', '/api/ocr', { body }),
   // GET /api/optimization — Bulk optimization metrics for all products
   getOptimizationBulk: (_) => request('GET', '/api/optimization', {  }),
   // GET /api/optimization/abc — ABC classification of products
@@ -150,8 +148,6 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
   // POST /api/scan-events — Record a QR / barcode scan into the audit trail (staff or admin)
   createScanEvent: (body) => request('POST', '/api/scan-events', { body }),
-  // POST /api/ocr/stock — Admin stock check: OCR a product label and return matches with live per-location stock
-  ocrStockCheck: (body) => request('POST', '/api/ocr/stock', { body }),
   // GET /api/auth/google/start — Start Google OAuth relay: redirects the browser to Google consent with the backend callback as redirect_uri.
   googleAuthStart: (params) => request('GET', '/api/auth/google/start', { query: params }),
   // GET /api/auth/google/callback — Google OAuth callback: exchanges the code server-side and deep-links back to the app with a session token.
@@ -175,9 +171,11 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   // PUT /api/settings — Update runtime system settings (Owner / Super Admin only)
   updateSettings: (body) => request('PUT', '/api/settings', { body }),
   // GET /api/audit-trail — Security audit log entries (admin only) — newest first
-  listAuditTrail: (_) => request('GET', '/api/audit-trail', {  }),
+  listAuditTrail: (params) => request('GET', '/api/audit-trail', { query: params }),
   // GET /api/cache/stats — In-memory cache statistics (admin only)
   getCacheStats: (_) => request('GET', '/api/cache/stats', {  }),
+  // GET /api/products/qr/{code} — QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)
+  getProductByQr: ({ code }) => request('GET', '/api/products/qr/{code}', { params: { code } }),
   };
 }
 

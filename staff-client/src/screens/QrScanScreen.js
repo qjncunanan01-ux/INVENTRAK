@@ -20,8 +20,8 @@ import { useThemeColors } from '../theme-context';
 //     shown inline on this screen.
 //   - Product tag (INVENTRAK:PROD:<id> or a bare barcode number) → opens the
 //     shared CountCard for that product.
-// Label OCR deliberately lives in its own module (LabelScanScreen); each
-// camera workflow gets its own screen so staff train on one thing at a time.
+// Each camera workflow gets its own screen so staff train on one thing at
+// a time; product identification is QR-only now.
 
 // Same payload grammar as the admin's printed tags (and the customer app's
 // scanner, where these components were proven out).
@@ -75,7 +75,7 @@ export default function QrScanScreen() {
       const parsed = r && r.data ? r.data : r;
       const item = (parsed.items || []).find((i) => Number(i.product?.id) === Number(id));
       if (!item) {
-        Alert.alert('Not in stock view', 'That product has no stock record yet — use the Label Scan module instead.');
+        Alert.alert('Not in stock view', 'That product has no stock record yet — create one from the admin Inventory page first.');
         return;
       }
       setFocus({ id: item.product.id, name: item.product.name, stock: { locations: item.locations || {} } });

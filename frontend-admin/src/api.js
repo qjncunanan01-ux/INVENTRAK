@@ -98,7 +98,10 @@ export const approveStockTransfer = client.approveStockTransfer;
 export const rejectStockTransfer = client.rejectStockTransfer;
 export const getApprovals = client.getApprovals;
 export const getReports = client.getReports;
-export const ocrStockCheck = client.ocrStockCheck;
+// QR product identification (Scan & Stock): the scanned tag payload / SKU /
+// bare id resolves to one product with live stock + lots (staff or admin).
+export const getProductByQr = client.getProductByQr;
+export const createScanEvent = client.createScanEvent;
 export const logout = client.logout;
 export const mfaSetup = client.mfaSetup;
 export const mfaConfirm = client.mfaConfirm;

@@ -9,6 +9,7 @@ const { criticalLevels, criticalLevelFromMap } = require('../critical-level');
 const { stockStatus } = require('../critical-level');
 const settings = require('../settings');
 const { audit } = require('../audit');
+const { skuForProductId, isSkuShape, handleQrProductLookup } = require('../qr-codes');
 const { enrichInquiryRows } = require('../inquiry-helpers');
 
 const MAX_BULK_PRICES = 2000;
@@ -51,6 +52,34 @@ router.get('/categories', (req, res) => {
   res.json(rows.map(r => r.category));
 });
 
+// GET /api/products/qr/:code — QR product identification (staff or admin).
+// Replaces the OCR scan pipeline: the scanned tag yields an IDENTIFIER, the
+// server resolves it against the database and returns the product with a live
+// per-location stock snapshot and open FIFO lots in one round trip. Accepts a
+// full tag payload ("INVENTRAK:PROD:42"), a SKU ("PRD-000042" / "MILK-001")
+// or a bare numeric id (legacy barcode fallback). NOTE: declared BEFORE
+// /:id so Express does not swallow "qr" as an id.
+router.get('/qr/:code', authenticateToken, staffOrAdmin, async (req, res) => {
+  const products = db.prepare('SELECT * FROM products').all();
+  const stockLookup = (productId) => {
+    const rows = db.prepare('SELECT l.name, s.quantity FROM stock s JOIN locations l ON s.location_id = l.id WHERE s.product_id = ?').all(productId);
+    const locations = {};
+    let total = 0;
+    for (const r of rows) { locations[r.name] = Number(r.quantity) || 0; total += Number(r.quantity) || 0; }
+    return { locations, total };
+  };
+  const lotsFor = (productId) =>
+    db.prepare(`SELECT sl.id, sl.product_id, sl.location_id, sl.qty, sl.received_at, sl.expiry_date, l.name as location_name
+                FROM stock_lots sl JOIN locations l ON sl.location_id = l.id
+                WHERE sl.qty > 0 AND sl.product_id = ?
+                ORDER BY (sl.expiry_date IS NULL) ASC, sl.expiry_date ASC, sl.received_at ASC, sl.id ASC`).all(productId);
+  await handleQrProductLookup(req, res, (r, code, body) => r.status(code).json(body), {
+    products,
+    stockLookup,
+    lotsFor,
+  });
+});
+
 // GET /api/products/:id
 router.get('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
@@ -65,10 +94,27 @@ router.post('/', authenticateToken, adminOnly, validate({
   price: { required: true, type: 'number', min: 0 },
   image: { maxLength: 300 },
 }), (req, res) => {
-  const { name, category, brand, description, size, unit, price, status, image } = req.body;
-  const info = db.prepare('INSERT INTO products (name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(sanitizeObject(name), sanitizeObject(category), sanitizeObject(brand || ''), sanitizeObject(description || ''), sanitizeObject(size || ''), sanitizeObject(unit || 'pcs'), price, status || 'active', image || null);
-  res.status(201).json({ id: info.lastInsertRowid });
+  const { name, category, brand, description, size, unit, price, status, image, sku } = req.body;
+  // SKU: a valid custom code wins; otherwise the deterministic system code is
+  // assigned on create, so every product is QR-addressable from birth.
+  let skuValue = null;
+  if (sku !== undefined && sku !== null && String(sku).trim() !== '') {
+    const candidate = String(sku).trim().toUpperCase();
+    if (!isSkuShape(candidate)) {
+      return res.status(400).json({ error: 'Validation failed', details: ['sku must be 3-32 characters: letters, numbers and dashes only'] });
+    }
+    if (db.prepare('SELECT id FROM products WHERE sku = ?').get(candidate)) {
+      return res.status(409).json({ error: 'Validation failed', details: ['A product with this SKU already exists'] });
+    }
+    skuValue = candidate;
+  }
+  const info = db.prepare('INSERT INTO products (sku, name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(skuValue, sanitizeObject(name), sanitizeObject(category), sanitizeObject(brand || ''), sanitizeObject(description || ''), sanitizeObject(size || ''), sanitizeObject(unit || 'pcs'), price, status || 'active', image || null);
+  const newId = Number(info.lastInsertRowid);
+  if (skuValue === null) {
+    db.prepare('UPDATE products SET sku = ? WHERE id = ?').run(skuForProductId(newId), newId);
+  }
+  res.status(201).json({ id: newId });
 });
 
 // PUT /api/products/:id
@@ -76,9 +122,26 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
   const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Product not found' });
 
-  const { name, category, brand, description, size, unit, price, status, image } = req.body;
-  db.prepare('UPDATE products SET name=?, category=?, brand=?, description=?, size=?, unit=?, price=?, status=?, image=?, updated_at=datetime(\'now\') WHERE id=?')
-    .run(sanitizeObject(name), sanitizeObject(category), sanitizeObject(brand), sanitizeObject(description), sanitizeObject(size), sanitizeObject(unit), price, status, image || null, req.params.id);
+  const { name, category, brand, description, size, unit, price, status, image, sku } = req.body;
+  // Optional custom SKU on update: same validation as create. An absent/blank
+  // value leaves the existing SKU untouched (labels must stay valid).
+  let skuValue;
+  if (sku !== undefined && sku !== null) {
+    if (String(sku).trim() === '') {
+      return res.status(400).json({ error: 'Validation failed', details: ['sku cannot be cleared — reprint the tag instead'] });
+    }
+    const candidate = String(sku).trim().toUpperCase();
+    if (!isSkuShape(candidate)) {
+      return res.status(400).json({ error: 'Validation failed', details: ['sku must be 3-32 characters: letters, numbers and dashes only'] });
+    }
+    const clash = db.prepare('SELECT id FROM products WHERE sku = ?').get(candidate);
+    if (clash && Number(clash.id) !== Number(req.params.id)) {
+      return res.status(409).json({ error: 'Validation failed', details: ['A product with this SKU already exists'] });
+    }
+    skuValue = candidate;
+  }
+  db.prepare('UPDATE products SET name=?, category=?, brand=?, description=?, size=?, unit=?, price=?, status=?, image=?, sku=COALESCE(?, sku), updated_at=datetime(\'now\') WHERE id=?')
+    .run(sanitizeObject(name), sanitizeObject(category), sanitizeObject(brand), sanitizeObject(description), sanitizeObject(size), sanitizeObject(unit), price, status, image || null, skuValue === undefined ? null : skuValue, req.params.id);
   res.json({ ok: true });
 });
 

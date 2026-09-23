@@ -506,8 +506,9 @@ Other hardening already built in (all covered by `backend/src/test/security.test
   a client that sends `role: "admin"` is ignored (contract-tested).
 - **Bot honeypot** — login/register reject requests that include a `website`
   field (real clients never send it).
-- **Upload restrictions** — the OCR endpoints accept only real images (magic-byte
-  check: JPEG/PNG/WebP/GIF/BMP, max 8 MB) before the OCR engine runs.
+- **Upload restrictions** — the old OCR image-upload surface was removed with the
+  OCR→QR migration; scanning submits only a short tag payload (strict grammar,
+  length-capped) — no user file uploads remain on the API.
 - **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
   `Permissions-Policy`, CSP (`default-src 'none'` on JSON), and `Strict-Transport-Security`
   when served over HTTPS.

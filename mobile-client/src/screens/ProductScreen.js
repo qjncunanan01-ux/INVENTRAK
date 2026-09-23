@@ -131,7 +131,7 @@ export default function ProductScreen({ route, navigation }) {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Deep-link focus: when Home (quick tile) or the OCR scanner navigates here
+  // Deep-link focus: when Home (quick tile) or the QR scanner navigates here
   // with focusId, open that product's PDP after the catalog loads. Consumed
   // once per navigation (lastFocusRef), so closing the PDP clears the param
   // and the same product can be re-opened by a second scan.
@@ -498,14 +498,14 @@ export default function ProductScreen({ route, navigation }) {
           autoCapitalize="none"
         />
         {/* Scan shortcut inside the search bar (Lazada/Shopee pattern): tap to
-            open the OCR scanner — a strong match auto-opens the product. */}
+            open the QR scanner — a product tag opens the product instantly. */}
         <TouchableOpacity
           style={styles.scanBtn}
-          onPress={() => navigation.navigate('OCR')}
-          accessibilityLabel="Scan a product with the camera"
+          onPress={() => navigation.navigate('QrScan')}
+          accessibilityLabel="Scan a product QR code"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <MaterialCommunityIcons name="camera-outline" size={22} color={colors.brandPrimary} />
+          <MaterialCommunityIcons name="qrcode-scan" size={22} color={colors.brandPrimary} />
         </TouchableOpacity>
       </View>
 

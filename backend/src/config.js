@@ -34,9 +34,6 @@ const LOCKOUT_DURATION_SECONDS = 300;
 /** Max request body size for normal JSON endpoints (bytes). */
 const MAX_BODY_BYTES = 100 * 1024;
 
-/** Max request body size for OCR endpoints (base64 images can be large). */
-const MAX_OCR_BODY_BYTES = 12 * 1024 * 1024;
-
 /** Cache-Control header for read-heavy GET endpoints (products, categories, inventory). */
 const READ_CACHE_TTL = 'public, max-age=300, stale-while-revalidate=60';
 
@@ -64,7 +61,6 @@ module.exports = {
   MAX_LOGIN_ATTEMPTS,
   LOCKOUT_DURATION_SECONDS,
   MAX_BODY_BYTES,
-  MAX_OCR_BODY_BYTES,
   READ_CACHE_TTL,
   BULK_PRICES_MAX_ENTRIES,
   PRODUCT_NAME_MAX_LENGTH,

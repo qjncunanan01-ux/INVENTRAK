@@ -109,6 +109,26 @@ if (!productColumns.some(c => c.name === 'image')) {
   db.exec('ALTER TABLE products ADD COLUMN image TEXT');
 }
 
+// QR product identification: products gain a stable human-readable SKU used by
+// printed labels and by the QR lookup endpoint (which also accepts the tag
+// payload INVENTRAK:PROD:<id> and a bare id). Additive column; then a one-time
+// backfill assigns a deterministic system SKU ("PRD-000001", derived from the
+// id — collision-free by construction) to every product missing one, so the
+// QR migration is self-seeding on both fresh and legacy databases.
+if (!productColumns.some(c => c.name === 'sku')) {
+  // SQLite cannot ADD COLUMN ... UNIQUE — add plain, backfill, then enforce
+  // uniqueness with a dedicated index (also speeds the QR lookup by sku).
+  db.exec('ALTER TABLE products ADD COLUMN sku TEXT');
+  const { skuForProductId } = require('./qr-codes');
+  const backfill = db.prepare("UPDATE products SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = '')");
+  db.transaction(() => {
+    for (const row of db.prepare('SELECT id FROM products ORDER BY id').all()) {
+      backfill.run(skuForProductId(row.id), row.id);
+    }
+  })();
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_products_sku ON products(sku)');
+}
+
 // FEFO (First-Expired, First-Out): stock_lots gains a nullable expiry_date.
 // NULL expiry keeps pure FIFO ordering; lots WITH an expiry are always
 // consumed before non-expiring ones, soonest expiry first (arrival order as

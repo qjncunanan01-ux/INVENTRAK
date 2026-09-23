@@ -24,9 +24,9 @@ https://expo.dev/artifacts/eas/n48hTvGI1oz48Y_1XSdiV7FmeNqcVObgZWwW_c1JDoc.apk
 > **pruned API facade** (the customer app no longer exposes admin-only
 > endpoints), the **Google name fix** (real profile name, e.g.
 > "Jerico Cunanan", not "Jerico + Cunanan"), the **security hardening pass**
-> (24h session expiry, forge-proof signing keys, stricter OCR upload
-> checks), and all the UI/UX + scan-flow fixes. Same signing key as previous
-> installs → updates in place, no uninstall needed.
+> (24h session expiry, forge-proof signing keys), and all the UI/UX +
+> scan-flow fixes. Same signing key as previous installs → updates in
+> place, no uninstall needed.
 >
 > Build ID: `5145d163-d639-4480-b014-8f5095e1f48f` · Build page:
 > https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/5145d163-d639-4480-b014-8f5095e1f48f
@@ -53,12 +53,10 @@ https://expo.dev/artifacts/eas/n48hTvGI1oz48Y_1XSdiV7FmeNqcVObgZWwW_c1JDoc.apk
   deployed backend. **"Continue with Google"** button is now always visible
   and runs the server-side Google OAuth relay (real-name usernames, see
   DEPLOY.md "Google sign-in")
-- **Scan flow:** catalog camera icon → photos are **preprocessed before
-  upload** (grayscale + contrast + normalize — same as the admin scanner),
-  the crop editor is disabled (fixes the black camera preview on several
-  Android devices), the camera permission is declared in the manifest, and
-  OCR only returns matches that name a **specific catalog product**
-  (watermark/one-word scans are honest misses)
+- **Scan flow:** catalog camera icon → live QR scanning with the device
+  camera, the camera permission is declared in the manifest, and only
+  registered INVENTRAK product tags resolve — foreign QR codes get an
+  explicit "not registered" alert and are audit-logged
 - **Catalog layout:** category + sort chip rows keep fixed heights on narrow
   phones (no more overlapping the result counter), and every list key is
   hardened so duplicate-key warnings can't appear
