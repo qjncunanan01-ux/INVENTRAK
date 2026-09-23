@@ -1972,7 +1972,12 @@ const server = http.createServer((req, res) => {
   // backend's GET /api/products/qr/:code — contract tests assert parity.
   if (req.method === 'GET' && url.split('?')[0].startsWith('/api/products/qr/')) {
     const parts = url.split('?')[0].split('/').filter(Boolean); // [api, products, qr, ...code]
-    const code = parts.slice(3).join('/');
+    // Clients may transmit the tag verbatim (INVENTRAK:PROD:12) or
+    // URL-encoded (INVENTRAK%3APROD%3A12). The Express/SQLite backend decodes
+    // path params automatically — mirror that here so both backends accept
+    // both forms (qr-lookup.test.js locks this parity).
+    let code = parts.slice(3).join('/');
+    try { code = decodeURIComponent(code); } catch { /* keep the raw value */ }
     const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
     const inv = getInventory();
     const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));

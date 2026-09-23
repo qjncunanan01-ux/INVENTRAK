@@ -129,6 +129,19 @@ describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
     }
   });
 
+  test('URL-encoded full-payload form resolves the same product', async () => {
+    // A scanner app may hand the lookup the verbatim tag payload;
+    // HTTP clients may percent-encode it (':' -> %3A). Both backends must
+    // accept both forms — the npm-free dispatcher previously skipped the
+    // decode step, so the encoded form 400'd only there.
+    const encoded = encodeURIComponent('INVENTRAK:PROD:1');
+    for (const side of [sqlite, npmfree]) {
+      const res = await call(side.url, `/api/products/qr/${encoded}`, { token: side.token.staff });
+      assert.strictEqual(res.status, 200, 'encoded full payload resolves');
+      assert.strictEqual(Number(res.json.product.id), 1, 'resolves to product 1');
+    }
+  });
+
   test('sku-form code resolves the same product (case-insensitive)', async () => {
     for (const code of ['PRD-000001', 'prd-000001']) {
       for (const side of [sqlite, npmfree]) {
