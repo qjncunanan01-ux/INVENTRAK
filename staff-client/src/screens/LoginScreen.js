@@ -18,7 +18,7 @@ const STAFF_TIER_ONLY = ['staff'];
 // Build marker: the login screen prints its own version so an outdated
 // install is obvious at a glance instead of surfacing as scan failures.
 const APP_VERSION =
-  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.1.0';
+  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.2.0';
 import { useThemeColors } from '../theme-context';
 
 // Staff sign-in — this app is EXCLUSIVELY for Inventory Staff. The login
