@@ -11,14 +11,24 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
-## Latest build (Sep 26, 2026 — QR scanner build)
+## Latest build (Sep 26, 2026 — v1.1.0 version-badge build)
 
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/WRw4CqjMVX0HIGnJcuq17uf-dfI90VcVVbmbTL-ssl8.apk
+https://expo.dev/artifacts/eas/GMYLAKT3OOdSrmZBBBAa8lhPzMr2A8C3TN0cfl0lrYI.apk
 ```
 
+> **v1.1.0 (Sep 26, version-badge build):** same QR scanner as the build
+> below, plus a small **version marker on the login screen** — the app now
+> prints its own version (v1.1.0), so an outdated install is obvious at a
+> glance instead of surfacing as mysterious scan failures. **If the login
+> screen doesn't say v1.1.0, you're running an old install — reinstall.**
+> Same signing key → updates in place, no uninstall needed.
+>
+> Build ID: `4d905989-d2ef-4dd3-bd04-2a98c26263e4` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/4d905989-d2ef-4dd3-bd04-2a98c26263e4
+>
 > **v1.0.0 (Sep 26, QR build):** the in-app scanner is now a **QR reader** —
 > the old OCR screen is gone. **This is the build that fixes the
 > "no data has been found" error when scanning the printed QR tags:** the
@@ -30,14 +40,6 @@ https://expo.dev/artifacts/eas/WRw4CqjMVX0HIGnJcuq17uf-dfI90VcVVbmbTL-ssl8.apk
 >
 > Build ID: `4006a3ba-c767-4697-919a-0b23e7da0964` · Build page:
 > https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/4006a3ba-c767-4697-919a-0b23e7da0964
->
-> **v1.1.0 (Sep 26, version-badge build):** same QR scanner plus a small
-> **version marker on the login screen** — the app now prints its own
-> version (v1.1.0), so an outdated install is obvious at a glance instead of
-> surfacing as mysterious scan failures. Same signing key → updates in place.
-> Rebuild link: _pending — see the build page at
-> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds
-> until this line is updated._
 >
 > **v1.0.0 (Aug 15, final pre-demo — superseded by the QR build above):**
 > rebuilt from latest `main` so the
@@ -84,7 +86,7 @@ https://expo.dev/artifacts/eas/WRw4CqjMVX0HIGnJcuq17uf-dfI90VcVVbmbTL-ssl8.apk
 - **Backend:** `https://inventrak-api.onrender.com` baked in (Supabase
   PostgreSQL)
 - **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
-  (re-downloaded Sep 26 — the QR scanner build)
+  (re-downloaded Sep 26 — the v1.1.0 version-badge build)
 
 > **No-install alternative:** open the customer app in any phone/desktop
 > browser at the permanent hosted URL `https://inventrak-mobile.onrender.com/`
