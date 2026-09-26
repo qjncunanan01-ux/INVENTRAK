@@ -11,50 +11,52 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
-## Latest builds (Sep 26, 2026 — v1.1.0, both apps)
+## Latest builds (Sep 27, 2026 — v1.2.0, both apps)
 
 ### Customer app (INVENTRAK — `com.inventrak.mobile`)
 
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/jlWwuAtPb9aHOG2coTX-SV8-1XxvhaIdkrPZKdk5Bic.apk
+https://expo.dev/artifacts/eas/i3rggZLQMbBcygcLFInmV5GAwv1M0XufXUuTaN1fnQg.apk
 ```
 
-> **v1.1.0 (customer):** QR scanner + a **version marker on the login
-> screen** — the app prints its own version, so an outdated install is
-> obvious at a glance. **If the login screen doesn't say v1.1.0, you're
-> running an old install — reinstall.** Same signing key → updates in
-> place, no uninstall needed.
+> **v1.2.0 (customer):** the scanner now also reads **camera-friendly tag
+> URLs** (`https://…/t/<id>`) — the format the admin has printed since the
+> v1.1.0 era — so tags scan in-app **and** in any phone's native camera
+> app (which opens the public product page). Login screen shows **v1.2.0**;
+> if yours doesn't, you're on an old install — update. Same signing key →
+> updates in place.
 >
-> Build ID: `72fdfa0d-ae5d-4d56-8db0-6cfb0a714687` · Build page:
-> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/72fdfa0d-ae5d-4d56-8db0-6cfb0a714687
+> Build ID: `c55a1073-0154-4d40-8ce9-c95b73b5b2a6` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/c55a1073-0154-4d40-8ce9-c95b73b5b2a6
 
 ### Staff app (INVENTRAK Staff — `com.inventrak.staff`)
 
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/y37dhg0032MJSHtEfdXD27yfiXRDJ6Ha1vC6pAE0MAw.apk
+https://expo.dev/artifacts/eas/1EgLmgnDTxtunwSD8mTqDUMmlTvoCLQQqYLHTfMvcpo.apk
 ```
 
-> **v1.1.0 (staff):** the staff-only tag scanner (product tags → count
-> card, location tags → storage-area stock) with the same login-screen
-> version marker. Sign in with the seeded staff account (`staff` /
-> `staff123`) — this app refuses admin/owner/customer accounts by design.
-> It is a **separate app** from the customer one (own icon, own package),
-> so both can live on the same phone.
+> **v1.2.0 (staff):** the staff-only tag scanner (product tags → count
+> card, location tags → storage-area stock) with URL-tag support and the
+> login-screen version marker. Sign in with the seeded staff account
+> (`staff` / `staff123`) — this app refuses admin/owner/customer accounts
+> by design. It is a **separate app** from the customer one (own icon, own
+> package), so both can live on the same phone.
 >
-> Build ID: `551ee380-b4f4-4388-a89c-aa3c814fc7e5` · Build page:
-> https://expo.dev/accounts/patrickcuevas/projects/inventrak-staff/builds/551ee380-b4f4-4388-a89c-aa3c814fc7e5
+> Build ID: `da56053c-af13-4846-95f1-365ce0f89463` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-staff/builds/da56053c-af13-4846-95f1-365ce0f89463
 >
 > **Local copies:** `INVENTRAK-production.apk` (customer) and
-> `INVENTRAK-staff.apk` (staff) in the project folder on the desktop.
+> `INVENTRAK-staff.apk` (staff) in the project folder on the desktop —
+> both v1.2.0.
 
-> **v1.1.0 (Sep 26, earlier customer build — superseded by the one above):**
-> the first version-badge build (same features). Build ID
-> `4d905989-d2ef-4dd3-bd04-2a98c26263e4`, link
-> `https://expo.dev/artifacts/eas/GMYLAKT3OOdSrmZBBBAa8lhPzMr2A8C3TN0cfl0lrYI.apk`.
+> **v1.1.0 (Sep 26, superseded):** version-badge builds **without** URL-tag
+> support — they still recognize the old plain-payload tags. Customer build
+> `72fdfa0d` → `https://expo.dev/artifacts/eas/jlWwuAtPb9aHOG2coTX-SV8-1XxvhaIdkrPZKdk5Bic.apk`;
+> staff build `551ee380` → `https://expo.dev/artifacts/eas/y37dhg0032MJSHtEfdXD27yfiXRDJ6Ha1vC6pAE0MAw.apk`.
 >
 > **v1.0.0 (Sep 26, QR build):** the in-app scanner is now a **QR reader** —
 > the old OCR screen is gone. **This is the build that fixes the
@@ -194,15 +196,17 @@ The APK is not from the Play Store, so Android asks for permission once:
 
 ## Scanning tags with the phone's own camera app
 
-Tags reprinted after Sep 26, 2026 encode a **URL** (e.g.
+Tags printed from the admin now encode a **URL** (e.g.
 `https://inventrak-api.onrender.com/t/1`), so scanning them with the phone's
 **native camera app** opens a public product page — no INVENTRAK app needed,
 and no more "No usable data found" on iPhone. Scanning **inside the
-INVENTRAK apps** still resolves the tag to the product / count card as usual.
+INVENTRAK apps (v1.2.0+)** resolves the same tag to the product / count card
+as usual — the apps unwrap the URL behind the scenes.
 
-Older tags that encode the plain payload (`INVENTRAK:PROD:<id>`) still work
-in the apps, but a native camera can't act on them — **reprint tags from the
-admin** (Products → QR tag, or the batch tag sheet) to get the URL form.
+Very old tags that encode the plain payload (`INVENTRAK:PROD:<id>`) still
+work in the apps (v1.2.0 and v1.1.0 alike), but a native camera can't act on
+them — **reprint tags from the admin** (Products → QR tag, or the batch tag
+sheet) to get the URL form.
 
 ---
 
