@@ -11,23 +11,50 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
-## Latest build (Sep 26, 2026 — v1.1.0 version-badge build)
+## Latest builds (Sep 26, 2026 — v1.1.0, both apps)
+
+### Customer app (INVENTRAK — `com.inventrak.mobile`)
 
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/GMYLAKT3OOdSrmZBBBAa8lhPzMr2A8C3TN0cfl0lrYI.apk
+https://expo.dev/artifacts/eas/jlWwuAtPb9aHOG2coTX-SV8-1XxvhaIdkrPZKdk5Bic.apk
 ```
 
-> **v1.1.0 (Sep 26, version-badge build):** same QR scanner as the build
-> below, plus a small **version marker on the login screen** — the app now
-> prints its own version (v1.1.0), so an outdated install is obvious at a
-> glance instead of surfacing as mysterious scan failures. **If the login
-> screen doesn't say v1.1.0, you're running an old install — reinstall.**
-> Same signing key → updates in place, no uninstall needed.
+> **v1.1.0 (customer):** QR scanner + a **version marker on the login
+> screen** — the app prints its own version, so an outdated install is
+> obvious at a glance. **If the login screen doesn't say v1.1.0, you're
+> running an old install — reinstall.** Same signing key → updates in
+> place, no uninstall needed.
 >
-> Build ID: `4d905989-d2ef-4dd3-bd04-2a98c26263e4` · Build page:
-> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/4d905989-d2ef-4dd3-bd04-2a98c26263e4
+> Build ID: `72fdfa0d-ae5d-4d56-8db0-6cfb0a714687` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/72fdfa0d-ae5d-4d56-8db0-6cfb0a714687
+
+### Staff app (INVENTRAK Staff — `com.inventrak.staff`)
+
+**Direct download link:**
+
+```
+https://expo.dev/artifacts/eas/y37dhg0032MJSHtEfdXD27yfiXRDJ6Ha1vC6pAE0MAw.apk
+```
+
+> **v1.1.0 (staff):** the staff-only tag scanner (product tags → count
+> card, location tags → storage-area stock) with the same login-screen
+> version marker. Sign in with the seeded staff account (`staff` /
+> `staff123`) — this app refuses admin/owner/customer accounts by design.
+> It is a **separate app** from the customer one (own icon, own package),
+> so both can live on the same phone.
+>
+> Build ID: `551ee380-b4f4-4388-a89c-aa3c814fc7e5` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-staff/builds/551ee380-b4f4-4388-a89c-aa3c814fc7e5
+>
+> **Local copies:** `INVENTRAK-production.apk` (customer) and
+> `INVENTRAK-staff.apk` (staff) in the project folder on the desktop.
+
+> **v1.1.0 (Sep 26, earlier customer build — superseded by the one above):**
+> the first version-badge build (same features). Build ID
+> `4d905989-d2ef-4dd3-bd04-2a98c26263e4`, link
+> `https://expo.dev/artifacts/eas/GMYLAKT3OOdSrmZBBBAa8lhPzMr2A8C3TN0cfl0lrYI.apk`.
 >
 > **v1.0.0 (Sep 26, QR build):** the in-app scanner is now a **QR reader** —
 > the old OCR screen is gone. **This is the build that fixes the
@@ -86,7 +113,8 @@ https://expo.dev/artifacts/eas/GMYLAKT3OOdSrmZBBBAa8lhPzMr2A8C3TN0cfl0lrYI.apk
 - **Backend:** `https://inventrak-api.onrender.com` baked in (Supabase
   PostgreSQL)
 - **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
-  (re-downloaded Sep 26 — the v1.1.0 version-badge build)
+  (customer) and `INVENTRAK-staff.apk` (staff) — both v1.1.0, downloaded
+  Sep 26
 
 > **No-install alternative:** open the customer app in any phone/desktop
 > browser at the permanent hosted URL `https://inventrak-mobile.onrender.com/`
@@ -197,6 +225,10 @@ cd mobile-client
 npx eas-cli login              # once per machine: qjncunanan01@tip.edu.ph
 npx eas-cli build --platform android --profile production --non-interactive
 # ~6–15 min on the free cloud; the terminal prints the download link
+
+# Staff app (same account, its own project):
+cd ../staff-client
+npx eas-cli build --platform android --profile production --non-interactive
 ```
 
 The `production` profile in `eas.json` already bakes
