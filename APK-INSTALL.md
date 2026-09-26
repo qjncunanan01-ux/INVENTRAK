@@ -11,15 +11,36 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
-## Latest build (Aug 15, 2026 — final pre-demo)
+## Latest build (Sep 26, 2026 — QR scanner build)
 
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/n48hTvGI1oz48Y_1XSdiV7FmeNqcVObgZWwW_c1JDoc.apk
+https://expo.dev/artifacts/eas/WRw4CqjMVX0HIGnJcuq17uf-dfI90VcVVbmbTL-ssl8.apk
 ```
 
-> **v1.0.0 (Aug 15, final pre-demo):** rebuilt from latest `main` so the
+> **v1.0.0 (Sep 26, QR build):** the in-app scanner is now a **QR reader** —
+> the old OCR screen is gone. **This is the build that fixes the
+> "no data has been found" error when scanning the printed QR tags:** the
+> previously installed APK still ran the old OCR flow, which could only read
+> plain-text SYLVER labels and simply couldn't decode QR codes. Also carries
+> the backend QR URL-decode fix (full `INVENTRAK:PROD:<id>` payloads now
+> resolve, not just bare IDs/SKUs). Same signing key as previous installs →
+> updates in place, no uninstall needed.
+>
+> Build ID: `4006a3ba-c767-4697-919a-0b23e7da0964` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds/4006a3ba-c767-4697-919a-0b23e7da0964
+>
+> **v1.1.0 (Sep 26, version-badge build):** same QR scanner plus a small
+> **version marker on the login screen** — the app now prints its own
+> version (v1.1.0), so an outdated install is obvious at a glance instead of
+> surfacing as mysterious scan failures. Same signing key → updates in place.
+> Rebuild link: _pending — see the build page at
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-mobile/builds
+> until this line is updated._
+>
+> **v1.0.0 (Aug 15, final pre-demo — superseded by the QR build above):**
+> rebuilt from latest `main` so the
 > installed app carries **everything through today's quality pass** — the
 > **pruned API facade** (the customer app no longer exposes admin-only
 > endpoints), the **Google name fix** (real profile name, e.g.
@@ -60,8 +81,10 @@ https://expo.dev/artifacts/eas/n48hTvGI1oz48Y_1XSdiV7FmeNqcVObgZWwW_c1JDoc.apk
 - **Catalog layout:** category + sort chip rows keep fixed heights on narrow
   phones (no more overlapping the result counter), and every list key is
   hardened so duplicate-key warnings can't appear
-- **Backend:** `https://inventrak-api.onrender.com` baked in (Firestore)
+- **Backend:** `https://inventrak-api.onrender.com` baked in (Supabase
+  PostgreSQL)
 - **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
+  (re-downloaded Sep 26 — the QR scanner build)
 
 > **No-install alternative:** open the customer app in any phone/desktop
 > browser at the permanent hosted URL `https://inventrak-mobile.onrender.com/`
@@ -159,6 +182,7 @@ The APK is not from the Play Store, so Android asks for permission once:
 | **"Download blocked"** / Play Protect warning | Tap **More details → Install anyway**. |
 | **App opens but no products / "network request failed"** | The live backend is down or your network blocks it. Check `https://inventrak-api.onrender.com/api/openapi.json` in the phone browser — if that fails, it's the backend, not the app. |
 | **Old version installed** | Uninstall the old INVENTRAK first, then install the new APK (or it may update in place if signed the same). |
+| **Scanning a QR tag says an error / nothing found** | You're on the old OCR build — install the Sep 26 QR build above. The old app couldn't read QR codes at all. After installing, open the catalog → camera icon and point at a printed INVENTRAK tag. |
 | **Login says "network request failed"** | Same as above — network/backend issue, not your password. |
 | **I want a fresh demo state** | Use the web admin dashboard to approve/reject the pending orders before presenting. |
 

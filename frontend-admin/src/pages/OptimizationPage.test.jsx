@@ -11,6 +11,7 @@ import { apiGet, getCurrentUser } from '../api';
 // stock is actionable. Regression net for the FSN feature.
 vi.mock('../api', () => ({
   apiGet: vi.fn(),
+  getMeta: vi.fn(() => Promise.reject(new Error('offline'))),
   getCurrentUser: vi.fn(() => ({ role: 'admin' })),
 }));
 

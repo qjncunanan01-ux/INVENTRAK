@@ -23,6 +23,7 @@ vi.mock('../api', () => ({
   API_BASE_URL: 'http://test-api',
   setToken,
   mfaVerify: vi.fn(),
+  getMeta: vi.fn(() => Promise.reject(new Error('offline'))),
 }));
 
 vi.mock('framer-motion', () => ({

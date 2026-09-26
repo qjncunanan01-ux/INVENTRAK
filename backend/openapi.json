@@ -2321,6 +2321,62 @@
         }
       }
     },
+    "/api/meta": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getMeta",
+        "summary": "Public build identity — name, package version, deployed git commit, storage driver, process start time",
+        "responses": {
+          "200": {
+            "description": "Build metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "name",
+                    "time"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "commit": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Deployed git commit sha (Render RENDER_GIT_COMMIT); null on a local run"
+                    },
+                    "driver": {
+                      "type": "string",
+                      "description": "Active storage driver (sqlite | json | firestore | supabase)"
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health/integrity": {
       "get": {
         "tags": [

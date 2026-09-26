@@ -12,6 +12,7 @@ import { apiGet } from '../api';
 let mockRole = 'admin';
 vi.mock('../api', () => ({
   apiGet: vi.fn(),
+  getMeta: vi.fn(() => Promise.reject(new Error('offline'))),
   // AdminLayout reads the signed-in role to filter the sidebar; the dashboard
   // test renders as an admin so the full nav is expected. Tests can flip this
   // to 'staff' to exercise the role-gated fallbacks.

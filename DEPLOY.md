@@ -192,6 +192,14 @@ live: public login/register/products all return 200 through the tunnel.
        inside the JSONB `data` blob, so **no ALTER TABLE is needed** — just
        redeploy the backend. (SQLite installs get the `expiry_date` column
        via an automatic migration on boot.)
+   - **Durable audit trail (recommended):** Render's filesystem is ephemeral,
+     so without this the Audit Trail page restarts empty after every deploy.
+     Paste `backend/src/supabase-audit-migration.sql` into the Supabase
+     **SQL Editor** (run once), then add two more Render env vars:
+     `AUDIT_REMOTE_URL` = `https://<project-ref>.supabase.co/rest/v1` and
+     `AUDIT_REMOTE_KEY` = the same service_role secret. The backend mirrors
+     every audit line to the `audit_log` table and re-seeds from it at boot;
+     without the vars it still works exactly as before (file only).
 
    **Firestore (alternative):**
    - `FIREBASE_PROJECT_ID` = `your-project-id` (or edit the blueprint value)

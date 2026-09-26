@@ -12,6 +12,7 @@ import { apiGet } from '../api';
 
 vi.mock('../api', () => ({
   apiGet: vi.fn(),
+  getMeta: vi.fn(() => Promise.reject(new Error('offline'))),
   getCurrentUser: () => ({ role: 'admin' }),
 }));
 

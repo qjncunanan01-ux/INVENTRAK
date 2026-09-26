@@ -18,7 +18,7 @@ import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
 import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { getCurrentUser } from '../api';
+import { getCurrentUser, getMeta } from '../api';
 import { ADMIN_TIER, STAFF_TIER, MANAGEMENT_TIER, roleMeta } from '../roles';
 import { brandSidebar, colors } from '../theme';
 import Breadcrumbs from '../components/Breadcrumbs';
@@ -92,10 +92,15 @@ const NAV_SECTIONS = [
 const COLLAPSED_W = 76;
 const EXPANDED_W = 280;
 
+// AdminLayout wraps every page, so it remounts per navigation — cache the
+// meta answer in module scope to keep GET /api/meta to one request per page
+// load. A failed fetch is NOT cached so a later mount can retry.
+let metaBuildCache = null;
+
 // Shared nav body: rendered in the fixed desktop sidebar AND the mobile
 // temporary drawer so both stay identical. `collapsed` renders the
 // mini-variant icon rail (labels hidden, tooltips on hover).
-function NavContent({ collapsed = false, onNavigate }) {
+function NavContent({ collapsed = false, onNavigate, uiBuild, apiBuild }) {
   const location = useLocation();
   const theme = useTheme();
 
@@ -251,6 +256,28 @@ function NavContent({ collapsed = false, onNavigate }) {
             </Box>
           )}
         </Box>
+        {/* Build versions (expanded sidebar only): the UI stamp is baked into
+            this browser bundle at build time and the API line is the LIVE
+            backend's answer from GET /api/meta. If the two disagree — or the
+            sidebar lacks the Scan & Stock module — the browser is running a
+            stale cached bundle: hard-refresh (Ctrl+Shift+R). Hover either
+            line for the full explanation. */}
+        {collapsed ? null : (
+          <Typography
+            variant="caption"
+            component="div"
+            aria-label="Build versions"
+            sx={{ mt: 1.5, fontSize: '0.65rem', lineHeight: 1.7, opacity: 0.75, wordBreak: 'break-word' }}
+          >
+            <Tooltip title="UI build — this browser bundle. If modules look wrong or missing, hard-refresh (Ctrl+Shift+R)." arrow placement="top">
+              <span>UI {uiBuild}</span>
+            </Tooltip>
+            <br />
+            <Tooltip title={apiBuild && apiBuild !== '…' ? 'Live backend build — GET /api/meta' : 'Asking the live backend for its build (GET /api/meta)…'} arrow placement="top">
+              <span>API {apiBuild || '…'}</span>
+            </Tooltip>
+          </Typography>
+        )}
       </Box>
     </>
   );
@@ -273,6 +300,33 @@ export default function AdminLayout({ title, children, onLogout }) {
     }
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Build versions: the UI stamp comes from the bundle (Vite define), the
+  // API build is fetched once from the public GET /api/meta. Held HERE (not
+  // in NavContent) because NavContent mounts twice on mobile widths — the
+  // footer must not own state or it would fetch per instance.
+  const uiBuildRaw = (typeof process !== 'undefined' && process.env && process.env.INVENTRAK_UI_BUILD) || 'dev';
+  // Shorten a full 40-char sha in the stamp to 7 for display.
+  const uiBuild = uiBuildRaw.replace(/\(([0-9a-f]{8,40})\)/i, (_m, sha) => `(${sha.slice(0, 7)})`);
+  const [apiBuild, setApiBuild] = useState(metaBuildCache);
+  useEffect(() => {
+    if (metaBuildCache) return undefined;
+    let alive = true;
+    getMeta()
+      .then((m) => {
+        if (!alive) return;
+        const commit = m && m.commit ? String(m.commit).slice(0, 7) : null;
+        const version = m && m.version ? String(m.version) : null;
+        metaBuildCache = commit || (version ? `v${version}` : 'unknown');
+        setApiBuild(metaBuildCache);
+      })
+      .catch(() => {
+        if (alive) setApiBuild('offline');
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Persist the desktop collapse preference.
   useEffect(() => {
@@ -317,7 +371,7 @@ export default function AdminLayout({ title, children, onLogout }) {
           transition: theme.transitions.create('width'),
         }}
       >
-        <NavContent collapsed={collapsed} />
+        <NavContent collapsed={collapsed} uiBuild={uiBuild} apiBuild={apiBuild} />
       </Box>
 
       {/* Mobile: temporary slide-in drawer (same nav, always expanded).
@@ -338,7 +392,7 @@ export default function AdminLayout({ title, children, onLogout }) {
           aria-label="Sidebar navigation"
           sx={{ height: '100%', px: 3, py: 3, display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}
         >
-          <NavContent onNavigate={closeDrawer} />
+          <NavContent onNavigate={closeDrawer} uiBuild={uiBuild} apiBuild={apiBuild} />
         </Box>
       </Drawer>
 

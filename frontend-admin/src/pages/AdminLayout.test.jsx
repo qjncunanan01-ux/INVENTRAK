@@ -11,6 +11,9 @@ import { createAppTheme } from '../theme';
 let mockUser = { role: 'admin' };
 vi.mock('../api', () => ({
   getCurrentUser: () => mockUser,
+  // The sidebar footer asks the live backend for its build once; tests run
+  // with it offline so the chip falls back to 'offline' without network.
+  getMeta: vi.fn(() => Promise.reject(new Error('offline'))),
 }));
 
 // jsdom has no matchMedia; MUI's useMediaQuery needs it. We emulate the

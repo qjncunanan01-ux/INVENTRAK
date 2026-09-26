@@ -197,6 +197,11 @@ export default function ScanStockPage({ onLogout }) {
   const fileRef = useRef(null);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Paste fallback: every printed tag also carries its payload as plain text
+  // under the QR box — typing it resolves the product when the camera or a
+  // photo refuses to decode (glare, damage, worn print).
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteValue, setPasteValue] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [result, setResult] = useState(null); // QrProductLookup payload
@@ -313,6 +318,12 @@ export default function ScanStockPage({ onLogout }) {
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        // Composite onto an opaque white backing BEFORE decoding: photos of
+        // tags and some generated PNGs carry alpha, and transparent pixels
+        // binarize unpredictably — a tag that decodes on paper can then fail
+        // here. White matches printed paper.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let code = null;
@@ -325,7 +336,10 @@ export default function ScanStockPage({ onLogout }) {
         if (code && code.data) {
           handleDecoded(code.data);
         } else {
-          setError('No QR code found in the image. Try a sharper, well-lit photo of the tag.');
+          setError(
+            'No QR code found in the image. Try a sharper, well-lit photo of the tag — or use “Paste payload” to type the code printed under the QR.',
+          );
+          setPasteOpen(true);
         }
       };
       img.onerror = () => {
@@ -461,6 +475,17 @@ export default function ScanStockPage({ onLogout }) {
               <Button variant="outlined" onClick={() => fileRef.current && fileRef.current.click()} disabled={busy}>
                 Scan QR image
               </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setError('');
+                  setNotice('');
+                  setPasteOpen((v) => !v);
+                }}
+                disabled={busy}
+              >
+                Paste payload
+              </Button>
             </Box>
           ) : (
             <Button variant="outlined" startIcon={<ReplayOutlined />} onClick={reset}>
@@ -472,6 +497,36 @@ export default function ScanStockPage({ onLogout }) {
         {/* The scanner unmounts on a hit (camera released = scan paused) and
             remounts when the operator starts it again. */}
         {scanning && <QrScanner onDecode={handleDecoded} />}
+        {/* Paste fallback: the payload text printed under each tag resolves
+            exactly like a scan (same handler, same audit trail). */}
+        {pasteOpen && !result && (
+          <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', maxWidth: 520 }}>
+            <TextField
+              size="small"
+              label="Tag payload (e.g. INVENTRAK:PROD:1)"
+              value={pasteValue}
+              onChange={(e) => setPasteValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && pasteValue.trim()) {
+                  handleDecoded(pasteValue.trim());
+                  setPasteValue('');
+                }
+              }}
+              sx={{ flex: 1, minWidth: 240, backgroundColor: colors.surface }}
+            />
+            <Button
+              variant="contained"
+              disabled={busy || !pasteValue.trim()}
+              onClick={() => {
+                handleDecoded(pasteValue.trim());
+                setPasteValue('');
+              }}
+              sx={{ backgroundColor: colors.brandPrimary }}
+            >
+              Resolve
+            </Button>
+          </Box>
+        )}
         <input
           ref={fileRef}
           type="file"

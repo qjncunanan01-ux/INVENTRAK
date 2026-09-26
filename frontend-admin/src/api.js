@@ -101,6 +101,7 @@ export const getReports = client.getReports;
 // QR product identification (Scan & Stock): the scanned tag payload / SKU /
 // bare id resolves to one product with live stock + lots (staff or admin).
 export const getProductByQr = client.getProductByQr;
+export const getMeta = client.getMeta;
 export const createScanEvent = client.createScanEvent;
 export const logout = client.logout;
 export const mfaSetup = client.mfaSetup;

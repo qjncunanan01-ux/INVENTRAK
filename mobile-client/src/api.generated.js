@@ -144,6 +144,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   promoteUser: (body) => request('POST', '/api/admin/promote', { body }),
   // GET /api/health — Public liveness probe — returns 200 with service status and active driver
   getHealth: (_) => request('GET', '/api/health', {  }),
+  // GET /api/meta — Public build identity — name, package version, deployed git commit, storage driver, process start time
+  getMeta: (_) => request('GET', '/api/meta', {  }),
   // GET /api/health/integrity — Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
   // POST /api/scan-events — Record a QR / barcode scan into the audit trail (staff or admin)

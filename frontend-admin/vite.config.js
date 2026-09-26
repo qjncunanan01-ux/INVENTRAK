@@ -9,6 +9,18 @@ const apiBase =
   process.env.VITE_API_BASE_URL ||
   'http://localhost:4001';
 
+// Build stamp baked into the bundle: the admin UI shows it in the sidebar
+// version chip so a stale cached tab is instantly recognizable (the QR-rollout
+// incident: users were looking at an old cached page that no longer existed).
+// Render injects RENDER_GIT_COMMIT into every build, so deployed builds stamp
+// the exact deployed commit with zero configuration; INVENTRAK_BUILD_COMMIT
+// overrides it for CI, and local builds read as "dev".
+const BUILD_DATE = new Date().toISOString().slice(0, 10);
+const BUILD_COMMIT =
+  process.env.INVENTRAK_BUILD_COMMIT ||
+  (process.env.RENDER_GIT_COMMIT ? String(process.env.RENDER_GIT_COMMIT).slice(0, 7) : '') ||
+  'dev';
+
 export default defineConfig({
   plugins: [react()],
   // api.js reads process.env.REACT_APP_API_BASE_URL — keep that working under
@@ -17,6 +29,7 @@ export default defineConfig({
   define: {
     'process.env.REACT_APP_API_BASE_URL': JSON.stringify(apiBase),
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+    'process.env.INVENTRAK_UI_BUILD': JSON.stringify(`${BUILD_DATE} (${BUILD_COMMIT})`),
   },
   server: {
     // Preserve the historical admin port so the run doc / previews stay valid.

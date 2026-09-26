@@ -1027,6 +1027,31 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  // Public build/driver identity — mirrors routes/meta.js on the SQLite
+  // backend (same shape; the contract test asserts both stay identical).
+  // Nothing sensitive: name, version, deploy commit, storage driver, uptime.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/meta') {
+    let commit = null;
+    const rawCommit = String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || '').trim();
+    if (/^[0-9a-f]{7,40}$/i.test(rawCommit)) commit = rawCommit.toLowerCase();
+    else if (/^sha:[0-9a-f]{7,40}$/i.test(rawCommit)) commit = rawCommit.slice(4).toLowerCase();
+    let version = null;
+    try {
+      version = require('../package.json').version || null;
+    } catch {
+      version = null;
+    }
+    return sendJson(res, 200, {
+      ok: true,
+      name: 'inventrak-backend',
+      version,
+      commit,
+      driver: useSupabase ? 'supabase' : firestoreConfigured() ? 'firestore' : 'json',
+      startedAt: process.env.INVENTRAK_STARTED_AT || null,
+      time: new Date().toISOString(),
+    });
+  }
+
   // ================= CACHE STATS (admin) =================
   // Exposes cache hit rates, entry counts, and top keys for monitoring.
   if (req.method === 'GET' && url.split('?')[0] === '/api/cache/stats') {
@@ -3881,6 +3906,16 @@ function createServer(port = process.env.PORT || 4001) {
 async function start(port) {
   if (useFirestore || useSupabase) await store.init();
   bootstrap();
+  // Build identity for GET /api/meta (first-boot time of this container).
+  process.env.INVENTRAK_STARTED_AT = process.env.INVENTRAK_STARTED_AT || new Date().toISOString();
+  // Durable audit trail: pull the remote snapshot back into the local file
+  // before serving (best-effort; a no-op unless AUDIT_REMOTE_* is configured).
+  try {
+    const { reSeedFromRemote } = require('./audit');
+    await reSeedFromRemote();
+  } catch {
+    /* the audit trail must never block boot */
+  }
   return createServer(port);
 }
 

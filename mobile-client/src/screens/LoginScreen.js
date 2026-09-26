@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Button, Platform, StyleSheet, Text, TextInput
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
+import Constants from 'expo-constants';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { API_BASE_URL, login, setSessionDetails, setSessionUsername, setToken } from '../api';
 import BackButton from '../BackButton';
@@ -14,6 +15,13 @@ import AnimatedEntry from '../AnimatedEntry';
 // inventory role — staff are MOBILE-only by design (the web admin refuses
 // them), so this is where a staff account signs in. Kept in one place so the
 // buttons and any hints can never drift apart.
+// Which build is this? During the QR rollout an OLD installed APK kept
+// failing scans and nobody could tell which build the phone ran — the login
+// screen now prints the app version so an outdated install is obvious at a
+// glance. expo-constants is already a direct dependency; no new native modules.
+const APP_VERSION =
+  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.0.0';
+
 const DEMO_ACCOUNTS = [
   {
     username: 'customer',
@@ -285,6 +293,10 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.linkForgot}>Forgot password?</Text>
         </TouchableOpacity>
 
+        {/* Build marker: instantly answers "which build is this phone
+            running?" when a scan or feature misbehaves. */}
+        <Text style={styles.versionNote}>v{APP_VERSION}</Text>
+
       </AnimatedEntry>
     </LinearGradient>
   );
@@ -319,6 +331,7 @@ const createStyles = (colors) => StyleSheet.create({
   linkText: { color: colors.textSecondary, fontSize: 14 },
   linkStrong: { color: colors.brandPrimary, fontWeight: '700' },
   linkForgot: { color: colors.textSecondary, fontSize: 13, marginTop: 4 },
+  versionNote: { color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 18, textAlign: 'center' },
   // ---- Google sign-in ----
   googleWrap: { marginTop: 20 },
   dividerRow: { alignItems: 'center', flexDirection: 'row', marginBottom: 14 },
