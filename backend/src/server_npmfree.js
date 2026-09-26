@@ -22,7 +22,7 @@ const { createLoginLockout } = require('./login-lockout');
 const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
 const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./critical-level');
 const { buildPaymentStep } = require('./payments');
-const { skuForProductId, isSkuShape, handleQrProductLookup } = require('./qr-codes');
+const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./qr-codes');
 const { normalizeLines } = require('./product-lines');
 const {
   generateSecret,
@@ -1050,6 +1050,41 @@ const server = http.createServer((req, res) => {
       startedAt: process.env.INVENTRAK_STARTED_AT || null,
       time: new Date().toISOString(),
     });
+  }
+
+  // ================= PUBLIC TAG PAGE (camera-friendly) =================
+  // GET /t/:code — the URL printed on QR tags so a phone's NATIVE camera app
+  // opens a working product page instead of "No usable data found" for a
+  // plain-text payload. Read-only, public, no auth surface. Same identifier
+  // grammar and 400/404/409 contract as the authenticated QR lookup; the
+  // payload itself (INVENTRAK:PROD:<id>) remains the app-scanner contract.
+  if (req.method === 'GET' && url.split('?')[0].startsWith('/t/')) {
+    const parts = url.split('?')[0].split('/').filter(Boolean); // [t, ...code]
+    let code = parts.slice(1).join('/');
+    try { code = decodeURIComponent(code); } catch { /* keep the raw value */ }
+    const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
+    const inv = getInventory();
+    const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));
+    const stockLookup = productId => {
+      const item = byId.get(Number(productId));
+      return item ? { locations: item.locations || {}, total: item.total || 0 } : { locations: {}, total: 0 };
+    };
+    // The dispatcher is synchronous, so the (async-shaped) lookup runs as a
+    // promise chain that renders and sends the HTML when it settles.
+    return handleTagPageLookup(req, res, sendJson, { code, products, stockLookup })
+      .then((result) => {
+        const html = renderTagPageHtml(result);
+        // The API's default CSP blocks everything; the tag page needs images
+        // + inline styles. Still frame-ancestors 'none' (no embedding).
+        res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https:; style-src 'unsafe-inline'; frame-ancestors 'none'");
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.writeHead(result.status);
+        res.end(html);
+      })
+      .catch(() => {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Tag page error');
+      });
   }
 
   // ================= CACHE STATS (admin) =================

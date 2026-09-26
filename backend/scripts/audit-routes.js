@@ -106,10 +106,15 @@ function main() {
 
   const express = expressRoutes(appSrc);
   const npmfree = npmfreeLiterals(npmfreeSrc);
+  // Both extractors scope themselves to API surfaces: npmfreeLiterals keeps
+  // only '/api/…' literals, so the Express side ignores non-API paths too.
+  // (The public GET /t/:code tag page is a web surface, not part of the API
+  // contract — it is covered by functional tests, not by this audit.)
+  const apiExpress = express.filter(r => r.path.startsWith('/api/'));
   const errors = [];
 
-  // (a) Every Express route must be documented (exact template match).
-  for (const r of express) {
+  // (a) Every Express API route must be documented (exact template match).
+  for (const r of apiExpress) {
     if (!specPaths.includes(r.path)) {
       errors.push(`Express route ${r.method} ${r.path} is NOT documented in openapi.json`);
     }
@@ -127,7 +132,7 @@ function main() {
   // (b) Every documented path must be served by Express (exact or template)
   // AND reachable from the npm-free fallback (exact or prefix literal).
   for (const p of specPaths) {
-    const inExpress = express.some(r => r.path === p || templateMatches(r.path, p));
+    const inExpress = apiExpress.some(r => r.path === p || templateMatches(r.path, p));
     const inNpmfree = npmfree.some(lit => p === lit || p.startsWith(lit));
     if (!inExpress) errors.push(`Path ${p} (openapi.json) has no matching Express route`);
     if (!inNpmfree) errors.push(`Path ${p} (openapi.json) is not reachable in the npm-free fallback`);
@@ -139,7 +144,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    `✓ audit: ${express.length} Express routes + ${npmfree.length} npm-free matchers ↔ ${specPaths.length} documented paths all covered`
+    `✓ audit: ${apiExpress.length} Express API routes + ${npmfree.length} npm-free matchers ↔ ${specPaths.length} documented paths all covered`
   );
 }
 

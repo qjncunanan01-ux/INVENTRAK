@@ -49,6 +49,11 @@ const RESCAN_COOLDOWN_MS = 1500;
 
 function parseQr(data) {
   const raw = String(data || '').trim();
+  // Camera-friendly printed tags carry the payload wrapped in a URL to the
+  // public tag page (so native camera apps open real content too). Unwrap to
+  // the plain payload — every rule below operates on the plain form.
+  const urlMatch = raw.match(/^https:\/\/[^\s/]+\/t\/([A-Za-z0-9][A-Za-z0-9-]*)\/?$/);
+  if (urlMatch) return parseQr(`INVENTRAK:PROD:${urlMatch[1]}`);
   const locMatch = raw.match(/^INVENTRAK:LOC:(\d+):(.+)$/i);
   if (locMatch) {
     let name = locMatch[2];

@@ -17,10 +17,14 @@ describe('QR payload contract', () => {
     expect(payload.startsWith(LOCATION_QR_PREFIX)).toBe(true);
   });
 
-  test('product payload carries only the id, so a rename cannot invalidate a tag', () => {
+  test('product tags print as the camera-friendly tag URL wrapping the id', () => {
+    // Native phone cameras cannot act on plain-text payloads (iOS shows
+    // "No usable data found"), so printed tags carry a URL to the public tag
+    // page. The app scanners unwrap it — parseQrPayload round-trips below —
+    // and the id (never name/price/qty) is still the only embedded data.
     const payload = productQrPayload({ id: 12, name: 'Torani Strawberry' });
-    expect(payload).toBe('INVENTRAK:PROD:12');
-    expect(payload.startsWith(PRODUCT_QR_PREFIX)).toBe(true);
+    expect(payload).toBe('https://inventrak-api.onrender.com/t/12');
+    expect(payload).toMatch(/\/t\/12\/?$/);
   });
 
   // qrImageUrl() was removed: QR images now render locally via the QrImage

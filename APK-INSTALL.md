@@ -192,6 +192,20 @@ The APK is not from the Play Store, so Android asks for permission once:
 
 ---
 
+## Scanning tags with the phone's own camera app
+
+Tags reprinted after Sep 26, 2026 encode a **URL** (e.g.
+`https://inventrak-api.onrender.com/t/1`), so scanning them with the phone's
+**native camera app** opens a public product page — no INVENTRAK app needed,
+and no more "No usable data found" on iPhone. Scanning **inside the
+INVENTRAK apps** still resolves the tag to the product / count card as usual.
+
+Older tags that encode the plain payload (`INVENTRAK:PROD:<id>`) still work
+in the apps, but a native camera can't act on them — **reprint tags from the
+admin** (Products → QR tag, or the batch tag sheet) to get the URL form.
+
+---
+
 ## Step 5 — Demo checklist (before you present)
 
 - [ ] APK installed, app opens to Home with category chips + flash sale

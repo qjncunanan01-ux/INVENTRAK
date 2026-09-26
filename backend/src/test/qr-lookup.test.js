@@ -162,21 +162,110 @@ describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
 
   test('inactive product returns 409', async () => {
     for (const side of [sqlite, npmfree]) {
-      // Deactivate the product the tag points at.
-      const upd = await call(side.url, '/api/products/1', {
+      // Deactivate the product the tag points at. A partial PUT nulls the
+      // unspecified columns on BOTH backends (a pinned contract), so round-trip
+      // the full record — otherwise the reactivation would leave product 1
+      // nameless for every later test.
+      const current = await call(side.url, '/api/products/1');
+      assert.strictEqual(current.status, 200, 'product 1 readable before the cycle');
+      const base = current.json || {};
+      const setStatus = (status) => call(side.url, '/api/products/1', {
         method: 'PUT',
         token: side.token.admin,
-        body: { status: 'inactive' },
+        body: { ...base, status },
       });
+      const upd = await setStatus('inactive');
       assert.ok([200, 204].includes(upd.status), `deactivate product: ${upd.status}`);
       const res = await call(side.url, '/api/products/qr/1', { token: side.token.staff });
       assert.strictEqual(res.status, 409, 'inactive product must 409, not resolve');
       // Restore for other tests.
-      await call(side.url, '/api/products/1', {
-        method: 'PUT',
-        token: side.token.admin,
-        body: { status: 'active' },
-      });
+      await setStatus('active');
     }
+  });
+
+  test('camera-friendly tag URL resolves identically to the plain payload', async () => {
+    // Printed tags carry https://…/t/<id> so native phone cameras open the
+    // public tag page. The app scanners unwrap it — and the server-side
+    // lookup accepts the URL form directly, so either decoded value resolves.
+    for (const side of [sqlite, npmfree]) {
+      const res = await call(
+        side.url,
+        `/api/products/qr/${encodeURIComponent('https://inventrak-api.onrender.com/t/1')}`,
+        { token: side.token.staff },
+      );
+      assert.strictEqual(res.status, 200, 'tag URL resolves through the QR lookup');
+      assert.strictEqual(Number(res.json.product.id), 1);
+    }
+  });
+});
+
+describe('public tag page (GET /t/:code — camera-friendly URL target)', () => {
+  test('serves HTML for a known tag WITHOUT any auth, on both backends', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const res = await call(side.url, '/t/1');
+      assert.strictEqual(res.status, 200, 'public tag page resolves');
+      assert.match(res.contentType || '', /text\/html/, 'HTML content type');
+      assert.ok(res.text.includes('Da Vinci'), 'product name rendered');
+      assert.ok(res.text.includes('on hand'), 'stock line rendered');
+    }
+  });
+
+  test('accepts the sku form and the raw payload form', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const skuRes = await call(side.url, '/t/PRD-000001');
+      assert.strictEqual(skuRes.status, 200);
+      assert.ok(skuRes.text.includes('Da Vinci'));
+      const payloadRes = await call(side.url, `/t/${encodeURIComponent('INVENTRAK:PROD:1')}`);
+      assert.strictEqual(payloadRes.status, 200);
+      assert.ok(payloadRes.text.includes('Da Vinci'));
+    }
+  });
+
+  test('unknown tag renders a friendly 404 page (never a stack)', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const res = await call(side.url, '/t/999999');
+      assert.strictEqual(res.status, 404);
+      assert.match(res.contentType || '', /text\/html/);
+      assert.ok(res.text.includes('not registered'), 'documented wording shown');
+    }
+  });
+
+  test('malformed codes 400, foreign QRs stay unknown — no resolution', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const bad = await call(side.url, `/t/${encodeURIComponent('INVENTRAK:PROD:1; DROP TABLE products')}`);
+      assert.strictEqual(bad.status, 400);
+      const foreign = await call(side.url, '/t/not-a-tag');
+      assert.ok([400, 404].includes(foreign.status));
+    }
+  });
+
+  test('page renderer HTML-escapes every product field (injection-proof)', () => {
+    // The create/update APIs sanitize tags at input, but the page itself must
+    // not trust stored data (pre-sanitization rows, cloud drivers, future
+    // writers). Unit-test the renderer with hostile values directly.
+    const { renderTagPageHtml } = require('../qr-codes');
+    const evil = {
+      status: 200,
+      body: {
+        product: {
+          id: 1,
+          name: '<script>alert(1)</script>',
+          category: 'Cats & Dogs',
+          brand: 'A"B',
+          description: "It's <b>bold</b> & fun",
+          size: null,
+          unit: null,
+          image: null,
+        },
+        qr: { payload: 'INVENTRAK:PROD:1', sku: 'PRD-000001', tagUrl: 'https://x/t/1' },
+        stock: { total: 5, status: 'ok' },
+      },
+    };
+    const html = renderTagPageHtml(evil);
+    assert.ok(!html.includes('<script>'), 'raw script tag must never appear');
+    assert.ok(html.includes('&lt;script&gt;'), 'name escaped');
+    assert.ok(html.includes('Cats &amp; Dogs'), 'category ampersand escaped');
+    assert.ok(html.includes('&quot;'), 'brand quote escaped');
+    assert.ok(!html.includes("It's <b>"), 'description tags escaped');
   });
 });

@@ -556,8 +556,10 @@ export default function ProductsPage({ onLogout }) {
                 {productQrPayload(activeTag)}
               </Typography>
               <Typography variant="body2" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                Scan this tag with the INVENTRAK phone app to jump straight to the
-                product's stock view.
+                Any phone camera can scan this tag — it opens the public product
+                page. The INVENTRAK apps resolve it to the product's stock view.
+                Old plain-payload tags (INVENTRAK:PROD:id) still scan in the
+                apps; reprint to get camera-friendly tags.
               </Typography>
             </Box>
           ) : null}

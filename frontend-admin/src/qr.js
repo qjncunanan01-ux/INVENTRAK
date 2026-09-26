@@ -10,12 +10,21 @@
 export const LOCATION_QR_PREFIX = 'INVENTRAK:LOC:';
 export const PRODUCT_QR_PREFIX = 'INVENTRAK:PROD:';
 
+// Where camera-friendly tag URLs point: the public product page (GET /t/:code)
+// served by the API server. Overridable per environment for local runs.
+const TAG_BASE = (import.meta.env?.VITE_TAG_URL_BASE || 'https://inventrak-api.onrender.com').replace(/\/+$/, '');
+const TAG_URL_RE = /^https:\/\/[^\s/]+\/t\/([A-Za-z0-9][A-Za-z0-9-]*)\/?$/;
+
 export function locationQrPayload(location) {
   return `${LOCATION_QR_PREFIX}${location.id}:${encodeURIComponent(location.name)}`;
 }
 
+// Product tags print as the CAMERA-FRIENDLY URL form: a phone's native camera
+// app opens the public product page instead of showing "No usable data found"
+// for a plain-text payload. The app scanners (admin/mobile/staff) unwrap the
+// URL and behave exactly as with INVENTRAK:PROD:<id> — both forms resolve.
 export function productQrPayload(product) {
-  return `${PRODUCT_QR_PREFIX}${product.id}`;
+  return `${TAG_BASE}/t/${product.id}`;
 }
 
 // QR images are generated LOCALLY by the `qrcode` package via the
@@ -32,6 +41,11 @@ export function productQrPayload(product) {
  */
 export function parseQrPayload(data) {
   const raw = String(data || '').trim();
+  // Camera-friendly printed tags arrive as a URL — unwrap to the plain tag
+  // payload (the path segment is the product identifier) so every rule below
+  // applies unchanged, including the strict "INVENTRAK tags only" policy.
+  const url = raw.match(TAG_URL_RE);
+  if (url) return parseQrPayload(`${PRODUCT_QR_PREFIX}${url[1]}`);
   const loc = raw.match(/^INVENTRAK:LOC:(\d+):(.+)$/i);
   if (loc) {
     let name = loc[2];

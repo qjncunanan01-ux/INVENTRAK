@@ -246,7 +246,12 @@ export default function ScanStockPage({ onLogout }) {
 
   // A decoded string from the live camera or the uploaded QR image.
   const handleDecoded = async (raw) => {
-    const code = String(raw || '').trim();
+    const rawCode = String(raw || '').trim();
+    // Camera-friendly printed tags arrive as the tag URL (https://…/t/<code>):
+    // unwrap to the plain payload so routing and the audit trail treat it
+    // exactly like INVENTRAK:PROD:<id>.
+    const urlTag = rawCode.match(/^https:\/\/[^\s/]+\/t\/([A-Za-z0-9][A-Za-z0-9-]*)\/?$/i);
+    const code = urlTag ? urlTag[1] : rawCode;
     if (!code || busy) return;
     setScanning(false); // pause scanning while the transaction is processed
     setError('');

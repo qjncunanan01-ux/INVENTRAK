@@ -10,6 +10,7 @@ const { seedDatabase } = require('./seed');
 const settings = require('./settings');
 const { audit, AUDIT_LOG_FILE } = require('./audit');
 const cache = require('./cache');
+const { handleTagPageLookup, renderTagPageHtml } = require('./qr-codes');
 
 // Import route modules
 const authRoutes = require('./routes/auth');
@@ -97,6 +98,36 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api', approvalsRoutes);
 app.use('/api', scanEventsRoutes);
 app.use('/api/audit-trail', auditRoutes);
+
+// GET /t/:code — public, camera-friendly tag page (the URL printed on QR
+// tags). Read-only product view so a phone's NATIVE camera app opens real
+// content instead of "No usable data found" for a plain-text payload.
+// Mounted in app.js rather than the products router because it must render
+// HTML with its own CSP (the API's default-src 'none' would strip it).
+app.get('/t/:code', async (req, res) => {
+  try {
+    const products = db.prepare('SELECT * FROM products').all();
+    const stockLookup = (productId) => {
+      const rows = db.prepare('SELECT l.name, s.quantity FROM stock s JOIN locations l ON s.location_id = l.id WHERE s.product_id = ?').all(productId);
+      const locations = {};
+      let total = 0;
+      for (const r of rows) { locations[r.name] = Number(r.quantity) || 0; total += Number(r.quantity) || 0; }
+      return { locations, total };
+    };
+    const result = await handleTagPageLookup(req, res, (r, code, body) => r.status(code).json(body), {
+      code: req.params.code,
+      products,
+      stockLookup,
+    });
+    const html = renderTagPageHtml(result);
+    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https:; style-src 'unsafe-inline'; frame-ancestors 'none'");
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(result.status).send(html);
+  } catch (err) {
+    console.error('Tag page error:', err);
+    res.status(500).send('Tag page error');
+  }
+});
 
 // Swagger/OpenAPI
 const openapiFile = path.join(__dirname, '..', 'openapi.json');
