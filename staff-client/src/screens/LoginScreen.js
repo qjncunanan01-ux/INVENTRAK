@@ -9,10 +9,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { login, setSessionDetails, setSessionUsername, setToken, clearToken, clearSession } from '../api';
 
 // The ONLY role this app admits — mirrors the server's canAccessStaffPortal.
 const STAFF_TIER_ONLY = ['staff'];
+
+// Build marker: the login screen prints its own version so an outdated
+// install is obvious at a glance instead of surfacing as scan failures.
+const APP_VERSION =
+  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.1.0';
 import { useThemeColors } from '../theme-context';
 
 // Staff sign-in — this app is EXCLUSIVELY for Inventory Staff. The login
@@ -133,6 +139,9 @@ export default function LoginScreen() {
         Staff-exclusive: accounts are created by the owner on the web admin.
         Admin/owner accounts sign in there, not here; customers use the INVENTRAK app.
       </Text>
+
+      {/* Build marker: instantly answers "which build is this phone running?". */}
+      <Text style={styles.versionNote}>v{APP_VERSION}</Text>
     </KeyboardAvoidingView>
   );
 }
@@ -189,4 +198,5 @@ const createStyles = (colors) =>
       lineHeight: 16,
       marginTop: 24,
     },
+    versionNote: { fontSize: 11, color: colors.textSecondary, opacity: 0.7, marginTop: 10, textAlign: 'center' },
   });
