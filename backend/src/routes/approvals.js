@@ -13,6 +13,7 @@ function listAdjustments(dbRef, status) {
   const params = status ? [status] : [];
   return dbRef.prepare(`SELECT a.id, a.product_id, p.name as product_name, a.location_id, l.name as location_name,
     a.new_qty, a.reason, a.expiry_date, a.status, a.created_at, a.decided_at, a.decided_by,
+    a.created_by_id, a.created_by,
     COALESCE(s.quantity, 0) as current_qty
    FROM stock_adjustments a
    JOIN products p ON p.id = a.product_id
@@ -56,8 +57,11 @@ router.post('/stock-adjustments', authenticateToken, staffOrAdmin, validate({
   const loc = db.prepare('SELECT id FROM locations WHERE id = ?').get(location_id);
   if (!loc) return res.status(404).json({ error: 'Location not found' });
 
-  const info = db.prepare('INSERT INTO stock_adjustments (product_id, location_id, new_qty, reason, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(product_id, location_id, new_qty, reason || '', expiry_date || null, 'pending');
+  // Submitter identity travels with the request: the admin queue shows who
+  // counted, and the staff app can filter "My Requests" to the signed-in
+  // user. req.user.id/username come from the authenticated token.
+  const info = db.prepare('INSERT INTO stock_adjustments (product_id, location_id, new_qty, reason, expiry_date, status, created_by_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(product_id, location_id, new_qty, reason || '', expiry_date || null, 'pending', req.user.id, req.user.username);
 
   audit('stock.adjustment.created', { userId: req.user.id, username: req.user.username, adjustmentId: info.lastInsertRowid, productId: product_id, locationId: location_id, newQty: new_qty, expiryDate: expiry_date || null });
   res.status(201).json({ ok: true, id: info.lastInsertRowid, message: 'Adjustment created (pending approval)' });
@@ -83,6 +87,8 @@ function decideAdjustment(req, res, action) {
       applyMovementEffect({ product_id: row.product_id, qty: row.new_qty, type: 'adjustment', srcId: null, dstId: row.location_id, now, expiryDate: row.expiry_date || null });
       db.prepare('INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(row.product_id, row.new_qty, 'adjustment', null, row.location_id, `Adjustment #${row.id}: ${row.reason || 'approved correction'}`, now, actor);
+      // The decision stamps decided_by (the approver); created_by keeps the
+      // original submitter untouched.
       return db.prepare("UPDATE stock_adjustments SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ? AND status = 'pending'").run(now, actor, row.id);
     })();
     if (applied.changes === 0) return res.status(400).json({ error: 'Adjustment already decided' });

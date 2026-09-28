@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { createStockAdjustment, listLocations } from '../api';
+import { createStockAdjustment, getSessionUsername, listLocations } from '../api';
 import { useThemeColors } from '../theme-context';
 
 // CountCard — the shared "verify & record physical count" form used by BOTH
@@ -102,8 +102,12 @@ export default function CountCard({ focus, onClear }) {
     }
     setSubmitBusy(false);
     if (done > 0) {
+      // Close the loop for the staff member: name the submitter (it is
+      // stamped on the request for the owner's approval queue) and point at
+      // where the decision will land (Requests tab, live status).
+      const me = getSessionUsername();
       setSubmitMsg(
-        `${done} correction(s) submitted — the owner approves them on the web admin before stock updates.`
+        `${done} correction(s) submitted${me ? ` by ${me}` : ''} — the owner approves them on the web admin before stock updates. Track the decision under Requests.`
         + (failures.length > 0 ? ` Failed: ${failures.join(', ')}.` : '')
       );
       setReason('');

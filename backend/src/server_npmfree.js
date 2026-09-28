@@ -2652,6 +2652,8 @@ const server = http.createServer((req, res) => {
       expiry_date: a.expiry_date === undefined || a.expiry_date === '' ? null : a.expiry_date,
       status: a.status || 'pending',
       created_at: a.created_at,
+      created_by_id: a.created_by_id === undefined || a.created_by_id === '' ? null : a.created_by_id,
+      created_by: a.created_by === undefined || a.created_by === '' ? null : a.created_by,
       decided_at: a.decided_at === undefined || a.decided_at === '' ? null : a.decided_at,
       decided_by: a.decided_by === undefined || a.decided_by === '' ? null : a.decided_by,
       current_qty: currentQty,
@@ -2746,10 +2748,15 @@ const server = http.createServer((req, res) => {
           reason: obj.reason || '',
           expiry_date: expiryDate,
           status: 'pending',
+          // Submitter identity: who counted (the staff app's signed-in user).
+          // The admin queue displays it; "My Requests" filters on it.
+          created_by_id: (req.user && req.user.id) || null,
+          created_by: (req.user && req.user.username) || null,
           created_at: new Date().toISOString(),
           decided_at: null,
           decided_by: null,
         };
+        audit('stock.adjustment.created', { userId: req.user.id, username: req.user.username, adjustmentId: row.id, productId: productId, locationId: locationId, newQty: newQty, expiryDate: expiryDate || null });
         rows.unshift(row);
         writeJSON(adjustmentsFile, rows);
         return sendJson(res, 201, { ok: true, id: row.id, message: 'Adjustment created (pending approval)' });
@@ -2827,6 +2834,7 @@ const server = http.createServer((req, res) => {
         row.decided_at = now;
         row.decided_by = actor;
         writeJSON(adjustmentsFile, rows);
+        audit('stock.adjustment.approved', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
         return sendJson(res, 200, { ok: true, message: 'Adjustment approved and applied to stock' });
       }
 
@@ -2834,6 +2842,7 @@ const server = http.createServer((req, res) => {
       row.decided_at = now;
       row.decided_by = actor;
       writeJSON(adjustmentsFile, rows);
+      audit('stock.adjustment.rejected', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
       return sendJson(res, 200, { ok: true, message: 'Adjustment rejected (stock unchanged)' });
     });
   }

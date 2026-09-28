@@ -56,6 +56,16 @@ const adjustmentColumns = db.prepare('PRAGMA table_info(stock_adjustments)').all
 if (!adjustmentColumns.some(c => c.name === 'expiry_date')) {
   db.exec('ALTER TABLE stock_adjustments ADD COLUMN expiry_date TEXT');
 }
+// Submitter identity on physical counts: the staff app records WHO submitted
+// each adjustment, so the admin approval queue can show the requester and the
+// staff "My Requests" screen can filter to the signed-in user's own rows.
+// Additive, so existing databases are untouched apart from the columns.
+if (!adjustmentColumns.some(c => c.name === 'created_by_id')) {
+  db.exec('ALTER TABLE stock_adjustments ADD COLUMN created_by_id INTEGER');
+}
+if (!adjustmentColumns.some(c => c.name === 'created_by')) {
+  db.exec('ALTER TABLE stock_adjustments ADD COLUMN created_by TEXT');
+}
 
 const inquiryColumns = db.prepare('PRAGMA table_info(order_inquiries)').all();
 if (!inquiryColumns.some(c => c.name === 'customer_phone')) {

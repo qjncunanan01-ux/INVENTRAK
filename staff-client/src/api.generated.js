@@ -68,7 +68,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listProducts: (params) => request('GET', '/api/products', { query: params }),
   // POST /api/products — Create a product (admin only)
   createProduct: (body) => request('POST', '/api/products', { body }),
-  // POST /api/products/bulk-prices — Set prices for many products in one request (admin only) — the price-list CSV import
+  // POST /api/products/bulk-prices — Set prices for many products in one request (admin only) â€” the price-list CSV import
   bulkUpdatePrices: (body) => request('POST', '/api/products/bulk-prices', { body }),
   // GET /api/products/categories — List distinct product categories
   listCategories: (_) => request('GET', '/api/products/categories', {  }),
@@ -94,7 +94,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listStockLots: (params) => request('GET', '/api/stock-lots', { query: params }),
   // GET /api/stock-adjustments — List stock adjustment requests (admin only)
   listStockAdjustments: (params) => request('GET', '/api/stock-adjustments', { query: params }),
-  // POST /api/stock-adjustments — Create a stock adjustment request (admin only) — PENDING until approved
+  // POST /api/stock-adjustments — Create a stock adjustment request (admin only) â€” PENDING until approved
   createStockAdjustment: (body) => request('POST', '/api/stock-adjustments', { body }),
   // POST /api/stock-adjustments/{id}/approve — Approve a pending adjustment and apply it to stock (admin only)
   approveStockAdjustment: ({ id }) => request('POST', '/api/stock-adjustments/{id}/approve', { params: { id } }),
@@ -102,7 +102,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   rejectStockAdjustment: ({ id }) => request('POST', '/api/stock-adjustments/{id}/reject', { params: { id } }),
   // GET /api/stock-transfers — List stock transfer requests (admin only)
   listStockTransfers: (params) => request('GET', '/api/stock-transfers', { query: params }),
-  // POST /api/stock-transfers — Create a stock transfer request (admin only) — PENDING until approved
+  // POST /api/stock-transfers — Create a stock transfer request (admin only) â€” PENDING until approved
   createStockTransfer: (body) => request('POST', '/api/stock-transfers', { body }),
   // POST /api/stock-transfers/{id}/approve — Approve a pending transfer and move the stock (admin only)
   approveStockTransfer: ({ id }) => request('POST', '/api/stock-transfers/{id}/approve', { params: { id } }),
@@ -126,7 +126,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getOptimizationAbc: (_) => request('GET', '/api/optimization/abc', {  }),
   // GET /api/optimization/{productId} — EOQ, ROP, safety stock, and turnover for one product
   getOptimization: ({ productId }) => request('GET', '/api/optimization/{productId}', { params: { productId } }),
-  // GET /api/analytics/summary — Dashboard summary metrics (admin tier — contains revenue)
+  // GET /api/analytics/summary — Dashboard summary metrics (admin tier â€” contains revenue)
   getAnalyticsSummary: (_) => request('GET', '/api/analytics/summary', {  }),
   // GET /api/analytics/export/{type} — Export data as JSON or CSV (admin only)
   exportAnalytics: ({ type }, params) => request('GET', '/api/analytics/export/{type}', { params: { type }, query: params }),
@@ -140,11 +140,11 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createSale: (body) => request('POST', '/api/sales', { body }),
   // GET /api/users — List users (admin only)
   listUsers: (_) => request('GET', '/api/users', {  }),
-  // POST /api/admin/promote — Promote a customer account to admin (admin only) — the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)
+  // POST /api/admin/promote — Promote a customer account to admin (admin only) â€” the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)
   promoteUser: (body) => request('POST', '/api/admin/promote', { body }),
-  // GET /api/health — Public liveness probe — returns 200 with service status and active driver
+  // GET /api/health — Public liveness probe â€” returns 200 with service status and active driver
   getHealth: (_) => request('GET', '/api/health', {  }),
-  // GET /api/meta — Public build identity — name, package version, deployed git commit, storage driver, process start time
+  // GET /api/meta — Public build identity â€” name, package version, deployed git commit, storage driver, process start time
   getMeta: (_) => request('GET', '/api/meta', {  }),
   // GET /api/health/integrity — Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
@@ -160,7 +160,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   mfaSetup: (_) => request('POST', '/api/auth/mfa/setup', {  }),
   // POST /api/auth/mfa/confirm — Confirm a live code to enable MFA for the admin account
   mfaConfirm: (body) => request('POST', '/api/auth/mfa/confirm', { body }),
-  // POST /api/auth/mfa/disable — Disable MFA — requires the current authenticator code
+  // POST /api/auth/mfa/disable — Disable MFA â€” requires the current authenticator code
   mfaDisable: (body) => request('POST', '/api/auth/mfa/disable', { body }),
   // POST /api/auth/mfa/verify — Complete the second factor: exchange the MFA challenge for a session token
   mfaVerify: (body) => request('POST', '/api/auth/mfa/verify', { body }),
@@ -168,11 +168,11 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   mfaRecoveryCodes: (_) => request('POST', '/api/auth/mfa/recovery-codes', {  }),
   // GET /api/optimization/fsn — FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency
   getOptimizationFsn: (params) => request('GET', '/api/optimization/fsn', { query: params }),
-  // GET /api/settings — Get runtime system settings (admin tier — read-only)
+  // GET /api/settings — Get runtime system settings (admin tier â€” read-only)
   getSettings: (_) => request('GET', '/api/settings', {  }),
   // PUT /api/settings — Update runtime system settings (Owner / Super Admin only)
   updateSettings: (body) => request('PUT', '/api/settings', { body }),
-  // GET /api/audit-trail — Security audit log entries (admin only) — newest first
+  // GET /api/audit-trail — Security audit log entries (admin only) â€” newest first
   listAuditTrail: (params) => request('GET', '/api/audit-trail', { query: params }),
   // GET /api/cache/stats — In-memory cache statistics (admin only)
   getCacheStats: (_) => request('GET', '/api/cache/stats', {  }),

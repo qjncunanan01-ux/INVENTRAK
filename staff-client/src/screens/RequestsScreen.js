@@ -5,15 +5,18 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
-import { listStockAdjustments } from '../api';
+import { getSessionUserId, getSessionUsername, listStockAdjustments } from '../api';
 import { useThemeColors } from '../theme-context';
 
-// MY REQUESTS — every adjustment this app (i.e., this staff member) has
-// submitted, newest first, with its live approval status. The row shape
-// comes from GET /api/stock-adjustments: { id, product_name, location_name,
-// new_qty, current_qty, reason, status, created_at, decided_at, decided_by }.
+// MY REQUESTS — the adjustment loop as seen from the phone that started it.
+// The backend now stamps every submission with its submitter (created_by),
+// so this screen can filter to the signed-in user's own requests ("Mine",
+// the default) or show the whole team's feed ("All") — who submitted each
+// one is displayed either way. Decisions land here live: approving on the
+// web admin flips the row's badge on the next pull-to-refresh.
 const STATUS_META = {
   pending: { glyph: '⏳', label: 'Pending' },
   approved: { glyph: '✅', label: 'Approved' },
@@ -38,6 +41,9 @@ export default function RequestsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  // 'mine' | 'all' — Mine (the signed-in staff member) is the default;
+  // All shows the whole team's submissions with their submitter names.
+  const [scope, setScope] = useState('mine');
 
   const fetchData = useCallback(async () => {
     try {
@@ -63,6 +69,22 @@ export default function RequestsScreen() {
     fetchData();
   }, [fetchData]);
 
+  // Submitter match: id when the row carries one (server stamps it),
+  // username fallback for legacy rows; rows with neither count as "unknown"
+  // and only surface under All.
+  const myId = getSessionUserId();
+  const myName = getSessionUsername();
+  const isMine = useCallback((r) => {
+    if (myId != null && r.created_by_id != null) return Number(r.created_by_id) === Number(myId);
+    if (r.created_by && myName) return String(r.created_by).toLowerCase() === String(myName).toLowerCase();
+    return false;
+  }, [myId, myName]);
+
+  const visible = useMemo(
+    () => (scope === 'mine' ? rows.filter(isMine) : rows),
+    [rows, scope, isMine]
+  );
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -76,13 +98,29 @@ export default function RequestsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>My Requests</Text>
         <Text style={styles.subtitle}>
-          {rows.filter((r) => r.status === 'pending').length} pending ·{' '}
-          {rows.filter((r) => r.status === 'approved').length} approved
+          {visible.filter((r) => r.status === 'pending').length} pending ·{' '}
+          {visible.filter((r) => r.status === 'approved').length} approved
         </Text>
+        <View style={styles.scopeRow}>
+          <TouchableOpacity
+            style={[styles.scopeChip, scope === 'mine' && styles.scopeChipOn]}
+            onPress={() => setScope('mine')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.scopeText, scope === 'mine' && styles.scopeTextOn]}>Mine</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.scopeChip, scope === 'all' && styles.scopeChipOn]}
+            onPress={() => setScope('all')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.scopeText, scope === 'all' && styles.scopeTextOn]}>All</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {error ? <Text style={styles.err}>{error}</Text> : null}
       <FlatList
-        data={rows}
+        data={visible}
         keyExtractor={(r) => String(r.id)}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />
@@ -114,7 +152,7 @@ export default function RequestsScreen() {
                 <Text style={styles.reason} numberOfLines={2}>“{item.reason}”</Text>
               ) : null}
               <Text style={styles.dates}>
-                submitted {formatDate(item.created_at)}
+                {item.created_by ? `submitted by ${item.created_by} · ` : ''}{formatDate(item.created_at)}
                 {item.decided_at ? ` · decided ${formatDate(item.decided_at)}${item.decided_by ? ` by ${item.decided_by}` : ''}` : ''}
               </Text>
             </View>
@@ -122,7 +160,9 @@ export default function RequestsScreen() {
         }}
         ListEmptyComponent={
           <Text style={styles.empty}>
-            No adjustment requests yet. Submit one from Scan or Count.
+            {scope === 'mine'
+              ? 'No requests from you yet. Submit one from Scan or Count.'
+              : 'No adjustment requests yet.'}
           </Text>
         }
       />
@@ -137,6 +177,18 @@ const createStyles = (colors) =>
     header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
     title: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
     subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+    scopeRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+    scopeChip: {
+      paddingVertical: 6,
+      paddingHorizontal: 16,
+      borderRadius: 999,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    scopeChipOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
+    scopeText: { fontSize: 13, fontWeight: '800', color: colors.textSecondary },
+    scopeTextOn: { color: '#fff' },
     list: { paddingHorizontal: 16, paddingBottom: 24 },
     row: {
       backgroundColor: colors.surface,

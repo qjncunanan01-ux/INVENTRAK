@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Constants from 'expo-constants';
-import { login, setSessionDetails, setSessionUsername, setToken, clearToken, clearSession } from '../api';
+import { login, setSessionDetails, setSessionUserId, setSessionUsername, setToken, clearToken, clearSession } from '../api';
 
 // The ONLY role this app admits — mirrors the server's canAccessStaffPortal.
 const STAFF_TIER_ONLY = ['staff'];
@@ -18,7 +18,7 @@ const STAFF_TIER_ONLY = ['staff'];
 // Build marker: the login screen prints its own version so an outdated
 // install is obvious at a glance instead of surfacing as scan failures.
 const APP_VERSION =
-  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.2.0';
+  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.4.0';
 import { useThemeColors } from '../theme-context';
 
 // Staff sign-in — this app is EXCLUSIVELY for Inventory Staff. The login
@@ -58,6 +58,9 @@ export default function LoginScreen() {
         return;
       }
       if (response.token) setToken(response.token);
+      // Persist the account id: adjustments stamp created_by_id with it, and
+      // "My Requests" filters the feed to this user with it.
+      setSessionUserId(response.user?.id);
       setSessionUsername(response.user?.username || u);
       setSessionDetails({
         email: response.user?.email || u,

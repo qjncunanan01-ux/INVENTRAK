@@ -200,7 +200,7 @@
         },
         "responses": {
           "200": {
-            "description": "Always succeeds — never reveals whether the email has an unverified account",
+            "description": "Always succeeds \u00e2\u20ac\u201d never reveals whether the email has an unverified account",
             "content": {
               "application/json": {
                 "schema": {
@@ -237,7 +237,7 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful — either a session token (AuthResponse) or, when the admin has enrolled MFA, an MfaChallenge",
+            "description": "Login successful \u00e2\u20ac\u201d either a session token (AuthResponse) or, when the admin has enrolled MFA, an MfaChallenge",
             "content": {
               "application/json": {
                 "schema": {
@@ -260,7 +260,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Forbidden — a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin, code: portal_mobile_only), or a non-staff role attempted to sign in from the staff app (portal=staff, code: staff_app_exclusive).",
+            "description": "Forbidden \u00e2\u20ac\u201d a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin, code: portal_mobile_only), or a non-staff role attempted to sign in from the staff app (portal=staff, code: staff_app_exclusive).",
             "content": {
               "application/json": {
                 "schema": {
@@ -366,7 +366,7 @@
         },
         "responses": {
           "200": {
-            "description": "Always succeeds — the response never reveals whether the email has an account",
+            "description": "Always succeeds \u00e2\u20ac\u201d the response never reveals whether the email has an account",
             "content": {
               "application/json": {
                 "schema": {
@@ -548,7 +548,7 @@
           "Products"
         ],
         "operationId": "bulkUpdatePrices",
-        "summary": "Set prices for many products in one request (admin only) — the price-list CSV import",
+        "summary": "Set prices for many products in one request (admin only) \u00e2\u20ac\u201d the price-list CSV import",
         "security": [
           {
             "bearerAuth": []
@@ -1143,7 +1143,7 @@
           "Stock Movements"
         ],
         "operationId": "createStockAdjustment",
-        "summary": "Create a stock adjustment request (admin only) — PENDING until approved",
+        "summary": "Create a stock adjustment request (admin only) \u00e2\u20ac\u201d PENDING until approved",
         "security": [
           {
             "bearerAuth": []
@@ -1348,7 +1348,7 @@
           "Stock Movements"
         ],
         "operationId": "createStockTransfer",
-        "summary": "Create a stock transfer request (admin only) — PENDING until approved",
+        "summary": "Create a stock transfer request (admin only) \u00e2\u20ac\u201d PENDING until approved",
         "security": [
           {
             "bearerAuth": []
@@ -1896,7 +1896,7 @@
           "Analytics"
         ],
         "operationId": "getAnalyticsSummary",
-        "summary": "Dashboard summary metrics (admin tier — contains revenue)",
+        "summary": "Dashboard summary metrics (admin tier \u00e2\u20ac\u201d contains revenue)",
         "security": [
           {
             "bearerAuth": []
@@ -2237,7 +2237,7 @@
           "Admin"
         ],
         "operationId": "promoteUser",
-        "summary": "Promote a customer account to admin (admin only) — the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)",
+        "summary": "Promote a customer account to admin (admin only) \u00e2\u20ac\u201d the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)",
         "security": [
           {
             "bearerAuth": []
@@ -2285,7 +2285,7 @@
           "Health"
         ],
         "operationId": "getHealth",
-        "summary": "Public liveness probe — returns 200 with service status and active driver",
+        "summary": "Public liveness probe \u00e2\u20ac\u201d returns 200 with service status and active driver",
         "responses": {
           "200": {
             "description": "Service is up",
@@ -2327,7 +2327,7 @@
           "Health"
         ],
         "operationId": "getMeta",
-        "summary": "Public build identity — name, package version, deployed git commit, storage driver, process start time",
+        "summary": "Public build identity \u00e2\u20ac\u201d name, package version, deployed git commit, storage driver, process start time",
         "responses": {
           "200": {
             "description": "Build metadata",
@@ -2687,7 +2687,7 @@
           "Auth"
         ],
         "operationId": "mfaDisable",
-        "summary": "Disable MFA — requires the current authenticator code",
+        "summary": "Disable MFA \u00e2\u20ac\u201d requires the current authenticator code",
         "security": [
           {
             "bearerAuth": []
@@ -2848,7 +2848,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Get runtime system settings (admin tier — read-only)",
+        "summary": "Get runtime system settings (admin tier \u00e2\u20ac\u201d read-only)",
         "description": "Returns the live runtime configuration: demo-account gate, default FSN window, low-stock multiplier, and session token lifetime. Readable by the admin tier; changes only via PUT (Owner/Super Admin).",
         "security": [
           {
@@ -2870,7 +2870,7 @@
             "description": "Unauthorized"
           },
           "403": {
-            "description": "Forbidden — non-admin token"
+            "description": "Forbidden \u00e2\u20ac\u201d non-admin token"
           }
         }
       },
@@ -2880,7 +2880,7 @@
           "Users"
         ],
         "summary": "Update runtime system settings (Owner / Super Admin only)",
-        "description": "Partial update — only provided keys change. Every value is validated and clamped server-side; the change is written to the audit trail and takes effect immediately (session TTL applies to tokens issued afterwards).",
+        "description": "Partial update \u00e2\u20ac\u201d only provided keys change. Every value is validated and clamped server-side; the change is written to the audit trail and takes effect immediately (session TTL applies to tokens issued afterwards).",
         "security": [
           {
             "bearerAuth": []
@@ -2898,7 +2898,7 @@
         },
         "responses": {
           "200": {
-            "description": "Saved — returns the full updated settings",
+            "description": "Saved \u00e2\u20ac\u201d returns the full updated settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -2919,13 +2919,13 @@
             }
           },
           "400": {
-            "description": "Validation failed — details list the offending keys"
+            "description": "Validation failed \u00e2\u20ac\u201d details list the offending keys"
           },
           "401": {
             "description": "Unauthorized"
           },
           "403": {
-            "description": "Forbidden — requires Owner or Super Admin"
+            "description": "Forbidden \u00e2\u20ac\u201d requires Owner or Super Admin"
           }
         }
       }
@@ -2936,7 +2936,7 @@
           "Users"
         ],
         "operationId": "listAuditTrail",
-        "summary": "Security audit log entries (admin only) — newest first",
+        "summary": "Security audit log entries (admin only) \u00e2\u20ac\u201d newest first",
         "security": [
           {
             "bearerAuth": []
@@ -2949,7 +2949,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) — keeps only entries whose details.status matches"
+            "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) \u00e2\u20ac\u201d keeps only entries whose details.status matches"
           },
           {
             "name": "limit",
@@ -3030,7 +3030,7 @@
         ],
         "operationId": "getProductByQr",
         "summary": "QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)",
-        "description": "The single round-trip behind QR product identification. Accepts the tag payload (INVENTRAK:PROD:<id>), a SKU (PRD-000042 or a custom code), or a bare numeric id (legacy barcode fallback). Returns the product, its QR tag data, a live per-location stock snapshot and open FIFO lots. The QR authorizes NOTHING — normal authentication, product status, location, quantity and approval rules all still apply after the scan.",
+        "description": "The single round-trip behind QR product identification. Accepts the tag payload (INVENTRAK:PROD:<id>), a SKU (PRD-000042 or a custom code), or a bare numeric id (legacy barcode fallback). Returns the product, its QR tag data, a live per-location stock snapshot and open FIFO lots. The QR authorizes NOTHING \u00e2\u20ac\u201d normal authentication, product status, location, quantity and approval rules all still apply after the scan.",
         "security": [
           {
             "bearerAuth": []
@@ -3296,7 +3296,7 @@
             "type": "string",
             "maxLength": 20,
             "pattern": "^(\\+63|63|0)?9[0-9]{9}$",
-            "description": "Valid PH mobile number (09171234567, +639171234567 or 639171234567). Required — used for SMS verification and order updates under the Data Privacy Act (RA 10173)."
+            "description": "Valid PH mobile number (09171234567, +639171234567 or 639171234567). Required \u00e2\u20ac\u201d used for SMS verification and order updates under the Data Privacy Act (RA 10173)."
           }
         }
       },
@@ -3363,7 +3363,7 @@
               "admin",
               "staff"
             ],
-            "description": "Portal flag identifying which app is signing in. portal=admin (web admin): mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only. portal=staff (dedicated staff app): only Inventory Staff is admitted — admins/owners are refused with 403 staff_app_exclusive. Omitted by the customer app."
+            "description": "Portal flag identifying which app is signing in. portal=admin (web admin): mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only. portal=staff (dedicated staff app): only Inventory Staff is admitted \u00e2\u20ac\u201d admins/owners are refused with 403 staff_app_exclusive. Omitted by the customer app."
           }
         }
       },
@@ -3455,7 +3455,7 @@
           "sku": {
             "type": "string",
             "nullable": true,
-            "description": "Stable product identifier encoded in the printed QR tag (system default PRD-000001; custom codes allowed). The QR payload itself is INVENTRAK:PROD:<id> — the sku is display/back-compat only."
+            "description": "Stable product identifier encoded in the printed QR tag (system default PRD-000001; custom codes allowed). The QR payload itself is INVENTRAK:PROD:<id> \u00e2\u20ac\u201d the sku is display/back-compat only."
           }
         }
       },
@@ -3505,7 +3505,7 @@
           },
           "sku": {
             "type": "string",
-            "description": "Custom SKU (3-32 chars: A-Z, 0-9, dashes). Omit to get the deterministic system SKU (PRD-<padded id>). Cannot be cleared once set — reprint the tag instead."
+            "description": "Custom SKU (3-32 chars: A-Z, 0-9, dashes). Omit to get the deterministic system SKU (PRD-<padded id>). Cannot be cleared once set \u00e2\u20ac\u201d reprint the tag instead."
           }
         }
       },
@@ -4016,7 +4016,7 @@
             "type": "number",
             "minimum": 1,
             "maximum": 3,
-            "description": "Low-stock badge widening factor: low_stock when qty ≤ criticalLevel × factor."
+            "description": "Low-stock badge widening factor: low_stock when qty \u00e2\u2030\u00a4 criticalLevel \u00c3\u2014 factor."
           },
           "session_token_hours": {
             "type": "integer",
@@ -4028,7 +4028,7 @@
       },
       "UpdateSettingsRequest": {
         "type": "object",
-        "description": "Partial update — only the provided keys are changed.",
+        "description": "Partial update \u00e2\u20ac\u201d only the provided keys are changed.",
         "properties": {
           "demo_accounts_disabled": {
             "type": "boolean"
@@ -4138,6 +4138,16 @@
           },
           "created_at": {
             "type": "string"
+          },
+          "created_by_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "User id of the staff member who submitted the count (null on legacy rows)."
+          },
+          "created_by": {
+            "type": "string",
+            "nullable": true,
+            "description": "Username of the staff member who submitted the count (shown in the admin approval queue; 'My Requests' filters on it)."
           },
           "decided_at": {
             "type": "string",
@@ -5172,7 +5182,7 @@
           },
           "orderStatusCounts": {
             "type": "object",
-            "description": "Alias of orderStatusSummary — inquiry counts per status",
+            "description": "Alias of orderStatusSummary \u00e2\u20ac\u201d inquiry counts per status",
             "properties": {
               "pending": {
                 "type": "integer"
@@ -5392,7 +5402,7 @@
         "properties": {
           "secret": {
             "type": "string",
-            "description": "Base32 TOTP secret — paste into an authenticator app"
+            "description": "Base32 TOTP secret \u00e2\u20ac\u201d paste into an authenticator app"
           },
           "otpauth_url": {
             "type": "string",
@@ -5471,7 +5481,7 @@
               "type": "string",
               "example": "ABCD-EFGH-JKLM"
             },
-            "description": "One-time recovery codes — shown exactly once, stored only as hashes. Save them somewhere safe."
+            "description": "One-time recovery codes \u00e2\u20ac\u201d shown exactly once, stored only as hashes. Save them somewhere safe."
           }
         }
       },
@@ -5662,7 +5672,7 @@
             "properties": {
               "payload": {
                 "type": "string",
-                "description": "INVENTRAK:PROD:<id> — the exact string encoded in the printed tag; handy for reprinting."
+                "description": "INVENTRAK:PROD:<id> \u00e2\u20ac\u201d the exact string encoded in the printed tag; handy for reprinting."
               },
               "sku": {
                 "type": "string",

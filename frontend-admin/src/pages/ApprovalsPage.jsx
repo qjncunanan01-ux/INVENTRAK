@@ -58,15 +58,16 @@ export default function ApprovalsPage({ onLogout }) {
               <TableCell>Current → Corrected</TableCell>
               <TableCell>Best before</TableCell>
               <TableCell>Reason</TableCell>
+              <TableCell>Requested by</TableCell>
               <TableCell>Requested</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7}>Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>
             ) : adjustments.length === 0 ? (
-              <TableRow><TableCell colSpan={7}>No pending adjustments.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8}>No pending adjustments.</TableCell></TableRow>
             ) : adjustments.map(r => (
               <TableRow key={'a' + r.id}>
                 <TableCell>{r.product_name}</TableCell>
@@ -78,6 +79,9 @@ export default function ApprovalsPage({ onLogout }) {
                     : '—'}
                 </TableCell>
                 <TableCell>{r.reason || '-'}</TableCell>
+                {/* Submitter identity — who physically counted this stock (the
+                    staff app stamps it on submit; legacy rows show '—'). */}
+                <TableCell>{r.created_by || '—'}</TableCell>
                 <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 1 }}>

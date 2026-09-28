@@ -72,6 +72,7 @@ function persistSession() {
     SESSION_KEY,
     JSON.stringify({
       token: authToken,
+      userId: sessionUserId,
       username: sessionUsername,
       email: sessionEmail,
       verified: sessionVerified,
@@ -86,6 +87,7 @@ function clearPersistedSession() {
 }
 
 // Restored at boot (see hydrateSession below).
+let sessionUserId = null;
 let sessionUsername = null;
 let sessionEmail = null;
 let sessionVerified = false;
@@ -114,6 +116,7 @@ async function hydrateSession() {
       const s = JSON.parse(raw);
       if (s && s.token && STAFF_TIER.includes(s.role)) {
         authToken = s.token;
+        sessionUserId = s.userId != null ? s.userId : null;
         sessionUsername = s.username || null;
         sessionEmail = s.email || null;
         sessionVerified = !!s.verified;
@@ -158,11 +161,19 @@ export function getToken() {
 
 export function clearToken() {
   authToken = null;
+  sessionUserId = null;
   clearPersistedSession();
 }
 
 export function setSessionUsername(name) {
   sessionUsername = name || null;
+  persistSession();
+  sessionListeners.forEach((fn) => fn());
+}
+
+export function setSessionUserId(id) {
+  const n = Number(id);
+  sessionUserId = Number.isFinite(n) ? n : null;
   persistSession();
   sessionListeners.forEach((fn) => fn());
 }
@@ -199,11 +210,16 @@ export function useSession() {
   const [, setTick] = useState(0);
   useEffect(() => subscribeSession(() => setTick((t) => t + 1)), []);
   return {
+    userId: sessionUserId,
     username: sessionUsername,
     role: sessionRole,
     verified: sessionVerified,
     isLoggedIn: !!sessionUsername && !!authToken,
   };
+}
+
+export function getSessionUserId() {
+  return sessionUserId;
 }
 
 // True once the restored session has been proven INVALID on the server (401
@@ -218,6 +234,7 @@ export function isSessionInvalidated() {
 }
 
 function clearLocalSessionOnly() {
+  sessionUserId = null;
   sessionUsername = null;
   sessionEmail = null;
   sessionVerified = false;
