@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { getSessionUserId, getSessionUsername, listStockAdjustments } from '../api';
 import { useThemeColors } from '../theme-context';
 
@@ -15,13 +17,20 @@ import { useThemeColors } from '../theme-context';
 // The backend now stamps every submission with its submitter (created_by),
 // so this screen can filter to the signed-in user's own requests ("Mine",
 // the default) or show the whole team's feed ("All") — who submitted each
-// one is displayed either way. Decisions land here live: approving on the
-// web admin flips the row's badge on the next pull-to-refresh.
+// one is displayed either way. The screen LIVE-UPDATES: while the tab is
+// open it polls every 15s, so an owner's approve/reject flips the badge on
+// its own — pull-to-refresh is still there as the manual override.
 const STATUS_META = {
   pending: { glyph: '⏳', label: 'Pending' },
   approved: { glyph: '✅', label: 'Approved' },
   rejected: { glyph: '❌', label: 'Rejected' },
 };
+
+// How often the open tab re-checks the server for decisions. Chosen for the
+// demo (a decision lands within one breath) while staying polite to the
+// Render free tier: one light request per 15s, only while the tab is on
+// screen and the app is in the foreground.
+const AUTO_REFRESH_MS = 15000;
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -44,25 +53,55 @@ export default function RequestsScreen() {
   // 'mine' | 'all' — Mine (the signed-in staff member) is the default;
   // All shows the whole team's submissions with their submitter names.
   const [scope, setScope] = useState('mine');
+  // Last successful server sync — shown under the scope chips so the live
+  // behavior is visible at a glance.
+  const [lastSynced, setLastSynced] = useState(null);
+  // Re-entrancy guard: a Render cold start can take 30s+, so timer ticks can
+  // overlap an in-flight request. Skip a tick rather than pile up requests.
+  const inFlight = useRef(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     try {
-      setError('');
+      if (!silent) setError('');
       const r = await listStockAdjustments();
       const list = Array.isArray(r) ? r : (r && r.data) || [];
       // Newest first (the endpoint returns insertion order; unshift puts new
       // rows at index 0, but sort defensively so the feed is always fresh-first).
       list.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
       setRows(list);
+      setLastSynced(new Date());
+      // A successful silent poll also clears any stale error banner (retry
+      // succeeded — the screen is healthy again). Same-value set bails out.
+      setError((prev) => (prev ? '' : prev));
     } catch {
-      setError('Could not load requests. Pull to refresh.');
+      // Silent (timer) polls keep the last good data on failure — a transient
+      // blip or cold start must never blank the list or flash an error; the
+      // next tick retries. Only user-driven loads surface the banner.
+      if (!silent) setError('Could not load requests. Pull to refresh.');
     } finally {
+      inFlight.current = false;
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Live decision updates: fetch the moment the tab opens (covers the
+  // submit-then-switch-tab demo beat), then poll while it stays focused.
+  // The interval is cleared automatically when the tab loses focus, and
+  // ticks are skipped while the app is backgrounded (no wasted battery or
+  // data) or while a previous request is still in flight.
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+      const timer = setInterval(() => {
+        if (AppState.currentState !== 'active') return;
+        fetchData(true);
+      }, AUTO_REFRESH_MS);
+      return () => clearInterval(timer);
+    }, [fetchData])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -117,6 +156,11 @@ export default function RequestsScreen() {
             <Text style={[styles.scopeText, scope === 'all' && styles.scopeTextOn]}>All</Text>
           </TouchableOpacity>
         </View>
+        <Text style={styles.syncNote}>
+          {lastSynced
+            ? `Live · updated ${lastSynced.toLocaleTimeString()} · checks every 15s`
+            : 'Live · checks every 15s'}
+        </Text>
       </View>
       {error ? <Text style={styles.err}>{error}</Text> : null}
       <FlatList
@@ -189,6 +233,7 @@ const createStyles = (colors) =>
     scopeChipOn: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
     scopeText: { fontSize: 13, fontWeight: '800', color: colors.textSecondary },
     scopeTextOn: { color: '#fff' },
+    syncNote: { fontSize: 10, color: colors.textSecondary, marginTop: 6, opacity: 0.8 },
     list: { paddingHorizontal: 16, paddingBottom: 24 },
     row: {
       backgroundColor: colors.surface,
