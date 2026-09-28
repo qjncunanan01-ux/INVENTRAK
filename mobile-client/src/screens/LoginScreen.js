@@ -20,7 +20,7 @@ import AnimatedEntry from '../AnimatedEntry';
 // screen now prints the app version so an outdated install is obvious at a
 // glance. expo-constants is already a direct dependency; no new native modules.
 const APP_VERSION =
-  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.0.0';
+  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.3.0';
 
 const DEMO_ACCOUNTS = [
   {

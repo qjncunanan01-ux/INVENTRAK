@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,6 +38,10 @@ import { useThemeColors } from '../theme-context';
 //     stock availability view.
 //   - a bare number        — legacy barcode fallback (product id).
 // Anything else is reported as unrecognized instead of silently ignored.
+//
+// "Enter Code Manually": when the camera can't (damaged tag, glare, broken
+// hardware), the code printed under a tag can be typed instead — it flows
+// through the exact parse → audit → dispatch pipeline as a camera scan.
 //
 // Roles:
 //   - Customers/members: scan → the product detail page (browse & order).
@@ -113,6 +120,10 @@ export default function QrScanScreen({ navigation }) {
   // camera from re-triggering on the same code still in view.
   const lockRef = useRef(false);
 
+  // Manual entry (the staff app's "Enter Code Manually"): typed tag codes.
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualCode, setManualCode] = useState('');
+
   // Re-arm the scanner whenever the screen regains focus (after navigating
   // to a product/location and coming back, a new tag can be scanned).
   useFocusEffect(
@@ -182,56 +193,10 @@ export default function QrScanScreen({ navigation }) {
     }
   }, [isStaff, product, counts, reason, locIdByName]);
 
-  // Guest lock: scanning is a signed-in feature (the Home tile is already
-  // hidden for guests, but deep links land here too).
-  if (!isLoggedIn) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.lockGlyph}>▣</Text>
-        <Text style={styles.lockTitle}>Log in to scan QR codes</Text>
-        <Text style={styles.lockBody}>
-          Point the camera at a product's QR tag to open it instantly — a member feature.
-        </Text>
-        <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={() => navigation.navigate('Login')} activeOpacity={0.85}>
-          <Text style={styles.btnPrimaryText}>Log In</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => navigation.navigate('Signup')} activeOpacity={0.85}>
-          <Text style={styles.btnGhostText}>Create Account</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Guard: handle both "denied" and "still loading" permission states before
-  // mounting the camera.
-  if (!permission) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.brandPrimary} />
-      </View>
-    );
-  }
-
-  if (!permission.granted) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.lockGlyph}>📷</Text>
-        <Text style={styles.lockTitle}>Camera access needed</Text>
-        <Text style={styles.lockBody}>
-          Camera permission is required to scan QR codes. Point it at a product tag once allowed.
-        </Text>
-        <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={requestPermission} activeOpacity={0.85}>
-          <Text style={styles.btnPrimaryText}>Allow camera</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   const handleProduct = async (parsed) => {
     // Audit every scan — an unknown code pointed at the scanner is exactly
     // the kind of event worth reviewing.
     createScanEvent({ payload: parsed.raw.slice(0, 300), kind: 'product', target_id: parsed.id }).catch(() => {});
-    lockRef.current = true;
     setBusy(true);
     try {
       const data = await getProductByQr({ code: parsed.code });
@@ -262,6 +227,84 @@ export default function QrScanScreen({ navigation }) {
     }
   };
 
+  // Location tag → the storage area's stock availability view. Existence is
+  // checked before navigating: a tag for a location deleted since printing
+  // must say so instead of opening an empty screen. Shared by the camera
+  // pipeline and manual entry.
+  const focusLocationTag = useCallback(async (parsed) => {
+    setBusy(true);
+    try {
+      const locations = await listLocations();
+      const list = Array.isArray(locations) ? locations : (locations && locations.data) || [];
+      if (!list.some((l) => Number(l.id) === Number(parsed.id))) {
+        const err = new Error('Location not found');
+        err.status = 404;
+        throw err;
+      }
+      navigation.navigate('StockAvailability', { location: parsed.name });
+    } catch {
+      setLast({ type: 'unknown', raw: `location #${parsed.id} (no longer exists)` });
+      Alert.alert(
+        'Tag target not found',
+        `This tag points to location #${parsed.id}, which no longer exists. Reprint it from the admin.`,
+      );
+    } finally {
+      setBusy(false);
+      setTimeout(() => { lockRef.current = false; }, RESCAN_COOLDOWN_MS);
+    }
+  }, [navigation]);
+
+  // Manual entry ("Enter Code Manually"): a typed tag code shares the exact
+  // parse → audit → dispatch pipeline as a camera scan, so it behaves and is
+  // audited identically — product tags open the product (customers) or the
+  // verify & count panel (staff), location tags open the stock view.
+  const resolveManual = useCallback((rawInput) => {
+    const raw = String(rawInput || '').trim();
+    if (!raw) return;
+    if (busy || lockRef.current) return;
+    if (isStaff && product) return;
+    const parsed = parseQr(raw);
+    if (parsed.kind === 'unknown') {
+      createScanEvent({ payload: parsed.raw.slice(0, 300), kind: 'unknown', target_id: null }).catch(() => {});
+      lockRef.current = true;
+      setLast({ type: 'unknown', raw: raw.slice(0, 120) });
+      Alert.alert('QR code not recognized', 'Invalid QR code. Please scan a valid INVENTRAK QR code.');
+      setTimeout(() => { lockRef.current = false; }, RESCAN_COOLDOWN_MS);
+      return;
+    }
+    if (parsed.kind === 'location') {
+      createScanEvent({ payload: parsed.raw.slice(0, 300), kind: 'location', target_id: parsed.id, location: parsed.name }).catch(() => {});
+      lockRef.current = true;
+      focusLocationTag(parsed);
+      return;
+    }
+    handleProduct(parsed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, focusLocationTag]);
+
+  // Manual entry is deliberate — close the sheet, then resolve. While the
+  // staff verify-and-record panel is open, typed codes are ignored (the
+  // camera path has the same guard so the count form can't be clobbered).
+  const submitManual = useCallback(() => {
+    const raw = manualCode.trim();
+    if (!raw) return;
+    setManualOpen(false);
+    setManualCode('');
+    resolveManual(raw);
+  }, [manualCode, resolveManual]);
+
+  const manualSheet = (
+    <ManualEntrySheet
+      visible={manualOpen}
+      code={manualCode}
+      onChangeCode={setManualCode}
+      onClose={() => setManualOpen(false)}
+      onSubmit={submitManual}
+      colors={colors}
+      styles={styles}
+    />
+  );
+
   const handleScan = ({ data }) => {
     if (busy || lockRef.current) return;
     // While the staff verify-and-record sheet is open, the camera keeps
@@ -287,36 +330,63 @@ export default function QrScanScreen({ navigation }) {
     if (parsed.kind === 'location') {
       createScanEvent({ payload: parsed.raw.slice(0, 300), kind: 'location', target_id: parsed.id, location: parsed.name }).catch(() => {});
       lockRef.current = true;
-      setBusy(true);
-      // Existence check before navigating: a tag for a location deleted since
-      // printing must say so instead of opening an empty screen.
-      listLocations()
-        .then((locations) => {
-          const list = Array.isArray(locations) ? locations : (locations && locations.data) || [];
-          if (!list.some((l) => Number(l.id) === Number(parsed.id))) {
-            const err = new Error('Location not found');
-            err.status = 404;
-            throw err;
-          }
-          // Open the availability view scoped to the scanned storage area.
-          navigation.navigate('StockAvailability', { location: parsed.name });
-        })
-        .catch(() => {
-          setLast({ type: 'unknown', raw: `location #${parsed.id} (no longer exists)` });
-          Alert.alert(
-            'Tag target not found',
-            `This tag points to location #${parsed.id}, which no longer exists. Reprint it from the admin.`,
-          );
-        })
-        .finally(() => {
-          setBusy(false);
-          setTimeout(() => { lockRef.current = false; }, RESCAN_COOLDOWN_MS);
-        });
+      focusLocationTag(parsed);
       return;
     }
 
     handleProduct(parsed);
   };
+
+  // Guest lock: scanning is a signed-in feature (the Home tile is already
+  // hidden for guests, but deep links land here too).
+  if (!isLoggedIn) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.lockGlyph}>▣</Text>
+        <Text style={styles.lockTitle}>Log in to scan QR codes</Text>
+        <Text style={styles.lockBody}>
+          Point the camera at a product's QR tag to open it instantly — a member feature.
+        </Text>
+        <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={() => navigation.navigate('Login')} activeOpacity={0.85}>
+          <Text style={styles.btnPrimaryText}>Log In</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => navigation.navigate('Signup')} activeOpacity={0.85}>
+          <Text style={styles.btnGhostText}>Create Account</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Guard: handle both "denied" and "still loading" permission states before
+  // mounting the camera. (These gates sit after the resolver definitions so
+  // the camera-denied screen can offer the manual-entry sheet.)
+  if (!permission) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.brandPrimary} />
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.lockGlyph}>📷</Text>
+        <Text style={styles.lockTitle}>Camera access needed</Text>
+        <Text style={styles.lockBody}>
+          Camera permission is required to scan QR codes. Point it at a product tag once allowed.
+        </Text>
+        <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={requestPermission} activeOpacity={0.85}>
+          <Text style={styles.btnPrimaryText}>Allow camera</Text>
+        </TouchableOpacity>
+        <Text style={styles.manualOr}>or</Text>
+        <TouchableOpacity style={[styles.btn, styles.manualDenied]} onPress={() => setManualOpen(true)} activeOpacity={0.85}>
+          <Text style={styles.manualDeniedText}>⌨  Enter Code Manually</Text>
+        </TouchableOpacity>
+        {manualSheet}
+      </View>
+    );
+  }
 
   const scannedProduct = product?.product;
 
@@ -353,6 +423,12 @@ export default function QrScanScreen({ navigation }) {
         </View>
       )}
       <View style={styles.footer}>
+        {/* Manual entry: type the code printed under a tag when the camera
+            can't read it — damaged tag, glare, or broken hardware. Resolves
+            through the exact same pipeline as a scan. */}
+        <TouchableOpacity style={styles.manualPill} onPress={() => setManualOpen(true)} activeOpacity={0.85}>
+          <Text style={styles.manualPillText}>⌨  Enter Code Manually</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.btn, styles.btnGhost]}
           onPress={() => navigation.goBack()}
@@ -432,7 +508,60 @@ export default function QrScanScreen({ navigation }) {
           {submitErr ? <Text style={styles.countErr}>{submitErr}</Text> : null}
         </ScrollView>
       ) : null}
+
+      {manualSheet}
     </View>
+  );
+}
+
+// The manual-entry sheet behind "Enter Code Manually": types the code printed
+// under a tag instead of pointing the camera at it. Same parser, same audit
+// trail, same destination as a scan — a fallback for the camera, not a
+// separate workflow.
+function ManualEntrySheet({ visible, code, onChangeCode, onClose, onSubmit, colors, styles }) {
+  const inputRef = useRef(null);
+  // Autofocus once the slide-in animation has placed the sheet.
+  useEffect(() => {
+    if (!visible) return undefined;
+    const t = setTimeout(() => { if (inputRef.current) inputRef.current.focus(); }, 250);
+    return () => clearTimeout(t);
+  }, [visible]);
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.sheetBackdrop}
+      >
+        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
+        <View style={styles.sheetCard}>
+          <Text style={styles.sheetTitle}>Enter Code Manually</Text>
+          <Text style={styles.sheetSub}>
+            Type the code printed under a tag — the tag URL (e.g. https://…/t/12),
+            INVENTRAK:PROD:12, or a location tag. It resolves exactly like a scan.
+          </Text>
+          <TextInput
+            ref={inputRef}
+            style={styles.sheetInput}
+            value={code}
+            onChangeText={onChangeCode}
+            placeholder="INVENTRAK:PROD:12"
+            placeholderTextColor={colors.textSecondary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="go"
+            onSubmitEditing={onSubmit}
+          />
+          <View style={styles.sheetActions}>
+            <TouchableOpacity style={[styles.btn, styles.sheetCancel]} onPress={onClose} activeOpacity={0.85}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.btn, styles.btnPrimary, styles.sheetGo]} onPress={onSubmit} activeOpacity={0.85}>
+              <Text style={styles.btnPrimaryText}>Resolve code</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -490,6 +619,47 @@ const createStyles = (colors) =>
     torchText: { color: '#fff', fontSize: 13, fontWeight: '700' },
     torchTextOn: { color: '#1a1a1a' },
     unknownNote: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 10, textAlign: 'center' },
+    // ---- Manual entry ----
+    manualPill: {
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,255,255,0.92)',
+      borderColor: colors.brandSecondary,
+      borderRadius: 999,
+      borderWidth: 1.5,
+      marginBottom: 10,
+      paddingVertical: 12,
+      width: '100%',
+    },
+    manualPillText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
+    manualOr: { color: colors.textSecondary, fontSize: 12, marginTop: 14, marginBottom: 6 },
+    manualDenied: { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.brandSecondary, alignSelf: 'stretch' },
+    manualDeniedText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
+    sheetBackdrop: { backgroundColor: 'rgba(0,0,0,0.45)', flex: 1, justifyContent: 'flex-end' },
+    sheetCard: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      padding: 18,
+      paddingBottom: 30,
+    },
+    sheetTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '800' },
+    sheetSub: { color: colors.textSecondary, fontSize: 12, lineHeight: 17, marginBottom: 12, marginTop: 4 },
+    sheetInput: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: 10,
+      borderWidth: 1,
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '700',
+      marginBottom: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
+    sheetActions: { flexDirection: 'row', gap: 10 },
+    sheetCancel: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1.5, flex: 1 },
+    sheetCancelText: { color: colors.textSecondary, fontSize: 14, fontWeight: '800' },
+    sheetGo: { flex: 1.4, marginTop: 0 },
     // ---- Staff verify-and-record sheet ----
     countSheet: {
       backgroundColor: colors.background,
