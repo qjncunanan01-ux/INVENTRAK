@@ -61,3 +61,6 @@ frontend-admin/e2e/*-snapshots/
 
 # Freebuff runtime artifacts
 .c/freebuff/*.pid
+
+# Local release keystore (signing secret - never commit)
+mobile-client/.keystore/
