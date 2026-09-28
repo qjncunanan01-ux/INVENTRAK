@@ -1,35 +1,65 @@
 import { Box, Button, Chip, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
+
+// How often the open page re-checks the server for new staff submissions.
+// Mirrors the staff app's Requests screen (15s there, 15s here) so the full
+// staff → owner loop plays out live on both ends: a phone submits, this
+// queue shows the new "Requested by" row within one tick, and the decision
+// lands back on the phone the same way. Only while the tab is visible.
+const AUTO_REFRESH_MS = 15000;
 
 export default function ApprovalsPage({ onLogout }) {
   usePageTitle('/approvals');
   const [data, setData] = useState({ adjustments: [], transfers: [] });
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [lastSynced, setLastSynced] = useState(null);
+  // Re-entrancy guard: a Render cold start can take 30s+, so timer ticks can
+  // overlap an in-flight request. Skip a tick rather than pile up requests.
+  const inFlight = useRef(false);
 
-  const loadData = async() => {
-    setLoading(true);
+  // `silent` refreshes swap the data in place (no Loading… flicker, no error
+  // snackbar spam while the backend briefly hiccups); the first load and
+  // explicit reloads keep the original visible-loading behavior.
+  const loadData = useCallback(async (silent = false) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    if (!silent) setLoading(true);
     try {
       const res = await apiGet('/api/approvals');
       setData({ adjustments: res.adjustments || [], transfers: res.transfers || [] });
+      setLastSynced(new Date());
     } catch (err) {
-      setSnackbar({ open: true, message: 'Failed to load approvals: ' + err.message, severity: 'error' });
+      // Silent (timer) polls keep the last good queue on failure; only
+      // user-driven loads surface the error.
+      if (!silent) setSnackbar({ open: true, message: 'Failed to load approvals: ' + err.message, severity: 'error' });
     } finally {
+      inFlight.current = false;
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // Live queue: poll while the page is open, skipping ticks while the
+  // browser tab is hidden (no wasted requests in a background tab).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      loadData(true);
+    }, AUTO_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [loadData]);
 
   const decide = async(kind, id, action) => {
     try {
       const result = await apiPost(`/api/stock-${kind === 'adjustment' ? 'adjustments' : 'transfers'}/${id}/${action}`, {});
       setSnackbar({ open: true, message: result.message, severity: 'success' });
-      await loadData();
+      await loadData(true);
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     }
@@ -45,6 +75,13 @@ export default function ApprovalsPage({ onLogout }) {
         <Typography variant="h6" mb={1}>Approval of important transactions</Typography>
         <Typography variant="body2" color="text.secondary">
           {loading ? 'Loading pending requests...' : `${total} pending request${total === 1 ? '' : 's'} awaiting your decision. Approving applies the change to stock; rejecting leaves stock untouched.`}
+        </Typography>
+        {/* Live queue: new staff submissions appear here on their own — no
+            reload needed (mirrors the staff app's live Requests screen). */}
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          {lastSynced
+            ? `Live · updated ${lastSynced.toLocaleTimeString()} · checks every 15s`
+            : 'Live · checks every 15s'}
         </Typography>
       </Paper>
 
