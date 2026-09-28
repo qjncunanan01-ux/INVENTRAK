@@ -11,7 +11,7 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
-## Latest builds (Sep 27, 2026 — v1.2.0, both apps)
+## Latest builds (staff v1.3.0 · Sep 28, 2026 — customer v1.2.0 · Sep 27)
 
 ### Customer app (INVENTRAK — `com.inventrak.mobile`)
 
@@ -36,22 +36,28 @@ https://expo.dev/artifacts/eas/i3rggZLQMbBcygcLFInmV5GAwv1M0XufXUuTaN1fnQg.apk
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/1EgLmgnDTxtunwSD8mTqDUMmlTvoCLQQqYLHTfMvcpo.apk
+https://expo.dev/artifacts/eas/yBHzH8zbYh83fSqmrvWlKs13cCD9CMrp0WjNzi0G1Wo.apk
 ```
 
-> **v1.2.0 (staff):** the staff-only tag scanner (product tags → count
-> card, location tags → storage-area stock) with URL-tag support and the
-> login-screen version marker. Sign in with the seeded staff account
+> **v1.3.0 (staff):** the tag scanner gains **"Enter Code Manually"** — a
+> pill under the camera view (matching the app mockup) that opens a sheet
+> where staff type the code printed under a tag (tag URL, `INVENTRAK:PROD:<id>`,
+> or a location tag). Typed codes resolve through the exact same pipeline as
+> a scan and are audit-logged the same way. The same fallback appears on the
+> camera-denied screen, so a phone with a **broken camera** can still run the
+> full scan-to-count workflow. Sign in with the seeded staff account
 > (`staff` / `staff123`) — this app refuses admin/owner/customer accounts
 > by design. It is a **separate app** from the customer one (own icon, own
 > package), so both can live on the same phone.
 >
-> Build ID: `da56053c-af13-4846-95f1-365ce0f89463` · Build page:
-> https://expo.dev/accounts/patrickcuevas/projects/inventrak-staff/builds/da56053c-af13-4846-95f1-365ce0f89463
+> Build ID: `6ad61526-e1a7-41b2-a6bb-7eb57bb38bbd` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-staff/builds/6ad61526-e1a7-41b2-a6bb-7eb57bb38bbd
 >
-> **Local copies:** `INVENTRAK-production.apk` (customer) and
-> `INVENTRAK-staff.apk` (staff) in the project folder on the desktop —
-> both v1.2.0.
+> **v1.2.0 (Sep 27, superseded by v1.3.0):**
+> `https://expo.dev/artifacts/eas/1EgLmgnDTxtunwSD8mTqDUMmlTvoCLQQqYLHTfMvcpo.apk`.
+>
+> **Local copies:** `INVENTRAK-production.apk` (customer, v1.2.0) and
+> `INVENTRAK-staff.apk` (staff, v1.3.0) in the project folder on the desktop.
 
 > **v1.1.0 (Sep 26, superseded):** version-badge builds **without** URL-tag
 > support — they still recognize the old plain-payload tags. Customer build
@@ -115,8 +121,7 @@ https://expo.dev/artifacts/eas/1EgLmgnDTxtunwSD8mTqDUMmlTvoCLQQqYLHTfMvcpo.apk
 - **Backend:** `https://inventrak-api.onrender.com` baked in (Supabase
   PostgreSQL)
 - **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
-  (customer) and `INVENTRAK-staff.apk` (staff) — both v1.1.0, downloaded
-  Sep 26
+  (customer, v1.2.0) and `INVENTRAK-staff.apk` (staff, v1.3.0)
 
 > **No-install alternative:** open the customer app in any phone/desktop
 > browser at the permanent hosted URL `https://inventrak-mobile.onrender.com/`
