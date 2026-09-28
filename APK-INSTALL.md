@@ -11,7 +11,7 @@ internet-to-PC needed** — and it talks to the **live backend**
 
 ---
 
-## Latest builds (staff v1.4.0 · Sep 28, 2026 — customer v1.2.0 · Sep 27)
+## Latest builds (staff v1.5.0 · Sep 28, 2026 — customer v1.2.0 · Sep 27)
 
 ### Customer app (INVENTRAK — `com.inventrak.mobile`)
 
@@ -36,19 +36,28 @@ https://expo.dev/artifacts/eas/i3rggZLQMbBcygcLFInmV5GAwv1M0XufXUuTaN1fnQg.apk
 **Direct download link:**
 
 ```
-https://expo.dev/artifacts/eas/XBApQJmlSVXzZC6k9MmIxLWTBNHBDvNP6b-dVk1ia6Y.apk
+https://expo.dev/artifacts/eas/2Fa5HkvBxzl7fqOHrVbWBl8IToAJsGrQMRdWhwKYGYI.apk
 ```
 
-> **v1.4.0 (staff):** the app is now a **closed loop with the web admin**.
-> Every count submitted from the phone records WHO submitted it, the admin
-> approval queue shows the requester in a "Requested by" column, and the
-> Requests tab gains a **Mine | All** filter — Mine (default) tracks your own
-> submissions through to the owner's approve/reject decision (pull to
-> refresh to see it land); All shows the whole team's feed with submitter
-> names. Verified live end-to-end on the deployed backend.
+> **v1.5.0 (staff):** the Requests tab is **live** — while it's open it
+> polls every 15s, so the owner's approve/reject decision flips the badge
+> on its own (a "Live · updated HH:MM:SS" note shows the last sync).
+> Combined with v1.4.0's closed loop (submissions stamped with who counted,
+> "Requested by" in the admin queue, Mine | All filter), the full
+> staff → owner → staff cycle now plays out on screen with zero manual
+> refreshes. Verified live end-to-end on the deployed backend.
+>
+> Build ID: `fd080f2f-30d4-4afb-90e1-883f3deebd12` · Build page:
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-staff/builds/fd080f2f-30d4-4afb-90e1-883f3deebd12
+>
+> **v1.4.0 (Sep 28, superseded by v1.5.0):** the app became a **closed loop
+> with the web admin**: submissions record WHO counted, the admin queue
+> shows a "Requested by" column, and the Requests tab gained the
+> **Mine | All** filter.
 >
 > Build ID: `2d368dac-5c2b-4217-b26b-e2b783f54657` · Build page:
-> https://expo.dev/accounts/patrickcuevas/projects/inventrak-staff/builds/2d368dac-5c2b-4217-b26b-e2b783f54657
+> https://expo.dev/accounts/patrickcuevas/projects/inventrak-staff/builds/2d368dac-5c2b-4217-b26b-e2b783f54657 ·
+> APK: `https://expo.dev/artifacts/eas/XBApQJmlSVXzZC6k9MmIxLWTBNHBDvNP6b-dVk1ia6Y.apk`
 >
 > **v1.3.0 (Sep 28, superseded by v1.4.0):** the tag scanner gains **"Enter Code Manually"** — a
 > pill under the camera view (matching the app mockup) that opens a sheet
@@ -69,7 +78,7 @@ https://expo.dev/artifacts/eas/XBApQJmlSVXzZC6k9MmIxLWTBNHBDvNP6b-dVk1ia6Y.apk
 > `https://expo.dev/artifacts/eas/1EgLmgnDTxtunwSD8mTqDUMmlTvoCLQQqYLHTfMvcpo.apk`.
 >
 > **Local copies:** `INVENTRAK-production.apk` (customer, v1.2.0) and
-> `INVENTRAK-staff.apk` (staff, v1.4.0) in the project folder on the desktop.
+> `INVENTRAK-staff.apk` (staff, v1.5.0) in the project folder on the desktop.
 
 > **v1.1.0 (Sep 26, superseded):** version-badge builds **without** URL-tag
 > support — they still recognize the old plain-payload tags. Customer build
@@ -133,7 +142,7 @@ https://expo.dev/artifacts/eas/XBApQJmlSVXzZC6k9MmIxLWTBNHBDvNP6b-dVk1ia6Y.apk
 - **Backend:** `https://inventrak-api.onrender.com` baked in (Supabase
   PostgreSQL)
 - **Local copy:** `C:\Users\Jico\Desktop\INVENTRAK\INVENTRAK-production.apk`
-  (customer, v1.2.0) and `INVENTRAK-staff.apk` (staff, v1.4.0)
+  (customer, v1.2.0) and `INVENTRAK-staff.apk` (staff, v1.5.0)
 
 > **No-install alternative:** open the customer app in any phone/desktop
 > browser at the permanent hosted URL `https://inventrak-mobile.onrender.com/`
