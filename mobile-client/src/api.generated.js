@@ -70,6 +70,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createProduct: (body) => request('POST', '/api/products', { body }),
   // POST /api/products/bulk-prices — Set prices for many products in one request (admin only) â€” the price-list CSV import
   bulkUpdatePrices: (body) => request('POST', '/api/products/bulk-prices', { body }),
+  // GET /api/products/costs — Cost-of-goods sheet (admin only) — the only read path that reveals product cost
+  listProductCosts: (_) => request('GET', '/api/products/costs', {  }),
   // GET /api/products/categories — List distinct product categories
   listCategories: (_) => request('GET', '/api/products/categories', {  }),
   // GET /api/products/{id} — Get a single product
@@ -118,6 +120,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createOrderInquiry: (body) => request('POST', '/api/order-inquiries', { body }),
   // PUT /api/order-inquiries/{id} — Update inquiry status (pending -> approved -> fulfilled / rejected)
   updateOrderInquiry: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}', { params: { id }, body }),
+  // GET /api/order-inquiries/{id}/costing — Get the immutable costing snapshot frozen when the inquiry was submitted
+  getInquiryCosting: ({ id }) => request('GET', '/api/order-inquiries/{id}/costing', { params: { id } }),
   // PUT /api/order-inquiries/{id}/payment — Mark an inquiry as paid/unpaid/failed after the GCash step
   updateInquiryPayment: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}/payment', { params: { id }, body }),
   // GET /api/optimization — Bulk optimization metrics for all products
@@ -134,6 +138,12 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listAlerts: (_) => request('GET', '/api/alerts', {  }),
   // PUT /api/alerts/{id}/resolve — Resolve an alert (admin only)
   resolveAlert: ({ id }) => request('PUT', '/api/alerts/{id}/resolve', { params: { id } }),
+  // GET /api/customers — Customer Records with per-customer aggregates (admin only)
+  listCustomers: (_) => request('GET', '/api/customers', {  }),
+  // GET /api/customers/{id} — One customer's record with their order and purchase history (admin only)
+  getCustomer: ({ id }) => request('GET', '/api/customers/{id}', { params: { id } }),
+  // PUT /api/customers/{id} — Edit a Customer Record (admin only)
+  updateCustomer: ({ id }, body) => request('PUT', '/api/customers/{id}', { params: { id }, body }),
   // GET /api/sales — List sales transactions (admin only)
   listSales: (params) => request('GET', '/api/sales', { query: params }),
   // POST /api/sales — Record a sale
