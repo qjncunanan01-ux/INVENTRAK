@@ -195,11 +195,24 @@ live: public login/register/products all return 200 through the tunnel.
    - **Durable audit trail (recommended):** Render's filesystem is ephemeral,
      so without this the Audit Trail page restarts empty after every deploy.
      Paste `backend/src/supabase-audit-migration.sql` into the Supabase
-     **SQL Editor** (run once), then add two more Render env vars:
-     `AUDIT_REMOTE_URL` = `https://<project-ref>.supabase.co/rest/v1` and
-     `AUDIT_REMOTE_KEY` = the same service_role secret. The backend mirrors
-     every audit line to the `audit_log` table and re-seeds from it at boot;
-     without the vars it still works exactly as before (file only).
+     **SQL Editor** and run it once. **That is the entire setup** — no new env
+     vars and no new secret to paste. The backend derives the sink from the
+     Supabase driver config it already has (`SUPABASE_URL` + `SUPABASE_KEY`),
+     mirroring every audit line to the `audit_log` table and re-seeding from it
+     at boot.
+
+     Confirm it is live without opening a dashboard:
+
+     ```bash
+     curl -s https://inventrak-api.onrender.com/api/meta | jq .audit
+     # {"enabled": true, "url": "https://<ref>.supabase.co/rest/v1",
+     #  "table": "audit_log", "derived": true}
+     ```
+
+     `enabled: false` means the `audit_log` table is missing (run the SQL) or
+     the key is an anon key. `derived: false` means `AUDIT_REMOTE_URL` is set
+     explicitly — those two vars still exist as an override for pointing the
+     trail at a different project than the data, and are otherwise unnecessary.
 
    **Firestore (alternative):**
    - `FIREBASE_PROJECT_ID` = `your-project-id` (or edit the blueprint value)

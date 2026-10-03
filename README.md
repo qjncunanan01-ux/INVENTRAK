@@ -3,7 +3,24 @@
 [![Tests](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/test.yml/badge.svg)](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/test.yml)
 [![API Docs Deployment](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/docs.yml/badge.svg)](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/docs.yml)
 
-A full-stack inventory management system with admin dashboard, mobile customer app, and optimization algorithms.
+A full-stack inventory management system with admin dashboard, two mobile apps, and optimization algorithms.
+
+## Documentation
+
+Start here depending on what you need to know:
+
+| Document | What it answers |
+|---|---|
+| **[AGENTS.md](AGENTS.md)** | How to work in this repo. The rules an agent or contributor must know — the OpenAPI-client contract, verify commands, deploy realities, security and mobile conventions. **Read this before editing.** |
+| **[docs/DATABASE-SPEC-MAPPING.md](docs/DATABASE-SPEC-MAPPING.md)** | Maps the 23-table centralized database specification onto what actually runs: which tables exist, which are inlined and why, which are absent, and the build plan for the rest. |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Full database layout, table-by-table, plus the API surface. |
+| **[SECURITY.md](SECURITY.md)** | OWASP Top-10 → module/endpoint/test compliance mapping (the capstone paper's evidence table). |
+| **[DEPLOY.md](DEPLOY.md)** | Deployment runbook (Render / Railway / Cloud Run), the Supabase + Firestore setups, and the durable audit trail. |
+| **[DEMO-SCRIPT.md](DEMO-SCRIPT.md)** | The live demo walkthrough, with the exact records to show at each step. |
+| **[MODULES.md](MODULES.md)** | Feature-by-feature module guide — what each capability does and where it lives. |
+| **[CAPSTONE-PROGRESS.md](CAPSTONE-PROGRESS.md)** | Delivery status per workstream, including what is intentionally unfinished. |
+| **[APK-INSTALL.md](APK-INSTALL.md)** | Building and installing the Android APKs without Expo Go. |
+| **[docs/agent-skills/](docs/agent-skills/README.md)** | Vetted agent instruction sets vendored in from four upstream projects (MIT / Apache-2.0, attribution preserved), with a record of what was rejected and why. |
 
 ## Architecture
 
@@ -11,9 +28,18 @@ A full-stack inventory management system with admin dashboard, mobile customer a
 INVENTRAK/
 ├── backend/          # Node.js Express API (SQLite) + npm-free fallback
 ├── frontend-admin/   # React Admin Dashboard (MUI)
-├── mobile-client/    # React Native Customer App (Expo)
+├── staff-client/     # React Native Inventory Staff app (Expo)
+├── mobile-client/    # React Native Customer app (Expo)
+├── docs/             # Published Swagger UI + project documentation
 └── .github/          # CI/CD workflows
 ```
+
+One backend serves all three apps. `backend/openapi.json` is the single source
+of truth for the API contract, and the generated clients in every app are
+derived from it — so a route change without a spec update fails CI rather than
+drifting silently. Storage is driver-selectable (SQLite, JSON, Firestore or
+Supabase) behind one `read`/`write` interface, with the two HTTP backends kept
+byte-identical by a contract test.
 
 ## Security
 
@@ -261,12 +287,17 @@ verification, plus Railway / Cloud Run alternates): **see [`DEPLOY.md`](DEPLOY.m
 
 ### Running Tests
 ```bash
-cd backend  npm test    # 14 suites: SQLite, npm-free, contract, OpenAPI conformance,
-            # Firestore store, password policy, notifications, driver selection,
-            # SQLite→Firestore migration bridge, password hashing, re-hash
-            # migration, bidirectional sync, the migration-catalog drift
-            # guard, the login lockout suite, and the Firestore-mode auth
-            # hashing e2e suite (180 tests)
+cd backend  npm test    # 43 suites, 424 tests, across both backends: SQLite,
+            # npm-free, contract parity, OpenAPI conformance, Firestore +
+            # Supabase stores, password policy, notifications, driver
+            # selection, the SQLite→Firestore migration bridge, password
+            # hashing, bidirectional sync, the migration-catalog drift guard,
+            # the login lockout suite, security hardening, roles and RBAC,
+            # MFA, QR lookup, FIFO/FEFO lots, the staff→admin adjustment loop,
+            # the durable audit trail, costing records, and customer records
+
+cd backend  npm run verify   # OpenAPI validation + route audit + generated-client
+                            # freshness + the full suite (what CI runs)
 ```
 
 ### Spec Tooling (OpenAPI as source of truth)
@@ -334,6 +365,16 @@ npm run verify            # All of the above + the full test suite
   **persisted to the cloud** is a bcrypt hash (never the plaintext) and that
   login verifies against it — plus per-user salting and a check that
   `/api/users` never leaks the hash.
+- `backend/src/test/costing.test.js` — **costing records**: the economics of an
+  order frozen at submission, so a catalog repricing cannot rewrite the profit
+  of a past order. Covers the exact/imputed/none cost bases, and asserts the
+  visibility rule for `products.cost` (stripped from every public read, admin
+  sheet the only authenticated exception).
+- `backend/src/test/customers.test.js` — **customer records**: the
+  resolve-or-create identity rule (user_id → email → name), that two orders
+  from one person yield exactly one Customer Record, that an existing row is
+  enriched rather than duplicated, that a guest order still gets a record, and
+  that the whole customer surface is admin-only.
 
 **Generated API clients** — `frontend-admin/src/api.generated.js` and
 `mobile-client/src/api.generated.js` are generated from the spec
@@ -393,6 +434,7 @@ open http://localhost:4001/api/docs
 | GET | /api/auth/me | Get current user profile |
 | GET | /api/products | List products (supports ?search=&page=&limit=) |
 | GET | /api/products/categories | List product categories |
+| GET | /api/products/costs | Cost-of-goods sheet (admin only) |
 | GET | /api/products/:id | Get single product |
 | POST | /api/products | Create product (admin) |
 | PUT | /api/products/:id | Update product (admin) |
@@ -407,6 +449,10 @@ open http://localhost:4001/api/docs
 | GET | /api/order-inquiries | List order inquiries |
 | POST | /api/order-inquiries | Create order inquiry |
 | PUT | /api/order-inquiries/:id | Update inquiry status |
+| GET | /api/order-inquiries/:id/costing | Immutable costing snapshot frozen at submission |
+| GET | /api/customers | Customer Records with aggregates (admin only) |
+| GET | /api/customers/:id | One customer's orders and purchase history (admin only) |
+| PUT | /api/customers/:id | Edit a Customer Record (admin only) |
 | GET | /api/optimization/:id | EOQ/ROP/Safety for a product |
 | GET | /api/optimization/abc | ABC classification |
 | GET | /api/optimization | Bulk optimization metrics |

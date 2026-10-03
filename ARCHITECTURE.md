@@ -127,6 +127,47 @@ INVENTRAK/
 | quantity | REAL | Units at location |
 | UNIQUE | (product_id, location_id) | One row per product-location |
 
+### Customer Records
+The business entity behind orders and sales (`backend/src/customers.js`).
+
+Distinct from `users`, which are **accounts** (login, role, password). Guest
+checkout is first-class, so a customer does not need an account — `user_id` is
+an optional link and is null for walk-ins. Everything else previously lived
+smeared across `order_inquiries` (name/email/phone, once per order) and
+`sales_transactions` (`customer_name`, free text), which made "this customer's
+history" unanswerable.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| name | TEXT | |
+| business_name | TEXT | |
+| contact_number | TEXT | |
+| email | TEXT | Unique when present (case-insensitive partial index) |
+| address | TEXT | |
+| user_id | INTEGER FK | Optional link to the account; null for walk-ins |
+| created_at / updated_at | TEXT | |
+
+**Identity rule (resolve-or-create)**, in strict priority order:
+1. `user_id` — an authenticated account is unambiguous and wins outright.
+2. `email` — matched case-insensitively; the most stable thing a customer gives.
+3. `name` — matched case-insensitively on the trimmed name; the only signal a
+   counter sale has.
+4. Nothing usable → **no row is created**. An unattributable sale must not
+   corrupt customer aggregates.
+
+An existing row is *enriched*, never overwritten: a second order that supplies a
+phone fills in what the first one left blank, but a value already on record
+wins, because that is the one the business actually took down.
+
+`order_inquiries.customer_id` and `sales_transactions.customer_id` link to it.
+Seeded/historical sales carry `customer_id = NULL` by design (they have only a
+free-text name); link them with `npm run customers:backfill` (dry run by
+default, `-- --apply` to write, idempotent).
+
+Admin-only surface: `GET /api/customers`, `GET /api/customers/:id` (that
+person's orders and purchases), `PUT /api/customers/:id`.
+
 ### Order Inquiries
 | Column | Type | Notes |
 |--------|------|-------|
@@ -135,11 +176,39 @@ INVENTRAK/
 | customer_email | TEXT | |
 | customer_phone | TEXT | |
 | products | TEXT | JSON array of items |
-| estimated_cost | REAL | Total estimated |
+| estimated_cost | REAL | What the CUSTOMER PAYS (revenue), recomputed from line subtotals — despite the name, it is not a cost |
 | status | TEXT | pending/approved/fulfilled/delivered/rejected |
 | user_id | INTEGER FK | Links to account |
 | status_history | TEXT | JSON timeline |
 | payment_* | TEXT | Payment fields |
+
+### Costing Records
+Immutable snapshot of an inquiry's economics, written once at submission
+(`backend/src/costing.js`). Because `estimated_cost` is derived from today's
+catalog, repricing a product would otherwise rewrite the profit of every past
+order.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | |
+| inquiry_id | INTEGER FK | UNIQUE — one snapshot per inquiry |
+| total_cost | REAL | Null when nothing could be costed |
+| total_revenue | REAL | What the customer was charged |
+| target_quantity | REAL | Sum of line quantities — one ordered unit is one "cup" |
+| cost_per_cup | REAL | total_cost / target_quantity |
+| suggested_selling_price | REAL | Revenue needed to hit `margin_percent`: total_cost / (1 - margin) |
+| estimated_profit | REAL | total_revenue − total_cost |
+| cost_basis | TEXT | `exact` / `imputed` / `none` — how much is real |
+| lines_priced / lines_total | INTEGER | How many order lines had a known cost |
+| margin_percent | REAL | Target margin (`COSTING_TARGET_MARGIN`, default 30) |
+| computed_at | TEXT | Timestamp |
+
+Cost of goods itself lives on `products.cost` (nullable). It is **stripped from
+every public product read** — catalog list, single product, QR lookup, public tag
+page — because the catalog is served `Cache-Control: public, max-age=300` and the
+gap between `cost` and `price` is the business's margin. The one authenticated
+read that reveals it is `GET /api/products/costs` (admin tier only); see
+`backend/src/product-visibility.js`.
 
 ## API Endpoints
 
