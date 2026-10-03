@@ -287,7 +287,7 @@ verification, plus Railway / Cloud Run alternates): **see [`DEPLOY.md`](DEPLOY.m
 
 ### Running Tests
 ```bash
-cd backend  npm test    # 44 suites, 442 tests, across both backends: SQLite,
+cd backend  npm test    # 49 suites, 470 tests, across both backends: SQLite,
             # npm-free, contract parity, OpenAPI conformance, Firestore +
             # Supabase stores, password policy, notifications, driver
             # selection, the SQLite→Firestore migration bridge, password

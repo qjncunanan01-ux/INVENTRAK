@@ -231,7 +231,10 @@ guest checkout is first-class), with `customer_id` FK on `order_inquiries` and
 user_id → email → name rule (`backend/src/customers.js`), and an existing row is
 enriched rather than duplicated. `npm run customers:backfill` links the
 pre-existing sales (612 rows → 3 customers in the demo dataset; dry run by
-default, idempotent). Admin-only `GET /api/customers` and
+default, idempotent). It targets Supabase when `SUPABASE_URL` + `SUPABASE_KEY`
+are set — the seeded sales live there, not in SQLite — and PATCHes rows one at a
+time rather than flushing a table, so a crash mid-run cannot empty one. Admin-only
+`GET /api/customers` and
 `GET /api/customers/:id` answer "this customer's history", which the old schema
 could not.
 

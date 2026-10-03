@@ -48,7 +48,7 @@ relying on a previous run.
 Pick the narrowest command that proves the claim, but run it completely:
 
 ```bash
-cd backend && npm run verify        # docs:validate + spec:audit + client:check + 392 tests
+cd backend && npm run verify        # docs:validate + spec:audit + client:check + 470 tests
 cd backend && npm test              # just the suite
 cd frontend-admin && npm test       # vitest
 cd frontend-admin && npm run build  # catches what vitest misses
