@@ -203,6 +203,7 @@ router.post('/bulk-prices', authenticateToken, adminOnly, (req, res) => {
   const stmtByName = db.prepare('SELECT id FROM products WHERE TRIM(LOWER(name)) = LOWER(?)');
 
   let updated = 0;
+  const touched = [];
   for (const entry of prices) {
     const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
     const price = entry && entry.price;
@@ -229,6 +230,25 @@ router.post('/bulk-prices', authenticateToken, adminOnly, (req, res) => {
     }
     stmtUpdate.run(priceNum, row.id);
     updated++;
+    // Named, not just counted. Pricing is what every downstream margin
+    // statement is computed from, so a bulk reprice has to leave the same
+    // trace the cost sheet already did. Capped so a 2000-row sheet cannot blow
+    // up the audit row.
+    if (touched.length < 25) {
+      const existing = db.prepare('SELECT name FROM products WHERE id = ?').get(row.id);
+      touched.push(existing ? existing.name : `id ${row.id}`);
+    }
+  }
+
+  if (updated > 0) {
+    audit('product.price.bulk_update', {
+      actor: req.user.username,
+      actorRole: req.user.role,
+      updated,
+      total: prices.length,
+      skipped: skipped.length,
+      products: touched,
+    });
   }
 
   res.json({ ok: true, total: prices.length, updated, skipped });

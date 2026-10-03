@@ -2276,6 +2276,10 @@ const server = http.createServer((req, res) => {
         const products = readJSON(productsFile) || [];
         const skipped = [];
         let updated = 0;
+        // Named in the audit event, not just counted — mirrors the SQLite
+        // backend's /bulk-prices and its /bulk-costs handler. Capped at 25 so a
+        // 2000-row sheet cannot blow up the audit row.
+        const touched = [];
         for (const entry of obj.prices) {
           const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
           const price = entry && entry.price;
@@ -2322,10 +2326,23 @@ const server = http.createServer((req, res) => {
           }
           products[idx]['Price'] = priceNum;
           updated += 1;
+          if (touched.length < 25) {
+            touched.push(String(products[idx]['Product Name'] || products[idx].name || `id ${idx + 1}`));
+          }
         }
         writeJSON(productsFile, products);
         cache.invalidate('products');
         cache.invalidate('categories');
+        if (updated > 0) {
+          audit('product.price.bulk_update', {
+            actor: req.user.username,
+            actorRole: req.user.role,
+            updated,
+            total: obj.prices.length,
+            skipped: skipped.length,
+            products: touched,
+          });
+        }
         return sendJson(res, 200, { ok: true, total: obj.prices.length, updated, skipped });
       });
     });
