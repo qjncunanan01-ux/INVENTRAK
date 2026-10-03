@@ -282,4 +282,35 @@ describe('durable audit trail — remote sink + re-seed', () => {
       assert.equal(res.json.audit.key, undefined, 'no key is ever exposed');
     }
   });
+
+  test('/api/meta reports the margin policy on both backends', async () => {
+    // The admin margin panel grades against this. If the server hardcoded it
+    // there instead of reading COSTING_TARGET_MARGIN, changing the env var
+    // would leave the panel quietly flagging healthy products.
+    const prev = process.env.COSTING_TARGET_MARGIN;
+    process.env.COSTING_TARGET_MARGIN = '42';
+    try {
+      for (const side of [sqlite, npmfree]) {
+        const res = await call(side.url, '/api/meta');
+        assert.equal(res.status, 200);
+        assert.ok(res.json.costing, 'the meta response carries a costing block');
+        assert.equal(res.json.costing.target_margin_percent, 42);
+      }
+    } finally {
+      if (prev === undefined) delete process.env.COSTING_TARGET_MARGIN;
+      else process.env.COSTING_TARGET_MARGIN = prev;
+    }
+  });
+
+  test('the margin policy falls back to the 30% default when the env var is junk', async () => {
+    const prev = process.env.COSTING_TARGET_MARGIN;
+    process.env.COSTING_TARGET_MARGIN = 'not-a-number';
+    try {
+      const res = await call(sqlite.url, '/api/meta');
+      assert.equal(res.json.costing.target_margin_percent, 30);
+    } finally {
+      if (prev === undefined) delete process.env.COSTING_TARGET_MARGIN;
+      else process.env.COSTING_TARGET_MARGIN = prev;
+    }
+  });
 });

@@ -2736,6 +2736,16 @@
                         }
                       }
                     },
+                    "costing": {
+                      "type": "object",
+                      "description": "Margin policy the admin margin panel grades against. Read from COSTING_TARGET_MARGIN so the client never hardcodes a number the server can be told to change.",
+                      "properties": {
+                        "target_margin_percent": {
+                          "type": "number",
+                          "description": "Target gross margin, e.g. 30 means 30% (server default when the env var is unset)"
+                        }
+                      }
+                    },
                     "time": {
                       "type": "string",
                       "format": "date-time"

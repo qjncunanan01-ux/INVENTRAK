@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { remoteStatus } = require('../audit');
+const { targetMarginPercent } = require('../costing');
 
 // GET /api/meta — public build/driver identity (no auth: nothing sensitive).
 //
@@ -35,6 +36,13 @@ router.get('/meta', (req, res) => {
     // driver uses, so this reads true on any Supabase-backed deploy. Exposes
     // the shape (url + table), never the key.
     audit: remoteStatus(),
+    // The margin policy the admin console's margin panel grades against. It
+    // lives in an env var (COSTING_TARGET_MARGIN), so hardcoding 30 in the
+    // client would quietly disagree with the server the moment someone changes
+    // it — the panel would flag healthy products using a different target.
+    costing: {
+      target_margin_percent: targetMarginPercent(),
+    },
     time: new Date().toISOString(),
   });
 });

@@ -25,6 +25,8 @@ const FIXTURES = [
   'bulk-cost-case',
   'bulk-cost-mix-set',
   'bulk-cost-mix-clear',
+  'bulk-cost-audit-a',
+  'bulk-cost-audit-b',
 ];
 
 before(async () => {
@@ -280,6 +282,28 @@ describe('POST /api/products/bulk-costs — both backends', () => {
       const row = JSON.parse(res.text).find(p => p.name === 'bulk-cost-alpha');
       assert.ok(row, 'the fixture should be on the public catalog');
       assert.ok(!('cost' in row), 'a costed product must not expose its cost publicly');
+    }
+  });
+
+  test('the audit event names the products it changed, and is flat', async () => {
+    // The admin cost history reads these entries. Two shapes of bug are
+    // locked here: a summary that never says WHICH products changed (not a
+    // change log), and the payload nesting. audit() spreads details at the top
+    // level of the entry, so a reader that assumes `entry.details.updated`
+    // renders a permanent "0 set, 0 cleared".
+    const fs = require('node:fs');
+    const logPath = process.env.AUDIT_LOG_FILE;
+    for (const side of [sqlite, npmfree]) {
+      fs.writeFileSync(logPath, '');
+      await costOne(side, 'bulk-cost-audit-a', 111);
+      await costOne(side, 'bulk-cost-audit-b', 222);
+      const entries = fs.readFileSync(logPath, 'utf8').split('\n').filter(Boolean).map(JSON.parse);
+      const ev = entries.find(e => e.event === 'product.cost.bulk_update');
+      assert.ok(ev, `${side.url}: a bulk cost change is audited`);
+      assert.strictEqual(ev.updated, 1, 'counts sit at the top level of the entry');
+      assert.ok(Array.isArray(ev.products), 'the entry names the products it changed');
+      assert.ok(ev.products.some(n => String(n).includes('bulk-cost-audit-a')));
+      assert.ok(ev.actor, 'the actor is recorded');
     }
   });
 

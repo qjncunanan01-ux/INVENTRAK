@@ -24,7 +24,7 @@ const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./criti
 const { buildPaymentStep } = require('./payments');
 const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./qr-codes');
 const { normalizeLines } = require('./product-lines');
-const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry } = require('./costing');
+const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry, targetMarginPercent } = require('./costing');
 const { stripCost, stripCostAll } = require('./product-visibility');
 const { resolveCustomer, summarize } = require('./customers');
 const {
@@ -1088,6 +1088,10 @@ const server = http.createServer((req, res) => {
       // Mirrors routes/meta.js: whether the audit trail is durable. See the
       // matching comment there — shape only, never the key.
       audit: require('./audit').remoteStatus(),
+      // Mirrors routes/meta.js: the margin policy the admin margin panel
+      // grades against, so the client never hardcodes a number the server can
+      // be told to change.
+      costing: { target_margin_percent: targetMarginPercent() },
       time: new Date().toISOString(),
     });
   }
@@ -2358,6 +2362,7 @@ const server = http.createServer((req, res) => {
         const skipped = [];
         let updated = 0;
         let cleared = 0;
+        const touched = [];
         for (const entry of obj.costs) {
           const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
           const parsed = parseCostEntry(entry);
@@ -2394,10 +2399,29 @@ const server = http.createServer((req, res) => {
             products[idx]['Cost'] = parsed.value;
             updated += 1;
           }
+          // Named in the audit event, not just counted — a change log that
+          // says "3 costs updated" without saying which three is not a change
+          // log. Capped so a 2000-row sheet cannot blow up the audit row.
+          if (touched.length < 25) {
+            touched.push(String(products[idx]['Product Name'] || products[idx].name || `id ${idx + 1}`));
+          }
         }
         writeJSON(productsFile, products);
         cache.invalidate('products');
         cache.invalidate('categories');
+        // Mirrors routes/products.js — the npm-free backend must not be the
+        // one that quietly skips the audit trail.
+        if (updated > 0 || cleared > 0) {
+          audit('product.cost.bulk_update', {
+            actor: (req.user && req.user.username) || 'unknown',
+            actorRole: (req.user && req.user.role) || 'unknown',
+            updated,
+            cleared,
+            total: obj.costs.length,
+            skipped: skipped.length,
+            products: touched,
+          });
+        }
         return sendJson(res, 200, { ok: true, total: obj.costs.length, updated, cleared, skipped });
       });
     });

@@ -228,3 +228,164 @@ function csvCell(value) {
   const s = String(value === null || value === undefined ? '' : value);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
+
+// ============================================================
+// Derived read-side helpers: coverage, margin, insights, diffs.
+// ============================================================
+// Everything above is about turning typed text into a write. Everything below
+// turns the stored catalog back into an ANSWER — which is the half that was
+// missing: the sheet could write costs but nothing could say what they were
+// worth, or how many were left to do.
+//
+// All of it is a pure function of the catalog rows the page already loads, so
+// it costs no extra request and can be tested without a server.
+
+// Gross margin as a percentage, or null when it cannot be computed honestly.
+// A product with no cost has NO margin — it is not a 0% margin product, it is
+// an unknown one, and conflating the two is what makes an uncosted catalog
+// look like a business in trouble. price <= 0 likewise yields null rather than
+// dividing by zero.
+export function marginPercentOf(product) {
+  const cost = unitCost(product);
+  if (cost === null) return null;
+  const price = Number(product && product.price);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  return ((price - cost) / price) * 100;
+}
+
+// null when uncosted, otherwise the bucket.
+export function marginBucket(product) {
+  const pct = marginPercentOf(product);
+  if (pct === null) return 'uncosted';
+  if (pct < 0) return 'loss'; // cost above the selling price
+  if (pct < 20) return 'thin';
+  if (pct < 50) return 'healthy';
+  return 'rich';
+}
+
+// The headline number the cost page was missing: how much of the job is left.
+// Without it, "Total 204" is the only feedback after a bulk apply, and there is
+// no way to tell whether the work is finished.
+export function coverageOf(products) {
+  const list = Array.isArray(products) ? products : [];
+  const costed = list.filter(p => unitCost(p) !== null).length;
+  return {
+    costed,
+    total: list.length,
+    uncosted: list.length - costed,
+    pct: list.length === 0 ? 0 : Math.round((costed / list.length) * 100),
+  };
+}
+
+function unitCost(product) {
+  if (!product) return null;
+  const raw = product.cost;
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+// The per-row diff the CLI script prints and the browser UI used to omit, so
+// the two tools disagreed about how much you could see before committing.
+// `from` is what the product costs right now, `to` what this row would make it.
+export function sheetDiff(rows, catalog) {
+  const byId = new Map();
+  const byName = new Map();
+  for (const p of Array.isArray(catalog) ? catalog : []) {
+    byId.set(String(p && p.id), p);
+    byName.set(String(p && p.name || '').trim().toLowerCase(), p);
+  }
+  const out = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!r) continue;
+    const product = r.id
+      ? byId.get(String(r.id))
+      : byName.get(String(r.name || '').trim().toLowerCase());
+    if (!product) continue;
+    out.push({
+      id: product.id,
+      name: product.name,
+      from: unitCost(product),
+      to: r.cost === undefined ? unitCost(product) : (r.cost === null ? null : r.cost),
+      status: r.cost === undefined
+        ? 'untouched'
+        : (r.cost === null
+          ? 'cleared'
+          : (unitCost(product) === r.cost ? 'unchanged' : 'set')),
+    });
+  }
+  return out;
+}
+
+// The margin intelligence panel's contents, as pure data.
+//
+// BLENDED MARGIN is value-weighted, not an average of percentages: summing
+// costs and summing prices separately, then dividing. Averaging per-product
+// margins would let a ₱60 cup of cups outweigh a ₱1,500 sack of syrup, and
+// report a blended margin the business does not actually earn. The panel says
+// "catalogue-wide" rather than "sales-weighted" because no quantity is stored
+// on the product record — the honest denominator is list price, not turnover.
+export function buildCostInsights(products, targetMarginPercent = 30) {
+  const list = Array.isArray(products) ? products : [];
+  const target = Number(targetMarginPercent) > 0 ? Number(targetMarginPercent) : 30;
+  const costed = list.filter(p => unitCost(p) !== null);
+  const byCategory = new Map();
+  let sumCost = 0;
+  let sumPrice = 0;
+
+  for (const p of costed) {
+    const price = Number(p.price);
+    const cost = unitCost(p);
+    if (!Number.isFinite(price) || price <= 0) continue;
+    sumPrice += price;
+    sumCost += cost;
+    const key = String(p.category || 'Uncategorised');
+    const agg = byCategory.get(key) || { category: key, costed: 0, cost: 0, price: 0 };
+    agg.costed += 1;
+    agg.cost += cost;
+    agg.price += price;
+    byCategory.set(key, agg);
+  }
+
+  // Under-priced against the policy: to earn `target` on this cost, the price
+  // should be cost / (1 - target/100). Flagged rather than applied, because
+  // repricing 204 SKUs is the business owner's call, not the cost sheet's.
+  const underPriced = [];
+  for (const p of list) {
+    const pct = marginPercentOf(p);
+    if (pct === null) continue;
+    if (pct < target) {
+      underPriced.push({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        cost: unitCost(p),
+        margin: Math.round(pct),
+        suggested: Math.round(cost(p) / (1 - target / 100)),
+      });
+    }
+  }
+  underPriced.sort((a, b) => a.margin - b.margin);
+
+  const categories = [...byCategory.values()]
+    .map(c => ({
+      category: c.category,
+      costed: c.costed,
+      margin: c.price > 0 ? ((c.price - c.cost) / c.price) * 100 : null,
+    }))
+    .sort((a, b) => b.costed - a.costed);
+
+  return {
+    target,
+    coverage: coverageOf(list),
+    blendedMargin: sumPrice > 0 ? ((sumPrice - sumCost) / sumPrice) * 100 : null,
+    categoryCount: categories.length,
+    categories,
+    underPriced,
+    lossMakers: list.filter(p => marginBucket(p) === 'loss').length,
+  };
+}
+
+function cost(product) {
+  return unitCost(product);
+}

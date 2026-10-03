@@ -287,7 +287,7 @@ verification, plus Railway / Cloud Run alternates): **see [`DEPLOY.md`](DEPLOY.m
 
 ### Running Tests
 ```bash
-cd backend  npm test    # 44 suites, 439 tests, across both backends: SQLite,
+cd backend  npm test    # 44 suites, 442 tests, across both backends: SQLite,
             # npm-free, contract parity, OpenAPI conformance, Firestore +
             # Supabase stores, password policy, notifications, driver
             # selection, the SQLite→Firestore migration bridge, password
@@ -381,10 +381,17 @@ npm run verify            # All of the above + the full test suite
   the deliberate asymmetry with the bulk *price* sheet, where a blank is junk.
   Includes the round trip that matters: costing a product must not make it
   readable on the unauthenticated catalog.
-- `frontend-admin/src/cost-sheet.test.js` — **the admin cost sheet parser**:
-  25 cases pinning that a blank cost cell means "leave this product alone" and
-  never "clear it" — the rule that stops a partial sheet from silently wiping
-  every cost it did not mention.
+- `frontend-admin/src/cost-sheet.test.js` — **the admin cost sheet parser and
+  the margin maths**: 48 cases. The parser half pins that a blank cost cell
+  means "leave this product alone" and never "clear it" — the rule that stops a
+  partial sheet from silently wiping every cost it did not mention. The read
+  half pins that an uncosted product has NO margin rather than a 0% one, and
+  that the blended margin is value-weighted rather than an average of
+  percentages (which would let a ₱200 cup count as much as a ₱1,000 sack).
+- `frontend-admin/src/pages/ProductsPage.costs.test.jsx` — **the cost work
+  queue**: coverage, the filter chips, and the deliberate sort rule that sinks
+  uncosted products to the bottom in *both* directions, plus inline cost editing
+  and the blank-means-leave-alone diff in the sheet preview.
 
 **Generated API clients** — `frontend-admin/src/api.generated.js` and
 `mobile-client/src/api.generated.js` are generated from the spec

@@ -78,7 +78,8 @@
 - [x] ABC classification (drives Flash Sale picks and Recommendations)
 - [x] FSN (Fast/Slow/Non-moving) movement classification — `GET /api/optimization/fsn`, admin Optimization page section, 15 backend tests
 - [x] Automated low-stock alerts against computed ROP
-- [x] **Costing Records** — the economics of an inquiry frozen at submission, so repricing the catalog cannot rewrite a past order's profit. Reports cost basis (exact / imputed / none), profit, and cost-per-unit; cost of goods is entered per product or in bulk (admin cost sheet / CSV import) and is stripped from every public read
+- [x] **Costing Records** — the economics of an inquiry frozen at submission, so repricing the catalog cannot rewrite a past order's profit. Reports cost basis (exact / imputed / none), profit, and cost-per-unit; cost of goods is entered per product, inline in the table, or in bulk (admin cost sheet / CSV import) and is stripped from every public read
+- [x] **Margin overview + cost work queue** — the admin can see how much of the catalog is costed, filter straight to what is left, edit a cost in place, and read back the blended margin, margin by category, and the products priced below the `COSTING_TARGET_MARGIN` policy. Uncosted products are held apart from the margin maths rather than counted as 0%
 - [ ] Forecasting comparison (e.g., moving average vs. EOQ results) for the paper's analysis chapter (optional stretch — tracked under Paper workstream)
 
 ## 7. Customer Mobile App — 5/8
@@ -110,7 +111,7 @@
 
 - [ ] Capstone manuscript: Chapters 1–3 (final-form)
 - [ ] Capstone manuscript: Chapter 4 (methodology/system architecture) with screenshots
-- [ ] Capstone manuscript: Chapter 5 (testing results — cite the 439 backend + 91 admin + 30 smoke checks)
+- [ ] Capstone manuscript: Chapter 5 (testing results — cite the 442 backend + 128 admin + 30 smoke checks)
 - [ ] Company UAT sign-off document (SYLVER owner/staff testing session)
 - [ ] User manual (admin + staff + customer)
 - [ ] Defense slide deck + printed demo script (DEMO-SCRIPT.md is the source)
@@ -121,7 +122,7 @@
 
 ## Evidence bank (for the paper — everything above is verifiable)
 
-- **Test suites:** backend `npm test` → 439/439 · admin → 91/91 · 30-check smoke suite → 30/30 (smoke suite last run Sep 9, 2026)
+- **Test suites:** backend `npm test` → 442/442 · admin → 128/128 · 30-check smoke suite → 30/30 (smoke suite last run Sep 9, 2026)
 - **Live deployments:** API + admin on Render, docs on GitHub Pages — all serving at time of writing
 - **Live end-to-end proof:** customer order → per-account scoping → admin approval → status timeline (Sep 9, 2026)
 - **Security artifacts:** `SECURITY.md` (OWASP control → code map), audit log (durable — mirrored to Supabase `audit_log`), MFA + recovery codes

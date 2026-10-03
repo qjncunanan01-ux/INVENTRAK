@@ -254,6 +254,7 @@ router.post('/bulk-costs', authenticateToken, adminOnly, (req, res) => {
 
   let updated = 0;
   let cleared = 0;
+  const touched = [];
   for (const entry of costs) {
     const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
     const parsed = parseCostEntry(entry);
@@ -288,6 +289,13 @@ router.post('/bulk-costs', authenticateToken, adminOnly, (req, res) => {
       stmtUpdate.run(parsed.value, row.id);
       updated++;
     }
+    // Named in the audit event, not just counted: a change log that says
+    // "3 costs updated" without saying which three is not a change log. Capped
+    // so a 2000-row sheet cannot blow up the audit row.
+    if (touched.length < 25) {
+      const existing = db.prepare('SELECT name FROM products WHERE id = ?').get(row.id);
+      touched.push(existing ? existing.name : `id ${row.id}`);
+    }
   }
 
   if (updated > 0 || cleared > 0) {
@@ -298,6 +306,7 @@ router.post('/bulk-costs', authenticateToken, adminOnly, (req, res) => {
       cleared,
       total: costs.length,
       skipped: skipped.length,
+      products: touched,
     });
   }
 

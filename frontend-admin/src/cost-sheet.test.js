@@ -6,7 +6,7 @@
 // sheet silently wipe every other cost in the catalog while the API reports
 // success — so it is asserted from every direction, including end to end
 // through the payload the server actually receives.
-import { parseCostSheet, toCostPayload, summarizeCostSheet, buildCostTemplate } from './cost-sheet';
+import { parseCostSheet, toCostPayload, summarizeCostSheet, buildCostTemplate, marginPercentOf, marginBucket, coverageOf, sheetDiff, buildCostInsights } from './cost-sheet';
 
 describe('parseCostSheet', () => {
   test('parses name,cost with an optional header', () => {
@@ -217,5 +217,165 @@ describe('buildCostTemplate', () => {
       { name: 'Costed A', cost: 40 },
       { name: 'Costed B', cost: 80 },
     ]);
+  });
+});
+
+describe('marginPercentOf', () => {
+  test('is the gross margin over the selling price', () => {
+    expect(marginPercentOf({ price: 100, cost: 70 })).toBe(30);
+    expect(marginPercentOf({ price: 500, cost: 400 })).toBe(20);
+  });
+
+  test('is null for an uncosted product, NOT zero', () => {
+    // The distinction the whole read side rests on: no cost is UNKNOWN, not
+    // "no margin". Collapsing them would report an uncosted catalog as a
+    // business losing money on every line.
+    expect(marginPercentOf({ price: 100, cost: null })).toBeNull();
+    expect(marginPercentOf({ price: 100, cost: undefined })).toBeNull();
+    expect(marginPercentOf({ price: 100, cost: '' })).toBeNull();
+  });
+
+  test('a real zero cost is a 100% margin, not unknown', () => {
+    expect(marginPercentOf({ price: 100, cost: 0 })).toBe(100);
+  });
+
+  test('is null rather than a division by zero when the price is unusable', () => {
+    expect(marginPercentOf({ price: 0, cost: 10 })).toBeNull();
+    expect(marginPercentOf({ price: -5, cost: 10 })).toBeNull();
+    expect(marginPercentOf({ price: null, cost: 10 })).toBeNull();
+  });
+
+  test('goes negative when the cost exceeds the price', () => {
+    expect(marginPercentOf({ price: 100, cost: 120 })).toBe(-20);
+  });
+});
+
+describe('marginBucket', () => {
+  test('classifies at the boundaries, which are the ones that get argued about', () => {
+    expect(marginBucket({ price: 100, cost: 120 })).toBe('loss');
+    expect(marginBucket({ price: 100, cost: 100 })).toBe('thin'); // 0%
+    expect(marginBucket({ price: 100, cost: 81 })).toBe('thin'); // 19% -> thin
+    expect(marginBucket({ price: 100, cost: 80 })).toBe('healthy'); // exactly 20% is healthy
+    expect(marginBucket({ price: 100, cost: 50 })).toBe('rich'); // exactly 50% is rich
+    expect(marginBucket({ price: 100, cost: 49 })).toBe('rich'); // 51%
+  });
+
+  test('uncosted outranks every margin state', () => {
+    expect(marginBucket({ price: 100, cost: null })).toBe('uncosted');
+  });
+});
+
+describe('coverageOf', () => {
+  test('reports how much of the catalog is left to cost', () => {
+    const c = coverageOf([
+      { price: 100, cost: 70 },
+      { price: 100, cost: null },
+      { price: 100, cost: 0 },
+      { price: 100, cost: null },
+    ]);
+    expect(c).toEqual({ costed: 2, total: 4, uncosted: 2, pct: 50 });
+  });
+
+  test('a zero cost counts as costed', () => {
+    // "Costed" means a known unit cost, and 0 is a known unit cost.
+    expect(coverageOf([{ price: 100, cost: 0 }]).costed).toBe(1);
+  });
+
+  test('an empty catalog is 0% and does not divide by zero', () => {
+    expect(coverageOf([])).toEqual({ costed: 0, total: 0, uncosted: 0, pct: 0 });
+    expect(coverageOf(null).pct).toBe(0);
+  });
+});
+
+describe('sheetDiff', () => {
+  const catalog = [
+    { id: 1, name: 'Almond Roca', price: 520, cost: null },
+    { id: 2, name: 'Blueberry', price: 495, cost: 300 },
+  ];
+
+  test('shows the before and after, which the browser UI used to omit', () => {
+    const rows = parseCostSheet('Almond Roca,380');
+    expect(sheetDiff(rows, catalog)).toEqual([
+      { id: 1, name: 'Almond Roca', from: null, to: 380, status: 'set' },
+    ]);
+  });
+
+  test('distinguishes set, cleared, untouched and unchanged', () => {
+    const rows = parseCostSheet('Almond Roca,380\nBlueberry,-\nAlmond Roca,\nBlueberry,300');
+    expect(sheetDiff(rows, catalog).map(d => d.status)).toEqual(['set', 'cleared', 'untouched', 'unchanged']);
+  });
+
+  test('a clear reports the previous cost, so the loss is visible', () => {
+    const rows = parseCostSheet('Blueberry,-');
+    expect(sheetDiff(rows, catalog)[0]).toMatchObject({ from: 300, to: null, status: 'cleared' });
+  });
+
+  test('drops rows with no catalog match', () => {
+    expect(sheetDiff(parseCostSheet('Ghost Product,10'), catalog)).toEqual([]);
+  });
+
+  test('matches by id when the sheet carries one', () => {
+    expect(sheetDiff([{ id: 2, name: 'wrong name entirely', cost: 10 }], catalog)[0].id).toBe(2);
+  });
+});
+
+describe('buildCostInsights', () => {
+  const catalog = [
+    { id: 1, name: 'Cheap Cup', category: 'Cups', price: 100, cost: 80 }, // 20% margin
+    { id: 2, name: 'Fancy Cup', category: 'Cups', price: 200, cost: 50 }, // 75% margin
+    { id: 3, name: 'Sack', category: 'Dry goods', price: 1000, cost: 900 }, // 10%
+    { id: 4, name: 'Uncosted', category: 'Dry goods', price: 500, cost: null },
+  ];
+
+  test('blended margin is value-weighted, not an average of percentages', () => {
+    // Averaging (20 + 75 + 10) / 3 = 35% would let the ₱100 cup count as much
+    // as the ₱1,000 sack. Summing first: (1300 - 1030) / 1300 = 20.8%.
+    const i = buildCostInsights(catalog, 30);
+    expect(i.blendedMargin).toBeCloseTo(20.77, 1);
+  });
+
+  test('the uncosted product is excluded from the margin maths entirely', () => {
+    const i = buildCostInsights(catalog, 30);
+    expect(i.coverage.costed).toBe(3);
+    expect(i.coverage.uncosted).toBe(1);
+  });
+
+  test('groups by category and ranks by how many products each holds', () => {
+    const i = buildCostInsights(catalog, 30);
+    // Cups holds 2 costed products, Dry goods only 1 — its second product is
+    // uncosted and therefore not in the margin maths at all.
+    expect(i.categories.map(c => c.category)).toEqual(['Cups', 'Dry goods']);
+    const cups = i.categories.find(c => c.category === 'Cups');
+    expect(cups.costed).toBe(2);
+    expect(cups.margin).toBeCloseTo(56.67, 1); // (300 - 130) / 300
+  });
+
+  test('flags products under the target margin with a suggested price', () => {
+    const i = buildCostInsights(catalog, 30);
+    // 30% margin on a 900 cost needs 900 / 0.7 = 1285.71.
+    expect(i.underPriced[0]).toMatchObject({ name: 'Sack', margin: 10, suggested: 1286 });
+    expect(i.underPriced.map(u => u.name)).toEqual(['Sack', 'Cheap Cup']);
+  });
+
+  test('excludes uncosted products from the under-priced list', () => {
+    // An uncosted product has no margin to judge against flagging it would
+    // accuse the admin of under-pricing a product they have not costed.
+    expect(buildCostInsights(catalog, 30).underPriced.map(u => u.name)).not.toContain('Uncosted');
+  });
+
+  test('counts loss-makers separately', () => {
+    const i = buildCostInsights([{ id: 9, name: 'Bad', price: 100, cost: 130 }], 30);
+    expect(i.lossMakers).toBe(1);
+  });
+
+  test('falls back to a 30% target when given nonsense', () => {
+    expect(buildCostInsights(catalog, 0).target).toBe(30);
+    expect(buildCostInsights(catalog, 'abc').target).toBe(30);
+  });
+
+  test('an entirely uncosted catalog reports no blended margin, not 0%', () => {
+    const i = buildCostInsights([{ id: 1, name: 'X', price: 100, cost: null }], 30);
+    expect(i.blendedMargin).toBeNull();
+    expect(i.underPriced).toEqual([]);
   });
 });
