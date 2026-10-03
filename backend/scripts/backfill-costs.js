@@ -39,6 +39,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { requireConfig, readAll, patchRow } = require('./supabase-rest');
+
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
 const fileFlagIndex = args.findIndex(a => a.startsWith('--file='));
@@ -121,26 +123,18 @@ const unitCostOf = (p) => {
 // --- Targets --------------------------------------------------------------
 
 async function supabaseTarget() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  const rest = `${url.replace(/\/$/, '')}/rest/v1`;
-  const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
-
-  const res = await fetch(`${rest}/products?select=id,idx,data&order=idx.asc`, { headers });
-  if (!res.ok) throw new Error(`reading products: ${res.status} ${await res.text()}`);
-  const body = await res.json();
-  // One PATCH per changed row. Deliberately NOT a table flush: this script must
-  // not be able to clobber a product someone edited while it was running.
-  const write = async (id, data) => {
-    const r = await fetch(`${rest}/products?id=eq.${id}`, { method: 'PATCH', headers, body: JSON.stringify({ data }) });
-    if (!r.ok) throw new Error(`writing product ${id}: ${r.status} ${await r.text()}`);
-  };
+  const cfg = requireConfig();
+  if (!cfg) return null;
+  const { rest, headers } = cfg;
+  const body = await readAll(rest, headers, 'products', 'id,idx,data', '&order=idx.asc');
   return {
     kind: 'supabase',
-    label: `Supabase (${url})`,
+    label: `Supabase (${process.env.SUPABASE_URL})`,
     rows: body.map(r => ({ id: r.id, name: r.data && (r.data['Product Name'] || r.data.name), price: r.data && r.data.Price, cost: unitCostOf(r.data), data: r.data })),
-    write,
+    // One PATCH per changed row, through the shared helper. Deliberately NOT a
+    // table flush: this script must not be able to clobber a product someone
+    // edited while it was running.
+    write: (id, data) => patchRow(rest, headers, 'products', id, data),
   };
 }
 
@@ -261,7 +255,14 @@ async function main() {
   log(`done. ${verified}/${after.length} products are now costed.`);
 }
 
-main().catch(err => {
-  console.error('[costs:backfill] failed:', err.message);
-  process.exitCode = 1;
-});
+// Exported for tests: parseSheet and buildPlan are pure, so a test can assert
+// the blank-means-leave-alone rule and the duplicate/unmatched handling without
+// writing to a real catalog.
+module.exports = { parseSheet, parseCostCell, buildPlan, unitCostOf, splitCsvLine };
+
+if (require.main === module) {
+  main().catch(err => {
+    console.error('[costs:backfill] failed:', err.message);
+    process.exitCode = 1;
+  });
+}
