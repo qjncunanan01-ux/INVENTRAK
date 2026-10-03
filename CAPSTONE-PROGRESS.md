@@ -111,7 +111,7 @@
 
 - [ ] Capstone manuscript: Chapters 1–3 (final-form)
 - [ ] Capstone manuscript: Chapter 4 (methodology/system architecture) with screenshots
-- [ ] Capstone manuscript: Chapter 5 (testing results — cite the 470 backend + 182 admin + 30 smoke checks)
+- [ ] Capstone manuscript: Chapter 5 (testing results — cite the 477 backend + 182 admin + 30 smoke checks)
 - [ ] Company UAT sign-off document (SYLVER owner/staff testing session)
 - [ ] User manual (admin + staff + customer)
 - [ ] Defense slide deck + printed demo script (DEMO-SCRIPT.md is the source)
@@ -122,7 +122,7 @@
 
 ## Evidence bank (for the paper — everything above is verifiable)
 
-- **Test suites:** backend `npm test` → 470/470 · admin → 182/182 · 30-check smoke suite → 30/30 (smoke suite last run Sep 9, 2026)
+- **Test suites:** backend `npm test` → 477/477 · admin → 182/182 · 30-check smoke suite → 30/30 (smoke suite last run Sep 9, 2026)
 - **Live deployments:** API + admin on Render, docs on GitHub Pages — all serving at time of writing
 - **Live end-to-end proof:** customer order → per-account scoping → admin approval → status timeline (Sep 9, 2026)
 - **Security artifacts:** `SECURITY.md` (OWASP control → code map), audit log (durable — mirrored to Supabase `audit_log`), MFA + recovery codes

@@ -66,6 +66,8 @@ function sqliteTarget() {
       if (!table) throw new Error(`unknown row kind "${kind}"`);
       db.prepare(`UPDATE ${table} SET customer_id = ? WHERE id = ? AND customer_id IS NULL`).run(customerId, id);
     },
+    // SQLite reads through on every call, so there is nothing to refresh.
+    reload: async () => {},
     close: () => { try { db.close(); } catch {} },
   };
 }
@@ -76,17 +78,27 @@ async function supabaseTarget() {
   const cfg = requireConfig();
   if (!cfg) return null;
   const { rest, headers } = cfg;
-  const customerRows = await readAll(rest, headers, 'customers');
-  const saleRows = await readAll(rest, headers, 'sales');
-  const inquiryRows = await readAll(rest, headers, 'inquiries');
+  // The JSONB row IS the record, exactly as the npm-free server reads it, so
+  // the same resolveCustomer call handles it unchanged.
+  const cache = {};
+  const reload = async () => {
+    cache.customers = await readAll(rest, headers, 'customers');
+    cache.sales = await readAll(rest, headers, 'sales');
+    cache.inquiries = await readAll(rest, headers, 'inquiries');
+  };
+  await reload();
+  const unwrap = (rows) => (rows || []).map(r => ({ ...r.data, id: r.id }));
   return {
     kind: 'supabase',
     label: `Supabase (${process.env.SUPABASE_URL})`,
-    customers: () => customerRows.map(r => ({ ...r.data, id: r.id })),
-    // The JSONB row IS the record, exactly as the npm-free server reads it, so
-    // the same resolveCustomer call handles it unchanged.
-    sales: () => saleRows.map(r => ({ ...r.data, id: r.id })),
-    inquiries: () => inquiryRows.map(r => ({ ...r.data, id: r.id })),
+    customers: () => unwrap(cache.customers),
+    sales: () => unwrap(cache.sales),
+    inquiries: () => unwrap(cache.inquiries),
+    // Re-read before verifying. Without this the post-run check re-plans
+    // against the rows captured BEFORE the writes and reports every sale still
+    // unlinked after a perfectly successful apply — which reads, to whoever ran
+    // it, like the backfill failed.
+    reload,
     async insertCustomer(c) {
       const { id, ...data } = c;
       await insertRows(rest, headers, 'customers', [{ id, idx: id, data }]);
@@ -171,8 +183,14 @@ async function main() {
     for (const p of plan) await target.link(p.kind === 'sales' ? 'sales' : 'inquiries', p.id, p.customerId);
     log(`linked ${plan.length} row(s)`);
 
+    // Re-read before verifying, so the check reports the state AFTER the
+    // writes rather than the snapshot the plan was built from.
+    await target.reload();
     const after = buildPlan(target);
     log(`verify: ${after.plan.length} row(s) still unlinked (0 is the target)`);
+    if (after.plan.length > 0) {
+      throw new Error(`${after.plan.length} row(s) are still unlinked after a successful apply`);
+    }
   } finally {
     target.close();
   }

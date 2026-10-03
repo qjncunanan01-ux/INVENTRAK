@@ -184,11 +184,11 @@ function buildPlan(rows, products) {
     if (row.cost === 'clear') {
       if (current === null) { unchanged += 1; continue; }
       clear += 1;
-      plan.push({ id: product.id, name: product.name, from: current, to: null });
+      plan.push({ id: product.id, name: product.name, from: current, to: null, data: product.data });
     } else {
       if (current === row.cost) { unchanged += 1; continue; }
       set += 1;
-      plan.push({ id: product.id, name: product.name, from: current, to: row.cost });
+      plan.push({ id: product.id, name: product.name, from: current, to: row.cost, data: product.data });
       const price = Number(product.price);
       // Costing.js would faithfully report a 0% or negative margin from this,
       // which looks like a bug in the math rather than a transposed column.
@@ -245,6 +245,15 @@ async function main() {
   for (const p of plan) {
     if (target.kind === 'supabase') {
       // Patch the row's JSONB in place, leaving every other field untouched.
+      // `p.data` is the WHOLE row as read. Spreading an absent value here would
+      // silently send { Cost } alone, and PostgREST replaces the column rather
+      // than merging into it — so every name, price, category and image in the
+      // row would be destroyed. That is not hypothetical: it is exactly what
+      // this did until supabase-rest.test.js ran the script against a stand-in
+      // project and read back `{"Cost":120}`.
+      if (!p.data || typeof p.data !== 'object') {
+        throw new Error(`refusing to write product ${p.id}: the row read has no data to merge into`);
+      }
       await target.write(p.id, { ...p.data, Cost: p.to });
     } else {
       target.write(p.id, p.to);
