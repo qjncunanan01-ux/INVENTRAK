@@ -1,4 +1,4 @@
-import { Alert, AlertTitle, Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, LinearProgress, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TableSortLabel, TextField, Tooltip, Typography, createFilterOptions } from '@mui/material';
+import { Alert, AlertTitle, Autocomplete, Box, Button, ButtonGroup, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, LinearProgress, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TableSortLabel, TextField, Tooltip, Typography, createFilterOptions } from '@mui/material';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +10,8 @@ import QrTagSheet from '../components/QrTagSheet';
 import QrImage from '../components/QrImage';
 import { printElement } from '../printReport';
 import { parseQrPayload, productQrPayload } from '../qr';
-import { parseCostSheet, toCostPayload, summarizeCostSheet, buildCostTemplate, sheetDiff, coverageOf, marginBucket, marginPercentOf, buildCostInsights } from '../cost-sheet';
+import { parseCostSheet, toCostPayload, summarizeCostSheet, buildCostTemplate, sheetDiff, coverageOf, marginBucket, marginPercentOf, buildCostInsights, buildRepricePlan, describeReprice } from '../cost-sheet';
+import { summarizeNormalization, buildRateSheet, DIMENSION_LABEL } from '../cost-normalize';
 
 const filter = createFilterOptions();
 
@@ -42,6 +43,19 @@ export default function ProductsPage({ onLogout }) {
   const [costBusy, setCostBusy] = useState(false);
   const costFileRef = useRef(null);
   const [costDiff, setCostDiff] = useState([]); // [{ name, from, to, status }]
+  // One-click reprice. The plan is built and shown BEFORE anything is sent, so
+  // the dialog is confirming a specific, already-computed list rather than
+  // asking the user to trust a button.
+  const [repriceOpen, setRepriceOpen] = useState(false);
+  const [repricePlan, setRepricePlan] = useState(null);
+  const [repriceBusy, setRepriceBusy] = useState(false);
+  // One panel, two sheets. Prices and costs used to be two near-identical
+  // panels separated by the margin overview, which read as two features when
+  // they are the same gesture on two columns — and made the cost rate helper
+  // look like a third. The state for each column is still separate, because
+  // the SEMANTICS are: a blank price is junk, a blank cost means leave it
+  // alone (see cost-sheet.js). Only the chrome is shared.
+  const [sheetMode, setSheetMode] = useState('cost');
 
   // --- Cost work queue ---
   // Costing 204 products is only finishable if it can be resumed: without a
@@ -208,6 +222,30 @@ export default function ProductsPage({ onLogout }) {
 
   const coverage = useMemo(() => coverageOf(products), [products]);
   const insights = useMemo(() => buildCostInsights(products, targetMargin), [products, targetMargin]);
+  // Supplier-rate costing: how the catalog splits by size dimension, and the
+  // one rate the admin has from the supplier.
+  const normalization = useMemo(() => summarizeNormalization(products), [products]);
+  const [rateDimension, setRateDimension] = useState('volume');
+  const [rate, setRate] = useState('');
+  // The size text is copied straight into the cost sheet's text box, so the
+  // generated sheet is previewed, parsed and applied through exactly the same
+  // path as a pasted CSV — one parser, one set of rules, no second code path to
+  // keep honest.
+  const loadRateSheet = () => {
+    const built = buildRateSheet(products, { dimension: rateDimension, rate });
+    setCostText(built.csv);
+    setCostRows([]);
+    setCostSummary(null);
+    setCostDiff([]);
+    runCostPreview(built.csv);
+    setSnackbar({
+      open: true,
+      message: built.priced > 0
+        ? `Generated ${built.priced} cost(s) from the ${DIMENSION_LABEL[rateDimension]} rate — review the preview, then apply`
+        : 'That rate produced no costs — check the number, or pick a different dimension.',
+      severity: built.priced > 0 ? 'success' : 'warning',
+    });
+  };
 
   // Set one product's cost without touching any other field.
   //
@@ -451,6 +489,43 @@ export default function ProductsPage({ onLogout }) {
     e.target.value = '';
   };
 
+  // --- One-click reprice ---
+  //
+  // The under-priced table already computes the price each product would need.
+  // Making the admin copy it into the price sheet by hand threw that work away.
+  // The write goes through the SAME audited endpoint as the bulk sheet, and is
+  // always confirmed first: a bulk reprice rewrites the number every margin,
+  // quote and profit figure is derived from.
+  const askReprice = (rows) => {
+    const plan = buildRepricePlan(rows);
+    if (plan.prices.length === 0) {
+      setSnackbar({ open: true, message: 'Nothing to reprice — every suggestion is already at or above the target.', severity: 'info' });
+      return;
+    }
+    setRepricePlan(plan);
+    setRepriceOpen(true);
+  };
+
+  const applyReprice = async() => {
+    if (!repricePlan || !repricePlan.prices.length) return;
+    setRepriceBusy(true);
+    try {
+      const res = await bulkUpdatePrices({ prices: repricePlan.prices.map(r => ({ name: r.name, price: r.price })) });
+      setRepriceOpen(false);
+      setSnackbar({
+        open: true,
+        message: `Repriced ${res.updated} of ${res.total} product${res.total === 1 ? '' : 's'} to the ${insights.target}% target`,
+        severity: res.updated > 0 ? 'success' : 'warning',
+      });
+      loadProducts();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    } finally {
+      setRepriceBusy(false);
+      setRepricePlan(null);
+    }
+  };
+
   // --- Bulk cost-of-goods helpers ---
 
   // Downloads the current cost sheet, with the selling price alongside the cost
@@ -468,8 +543,14 @@ export default function ProductsPage({ onLogout }) {
     URL.revokeObjectURL(url);
   };
 
-  const runCostPreview = () => {
-    const rows = parseCostSheet(costText);
+  // `textOverride` exists because setCostText() is ASYNC: a caller that fills
+  // the box and immediately previews (the supplier-rate helper) would otherwise
+  // parse the PREVIOUS value — the empty string — and report "no parseable
+  // rows" while looking like it had worked. Passing the text through makes the
+  // preview independent of when React gets round to the state update.
+  const runCostPreview = (textOverride) => {
+    const source = textOverride === undefined ? costText : textOverride;
+    const rows = parseCostSheet(source);
     if (!rows.length) {
       setCostSummary(null);
       setSnackbar({ open: true, message: 'No parseable rows. Use Product Name,Cost per line (header row optional).', severity: 'warning' });
@@ -646,65 +727,227 @@ export default function ProductsPage({ onLogout }) {
 
       <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-          <Typography variant="h6">Bulk price update</Typography>
-          <Button size="small" variant="outlined" onClick={downloadPriceTemplate}>
-            Download current prices (CSV)
-          </Button>
+          <Typography variant="h6">Bulk sheet</Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <ButtonGroup size="small" variant="outlined" aria-label="Choose which column this sheet sets">
+              {[
+                { key: 'cost', label: 'Cost of goods' },
+                { key: 'price', label: 'Prices' },
+              ].map(t => (
+                <Button
+                  key={t.key}
+                  onClick={() => setSheetMode(t.key)}
+                  variant={sheetMode === t.key ? 'contained' : 'outlined'}
+                >
+                  {t.label}
+                </Button>
+              ))}
+            </ButtonGroup>
+            <Button size="small" variant="outlined" onClick={sheetMode === 'cost' ? downloadCostTemplate : downloadPriceTemplate}>
+              {sheetMode === 'cost' ? 'Download current costs (CSV)' : 'Download current prices (CSV)'}
+            </Button>
+          </Box>
         </Box>
-        <Typography variant="body2" color="text.secondary" mb={2}>
-          Paste a price list or upload a .csv file to set all prices in one go.
-          Format: <code>Product Name,Price</code> per line (header row optional).
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              multiline
-              minRows={6}
-              variant="outlined"
-              placeholder={'Almond Roca,520\nBlueberry,495\nCaramel Syrup (750 ML) - Torani,499'}
-              value={bulkText}
-              onChange={e => setBulkText(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Button variant="contained" component="label">
-              Upload .csv
-              <input type="file" accept=".csv,text/csv,text/plain" hidden ref={fileInputRef} onChange={handleBulkFile} />
-            </Button>
-            <Button variant="outlined" onClick={runBulkPreview} disabled={!bulkText.trim()}>Parse preview</Button>
-            <Button variant="contained" color="success" onClick={applyBulkPrices} disabled={bulkBusy || !bulkRows.length}>
-              {bulkBusy ? 'Applying…' : `Apply ${bulkRows.length || ''} price${bulkRows.length === 1 ? '' : 's'}`}
-            </Button>
-          </Grid>
-        </Grid>
-        {bulkPreview ? (
-          <Alert severity={bulkPreview.matched === bulkPreview.total ? 'success' : 'warning'} sx={{ mt: 2 }}>
-            <AlertTitle>Parsed {bulkPreview.total} row{bulkPreview.total === 1 ? '' : 's'}</AlertTitle>
-            {bulkPreview.matched} of {bulkPreview.total} names match the catalog.
-            {bulkPreview.unmatched.length > 0 && (
-              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
-                {bulkPreview.unmatched.slice(0, 8).map((n, i) => (
-                  <li key={i}>{n}</li>
-                ))}
-                {bulkPreview.unmatched.length > 8 && <li>…and {bulkPreview.unmatched.length - 8} more</li>}
+
+        {sheetMode === 'cost' ? (
+          <>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Paste or upload a <code>Product Name,Cost</code> sheet to cost the whole catalog in one go
+              (a <code>Product Name,Price,Cost</code> sheet works too — the exported template is that shape).
+              A <strong>blank cost cell leaves that product alone</strong>; type <code>-</code> or <code>clear</code> to
+              deliberately mark one as not costed. Costing a query is what makes the margin figures on
+              Costing Records real — an uncosted product reports <code>cost_basis: &quot;none&quot;</code> rather than a guess.
+            </Typography>
+
+            {normalization.dimensions.length > 0 && (
+              <Box sx={{ mb: 2, p: 2, border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
+                <Typography variant="subtitle2" mb={0.5}>Or: one supplier rate instead of 200 numbers</Typography>
+                <Typography variant="body2" color="text.secondary" mb={1.5}>
+                  Suppliers quote syrup per litre and chocolate per kilo, not per bottle. Type the rate once and the
+                  sheet below fills itself in.
+                  {normalization.unreadable.length > 0 && (
+                    <> {normalization.unreadable.length} product(s) have no size recorded, so they stay blank and are
+                      left alone — add a size to the product to include them.</>
+                  )}
+                </Typography>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} sm={5}>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      label="Rate is quoted"
+                      value={rateDimension}
+                      onChange={e => setRateDimension(e.target.value)}
+                      helperText={normalization.dimensions.find(d => d.dimension === rateDimension)
+                        ? `${normalization.dimensions.find(d => d.dimension === rateDimension).count} product(s) match`
+                        : 'no products in this dimension'}
+                    >
+                      {normalization.dimensions.map(d => (
+                        <option key={d.dimension} value={d.dimension}>{`${DIMENSION_LABEL[d.dimension]} — ${d.count} product(s)`}</option>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label={`Cost ${DIMENSION_LABEL[rateDimension] || ''}`}
+                      value={rate}
+                      onChange={e => setRate(sanitizePrice(e.target.value))}
+                      placeholder="e.g. 45"
+                      helperText="Blank = nothing generated"
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={3} sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                    <Button variant="outlined" onClick={loadRateSheet} disabled={rate.trim() === ''}>
+                      Fill the sheet
+                    </Button>
+                  </Grid>
+                </Grid>
               </Box>
             )}
-          </Alert>
-        ) : null}
-        {bulkResult ? (
-          <Alert severity={bulkResult.skipped.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
-            <AlertTitle>Applied — {bulkResult.updated} price{bulkResult.updated === 1 ? '' : 's'} updated</AlertTitle>
-            {bulkResult.skipped.length > 0 && (
-              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
-                {bulkResult.skipped.slice(0, 8).map((s, i) => (
-                  <li key={i}>{s.name}: {s.reason}</li>
-                ))}
-                {bulkResult.skipped.length > 8 && <li>…and {bulkResult.skipped.length - 8} more</li>}
-              </Box>
-            )}
-          </Alert>
-        ) : null}
+
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={6}
+                  variant="outlined"
+                  placeholder={'Almond Roca,380\nBlueberry,295\nCaramel Syrup (750 ML) - Torani,-'}
+                  value={costText}
+                  onChange={e => setCostText(e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button variant="contained" component="label">
+                  Upload .csv
+                  <input type="file" accept=".csv,text/csv,text/plain" hidden ref={costFileRef} onChange={handleCostFile} />
+                </Button>
+                {/* Wrapped, not passed by reference: runCostPreview's first
+                    argument is the text to parse, so handing it the click
+                    event would parse String(event) and always report "no
+                    parseable rows". */}
+                <Button variant="outlined" onClick={() => runCostPreview()} disabled={!costText.trim()}>Parse preview</Button>
+                <Button variant="contained" color="success" onClick={applyCostSheet} disabled={costBusy || !costRows.length}>
+                  {costBusy ? 'Applying…' : `Apply ${costRows.length || ''} cost${costRows.length === 1 ? '' : 's'}`}
+                </Button>
+              </Grid>
+            </Grid>
+            {costSummary ? (
+              <Alert severity={costSummary.unmatched.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+                <AlertTitle>Parsed {costSummary.total} row{costSummary.total === 1 ? '' : 's'}</AlertTitle>
+                {costSummary.willSet} cost{costSummary.willSet === 1 ? '' : 's'} will be set
+                {costSummary.willClear > 0 ? `, ${costSummary.willClear} cleared back to "not costed"` : ''}
+                {costSummary.willSkip > 0 ? `, ${costSummary.willSkip} left untouched (blank cost cell)` : ''}.
+                {' '}{costSummary.matched} of {costSummary.total} names match the catalog.
+                {costSummary.unmatched.length > 0 && (
+                  <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                    {costSummary.unmatched.slice(0, 8).map((u, i) => (
+                      <li key={i}>{u.name}: {u.reason}</li>
+                    ))}
+                    {costSummary.unmatched.length > 8 && <li>…and {costSummary.unmatched.length - 8} more</li>}
+                  </Box>
+                )}
+                {costSummary.lossMakers.length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    <strong>Check these — the cost is at or above the selling price:</strong>
+                    <Box component="ul" sx={{ mt: 0.5, mb: 0, pl: 2 }}>
+                      {costSummary.lossMakers.slice(0, 8).map((l, i) => (
+                        <li key={i}>{l.name}: cost {l.cost} vs price {l.price}</li>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+                {costDiff.length > 0 && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <strong>What this will change:</strong>
+                    <Box component="ul" sx={{ mt: 0.5, mb: 0, pl: 2, maxHeight: 180, overflowY: 'auto' }}>
+                      {costDiff.map(d => (
+                        <li key={`${d.id}-${d.status}`}>
+                          {d.name}: {d.from === null ? 'not costed' : `P${d.from}`} → {d.to === null ? 'not costed' : `P${d.to}`}
+                          {d.status === 'unchanged' ? ' (no change)' : ''}
+                        </li>
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </Alert>
+            ) : null}
+            {costResult ? (
+              <Alert severity={costResult.skipped.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+                <AlertTitle>Applied — {costResult.updated} set, {costResult.cleared} cleared</AlertTitle>
+                {costResult.skipped.length > 0 && (
+                  <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                    {costResult.skipped.slice(0, 8).map((s, i) => (
+                      <li key={i}>{s.name}: {s.reason}</li>
+                    ))}
+                    {costResult.skipped.length > 8 && <li>…and {costResult.skipped.length - 8} more</li>}
+                  </Box>
+                )}
+              </Alert>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Paste a price list or upload a .csv file to set all prices in one go.
+              Format: <code>Product Name,Price</code> per line (header row optional).
+              Every price you change here is named in the audit trail.
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={6}
+                  variant="outlined"
+                  placeholder={'Almond Roca,520\nBlueberry,495\nCaramel Syrup (750 ML) - Torani,499'}
+                  value={bulkText}
+                  onChange={e => setBulkText(e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button variant="contained" component="label">
+                  Upload .csv
+                  <input type="file" accept=".csv,text/csv,text/plain" hidden ref={fileInputRef} onChange={handleBulkFile} />
+                </Button>
+                <Button variant="outlined" onClick={runBulkPreview} disabled={!bulkText.trim()}>Parse preview</Button>
+                <Button variant="contained" color="success" onClick={applyBulkPrices} disabled={bulkBusy || !bulkRows.length}>
+                  {bulkBusy ? 'Applying…' : `Apply ${bulkRows.length || ''} price${bulkRows.length === 1 ? '' : 's'}`}
+                </Button>
+              </Grid>
+            </Grid>
+            {bulkPreview ? (
+              <Alert severity={bulkPreview.matched === bulkPreview.total ? 'success' : 'warning'} sx={{ mt: 2 }}>
+                <AlertTitle>Parsed {bulkPreview.total} row{bulkPreview.total === 1 ? '' : 's'}</AlertTitle>
+                {bulkPreview.matched} of {bulkPreview.total} names match the catalog.
+                {bulkPreview.unmatched.length > 0 && (
+                  <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                    {bulkPreview.unmatched.slice(0, 8).map((n, i) => (
+                      <li key={i}>{n}</li>
+                    ))}
+                    {bulkPreview.unmatched.length > 8 && <li>…and {bulkPreview.unmatched.length - 8} more</li>}
+                  </Box>
+                )}
+              </Alert>
+            ) : null}
+            {bulkResult ? (
+              <Alert severity={bulkResult.skipped.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+                <AlertTitle>Applied — {bulkResult.updated} price{bulkResult.updated === 1 ? '' : 's'} updated</AlertTitle>
+                {bulkResult.skipped.length > 0 && (
+                  <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                    {bulkResult.skipped.slice(0, 8).map((s, i) => (
+                      <li key={i}>{s.name}: {s.reason}</li>
+                    ))}
+                    {bulkResult.skipped.length > 8 && <li>…and {bulkResult.skipped.length - 8} more</li>}
+                  </Box>
+                )}
+              </Alert>
+            ) : null}
+          </>
+        )}
       </Paper>
 
       <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
@@ -750,6 +993,20 @@ export default function ProductsPage({ onLogout }) {
             <Typography variant="subtitle2" mb={1}>
               Priced below the {insights.target}% target — a suggestion, not an applied change
             </Typography>
+            <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Button
+                size="small"
+                variant="outlined"
+                color="warning"
+                onClick={() => askReprice(insights.underPriced)}
+                disabled={repriceBusy}
+              >
+                Reprice all {insights.underPriced.length} to {insights.target}%
+              </Button>
+              <Typography variant="caption" color="text.secondary">
+                Confirmed before anything is written, and recorded in the audit trail.
+              </Typography>
+            </Box>
             <Table size="small" aria-label="Products priced below the target margin">
               <TableHead>
                 <TableRow>
@@ -758,6 +1015,7 @@ export default function ProductsPage({ onLogout }) {
                   <TableCell align="right">Cost</TableCell>
                   <TableCell align="right">Margin</TableCell>
                   <TableCell align="right">Price for {insights.target}%</TableCell>
+                  <TableCell align="right">Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -770,13 +1028,18 @@ export default function ProductsPage({ onLogout }) {
                       <Typography variant="body2" color={u.margin < 0 ? 'error.main' : 'warning.main'}>{u.margin}%</Typography>
                     </TableCell>
                     <TableCell align="right">P{u.suggested}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" onClick={() => askReprice([u])} disabled={repriceBusy}>
+                        Reprice
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
             {insights.underPriced.length > 8 && (
               <Typography variant="caption" color="text.secondary">
-                …and {insights.underPriced.length - 8} more
+                …and {insights.underPriced.length - 8} more — use “Reprice all” to cover every one.
               </Typography>
             )}
           </Box>
@@ -840,98 +1103,6 @@ export default function ProductsPage({ onLogout }) {
             </Typography>
           </Box>
         )}
-      </Paper>
-
-      <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-          <Typography variant="h6">Cost of goods</Typography>
-          <Button size="small" variant="outlined" onClick={downloadCostTemplate}>
-            Download current costs (CSV)
-          </Button>
-        </Box>
-        <Typography variant="body2" color="text.secondary" mb={2}>
-          Paste or upload a <code>Product Name,Cost</code> sheet to cost the whole catalog in one go
-          (a <code>Product Name,Price,Cost</code> sheet works too — the exported template is that shape).
-          A <strong>blank cost cell leaves that product alone</strong>; type <code>-</code> or <code>clear</code> to
-          deliberately mark one as not costed. Costing a query is what makes the margin figures on
-          Costing Records real — an uncosted product reports <code>cost_basis: &quot;none&quot;</code> rather than a guess.
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              multiline
-              minRows={6}
-              variant="outlined"
-              placeholder={'Almond Roca,380\nBlueberry,295\nCaramel Syrup (750 ML) - Torani,-'}
-              value={costText}
-              onChange={e => setCostText(e.target.value)}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Button variant="contained" component="label">
-              Upload .csv
-              <input type="file" accept=".csv,text/csv,text/plain" hidden ref={costFileRef} onChange={handleCostFile} />
-            </Button>
-            <Button variant="outlined" onClick={runCostPreview} disabled={!costText.trim()}>Parse preview</Button>
-            <Button variant="contained" color="success" onClick={applyCostSheet} disabled={costBusy || !costRows.length}>
-              {costBusy ? 'Applying…' : `Apply ${costRows.length || ''} cost${costRows.length === 1 ? '' : 's'}`}
-            </Button>
-          </Grid>
-        </Grid>
-        {costSummary ? (
-          <Alert severity={costSummary.unmatched.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
-            <AlertTitle>Parsed {costSummary.total} row{costSummary.total === 1 ? '' : 's'}</AlertTitle>
-            {costSummary.willSet} cost{costSummary.willSet === 1 ? '' : 's'} will be set
-            {costSummary.willClear > 0 ? `, ${costSummary.willClear} cleared back to "not costed"` : ''}
-            {costSummary.willSkip > 0 ? `, ${costSummary.willSkip} left untouched (blank cost cell)` : ''}.
-            {' '}{costSummary.matched} of {costSummary.total} names match the catalog.
-            {costSummary.unmatched.length > 0 && (
-              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
-                {costSummary.unmatched.slice(0, 8).map((u, i) => (
-                  <li key={i}>{u.name}: {u.reason}</li>
-                ))}
-                {costSummary.unmatched.length > 8 && <li>…and {costSummary.unmatched.length - 8} more</li>}
-              </Box>
-            )}
-            {costSummary.lossMakers.length > 0 && (
-              <Box sx={{ mt: 1 }}>
-                <strong>Check these — the cost is at or above the selling price:</strong>
-                <Box component="ul" sx={{ mt: 0.5, mb: 0, pl: 2 }}>
-                  {costSummary.lossMakers.slice(0, 8).map((l, i) => (
-                    <li key={i}>{l.name}: cost {l.cost} vs price {l.price}</li>
-                  ))}
-                </Box>
-              </Box>
-            )}
-            {costDiff.length > 0 && (
-              <Box sx={{ mt: 1.5 }}>
-                <strong>What this will change:</strong>
-                <Box component="ul" sx={{ mt: 0.5, mb: 0, pl: 2, maxHeight: 180, overflowY: 'auto' }}>
-                  {costDiff.map(d => (
-                    <li key={`${d.id}-${d.status}`}>
-                      {d.name}: {d.from === null ? 'not costed' : `P${d.from}`} → {d.to === null ? 'not costed' : `P${d.to}`}
-                      {d.status === 'unchanged' ? ' (no change)' : ''}
-                    </li>
-                  ))}
-                </Box>
-              </Box>
-            )}
-          </Alert>
-        ) : null}
-        {costResult ? (
-          <Alert severity={costResult.skipped.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
-            <AlertTitle>Applied — {costResult.updated} set, {costResult.cleared} cleared</AlertTitle>
-            {costResult.skipped.length > 0 && (
-              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
-                {costResult.skipped.slice(0, 8).map((s, i) => (
-                  <li key={i}>{s.name}: {s.reason}</li>
-                ))}
-                {costResult.skipped.length > 8 && <li>…and {costResult.skipped.length - 8} more</li>}
-              </Box>
-            )}
-          </Alert>
-        ) : null}
       </Paper>
 
       <Paper sx={{ p: 3 }}>
@@ -1167,6 +1338,66 @@ export default function ProductsPage({ onLogout }) {
         locations={[]}
         products={prodList}
       />
+
+      {/* Reprice confirmation. Every suggested price is listed before the write,
+          because a bulk reprice is indistinguishable from a mistake once it is
+          applied — and the audit entry that records it would look the same
+          either way. */}
+      <Dialog
+        open={repriceOpen}
+        onClose={() => !repriceBusy && setRepriceOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        aria-labelledby="reprice-dialog-title"
+      >
+        <DialogTitle id="reprice-dialog-title">Raise prices to the {insights.target}% target?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" gutterBottom>
+            {describeReprice(repricePlan, insights.target)}
+          </Typography>
+          {repricePlan && repricePlan.prices.length > 0 && (
+            <Box sx={{ maxHeight: 240, overflowY: 'auto', mt: 1 }}>
+              <Table size="small" aria-label="Pending reprices">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Product</TableCell>
+                    <TableCell align="right">Now</TableCell>
+                    <TableCell align="right">New price</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {repricePlan.prices.map(r => {
+                    const row = insights.underPriced.find(u => u.id === r.id);
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell>{r.name}</TableCell>
+                        <TableCell align="right">{row ? `P${row.price}` : '—'}</TableCell>
+                        <TableCell align="right">P{r.price}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+          {repricePlan && repricePlan.skipped.length > 0 && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              {repricePlan.skipped.length} row(s) left out: {repricePlan.skipped.slice(0, 5).map(s => `${s.name} (${s.reason})`).join(', ')}
+              {repricePlan.skipped.length > 5 && ` …+${repricePlan.skipped.length - 5} more`}
+            </Alert>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+            This goes through the same audited bulk-price endpoint as the CSV import, and every changed product is
+            named in the audit trail.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRepriceOpen(false)} disabled={repriceBusy}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={applyReprice} disabled={repriceBusy}>
+            {repriceBusy ? 'Repricing…' : `Reprice ${repricePlan ? repricePlan.prices.length : 0} product${repricePlan && repricePlan.prices.length === 1 ? '' : 's'}`}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

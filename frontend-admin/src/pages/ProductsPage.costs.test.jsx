@@ -208,11 +208,13 @@ describe('margin overview', () => {
   it('suggests a price for products under target and names the loss-makers', async() => {
     renderPage();
     await waitFor(() => expect(screen.getByText(/Priced below the 30% target/)).toBeTruthy());
-    // Worst margin first: Vanilla at -30% (260 / 0.7 = 371.43), then Caramel
-    // at 25% (300 / 0.7 = 428.57).
+    // Worst margin first: Vanilla at -30%, then Caramel at 25%.
+    // The suggestion rounds UP, so the price it names actually clears the 30%
+    // target that put the row on this list — 260 / 0.7 = 371.43 -> 372, not
+    // 371. Rounding to nearest left it at 29.98% and the flag never cleared.
     const rows = within(screen.getByRole('table', { name: 'Products priced below the target margin' }))
       .getAllByRole('row').slice(1);
-    expect(rows[0].textContent).toContain('P371');
+    expect(rows[0].textContent).toContain('P372');
     expect(rows.some(r => r.textContent.includes('P429'))).toBe(true);
     expect(screen.getAllByText('Vanilla').length).toBeGreaterThan(0);
   });
@@ -242,7 +244,9 @@ describe('bulk cost sheet preview', () => {
     await waitFor(() => expect(screen.getByText(/3 of 4 costed/)).toBeTruthy());
     const sheet = screen.getAllByRole('textbox').find(el => (el.placeholder || '').includes('Almond Roca,380'));
     fireEvent.change(sheet, { target: { value: 'Almond Roca,400\nBlueberry,-' } });
-    fireEvent.click(screen.getAllByText('Parse preview')[1]);
+    // One Parse preview button now: the price and cost sheets share a panel and
+    // swap which button is on screen, rather than both existing at once.
+    fireEvent.click(screen.getByText('Parse preview'));
     await waitFor(() => expect(screen.getByText(/What this will change/)).toBeTruthy());
     expect(screen.getByText(/Almond Roca: P250 → P400/)).toBeTruthy();
     expect(screen.getByText(/Blueberry: not costed → not costed/)).toBeTruthy();

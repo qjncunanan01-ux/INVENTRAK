@@ -361,7 +361,13 @@ export function buildCostInsights(products, targetMarginPercent = 30) {
         price: Number(p.price),
         cost: unitCost(p),
         margin: Math.round(pct),
-        suggested: Math.round(cost(p) / (1 - target / 100)),
+        // CEIL, not round. Rounding to the nearest peso lands BELOW the target
+        // whenever the exact figure is fractional (cost 850 at 30% is 1214.28,
+        // which rounds to 1214 for a 29.98% margin), so the product stays on
+        // the under-priced list forever and the one-click reprice reports
+        // success while changing nothing. Rounding up guarantees the
+        // suggestion clears the very threshold that put it on this list.
+        suggested: Math.ceil(cost(p) / (1 - target / 100)),
       });
     }
   }
@@ -388,4 +394,67 @@ export function buildCostInsights(products, targetMarginPercent = 30) {
 
 function cost(product) {
   return unitCost(product);
+}
+
+// ============================================================
+// Acting on the under-priced table.
+//
+// buildCostInsights deliberately only SUGGESTS a price: repricing a catalog is
+// the business owner's call. But "here is a number, now type it into the bulk
+// price sheet yourself" throws away the analysis the panel just did, and the
+// suggestion is a pure function of the row, so there is nothing to be careful
+// about beyond confirming it.
+//
+// What this module returns is a PLAN, not a call: the same shape as the cost
+// sheet's, so the caller can show it, confirm it, and send it through the one
+// audited endpoint. buildRepricePlan is pure and is what the tests drive.
+
+// Turn N under-priced rows into the exact payload /bulk-prices expects.
+//
+// Refuses, loudly, in three cases that would otherwise look like success:
+//   - a suggested price that is not above the current one (rounding at the
+//     target boundary can land on the current price)
+//   - a suggested price that is not a positive number
+//   - a duplicate name, which the endpoint would silently apply twice
+//
+// Returns { prices, skipped } where `skipped` explains every row left out, so
+// the confirmation dialog can say "12 of 14" instead of quietly sending 12.
+export function buildRepricePlan(underPriced) {
+  const rows = Array.isArray(underPriced) ? underPriced : [];
+  const prices = [];
+  const skipped = [];
+  const seen = new Set();
+
+  for (const u of rows) {
+    if (!u || !u.name) { skipped.push({ name: '(unnamed)', reason: 'no product name' }); continue; }
+    const key = String(u.name).trim().toLowerCase();
+    if (seen.has(key)) { skipped.push({ name: u.name, reason: 'listed twice' }); continue; }
+    const suggested = Number(u.suggested);
+    if (!Number.isFinite(suggested) || suggested <= 0) { skipped.push({ name: u.name, reason: 'no usable suggested price' }); continue; }
+    const current = Number(u.price);
+    // A suggestion at or below the current price is not a reprice. Applying it
+    // would still write a row and still report "1 updated", which is the sort
+    // of thing that makes a change log untrustworthy.
+    if (Number.isFinite(current) && suggested <= current) { skipped.push({ name: u.name, reason: 'already at or above the target' }); continue; }
+    seen.add(key);
+    prices.push({ id: u.id, name: u.name, price: suggested });
+  }
+
+  return { prices, skipped, total: rows.length };
+}
+
+// The sentence the confirmation dialog shows. A bulk reprice rewrites the
+// number every margin, quote and profit figure is derived from, so the user is
+// told the shape of the change and the money it moves, not just "are you sure".
+export function describeReprice(plan, targetMargin) {
+  const prices = (plan && Array.isArray(plan.prices)) ? plan.prices : [];
+  const skipped = (plan && Array.isArray(plan.skipped)) ? plan.skipped : [];
+  if (prices.length === 0) return 'Nothing to reprice.';
+  const uplift = prices.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
+  const parts = [
+    `${prices.length} price${prices.length === 1 ? '' : 's'} will be raised to the ${targetMargin}% target`,
+    `new list value ${Math.round(uplift)}`,
+  ];
+  if (skipped.length) parts.push(`${skipped.length} left out`);
+  return parts.join(' · ') + '.';
 }
