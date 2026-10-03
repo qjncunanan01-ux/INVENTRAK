@@ -41,6 +41,8 @@
 - [x] Google sign-in (OAuth relay → Firestore/Supabase `google_sub` link, real-name usernames)
 - [x] Admin MFA (TOTP) + one-time recovery codes, hashed at rest
 - [x] Full OWASP hardening pass + audit log + `SECURITY.md` mapping every control to code
+- [x] **Durable audit trail** — every event mirrors to a Supabase `audit_log` table, so the trail survives a redeploy (the sink is derived from the `SUPABASE_*` vars the driver already uses, so there is nothing to configure; check it with `GET /api/meta → .audit`)
+- [x] **Customer Records** — the business entity behind orders and sales, distinct from a login account, resolved by user_id → email → name and enriched rather than duplicated; admin read/edit API plus an idempotent backfill of the 612 pre-existing sales rows
 - [ ] External security review / penetration test write-up for the paper
 
 ## 3. Role-Based Access & Approvals — 4/4 ✅
@@ -70,12 +72,13 @@
 - [x] Scan-event audit trail (unknown payloads logged) + customer product-page redirect
 - [x] OCR engine fully retired (tesseract.js/jimp removed from the dependency tree)
 
-## 6. Decision Support — 4/4
+## 6. Decision Support — 5/5
 
 - [x] EOQ, Reorder Point, and Safety Stock computed per product (backend)
 - [x] ABC classification (drives Flash Sale picks and Recommendations)
 - [x] FSN (Fast/Slow/Non-moving) movement classification — `GET /api/optimization/fsn`, admin Optimization page section, 15 backend tests
 - [x] Automated low-stock alerts against computed ROP
+- [x] **Costing Records** — the economics of an inquiry frozen at submission, so repricing the catalog cannot rewrite a past order's profit. Reports cost basis (exact / imputed / none), profit, and cost-per-unit; cost of goods is entered per product or in bulk (admin cost sheet / CSV import) and is stripped from every public read
 - [ ] Forecasting comparison (e.g., moving average vs. EOQ results) for the paper's analysis chapter (optional stretch — tracked under Paper workstream)
 
 ## 7. Customer Mobile App — 5/8
@@ -107,7 +110,7 @@
 
 - [ ] Capstone manuscript: Chapters 1–3 (final-form)
 - [ ] Capstone manuscript: Chapter 4 (methodology/system architecture) with screenshots
-- [ ] Capstone manuscript: Chapter 5 (testing results — cite the 330 backend + 28 admin + 30 smoke checks)
+- [ ] Capstone manuscript: Chapter 5 (testing results — cite the 439 backend + 91 admin + 30 smoke checks)
 - [ ] Company UAT sign-off document (SYLVER owner/staff testing session)
 - [ ] User manual (admin + staff + customer)
 - [ ] Defense slide deck + printed demo script (DEMO-SCRIPT.md is the source)
@@ -118,11 +121,11 @@
 
 ## Evidence bank (for the paper — everything above is verifiable)
 
-- **Test suites:** backend `npm test` → 330/330 · admin → 28/28 · 30-check smoke suite → 30/30 (Sep 9, 2026)
+- **Test suites:** backend `npm test` → 439/439 · admin → 91/91 · 30-check smoke suite → 30/30 (smoke suite last run Sep 9, 2026)
 - **Live deployments:** API + admin on Render, docs on GitHub Pages — all serving at time of writing
 - **Live end-to-end proof:** customer order → per-account scoping → admin approval → status timeline (Sep 9, 2026)
-- **Security artifacts:** `SECURITY.md` (OWASP control → code map), audit log, MFA + recovery codes
-- **Docs for reproducibility:** `README.md`, `MODULES.md`, `DEPLOY.md`, `DEMO-SCRIPT.md`, `APK-INSTALL.md`
+- **Security artifacts:** `SECURITY.md` (OWASP control → code map), audit log (durable — mirrored to Supabase `audit_log`), MFA + recovery codes
+- **Docs for reproducibility:** `README.md`, `AGENTS.md`, `docs/DATABASE-SPEC-MAPPING.md`, `MODULES.md`, `DEPLOY.md`, `DEMO-SCRIPT.md`, `APK-INSTALL.md`
 
 > Tip for the progress report: workstreams 1–3 are effectively "done and defended-ready";
 > the honest remaining risk is workstream 10 (the paper itself) and the PayMongo keys.

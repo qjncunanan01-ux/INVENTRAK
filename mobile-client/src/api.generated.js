@@ -68,6 +68,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listProducts: (params) => request('GET', '/api/products', { query: params }),
   // POST /api/products — Create a product (admin only)
   createProduct: (body) => request('POST', '/api/products', { body }),
+  // POST /api/products/bulk-costs — Set unit cost on many products in one request (admin only) — the cost-of-goods CSV import
+  bulkUpdateCosts: (body) => request('POST', '/api/products/bulk-costs', { body }),
   // POST /api/products/bulk-prices — Set prices for many products in one request (admin only) â€” the price-list CSV import
   bulkUpdatePrices: (body) => request('POST', '/api/products/bulk-prices', { body }),
   // GET /api/products/costs — Cost-of-goods sheet (admin only) — the only read path that reveals product cost

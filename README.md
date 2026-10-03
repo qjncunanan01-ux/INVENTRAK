@@ -287,14 +287,15 @@ verification, plus Railway / Cloud Run alternates): **see [`DEPLOY.md`](DEPLOY.m
 
 ### Running Tests
 ```bash
-cd backend  npm test    # 43 suites, 424 tests, across both backends: SQLite,
+cd backend  npm test    # 44 suites, 439 tests, across both backends: SQLite,
             # npm-free, contract parity, OpenAPI conformance, Firestore +
             # Supabase stores, password policy, notifications, driver
             # selection, the SQLite→Firestore migration bridge, password
             # hashing, bidirectional sync, the migration-catalog drift guard,
             # the login lockout suite, security hardening, roles and RBAC,
             # MFA, QR lookup, FIFO/FEFO lots, the staff→admin adjustment loop,
-            # the durable audit trail, costing records, and customer records
+            # the durable audit trail, costing records, customer records, and
+            # bulk cost-of-goods entry
 
 cd backend  npm run verify   # OpenAPI validation + route audit + generated-client
                             # freshness + the full suite (what CI runs)
@@ -375,6 +376,15 @@ npm run verify            # All of the above + the full test suite
   from one person yield exactly one Customer Record, that an existing row is
   enriched rather than duplicated, that a guest order still gets a record, and
   that the whole customer surface is admin-only.
+- `backend/src/test/bulk-costs.test.js` — **bulk cost-of-goods entry**: the
+  three-state cost cell (a number sets, `null` clears, an absent key skips) and
+  the deliberate asymmetry with the bulk *price* sheet, where a blank is junk.
+  Includes the round trip that matters: costing a product must not make it
+  readable on the unauthenticated catalog.
+- `frontend-admin/src/cost-sheet.test.js` — **the admin cost sheet parser**:
+  25 cases pinning that a blank cost cell means "leave this product alone" and
+  never "clear it" — the rule that stops a partial sheet from silently wiping
+  every cost it did not mention.
 
 **Generated API clients** — `frontend-admin/src/api.generated.js` and
 `mobile-client/src/api.generated.js` are generated from the spec
@@ -435,6 +445,7 @@ open http://localhost:4001/api/docs
 | GET | /api/products | List products (supports ?search=&page=&limit=) |
 | GET | /api/products/categories | List product categories |
 | GET | /api/products/costs | Cost-of-goods sheet (admin only) |
+| POST | /api/products/bulk-costs | Set unit cost on many products (admin only) |
 | GET | /api/products/:id | Get single product |
 | POST | /api/products | Create product (admin) |
 | PUT | /api/products/:id | Update product (admin) |

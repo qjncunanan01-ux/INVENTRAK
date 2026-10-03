@@ -67,6 +67,7 @@ export const getProduct = client.getProduct;
 export const updateProduct = client.updateProduct;
 export const deleteProduct = client.deleteProduct;
 export const bulkUpdatePrices = client.bulkUpdatePrices;
+export const bulkUpdateCosts = client.bulkUpdateCosts;
 export const getInventory = client.getInventory;
 export const listLocations = client.listLocations;
 export const createLocation = client.createLocation;
