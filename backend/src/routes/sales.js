@@ -92,7 +92,10 @@ router.post('/', authenticateToken, adminOnly, validate({
 
   // Move the stock. Same helper a staff stock-out uses, so FEFO, the
   // decrement and the alert refresh cannot diverge between the two paths.
-  applyMovementEffect({
+  // The manifest comes straight back: it is HOW the till shows the customer
+  // which batch left, which is the only way to demonstrate FEFO without
+  // reading the sort order.
+  const effect = applyMovementEffect({
     product_id,
     qty,
     type: 'stock-out',
@@ -126,6 +129,11 @@ router.post('/', authenticateToken, adminOnly, validate({
     location_id,
     location: location.name,
     stock_remaining: remaining ? remaining.quantity : 0,
+    // Which batches actually left the shelf, expiring-first. `lot_id: null`
+    // means the units came off stock with no covering lot (legacy/overflow) —
+    // reported honestly rather than inventing a batch number.
+    lots_consumed: effect.manifest,
+    low_stock_alert: effect.lowStockAlert,
   });
 });
 

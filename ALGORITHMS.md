@@ -10,7 +10,7 @@ Every number below is reproducible from a clean clone:
 ```bash
 cd backend
 npm run seed     # deterministic: fixed-seed PRNG -> identical 612-row ledger
-npm run verify   # 616/616
+npm run verify   # 620/620
 ```
 
 ---
@@ -39,7 +39,7 @@ produced a single classification.
 | 13 | RBAC tier wall | Log in as **staff**, then as **admin** | "Same button, different role, different outcome." |
 | 14 | Exponential-backoff lockout | Fail a login 5× | "Wait time doubles each breach." |
 | 15 | TOTP / MFA | **Security → Enable MFA** | "RFC 6238, server-verified." |
-| 16 | The counter sale | **Scan & Stock**, or `POST /api/sales` | "One tap at the till writes the revenue row, takes the stock off the shelf and consumes the expiring batch." |
+| 16 | The counter sale | **Stock Control → Till** | "One tap writes the revenue row, takes the stock off the shelf — and it shows you WHICH batch, before and after." |
 
 **If a panel member asks "prove it"** — the strongest single move is the
 **cross-backend contract test**: the SQLite backend and the npm-free/Firestore/
@@ -654,6 +654,23 @@ product 1 from location 1:
 `3210 = 3 x 1070`, where `1070` is the catalog price read from the database.
 Stock went **113 → 110**.
 
+### Showing it without showing the code
+
+**Stock Control → Till.** The screen deliberately names the batch **twice**:
+
+- **Before** — "FEFO — this batch leaves first: Lot #613 · 3 units · expires
+  2026-10-21", worked out client-side from the same ordering rule the server
+  applies. Staff see the expiring syrup going out first rather than being told
+  afterwards.
+- **After** — the receipt replays the server's own consumption manifest:
+  "Lot #4 · 2 units", plus "2 units accounted for — the ledger and the shelf
+  agree", plus any low-stock alert the sale raised ("42 left, reorder at 120").
+
+The second one is read back from the server, not recomputed, so the screen
+cannot claim a batch the database did not actually consume. Overflow stock with
+no covering lot is labelled **"Unbatched stock"** rather than given an invented
+batch number.
+
 ### The bug this design closed — say it, it is your best point
 
 Before this, `POST /api/sales` wrote **only the revenue row**. Verified by
@@ -706,7 +723,7 @@ number.
 
 ```bash
 cd backend
-npm run verify      # 616/616 across 52 suites
+npm run verify      # 620/620 across 52 suites
 ```
 
 Every test file in `src/test/` is listed in the `npm test` script — 52 files,
@@ -717,7 +734,8 @@ being skipped without anyone noticing.)
 |---|---|
 | FSN classification + dual-backend parity | `src/test/fsn.test.js` |
 | FEFO overrides FIFO; expiry travels with transfers | `src/test/fefo.test.js` |
-| Counter sale: stock decrement, FEFO, oversell refusal, audit | `src/test/walk-in-sales.test.js` |
+| Counter sale: stock decrement, FEFO, oversell refusal, audit, consumed-lot manifest | `src/test/walk-in-sales.test.js` |
+| Till: FEFO preview + receipt, batch labels | `frontend-admin/src/till.test.js`, `frontend-admin/src/pages/TillPage.test.jsx` |
 | Settings RBAC + live effect, end-to-end flows, adjustment expiry | `src/test/settings.test.js`, `src/test/e2e-ci.test.js`, `src/test/adjustment-expiry.test.js` |
 | Critical level: floors, clamps, badge ladder | `src/test/critical-level.test.js` |
 | ABC endpoint parity across drivers | `src/test/contract.test.js` |

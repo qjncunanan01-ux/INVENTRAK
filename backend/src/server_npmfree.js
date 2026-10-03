@@ -663,6 +663,8 @@ function consumeLots(productId, locationId, qty) {
   // Consumption manifest (mirrors the SQLite consumeStockLots): what was
   // actually taken, grouped per lot by expiry_date, so a transfer can
   // recreate matching destination lots — expiry travels with the goods.
+  // lot_id and received_at are additive (groupManifestByExpiry keys on
+  // expiry_date only) and exist so a caller can report WHICH batch went.
   const manifest = [];
   const candidates = stockLots
     .filter(
@@ -681,12 +683,17 @@ function consumeLots(productId, locationId, qty) {
     const take = Math.min(lot.qty, remaining);
     lot.qty -= take;
     remaining -= take;
-    manifest.push({ expiry_date: lot.expiry_date == null ? null : lot.expiry_date, qty: take });
+    manifest.push({
+      lot_id: lot.id,
+      expiry_date: lot.expiry_date == null ? null : lot.expiry_date,
+      received_at: lot.received_at == null ? null : lot.received_at,
+      qty: take,
+    });
   }
   if (remaining > 0) {
     // Stock existed without a matching lot (legacy/overflow path) — treat it
     // as non-expiring in the manifest so the destination still balances.
-    manifest.push({ expiry_date: null, qty: remaining });
+    manifest.push({ lot_id: null, expiry_date: null, received_at: null, qty: remaining });
   }
   if (candidates.length || manifest.length) persistLots();
   return manifest;
@@ -732,9 +739,13 @@ function criticalLevelOf(productId) {
 }
 
 // Raised by a movement that drops a location to/below its critical level.
+// Returns `{ threshold, current_qty, raised }` when the location is at or
+// below its critical level, else null — mirrors the return value of the
+// SQLite backend's alert branch in applyMovementEffect, so both drivers
+// report the same thing to a caller (the till screen).
 function upsertLowStockAlert(productId, locationId, qty) {
   const threshold = criticalLevelOf(productId);
-  if (qty > threshold) return;
+  if (qty > threshold) return null;
   const existing = alerts.find(
     a =>
       a.product_id === Number(productId) &&
@@ -746,7 +757,7 @@ function upsertLowStockAlert(productId, locationId, qty) {
     existing.current_qty = qty;
     existing.threshold = threshold;
     if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
-    return;
+    return { threshold, current_qty: qty, raised: false };
   }
   const inv = getInventory();
   const item = inv.items.find(i => i.product && Number(i.product.id) === Number(productId));
@@ -765,6 +776,7 @@ function upsertLowStockAlert(productId, locationId, qty) {
     resolved_at: null,
   });
   if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
+  return { threshold, current_qty: qty, raised: true };
 }
 
 // Reconcile every active low-stock alert against the current critical levels:
@@ -2266,6 +2278,27 @@ const server = http.createServer((req, res) => {
         writeJSON(productsFile, products);
         cache.invalidate('products');
         cache.invalidate('categories');
+
+        // Give the new product an inventory row.
+        //
+        // The inventory file is built once at boot from the products that
+        // existed THEN, so a product added afterwards had no row at all. Every
+        // movement is guarded by `if (item)`, so stock-in silently did nothing
+        // for it and a sale could never be recorded against it — while the
+        // SQLite backend creates the stock row lazily (INSERT OR IGNORE) and
+        // simply worked.
+        //
+        // `locations` starts EMPTY rather than zero at every location: that is
+        // exactly what SQLite reports for a product with no `stock` rows yet
+        // (`locations: {}`), and seeding zeroes here instead would make the two
+        // backends disagree on GET /api/inventory. The first stock-in creates
+        // the key.
+        const invNew = getInventory();
+        const newIdx = products.length - 1;
+        invNew.items.push({ product: formatProduct(newProduct, newIdx), locations: {}, total: 0 });
+        writeJSON(inventoryFile, invNew);
+        cache.invalidate('inventory');
+
         return sendJson(res, 201, { id: products.length });
       });
     });
@@ -3842,8 +3875,17 @@ const server = http.createServer((req, res) => {
         // Per-PRODUCT total below the movement-aware critical level (see
         // critical-level.js) — matches the SQLite backend so the contract
         // test passes.
+        //
+        // The `Object.keys(...).length > 0` guard is the in-memory equivalent of
+        // SQLite's `FROM stock s JOIN products p` (an INNER JOIN): a product
+        // that has never had a stock row at all is invisible here too. Without
+        // it a brand-new product — created with an empty `locations` object —
+        // counted as a low-stock item while SQLite did not, and the two
+        // backends reported different numbers on the dashboard.
         const levelMap = criticalLevels();
-        const lowStockItems = inv.items.filter(i => i.total < criticalLevelFromMap(levelMap, i.product.id)).length;
+        const lowStockItems = inv.items.filter(
+          i => i.product && Object.keys(i.locations || {}).length > 0 && i.total < criticalLevelFromMap(levelMap, i.product.id)
+        ).length;
         const totalLocations = inv.locations.length;
         const pendingInquiries = orders.filter(o => o.status === 'pending').length;
         const totalSales = salesTransactions.reduce((sum, s) => sum + s.total_amount, 0);
@@ -4144,12 +4186,16 @@ const server = http.createServer((req, res) => {
         // cannot drift between the counter and the back-room. Before this, a
         // counter sale wrote revenue but never touched inventory — verified by
         // running it: 3 units sold left stock at 309 before and 309 after.
+        // The manifest comes straight back: it is HOW the till shows the
+        // customer which batch left.
+        let saleManifest = [];
+        let saleAlert = null;
         if (invItem) {
           invItem.locations[locName] = (invItem.locations[locName] || 0) - saleQty;
           invItem.total = Object.values(invItem.locations).reduce((sum, q) => sum + q, 0);
           writeJSON(inventoryFile, inv);
-          consumeLots(salePid, saleLoc, saleQty);
-          upsertLowStockAlert(salePid, saleLoc, invItem.locations[locName] || 0);
+          saleManifest = consumeLots(salePid, saleLoc, saleQty);
+          saleAlert = upsertLowStockAlert(salePid, saleLoc, invItem.locations[locName] || 0);
           cache.invalidate('inventory');
         }
 
@@ -4177,6 +4223,10 @@ const server = http.createServer((req, res) => {
           location_id: saleLoc,
           location: locName,
           stock_remaining: invItem ? invItem.locations[locName] || 0 : 0,
+          // Which batches actually left the shelf, expiring-first (mirrors the
+          // SQLite backend). lot_id: null means stock with no covering lot.
+          lots_consumed: saleManifest,
+          low_stock_alert: saleAlert,
         });
       });
     });

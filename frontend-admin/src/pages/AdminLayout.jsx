@@ -6,6 +6,7 @@ import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import CompareArrowsOutlined from '@mui/icons-material/CompareArrowsOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import PointOfSaleOutlined from '@mui/icons-material/PointOfSaleOutlined';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
@@ -55,6 +56,7 @@ const NAV_SECTIONS = [
   {
     label: 'Stock Control',
     items: [
+      { label: 'Till', path: '/till', Icon: PointOfSaleOutlined, roles: STAFF_TIER },
       { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined, roles: STAFF_TIER },
       { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined, roles: STAFF_TIER },
       { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined, roles: STAFF_TIER },

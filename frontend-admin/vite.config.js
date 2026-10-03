@@ -93,5 +93,13 @@ export default defineConfig({
     setupFiles: ['./src/setupTests.js'],
     css: false,
     exclude: ['e2e/**', 'node_modules/**'],
+    // Vitest's 5s default is too tight for the component suites that render a
+    // WHOLE admin page (ProductsPage alone mounts the cost work queue, the
+    // reprice dialog and the supplier-rate panel) in jsdom. Under the default
+    // those tests failed intermittently — a different one on each run — purely
+    // because the worker pool was busy. This gives the slow renders room; it
+    // does not relax any assertion, and a genuinely broken test still fails.
+    testTimeout: 20000,
+    hookTimeout: 20000,
   },
 });

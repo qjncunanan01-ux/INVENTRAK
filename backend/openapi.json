@@ -2487,7 +2487,7 @@
         ],
         "operationId": "createSale",
         "summary": "Record a counter / walk-in sale: decrements stock, consumes the FEFO lot, audits",
-        "description": "The physical-store path. Writes the revenue row, decrements stock at the given location, consumes the expiring-first (FEFO) lot, refreshes the low-stock alert and writes a `sale.recorded` audit entry - all through the same helpers a staff stock-out uses, so the two cannot drift. Refuses with 409 rather than driving stock negative.",
+        "description": "The physical-store path. Writes the revenue row, decrements stock at the given location, consumes the expiring-first (FEFO) lot, refreshes the low-stock alert and writes a `sale.recorded` audit entry - all through the same helpers a staff stock-out uses, so the two cannot drift. Refuses with 409 rather than driving stock negative. Returns the consumption manifest so the till can show the customer which batch left.",
         "security": [
           {
             "bearerAuth": []
@@ -2516,7 +2516,8 @@
                     "sale_id",
                     "location_id",
                     "location",
-                    "stock_remaining"
+                    "stock_remaining",
+                    "lots_consumed"
                   ],
                   "properties": {
                     "ok": {
@@ -2537,6 +2538,55 @@
                     "stock_remaining": {
                       "type": "number",
                       "description": "Units left at that location after the sale"
+                    },
+                    "lots_consumed": {
+                      "type": "array",
+                      "description": "Which batches actually left the shelf, in FEFO order (soonest expiry first). Entries with lot_id null are units that sat on the shelf with no covering lot.",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "qty",
+                          "expiry_date"
+                        ],
+                        "properties": {
+                          "lot_id": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "expiry_date": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "received_at": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "qty": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "low_stock_alert": {
+                      "nullable": true,
+                      "description": "Set when the sale dropped the location to or below its critical level, so the till can say the reorder is due.",
+                      "type": "object",
+                      "required": [
+                        "threshold",
+                        "current_qty",
+                        "raised"
+                      ],
+                      "properties": {
+                        "threshold": {
+                          "type": "number"
+                        },
+                        "current_qty": {
+                          "type": "number"
+                        },
+                        "raised": {
+                          "type": "boolean"
+                        }
+                      }
                     }
                   }
                 }

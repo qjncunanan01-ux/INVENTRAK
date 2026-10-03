@@ -274,6 +274,141 @@ describe('location_id is required', () => {
   });
 });
 
+// ---- telling the customer which batch left ---------------------------------
+
+describe('the sale reports which lot left', () => {
+  test('lots_consumed names the batch, its expiry and the quantity taken', async () => {
+    // This is what makes FEFO demonstrable. Without it the till can say "sold"
+    // but never "this one, the batch expiring in 12 days" — the rule stays
+    // invisible exactly where someone would ask to see it.
+    for (const side of [sqlite, npmfree]) {
+      const soon = new Date(Date.now() + 12 * 86400000).toISOString().slice(0, 10);
+      assert.strictEqual((await stockIn(side, 5, soon)).status, 200);
+
+      const openLots = await lots(side, PROD, LOC);
+      const target = openLots[0];
+      assert.ok(Number(target.qty) > 0, `${SIDE_LABEL(side)}: a dated lot exists`);
+
+      const res = await sell(side, { qty: 2, customer_name: 'Manifest Buyer' });
+      assert.strictEqual(res.status, 201, `${SIDE_LABEL(side)}: sale accepted`);
+
+      const consumed = res.json.lots_consumed;
+      assert.ok(Array.isArray(consumed), `${SIDE_LABEL(side)}: a manifest is returned`);
+      assert.strictEqual(
+        consumed.reduce((n, c) => n + Number(c.qty), 0),
+        2,
+        `${SIDE_LABEL(side)}: the manifest accounts for the whole quantity`
+      );
+      assert.strictEqual(consumed[0].lot_id, target.id, `${SIDE_LABEL(side)}: it is the expiring lot`);
+      assert.strictEqual(consumed[0].expiry_date, target.expiry_date, `${SIDE_LABEL(side)}: carries the expiry`);
+      assert.ok('received_at' in consumed[0], `${SIDE_LABEL(side)}: carries the received date`);
+    }
+  });
+
+  test('the manifest splits when the sale spans two batches', async () => {
+    // Real baskets do not respect lot boundaries. The manifest has to add up
+    // across lots rather than reporting only the first one.
+    //
+    // Uses its own fixture product rather than the shared seeded row: this
+    // test needs EXACTLY two lots of known size, which accumulated state from
+    // the tests above cannot promise.
+    for (const side of [sqlite, npmfree]) {
+      const made = await call(side.url, '/api/products', {
+        method: 'POST',
+        token: side.token.admin,
+        body: { name: 'walk-in-manifest-fixture', category: 'Test Fixture', price: 100, cost: null },
+      });
+      assert.strictEqual(made.status, 201, `${SIDE_LABEL(side)}: fixture product created`);
+      const pid = made.json.id ?? made.json.product?.id;
+
+      const soon = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+      const later = new Date(Date.now() + 200 * 86400000).toISOString().slice(0, 10);
+      for (const [qty, exp] of [[2, soon], [7, later]]) {
+        const r = await call(side.url, '/api/stock-movement', {
+          method: 'POST',
+          token: side.token.admin,
+          body: { product_id: pid, qty, type: 'stock-in', dst_location: LOC, expiry_date: exp },
+        });
+        assert.strictEqual(r.status, 200, `${SIDE_LABEL(side)}: stock-in ${qty} @ ${exp}`);
+      }
+
+      // 5 units: the whole 2-unit expiring lot plus 3 from the later one.
+      const res = await call(side.url, '/api/sales', {
+        method: 'POST',
+        token: side.token.admin,
+        body: { product_id: pid, qty: 5, location_id: LOC, customer_name: 'Split Buyer' },
+      });
+      assert.strictEqual(res.status, 201, `${SIDE_LABEL(side)}: sale accepted`);
+
+      const consumed = res.json.lots_consumed;
+      assert.strictEqual(consumed.length, 2, `${SIDE_LABEL(side)}: the sale spanned two lots`);
+      assert.strictEqual(
+        consumed.reduce((n, c) => n + Number(c.qty), 0),
+        5,
+        `${SIDE_LABEL(side)}: the pieces sum to the quantity sold`
+      );
+      assert.deepStrictEqual(
+        consumed.map(c => c.expiry_date),
+        [soon, later],
+        `${SIDE_LABEL(side)}: expiring-first, even though the later lot was the bigger one`
+      );
+      assert.deepStrictEqual(consumed.map(c => Number(c.qty)), [2, 3]);
+    }
+  });
+
+  test('both backends return the same manifest for the same sale', async () => {
+    const manifests = [];
+    for (const side of [sqlite, npmfree]) {
+      const res = await sell(side, { qty: 2, customer_name: 'Manifest Parity' });
+      manifests.push(res.json.lots_consumed);
+    }
+    assert.deepStrictEqual(
+      manifests[0].map(c => ({ expiry_date: c.expiry_date, qty: c.qty })),
+      manifests[1].map(c => ({ expiry_date: c.expiry_date, qty: c.qty })),
+      'same lots, same quantities, in the same order'
+    );
+  });
+
+  test('a low-stock sale reports the alert it raised', async () => {
+    // Selling the shelf down past the critical level has to surface, or the
+    // till cheerfully takes an order that should have triggered a reorder.
+    // Uses its own fixture product and re-stocks afterwards, so draining a
+    // shelf cannot leak into the suites that follow.
+    for (const side of [sqlite, npmfree]) {
+      const made = await call(side.url, '/api/products', {
+        method: 'POST',
+        token: side.token.admin,
+        body: { name: 'walk-in-alert-fixture', category: 'Test Fixture', price: 100, cost: null },
+      });
+      assert.strictEqual(made.status, 201, `${SIDE_LABEL(side)}: fixture product created`);
+      const pid = made.json.id ?? made.json.product?.id;
+
+      assert.strictEqual(
+        (await call(side.url, '/api/stock-movement', {
+          method: 'POST',
+          token: side.token.admin,
+          body: { product_id: pid, qty: 5, type: 'stock-in', dst_location: LOC },
+        })).status,
+        200
+      );
+
+      const res = await call(side.url, '/api/sales', {
+        method: 'POST',
+        token: side.token.admin,
+        body: { product_id: pid, qty: 5, location_id: LOC, customer_name: 'Last One' },
+      });
+      assert.strictEqual(res.status, 201, `${SIDE_LABEL(side)}: the whole shelf sold`);
+      assert.strictEqual(res.json.stock_remaining, 0);
+      assert.ok(res.json.low_stock_alert, `${SIDE_LABEL(side)}: the alert is reported`);
+      assert.strictEqual(res.json.low_stock_alert.current_qty, 0);
+      assert.ok(
+        res.json.low_stock_alert.threshold > 0,
+        `${SIDE_LABEL(side)}: the threshold is carried so the UI can explain it`
+      );
+    }
+  });
+});
+
 // ---- the trail ------------------------------------------------------------
 
 describe('a sale is audited', () => {

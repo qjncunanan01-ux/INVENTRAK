@@ -19,7 +19,8 @@ const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 // what the spec declares.
 //
 // Two strictness rules keep the guard honest:
-//   - `nullable: true` becomes a `null`-union type (ajv has no native support)
+//   - `nullable: true` becomes a `null`-union type (ajv has no native support),
+//     applied after the walk so it does not depend on key order in the spec
 //   - object schemas with declared `properties` get `additionalProperties:
 //     false` so a field that the backends add without updating the spec fails
 //     validation — the exact "both backends happen to agree" drift scenario.
@@ -35,17 +36,26 @@ function prepare(node) {
       derefSeen.delete(name);
       return resolved;
     }
+    // `nullable` is applied AFTER the walk, not during it. Applying it inline
+    // made the result depend on KEY ORDER in the spec: `{"type":"object",
+    // "nullable":true}` worked, but `{"nullable":true,"type":"object"}` had its
+    // null-union overwritten by the later `type` key and rejected every null —
+    // a silent trap for anyone who reorders (or re-serializes) the document.
     const out = {};
+    let nullable = false;
     for (const [k, v] of Object.entries(node)) {
       if (k === 'example') continue; // metadata, not validation
       if (k === 'nullable' && v === true) {
-        // `type: X, nullable: true` -> `type: [X, 'null']`
-        if (typeof out.type === 'string') out.type = [out.type, 'null'];
-        else if (Array.isArray(out.type)) out.type = [...out.type, 'null'];
-        else out.type = ['null'];
+        nullable = true;
         continue;
       }
       out[k] = prepare(v);
+    }
+    if (nullable) {
+      // `type: X, nullable: true` -> `type: [X, 'null']`
+      if (typeof out.type === 'string') out.type = [out.type, 'null'];
+      else if (Array.isArray(out.type)) out.type = [...out.type, 'null'];
+      else out.type = ['null'];
     }
     if (out.properties && out.additionalProperties === undefined) {
       out.additionalProperties = false;

@@ -20,6 +20,7 @@ import StockAdjustmentsPage from './pages/StockAdjustmentsPage';
 import StockMovementPage from './pages/StockMovementPage';
 import StockTransfersPage from './pages/StockTransfersPage';
 import SettingsPage from './pages/SettingsPage';
+import TillPage from './pages/TillPage';
 import { createAppTheme } from './theme';
 import { ADMIN_TIER, MANAGEMENT_TIER } from './roles';
 
@@ -100,6 +101,7 @@ function AppRoutes() {
         <Route path="/products" element={<RequireRole roles={ADMIN_TIER}><ProductsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/inventory" element={<InventoryPage onLogout={handleLogout} />} />
         <Route path="/scan-stock" element={<ScanStockPage onLogout={handleLogout} />} />
+        <Route path="/till" element={<TillPage onLogout={handleLogout} />} />
         <Route path="/stock-movement" element={<StockMovementPage onLogout={handleLogout} />} />
         <Route path="/stock-adjustments" element={<StockAdjustmentsPage onLogout={handleLogout} />} />
         <Route path="/stock-transfers" element={<StockTransfersPage onLogout={handleLogout} />} />
