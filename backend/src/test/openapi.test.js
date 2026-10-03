@@ -481,10 +481,10 @@ test('openapi: analytics summary + exports', async () => {
 test('openapi: sales + users', async () => {
   await bothConform('create sale', 'POST', '/api/sales', {
     auth: 'admin',
-    body: { product_id: 1, qty: 2, customer_name: 'Buyer' },
+    body: { product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer' },
   });
   await bothConform('sale no token', 'POST', '/api/sales', {
-    body: { product_id: 1, qty: 2 },
+    body: { product_id: 1, qty: 2, location_id: 1 },
   });
   await bothConform('sales list', 'GET', '/api/sales', { auth: 'admin' });
   await bothConform('sales list no token', 'GET', '/api/sales');

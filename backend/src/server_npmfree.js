@@ -597,29 +597,50 @@ function persistLots() {
   if (useFirestore || useSupabase) writeJSON('@lots', stockLots);
 }
 
-// Legacy fallback: lots predating the FEFO ledger (or a fresh boot where
-// nothing has moved yet) synthesize one lot per location from the current
-// stock snapshot, matching the SQLite backend's seeded single-lot shape.
-// Mutates stockLots in place; used by the lots listing and the QR lookup so
-// both surfaces report identical lot data.
+// Legacy backfill: lots predating the FEFO ledger (or a fresh boot where
+// nothing has moved yet) need one lot per product/location so FEFO ordering
+// and the best-before alerts have something to order against.
+//
+// It runs on EVERY read, not only when the ledger is completely empty. The
+// previous version bailed out as soon as ANY movement had recorded one lot,
+// so the quantities that had never moved stayed lot-less: FEFO silently
+// ignored them, the leftover fell through the "legacy/overflow" branch with
+// no expiry attached, and the lot ledger stopped reconciling with stock.
+// The backfill is keyed per (product, location) and covers only the shortfall,
+// so a pair that already balances gains nothing and re-reading is a no-op.
 function ensureLotsFromSnapshot(inv) {
-  if (stockLots.length > 0) return;
+  let added = false;
+  // Units already accounted for by a real lot, per (product, location).
+  const covered = new Map();
+  for (const l of stockLots) {
+    const key = `${l.product_id}@${l.location_id}`;
+    covered.set(key, (covered.get(key) || 0) + Number(l.qty || 0));
+  }
   inv.items.forEach(item => {
     inv.locations.forEach(loc => {
       const qty = item.locations[loc] || 0;
-      if (qty > 0) {
-        stockLots.push({
-          id: nextLotId++,
-          product_id: item.product.id,
-          location_id: inv.locations.indexOf(loc) + 1,
-          qty,
-          received_at: new Date().toISOString(),
-          expiry_date: null,
-        });
-      }
+      if (qty <= 0) return;
+      const locationId = inv.locations.indexOf(loc) + 1;
+      const key = `${item.product.id}@${locationId}`;
+      // Backfill only the SHORTFALL. A pair with some dated lots but less on
+      // the shelf than the lots account for (seeded stock that never moved)
+      // still needs a non-expiring lot for the difference; a pair that already
+      // balances gets nothing, so re-reading never inflates the ledger.
+      const shortfall = qty - (covered.get(key) || 0);
+      if (shortfall <= 0) return;
+      stockLots.push({
+        id: nextLotId++,
+        product_id: item.product.id,
+        location_id: locationId,
+        qty: shortfall,
+        received_at: new Date().toISOString(),
+        expiry_date: null,
+      });
+      covered.set(key, qty);
+      added = true;
     });
   });
-  persistLots();
+  if (added) persistLots();
 }
 
 function recordLot(productId, locationId, qty, now, expiryDate) {
@@ -4052,6 +4073,7 @@ const server = http.createServer((req, res) => {
         // the recorded total, and inactive products must not be sold).
         const saleQty = Number(obj.qty);
         const salePid = Number(obj.product_id);
+        const saleLoc = Number(obj.location_id);
         if (!Number.isFinite(saleQty) || saleQty <= 0) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
         }
@@ -4061,9 +4083,32 @@ const server = http.createServer((req, res) => {
         if (Number.isNaN(salePid) || salePid < 1) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
         }
+        // location_id is REQUIRED (mirrors the SQLite validate() schema). A
+        // counter sale has to say which shelf the goods left — that decides
+        // which FEFO lot is consumed and which low-stock alert fires, so
+        // defaulting it would hide the question instead of answering it.
+        if (!Number.isFinite(saleLoc) || saleLoc < 1) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
+        }
         const products = readJSON(productsFile) || [];
         const p = products[salePid - 1];
         if (!p || !isProductActive(p)) return sendJson(res, 404, { error: 'Product not found or inactive' });
+        const inv = getInventory();
+        const locName = inv.locations[saleLoc - 1];
+        if (!locName) return sendJson(res, 404, { error: 'Location not found' });
+        const invItem = inv.items.find(i => i.product && Number(i.product.id) === salePid);
+        const saleAvailable = invItem ? invItem.locations[locName] || 0 : 0;
+        // Refuse to oversell rather than drive stock negative: a negative
+        // quantity silently corrupts critical level, turnover and every
+        // figure derived from them.
+        if (saleAvailable < saleQty) {
+          return sendJson(res, 409, {
+            error: 'Insufficient stock at this location',
+            available: saleAvailable,
+            requested: saleQty,
+            location: locName,
+          });
+        }
         const total = saleQty * (p['Price'] || p.price || 0);
         // Link the sale to a Customer Record (a counter sale carries only a
         // name, so resolve-or-create on name). Guarded, like the SQLite backend.
@@ -4081,7 +4126,7 @@ const server = http.createServer((req, res) => {
         } catch (err) {
           console.error('[customers] resolve failed for sale:', err && err.message);
         }
-        salesTransactions.push({
+        const saleRow = {
           id: nextSaleId++,
           product_id: salePid,
           qty: saleQty,
@@ -4090,9 +4135,49 @@ const server = http.createServer((req, res) => {
           transaction_date: new Date().toISOString(),
           customer_name: obj.customer_name || 'anonymous',
           customer_id: saleCustomerId,
-        });
+        };
+        salesTransactions.push(saleRow);
         if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
-        return sendJson(res, 201, { ok: true, total });
+
+        // Move the stock through the SAME primitives a staff stock-out uses
+        // (consumeLots + upsertLowStockAlert), so FEFO and the alert refresh
+        // cannot drift between the counter and the back-room. Before this, a
+        // counter sale wrote revenue but never touched inventory — verified by
+        // running it: 3 units sold left stock at 309 before and 309 after.
+        if (invItem) {
+          invItem.locations[locName] = (invItem.locations[locName] || 0) - saleQty;
+          invItem.total = Object.values(invItem.locations).reduce((sum, q) => sum + q, 0);
+          writeJSON(inventoryFile, inv);
+          consumeLots(salePid, saleLoc, saleQty);
+          upsertLowStockAlert(salePid, saleLoc, invItem.locations[locName] || 0);
+          cache.invalidate('inventory');
+        }
+
+        // A sale is the one write where money changes hands — audited on both
+        // backends, same reasoning as bulk-prices and bulk-costs.
+        audit('sale.recorded', {
+          actor: (req.user && req.user.username) || 'unknown',
+          actorRole: (req.user && req.user.role) || null,
+          sale_id: saleRow.id,
+          product_id: salePid,
+          product: p['Product Name'] || p.name || null,
+          qty: saleQty,
+          unit_price: saleRow.unit_price,
+          total,
+          location_id: saleLoc,
+          location: locName,
+          customer: saleRow.customer_name,
+          customer_id: saleCustomerId,
+        });
+
+        return sendJson(res, 201, {
+          ok: true,
+          total,
+          sale_id: saleRow.id,
+          location_id: saleLoc,
+          location: locName,
+          stock_remaining: invItem ? invItem.locations[locName] || 0 : 0,
+        });
       });
     });
   }

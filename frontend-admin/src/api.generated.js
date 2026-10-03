@@ -148,7 +148,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   updateCustomer: ({ id }, body) => request('PUT', '/api/customers/{id}', { params: { id }, body }),
   // GET /api/sales — List sales transactions (admin only)
   listSales: (params) => request('GET', '/api/sales', { query: params }),
-  // POST /api/sales — Record a sale
+  // POST /api/sales — Record a counter / walk-in sale: decrements stock, consumes the FEFO lot, audits
   createSale: (body) => request('POST', '/api/sales', { body }),
   // GET /api/users — List users (admin only)
   listUsers: (_) => request('GET', '/api/users', {  }),

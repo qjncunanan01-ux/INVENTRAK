@@ -10,7 +10,7 @@ Every number below is reproducible from a clean clone:
 ```bash
 cd backend
 npm run seed     # deterministic: fixed-seed PRNG -> identical 612-row ledger
-npm run verify   # 497/497
+npm run verify   # 510/510
 ```
 
 ---
@@ -39,6 +39,7 @@ produced a single classification.
 | 13 | RBAC tier wall | Log in as **staff**, then as **admin** | "Same button, different role, different outcome." |
 | 14 | Exponential-backoff lockout | Fail a login 5× | "Wait time doubles each breach." |
 | 15 | TOTP / MFA | **Security → Enable MFA** | "RFC 6238, server-verified." |
+| 16 | The counter sale | **Scan & Stock**, or `POST /api/sales` | "One tap at the till writes the revenue row, takes the stock off the shelf and consumes the expiring batch." |
 
 **If a panel member asks "prove it"** — the strongest single move is the
 **cross-backend contract test**: the SQLite backend and the npm-free/Firestore/
@@ -53,6 +54,9 @@ you.
 
 ```
 sales_transactions ledger
+        ▲
+        │  POST /api/sales ── the counter sale (§16) writes BOTH sides:
+        │  revenue row  +  stock decrement  +  FEFO lot consumed
         │
         ├──► ABC ───────────────── "WHAT matters?"      (value)
         ├──► FSN ───────────────── "WHAT is moving?"    (frequency + recency)
@@ -61,7 +65,7 @@ sales_transactions ledger
         │
         └──► EOQ ───────────────── "HOW MUCH to order?"  ROP/Safety Stock ── "WHEN?"
 
-stock_lots ──────► FIFO / FEFO ─── "WHICH batch leaves?"
+stock_lots ──────► FIFO / FEFO ─── "WHICH batch leaves?"  (▲ consumed by the sale too)
 product sizes ───► Normalization ─► "COST per 100 ml/g/piece" ─► Target margin ─► Price
 ```
 
@@ -607,17 +611,92 @@ and hashed too, so a database leak yields neither.
 
 ---
 
+# PART D — The counter sale
+
+## 16. One transaction, both ledgers
+
+**Question:** *A customer walks into the café, pays, and walks out. What actually
+happens in the database?*
+
+This is the most common transaction in the business and the easiest to get
+half-right, so it is worth walking through in full.
+
+### The request
+
+```http
+POST /api/sales        Authorization: Bearer <admin/staff token>
+
+{ "product_id": 1, "qty": 2, "location_id": 1, "customer_name": "Walk-in" }
+```
+
+### What the server does, in order
+
+| # | Step | Why it is that way |
+|---|---|---|
+| 1 | **Price is read from the catalog**, never from the request body | A till device is the least trustworthy number in the chain. If the total came from the client, anyone could post `"total": 1`. |
+| 2 | **`location_id` is required** | "Which shelf did this leave?" decides *which* FEFO lot is consumed and *which* low-stock alert fires. Defaulting it would hide the question instead of answering it. |
+| 3 | **Availability checked before anything is written** | An oversell is refused with **409**, not allowed to drive stock negative — a negative quantity silently corrupts critical level and turnover. |
+| 4 | **Customer resolved** (order: user_id → email → name) | A walk-in has no account, so name-only. This is what later groups the 612 seeded sales into real people. Guarded: customer bookkeeping never fails a sale. |
+| 5 | **`sales_transactions` row inserted** | Feeds ABC, FSN, EOQ, turnover, Reports and per-customer history. |
+| 6 | **Stock decremented at that location** | `stock.quantity −= qty` |
+| 7 | **FEFO lot consumed** (§5) — same helper a staff stock-out uses | The expiring batch leaves the shelf first, on the most frequent sale type, not just on a scan. |
+| 8 | **Low-stock alert refreshed**, `sale.recorded` audit written | The one write where money changes hands leaves a trail. |
+
+The response reports what happened, so the till can show it:
+
+```json
+{ "ok": true, "total": 2140, "sale_id": 614,
+  "location": "Showroom", "stock_remaining": 109 }
+```
+
+### The bug this design closed — say it, it is your best point
+
+Before this, `POST /api/sales` wrote **only the revenue row**. Verified by
+running it, not by reading it:
+
+```
+BEFORE   Almond stock: 309
+POST     {"ok":true,"total":3516}
+AFTER    Almond stock: 309      ← unchanged
+```
+
+The system was **split in half**. Every algorithm above reads
+`sales_transactions`, so the *decision* half was already correct — ABC, FSN,
+EOQ, turnover and per-customer history all updated on a walk-in purchase. But
+the *inventory* half silently did not move, so critical level (which compares
+against live stock) and turnover (which divides by it) were computed on numbers
+that were already wrong. And FEFO — the rule in §5, five sections of this
+document — was never consulted here, so the expiring syrup stayed on the shelf
+while fresh stock was sold around it.
+
+### The parity bug behind it
+
+The npm-free backend keeps the lot ledger in memory and lazily synthesises lots
+for stock that predates it. That backfill used to bail out **as soon as any lot
+existed**, so once a single stock-in happened the untouched seeded quantities
+stayed lot-less: FEFO ignored them and the shortfall fell through the
+"legacy/overflow" branch with no expiry attached. It now covers only the
+**shortfall** per product/location and is idempotent, so a pair that already
+balances gains nothing and re-reading can never inflate the ledger.
+
+**Both backends share one code path**, so the counter and the back-room cannot
+drift — and the cross-backend contract test asserts they land on the same
+number.
+
+---
+
 ## Verification — reproduce every number in this document
 
 ```bash
 cd backend
-npm run verify      # 497/497 across 51 suites
+npm run verify      # 510/510 across 52 suites
 ```
 
 | Claim in this doc | Suite that locks it |
 |---|---|
 | FSN classification + dual-backend parity | `src/test/fsn.test.js` |
 | FEFO overrides FIFO; expiry travels with transfers | `src/test/fefo.test.js` |
+| Counter sale: stock decrement, FEFO, oversell refusal, audit | `src/test/walk-in-sales.test.js` |
 | Critical level: floors, clamps, badge ladder | `src/test/critical-level.test.js` |
 | ABC endpoint parity across drivers | `src/test/contract.test.js` |
 | Three-state cost parse | `src/test/costing.test.js`, `src/test/bulk-costs.test.js` |

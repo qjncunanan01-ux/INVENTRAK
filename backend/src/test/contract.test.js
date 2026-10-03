@@ -547,11 +547,11 @@ test('contract: sales + users', async () => {
   await both('POST /api/sales', '/api/sales', {
     method: 'POST',
     auth: 'admin',
-    body: { product_id: 1, qty: 2, customer_name: 'Buyer' },
+    body: { product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer' },
   });
   await both('POST /api/sales (no token)', '/api/sales', {
     method: 'POST',
-    body: { product_id: 1, qty: 2 },
+    body: { product_id: 1, qty: 2, location_id: 1 },
   });
   await both('GET /api/sales', '/api/sales', { auth: 'admin' });
   await both('GET /api/sales (no token)', '/api/sales');
@@ -614,7 +614,7 @@ test('contract: input validation + edge cases behave identically', async () => {
   await both('POST /api/sales inactive product', '/api/sales', {
     method: 'POST',
     auth: 'admin',
-    body: { product_id: 2, qty: 2 },
+    body: { product_id: 2, qty: 2, location_id: 1 },
   });
 
   // Malformed JSON must be a 400 client error on both, never a 500.

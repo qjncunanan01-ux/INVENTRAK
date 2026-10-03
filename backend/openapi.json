@@ -2486,7 +2486,8 @@
           "Sales"
         ],
         "operationId": "createSale",
-        "summary": "Record a sale",
+        "summary": "Record a counter / walk-in sale: decrements stock, consumes the FEFO lot, audits",
+        "description": "The physical-store path. Writes the revenue row, decrements stock at the given location, consumes the expiring-first (FEFO) lot, refreshes the low-stock alert and writes a `sale.recorded` audit entry - all through the same helpers a staff stock-out uses, so the two cannot drift. Refuses with 409 rather than driving stock negative.",
         "security": [
           {
             "bearerAuth": []
@@ -2504,14 +2505,18 @@
         },
         "responses": {
           "201": {
-            "description": "Sale recorded",
+            "description": "Sale recorded; stock moved at that location",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "required": [
                     "ok",
-                    "total"
+                    "total",
+                    "sale_id",
+                    "location_id",
+                    "location",
+                    "stock_remaining"
                   ],
                   "properties": {
                     "ok": {
@@ -2519,6 +2524,19 @@
                     },
                     "total": {
                       "type": "number"
+                    },
+                    "sale_id": {
+                      "type": "integer"
+                    },
+                    "location_id": {
+                      "type": "integer"
+                    },
+                    "location": {
+                      "type": "string"
+                    },
+                    "stock_remaining": {
+                      "type": "number",
+                      "description": "Units left at that location after the sale"
                     }
                   }
                 }
@@ -2535,11 +2553,40 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Product not found or inactive",
+            "description": "Product not found or inactive, or location not found",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Insufficient stock at the requested location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "available",
+                    "requested"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "available": {
+                      "type": "number"
+                    },
+                    "requested": {
+                      "type": "number"
+                    },
+                    "location": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -5905,7 +5952,8 @@
         "type": "object",
         "required": [
           "product_id",
-          "qty"
+          "qty",
+          "location_id"
         ],
         "properties": {
           "product_id": {
@@ -5918,6 +5966,11 @@
           },
           "customer_name": {
             "type": "string"
+          },
+          "location_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Which shelf or stockroom the goods left from. Required: it decides which FEFO lot is consumed and which low-stock alert fires."
           }
         }
       },
