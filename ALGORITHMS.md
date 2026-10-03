@@ -10,7 +10,7 @@ Every number below is reproducible from a clean clone:
 ```bash
 cd backend
 npm run seed     # deterministic: fixed-seed PRNG -> identical 612-row ledger
-npm run verify   # 510/510
+npm run verify   # 616/616
 ```
 
 ---
@@ -642,22 +642,39 @@ POST /api/sales        Authorization: Bearer <admin/staff token>
 | 7 | **FEFO lot consumed** (§5) — same helper a staff stock-out uses | The expiring batch leaves the shelf first, on the most frequent sale type, not just on a scan. |
 | 8 | **Low-stock alert refreshed**, `sale.recorded` audit written | The one write where money changes hands leaves a trail. |
 
-The response reports what happened, so the till can show it:
+The response reports what happened, so the till can show it. This is verbatim
+output from the running server on the deterministic seed, selling 3 units of
+product 1 from location 1:
 
 ```json
-{ "ok": true, "total": 2140, "sale_id": 614,
-  "location": "Showroom", "stock_remaining": 109 }
+{ "ok": true, "total": 3210, "sale_id": 613, "location_id": 1,
+  "location": "Showroom", "stock_remaining": 110 }
 ```
+
+`3210 = 3 x 1070`, where `1070` is the catalog price read from the database.
+Stock went **113 → 110**.
 
 ### The bug this design closed — say it, it is your best point
 
 Before this, `POST /api/sales` wrote **only the revenue row**. Verified by
-running it, not by reading it:
+running the previous commit (`HEAD~1`) against the **same seed** and comparing
+it with the current one — not by reading the code:
 
 ```
-BEFORE   Almond stock: 309
-POST     {"ok":true,"total":3516}
-AFTER    Almond stock: 309      ← unchanged
+BEFORE   Almond @ Showroom: 113
+POST     {"product_id":1,"qty":3,"customer_name":"Maria (walk-in)"}
+         {"ok":true,"total":3210}          ← revenue recorded, nothing else
+AFTER    Almond @ Showroom: 113           ← unchanged
+FEFO lot for that product/location: qty 113  ← not consumed
+```
+
+The old response did not even accept a `location_id`, so there was nowhere for
+it to decrement. Reproduce it yourself:
+
+```bash
+git archive HEAD~1 | tar -x -C /tmp/old && cd /tmp/old/backend
+INVENTRAK_DB_PATH=/tmp/old.db PORT=4002 node src/server.js
+# then POST /api/sales and watch /api/inventory
 ```
 
 The system was **split in half**. Every algorithm above reads
@@ -689,14 +706,19 @@ number.
 
 ```bash
 cd backend
-npm run verify      # 510/510 across 52 suites
+npm run verify      # 616/616 across 52 suites
 ```
+
+Every test file in `src/test/` is listed in the `npm test` script — 52 files,
+all run. (Three of them had been left off the list, so 106 real tests were
+being skipped without anyone noticing.)
 
 | Claim in this doc | Suite that locks it |
 |---|---|
 | FSN classification + dual-backend parity | `src/test/fsn.test.js` |
 | FEFO overrides FIFO; expiry travels with transfers | `src/test/fefo.test.js` |
 | Counter sale: stock decrement, FEFO, oversell refusal, audit | `src/test/walk-in-sales.test.js` |
+| Settings RBAC + live effect, end-to-end flows, adjustment expiry | `src/test/settings.test.js`, `src/test/e2e-ci.test.js`, `src/test/adjustment-expiry.test.js` |
 | Critical level: floors, clamps, badge ladder | `src/test/critical-level.test.js` |
 | ABC endpoint parity across drivers | `src/test/contract.test.js` |
 | Three-state cost parse | `src/test/costing.test.js`, `src/test/bulk-costs.test.js` |
