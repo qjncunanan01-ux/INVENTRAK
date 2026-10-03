@@ -61,6 +61,30 @@ function pickUnitCost(p) {
 
 const normKey = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
+// Parse one entry of a bulk cost sheet (POST /api/products/bulk-costs).
+//
+// Three distinct states, because a bulk cost sheet needs all three and
+// collapsing them is how a real COGS value gets silently destroyed:
+//   a finite number >= 0  -> set the cost
+//   null or ''            -> CLEAR the cost ("not costed" again)
+//   key absent entirely   -> skip the entry, leaving the product alone
+//
+// Note the asymmetry with the bulk PRICE sheet, where a blank price is simply
+// invalid: there, a blank almost always means a parsing accident. Here a blank
+// is a deliberate instruction to mark a product as not costed, so it is
+// honoured rather than rejected. Reusing pickUnitCost's rule would instead
+// turn every blank into a silent no-op that reports success.
+function parseCostEntry(entry) {
+  if (!entry || typeof entry !== 'object') return { error: 'invalid entry' };
+  if (!('cost' in entry)) return { skip: true };
+  const raw = entry.cost;
+  if (raw === null || raw === '') return { clear: true };
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return { error: 'invalid cost' };
+  return { value: n };
+}
+
+
 // Build id → cost and name → cost lookups once per snapshot.
 function indexProducts(products) {
   const byId = new Map();
@@ -220,5 +244,6 @@ module.exports = {
   snapshotRow,
   toPublic,
   targetMarginPercent,
+  parseCostEntry,
   DEFAULT_TARGET_MARGIN,
 };

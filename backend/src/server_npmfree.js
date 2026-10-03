@@ -24,7 +24,7 @@ const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./criti
 const { buildPaymentStep } = require('./payments');
 const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./qr-codes');
 const { normalizeLines } = require('./product-lines');
-const { computeCostingSnapshot, snapshotRow, toPublic } = require('./costing');
+const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry } = require('./costing');
 const { stripCost, stripCostAll } = require('./product-visibility');
 const { resolveCustomer, summarize } = require('./customers');
 const {
@@ -2323,6 +2323,82 @@ const server = http.createServer((req, res) => {
         cache.invalidate('products');
         cache.invalidate('categories');
         return sendJson(res, 200, { ok: true, total: obj.prices.length, updated, skipped });
+      });
+    });
+  }
+
+  // POST /api/products/bulk-costs — the cost-of-goods counterpart to the bulk
+  // price import. Admin-only; `Cost` is stripped from every public read
+  // (product-visibility.js), so this is one of only two ways to set it.
+  //
+  // Mirrors the SQLite backend exactly, including the deliberate asymmetry with
+  // bulk-prices: there a blank price is a parsing accident and is rejected,
+  // here a blank cost is an instruction to mark the product "not costed" and is
+  // honoured. An entry with no `cost` key at all is skipped and left alone.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/products/bulk-costs') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        if (!Array.isArray(obj.costs)) {
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: ['costs must be an array of { name, cost } entries'],
+          });
+        }
+        if (obj.costs.length === 0) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['costs must not be empty'] });
+        }
+        if (obj.costs.length > BULK_PRICES_MAX_ENTRIES) {
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: [`costs must not exceed ${BULK_PRICES_MAX_ENTRIES} entries`],
+          });
+        }
+        const products = readJSON(productsFile) || [];
+        const skipped = [];
+        let updated = 0;
+        let cleared = 0;
+        for (const entry of obj.costs) {
+          const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
+          const parsed = parseCostEntry(entry);
+          if (parsed.skip) {
+            skipped.push({ name: name || '(unnamed)', reason: 'no cost given' });
+            continue;
+          }
+          if (parsed.error) {
+            skipped.push({ name: name || '(unnamed)', reason: parsed.error });
+            continue;
+          }
+          if (name && name.length > PRODUCT_NAME_MAX_LENGTH) {
+            skipped.push({ name: name.slice(0, 60) + '…', reason: 'name too long' });
+            continue;
+          }
+          let idx = -1;
+          if (entry.id !== undefined && entry.id !== null && entry.id !== '') {
+            const idNum = Number(entry.id);
+            if (Number.isInteger(idNum) && idNum >= 1 && idNum <= products.length) idx = idNum - 1;
+          }
+          if (idx === -1 && name) {
+            idx = products.findIndex(
+              p => String(p['Product Name'] || p.name || '').trim().toLowerCase() === name.toLowerCase(),
+            );
+          }
+          if (idx === -1) {
+            skipped.push({ name: name || '(unnamed)', reason: 'not found' });
+            continue;
+          }
+          if (parsed.clear) {
+            products[idx]['Cost'] = null;
+            cleared += 1;
+          } else {
+            products[idx]['Cost'] = parsed.value;
+            updated += 1;
+          }
+        }
+        writeJSON(productsFile, products);
+        cache.invalidate('products');
+        cache.invalidate('categories');
+        return sendJson(res, 200, { ok: true, total: obj.costs.length, updated, cleared, skipped });
       });
     });
   }

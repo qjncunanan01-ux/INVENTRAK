@@ -542,6 +542,52 @@
         }
       }
     },
+    "/api/products/bulk-costs": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "bulkUpdateCosts",
+        "summary": "Set unit cost on many products in one request (admin only) \u2014 the cost-of-goods CSV import",
+        "description": "The cost-of-goods counterpart to /api/products/bulk-prices. A blank or null cost CLEARS the product back to \"not costed\"; an entry with no cost key at all is skipped and left unchanged. Cost is never exposed on any public product read.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkCostInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch result: how many costs were set, how many were cleared, and which entries were skipped (with reasons)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkCostResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/api/products/bulk-prices": {
       "post": {
         "tags": [
@@ -3971,6 +4017,102 @@
             "type": "string",
             "enum": [
               "invalid price",
+              "name too long",
+              "not found"
+            ]
+          }
+        }
+      },
+      "BulkCostEntry": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Optional product id; matched first when present"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Product name; matched case-insensitively when no id matches"
+          },
+          "cost": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Unit cost of goods. A number sets it; null or an empty string clears it back to \"not costed\". Omitting the key skips the entry entirely."
+          }
+        }
+      },
+      "BulkCostInput": {
+        "type": "object",
+        "required": [
+          "costs"
+        ],
+        "properties": {
+          "costs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2000,
+            "items": {
+              "$ref": "#/components/schemas/BulkCostEntry"
+            }
+          }
+        }
+      },
+      "BulkCostResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "total",
+          "updated",
+          "cleared",
+          "skipped"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cleared": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Entries whose cost was cleared back to \"not costed\""
+          },
+          "skipped": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BulkCostSkippedEntry"
+            }
+          }
+        }
+      },
+      "BulkCostSkippedEntry": {
+        "type": "object",
+        "required": [
+          "name",
+          "reason"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "invalid cost",
+              "invalid entry",
+              "no cost given",
               "name too long",
               "not found"
             ]

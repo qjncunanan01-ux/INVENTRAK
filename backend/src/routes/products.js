@@ -12,6 +12,7 @@ const { audit } = require('../audit');
 const { skuForProductId, isSkuShape, handleQrProductLookup } = require('../qr-codes');
 const { enrichInquiryRows } = require('../inquiry-helpers');
 const { stripCost, stripCostAll } = require('../product-visibility');
+const { parseCostEntry } = require('../costing');
 
 // The catalog is public and served with `Cache-Control: public, max-age=300`,
 // so it can be cached by a CDN or proxy. That rules out making the payload
@@ -23,6 +24,7 @@ const { stripCost, stripCostAll } = require('../product-visibility');
 const shapeProducts = (rows) => stripCostAll(rows);
 
 const MAX_BULK_PRICES = 2000;
+const MAX_BULK_COSTS = 2000;
 
 // GET /api/products
 router.get('/', (req, res) => {
@@ -230,6 +232,76 @@ router.post('/bulk-prices', authenticateToken, adminOnly, (req, res) => {
   }
 
   res.json({ ok: true, total: prices.length, updated, skipped });
+});
+
+// POST /api/products/bulk-costs
+//
+// The cost-of-goods counterpart to /bulk-prices: sets unit cost on many
+// products in one request, which is how a 205-row catalog gets costed at
+// all. Admin-only and audited, because `cost` is the one field that decides
+// whether the business is profitable and it is stripped from every public
+// read (see product-visibility.js).
+router.post('/bulk-costs', authenticateToken, adminOnly, (req, res) => {
+  const { costs } = req.body || {};
+  if (!Array.isArray(costs)) return res.status(400).json({ error: 'Validation failed', details: ['costs must be an array of { name, cost } entries'] });
+  if (costs.length === 0) return res.status(400).json({ error: 'Validation failed', details: ['costs must not be empty'] });
+  if (costs.length > MAX_BULK_COSTS) return res.status(400).json({ error: 'Validation failed', details: [`costs must not exceed ${MAX_BULK_COSTS} entries`] });
+
+  const skipped = [];
+  const stmtUpdate = db.prepare('UPDATE products SET cost = ?, updated_at = datetime(\'now\') WHERE id = ?');
+  const stmtById = db.prepare('SELECT id FROM products WHERE id = ?');
+  const stmtByName = db.prepare('SELECT id FROM products WHERE TRIM(LOWER(name)) = LOWER(?)');
+
+  let updated = 0;
+  let cleared = 0;
+  for (const entry of costs) {
+    const name = entry && typeof entry.name === 'string' ? entry.name.trim() : null;
+    const parsed = parseCostEntry(entry);
+
+    if (parsed.skip) {
+      skipped.push({ name: name || '(unnamed)', reason: 'no cost given' });
+      continue;
+    }
+    if (parsed.error) {
+      skipped.push({ name: name || '(unnamed)', reason: parsed.error });
+      continue;
+    }
+    if (name && name.length > 200) {
+      skipped.push({ name: name.slice(0, 60) + '…', reason: 'name too long' });
+      continue;
+    }
+
+    let row = null;
+    if (entry.id !== undefined && entry.id !== null && entry.id !== '') {
+      const idNum = Number(entry.id);
+      if (Number.isInteger(idNum) && idNum >= 1) row = stmtById.get(idNum);
+    }
+    if (!row && name) row = stmtByName.get(name);
+    if (!row) {
+      skipped.push({ name: name || '(unnamed)', reason: 'not found' });
+      continue;
+    }
+    if (parsed.clear) {
+      stmtUpdate.run(null, row.id);
+      cleared++;
+    } else {
+      stmtUpdate.run(parsed.value, row.id);
+      updated++;
+    }
+  }
+
+  if (updated > 0 || cleared > 0) {
+    audit('product.cost.bulk_update', {
+      actor: req.user.username,
+      actorRole: req.user.role,
+      updated,
+      cleared,
+      total: costs.length,
+      skipped: skipped.length,
+    });
+  }
+
+  res.json({ ok: true, total: costs.length, updated, cleared, skipped });
 });
 
 module.exports = router;
