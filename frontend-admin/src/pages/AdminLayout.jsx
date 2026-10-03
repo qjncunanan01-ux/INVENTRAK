@@ -56,7 +56,12 @@ const NAV_SECTIONS = [
   {
     label: 'Stock Control',
     items: [
-      { label: 'Till', path: '/till', Icon: PointOfSaleOutlined, roles: STAFF_TIER },
+      // The Till takes MONEY, so it is admin-tier only. POST /api/sales is
+      // adminOnly on both backends and the role policy is explicit that staff
+      // handle counts, scanning and requests but "NO money". Offering staff a
+      // link they cannot use would be a button that always 403s — the exact
+      // affordance lie this nav is supposed to avoid.
+      { label: 'Till', path: '/till', Icon: PointOfSaleOutlined, roles: ADMIN_TIER },
       { label: 'Stock Movement', path: '/stock-movement', Icon: SwapHorizOutlined, roles: STAFF_TIER },
       { label: 'Stock Adjustments', path: '/stock-adjustments', Icon: TuneOutlined, roles: STAFF_TIER },
       { label: 'Stock Transfers', path: '/stock-transfers', Icon: CompareArrowsOutlined, roles: STAFF_TIER },

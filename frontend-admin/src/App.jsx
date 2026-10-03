@@ -101,7 +101,7 @@ function AppRoutes() {
         <Route path="/products" element={<RequireRole roles={ADMIN_TIER}><ProductsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/inventory" element={<InventoryPage onLogout={handleLogout} />} />
         <Route path="/scan-stock" element={<ScanStockPage onLogout={handleLogout} />} />
-        <Route path="/till" element={<TillPage onLogout={handleLogout} />} />
+        <Route path="/till" element={<RequireRole roles={ADMIN_TIER}><TillPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/stock-movement" element={<StockMovementPage onLogout={handleLogout} />} />
         <Route path="/stock-adjustments" element={<StockAdjustmentsPage onLogout={handleLogout} />} />
         <Route path="/stock-transfers" element={<StockTransfersPage onLogout={handleLogout} />} />

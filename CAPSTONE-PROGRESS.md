@@ -122,7 +122,7 @@
 
 ## Evidence bank (for the paper — everything above is verifiable)
 
-- **Test suites:** backend `npm test` → 620/620 · admin → 217/217 · 30-check smoke suite → 30/30 (smoke suite last run Sep 9, 2026)
+- **Test suites:** backend `npm test` → 620/620 · admin → 218/218 · 30-check smoke suite → 30/30 (smoke suite last run Sep 9, 2026)
 - **Live deployments:** API + admin on Render, docs on GitHub Pages — all serving at time of writing
 - **Live end-to-end proof:** customer order → per-account scoping → admin approval → status timeline (Sep 9, 2026)
 - **Security artifacts:** `SECURITY.md` (OWASP control → code map), audit log (durable — mirrored to Supabase `audit_log`), MFA + recovery codes

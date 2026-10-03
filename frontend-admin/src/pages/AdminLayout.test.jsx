@@ -177,6 +177,24 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     }
   });
 
+  test('the Till is hidden from staff — it takes money, which staff do not', () => {
+    // Regression lock. The Till was first added to the nav with STAFF_TIER,
+    // but POST /api/sales is adminOnly on BOTH backends and the role policy
+    // says staff handle counts, scanning and requests but "NO money". Staff
+    // were therefore given a link that always answered 403. The nav tier has
+    // to match the endpoint tier, and this test is what keeps them matching.
+    mockUser = { role: 'staff' };
+    setViewport(true);
+    const { unmount } = renderLayout();
+    expect(screen.queryByText('Till')).not.toBeInTheDocument();
+    unmount();
+
+    mockUser = { role: 'admin' };
+    const next = renderLayout();
+    expect(screen.getByText('Till')).toBeInTheDocument();
+    next.unmount();
+  });
+
   test('header shows a role badge matching the signed-in account', () => {
     const cases = [
       ['admin', 'ADMIN'],
