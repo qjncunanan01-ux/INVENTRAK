@@ -12,6 +12,8 @@ import { printElement } from '../printReport';
 import { parseQrPayload, productQrPayload } from '../qr';
 import { parseCostSheet, toCostPayload, summarizeCostSheet, buildCostTemplate, sheetDiff, coverageOf, marginBucket, marginPercentOf, buildCostInsights, buildRepricePlan, describeReprice } from '../cost-sheet';
 import { summarizeNormalization, buildRateSheet, DIMENSION_LABEL } from '../cost-normalize';
+import FormulaBanner from '../components/FormulaBanner';
+import WhyCell from '../components/WhyCell';
 
 const filter = createFilterOptions();
 
@@ -761,7 +763,19 @@ export default function ProductsPage({ onLogout }) {
 
             {normalization.dimensions.length > 0 && (
               <Box sx={{ mb: 2, p: 2, border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
-                <Typography variant="subtitle2" mb={0.5}>Or: one supplier rate instead of 200 numbers</Typography>
+                <FormulaBanner
+                  dense
+                  title="Cost math on this panel"
+                  items={[
+                    'blank cost cell  -> LEAVE ALONE          (never "clear" — that would wipe 200 real costs)',
+                    '"-" or "clear"   -> set cost to NULL      (deliberate "not costed")',
+                    'anything else    -> set cost to that number',
+                    'rateSheet cost   = (rate / basis) * packSize      // basis = 100 ml | 100 g | 1 piece',
+                    'unreadable size  -> blank cell           (a guess would fabricate a cost, so it declines)',
+                  ]}
+                  note="The panel, the CLI script and the server share one rule — see backend/src/costing.js. kg and L are both 1000, so every unit factor carries its dimension, not just its multiplier."
+                />
+                <Typography variant="subtitle2" mb={0.5} sx={{ mt: 1.5 }}>Or: one supplier rate instead of 200 numbers</Typography>
                 <Typography variant="body2" color="text.secondary" mb={1.5}>
                   Suppliers quote syrup per litre and chocolate per kilo, not per bottle. Type the rate once and the
                   sheet below fills itself in.
@@ -958,6 +972,21 @@ export default function ProductsPage({ onLogout }) {
           an uncosted product has no margin, not a 0% one, so it is left out of
           the maths rather than dragging it down.
         </Typography>
+
+        {/* The rule, printed next to its own numbers. Without this the panel
+            asks "where did 30% come from?" and the answer is a screenshot of
+            source code. */}
+        <FormulaBanner
+          dense
+          title="Margin & repricing math"
+          items={[
+            'grossMargin% = (price - cost) / price * 100',
+            'blendedMargin = (Σ price - Σ cost) / Σ price      // value-weighted, not an average of percentages',
+            `targetPrice   = ceil(cost / (1 - ${insights.target}/100))    // rounded UP, or the row never clears the threshold`,
+            'costPerBasis  = (cost / packSize) * basis        // basis = 100 ml | 100 g | 1 piece',
+          ]}
+          note={`Target is ${insights.target}% from the server (COSTING_TARGET_MARGIN), not hardcoded. An uncosted product contributes nothing to the maths — a null, not a 0%.`}
+        />
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={6} md={3}>
             <Typography variant="caption" color="text.secondary">COST COVERAGE</Typography>
@@ -1027,7 +1056,18 @@ export default function ProductsPage({ onLogout }) {
                     <TableCell align="right">
                       <Typography variant="body2" color={u.margin < 0 ? 'error.main' : 'warning.main'}>{u.margin}%</Typography>
                     </TableCell>
-                    <TableCell align="right">P{u.suggested}</TableCell>
+                    <TableCell align="right">
+                      P{u.suggested}
+                      <WhyCell
+                        align="right"
+                        lines={[
+                          `cost ${u.cost}`,
+                          `margin ${u.margin}% < ${insights.target}%`,
+                          `cost / (1 - ${insights.target}/100)`,
+                        ]}
+                        result={`= ${u.suggested}  (rounded up)`}
+                      />
+                    </TableCell>
                     <TableCell align="right">
                       <Button size="small" onClick={() => askReprice([u])} disabled={repriceBusy}>
                         Reprice

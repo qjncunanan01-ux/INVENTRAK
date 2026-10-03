@@ -1,17 +1,51 @@
-# ALGORITHMS.md — Decision-Support Algorithms in INVENTRAK
+# ALGORITHMS.md — Decision-Support & Pricing Algorithms in INVENTRAK
 
-Every calculation the system uses to turn raw inventory and sales data into
-replenishment decisions — with the theoretical basis, the exact formula as
-implemented, and **worked examples computed from the live 576-row seeded
-ledger** (204 products, ₱2,827,473 total sales value). Formulas match the
-shipped code one-to-one: `backend/src/fsn.js`, `backend/src/critical-level.js`,
-`backend/src/app.js` / `backend/src/server_npmfree.js` (EOQ & ROP), and the
-`stock_lots` consumption engine.
+Every calculation the system uses to turn raw inventory, sales and cost data into
+decisions — with the **basis**, the **formula as implemented**, a **worked example
+from the deterministic seeded dataset**, and **how to show it to a panel without
+opening the source**.
 
-> The UI also shows these formulas inline: the **FormulaBanner** component
-> renders the math above the numbers on Dashboard, Reports, Optimization, and
-> Inventory — and each ABC/FSN row has a **"Why?"** tooltip showing the exact
-> per-product inputs that earned its class.
+Every number below is reproducible from a clean clone:
+
+```bash
+cd backend
+npm run seed     # deterministic: fixed-seed PRNG -> identical 612-row ledger
+npm run verify   # 497/497
+```
+
+---
+
+## ⚡ How to show this without showing the code
+
+This is the section to rehearse. **None of these algorithms require showing
+source.** Each one is visible in the running app — the formula renders *beside*
+its own numbers, and the per-product "Why?" tooltip shows the exact inputs that
+produced a single classification.
+
+| # | Algorithm | Show it here | What to say |
+|---|---|---|---|
+| 1 | ABC classification | **Optimization → ABC tab** | "37% of my items make 70% of my value. The banner shows the rule; the tooltip shows this product's exact inputs." |
+| 2 | FSN analysis | **Optimization → FSN tab** | "Same product, different question — ABC is *value*, FSN is *movement*." |
+| 3 | EOQ | **Optimization → EOQ/ROP panel** | "This is how many cases per order." |
+| 4 | ROP + safety stock | Same panel; **stock badges** | "This is when to trigger." |
+| 5 | Critical level | **Inventory page**, badges (web + mobile) | "Per-product, not one flat number." |
+| 6 | FIFO / FEFO | **Scan & Stock** — pick a dated lot | "The expiring lot leaves first. Watch the batch number change." |
+| 7 | Turnover ratio | **Optimization page** | "Capital parked on shelves." |
+| 8 | Target-margin pricing | **Products → Margin overview** | "This price buys the 30% target. One click applies it." |
+| 9 | Cost normalization | **Products → Bulk sheet → supplier rate** | "Type one supplier rate, fill 102 costs." |
+| 10 | Three-state cost parse | **Products → Bulk sheet → Parse preview** | "A blank cell is *not* a clear. Here's why that matters." |
+| 11 | Immutable costing snapshot | **Order Inquiries → any submitted order** | "Reprice the catalog; this order's profit did not move." |
+| 12 | Customer identity resolution | **Reports → per-customer history** | "612 legacy sales, now grouped into 3 real customers." |
+| 13 | RBAC tier wall | Log in as **staff**, then as **admin** | "Same button, different role, different outcome." |
+| 14 | Exponential-backoff lockout | Fail a login 5× | "Wait time doubles each breach." |
+| 15 | TOTP / MFA | **Security → Enable MFA** | "RFC 6238, server-verified." |
+
+**If a panel member asks "prove it"** — the strongest single move is the
+**cross-backend contract test**: the SQLite backend and the npm-free/Firestore/
+Supabase backend are *different implementations* of these algorithms, and
+`npm test` asserts they return **byte-identical numbers**. Same algorithm, two
+engines, same answer. That is a correctness argument that no screenshot gives
+you.
 
 ---
 
@@ -20,92 +54,86 @@ shipped code one-to-one: `backend/src/fsn.js`, `backend/src/critical-level.js`,
 ```
 sales_transactions ledger
         │
-        ├──► ABC Classification ──── "WHAT matters?"        (value)
-        ├──► FSN Classification ──── "WHAT is moving?"      (frequency + recency)
+        ├──► ABC ───────────────── "WHAT matters?"      (value)
+        ├──► FSN ───────────────── "WHAT is moving?"    (frequency + recency)
         │         │
-        │         └──► Critical Level ── "WHEN to alert?"   (per-product threshold)
+        │         └──► Critical Level "WHEN to alert?"  (per-product threshold)
         │
-        └──► EOQ ─────────────────── "HOW MUCH to order?"   (cost optimum)
-             ROP + Safety Stock ──── "WHEN to order?"       (lead-time trigger)
-             FIFO / FEFO lots ─────── "WHICH batch leaves?" (consumption order)
-             Turnover Ratio ───────── "HOW EFFICIENT?"      (stock velocity)
+        └──► EOQ ───────────────── "HOW MUCH to order?"  ROP/Safety Stock ── "WHEN?"
+
+stock_lots ──────► FIFO / FEFO ─── "WHICH batch leaves?"
+product sizes ───► Normalization ─► "COST per 100 ml/g/piece" ─► Target margin ─► Price
 ```
 
-| Algorithm | Question it answers | Where in the app |
-|---|---|---|
-| ABC Classification | Which products drive revenue? | Optimization → ABC tab |
-| FSN Analysis | Which products actually move? | Optimization → FSN tab |
-| EOQ | How many units per order? | Optimization → EOQ/ROP panel, `/api/optimization/:id` |
-| ROP + Safety Stock | When to reorder, with what buffer? | Same panel; badges |
-| Critical Level | Per-product alert threshold | Inventory page, stock badges (web + mobile) |
-| FIFO / FEFO | Which stock lot is consumed first | Stock-out, transfers, expiry alerts |
-| Turnover Ratio | How fast stock converts to sales | Optimization page |
-
 ---
+
+# PART A — Replenishment (the classic inventory algorithms)
 
 ## 1. ABC Classification
 
 **Question:** *Which products deserve the tightest monitoring?*
 
-### Basis — the Pareto Principle (80/20 rule)
+### Basis — the Pareto principle
 
-Classic inventory theory (Dickinson, 1907; popularized by Joseph Juran as the
-"Pareto principle") observes that a **small share of items creates most of the
-value**. ABC analysis ranks every product by its **annual consumption/sales
-value**, walks down the ranking accumulating a share of total value, and cuts
-the list at conventional breakpoints:
+A classical inventory observation: **a small share of items creates most of the
+value**. ABC ranks products by total sales value, walks the ranking accumulating
+a share of the total, and cuts at conventional breakpoints. (Named for Vilfredo
+Pareto's income distribution; popularised in quality management as the 80/20
+rule by Joseph Juran. *If a panel asks for a primary source, cite your textbook —
+this doc deliberately does not invent a page number.*)
 
-- **Class A** — items inside the first **70%** of cumulative value → the vital
-  few. Tight control, frequent counts, priority replenishment.
-- **Class B** — items from 70% up to **90%** → middle tier. Normal control.
-- **Class C** — the remaining tail → trivial many. Loose control, bulk orders.
+- **Class A** — inside the first **70%** of cumulative value → the vital few.
+  Tight control, frequent counts, priority replenishment.
+- **Class B** — 70%–**90%** → normal control.
+- **Class C** — the tail → loose control, bulk orders.
 
-### Formula (as implemented)
+### Formula (as implemented — `backend/src/routes/optimization.js`)
 
 ```text
 annualValue(p) = Σ sales_transactions.total_amount  WHERE product_id = p
-              (qty × unit_price, summed over all transactions)
+sort DESC by annualValue;  total = Σ annualValue
+cumShare(p) = (Σ value of 1..p) / total
 
-sort all products by annualValue DESCENDING
-walk the list, accumulating:  cumShare(pᵢ) = (value₁ + … + valueᵢ) / totalValue
-
-Class(p) = A  if cumShare ≤ 70%
-         = B  if 70% < cumShare ≤ 90%
-         = C  otherwise
+Class = A if cumShare ≤ 70
+      = B if 70 < cumShare ≤ 90
+      = C otherwise
 ```
 
-### Live result (the Pareto shape appears)
+### Live result — the Pareto shape appears on its own
 
 | Class | Items | Share of catalog | Share of value |
 |---|---|---|---|
-| **A** | 87 | 43% | **69.7%** |
-| **B** | 55 | 27% | 20.1% |
-| **C** | 62 | 30% | 10.1% |
+| **A** | **76** | **37%** | **69.8%** |
+| **B** | 53 | 26% | 20.1% |
+| **C** | 75 | 37% | 10.2% |
 
-### Why milk and syrups are Class A
+**Thirty-seven percent of the catalog produces seventy percent of the value.**
+Nobody was told to make that happen; it is what falls out of the ranking.
 
-It is **value through volume × frequency**, not unit price. A café buys milk
-and syrup *constantly* — so those products climb the value ranking:
+### The A-list top 7 (every figure below is the endpoint's own output)
 
-| Product | Annual value | Sales txns | Units | Cum. share | Class |
+| Rank | Product | Annual value | Units | Cum. share | Class |
 |---|---|---|---|---|---|
-| Strawberry Puree 64OZ | ₱64,000 | 3 | 32 | 2.3% | A |
-| Torani Strawberry Puree Blend (64OZ) | ₱62,000 | 3 | 31 | 4.5% | A |
-| Lotus Biscoff Smooth Spread (3KG) | ₱60,950 | 3 | 23 | 6.6% | A |
-| Essse Caffè Selezione Speciale Beans 1kg | ₱47,250 | 3 | 35 | 8.3% | A |
-| Da Vinci Matcha Powder (1KG) | ₱45,825 | 3 | 39 | 9.9% | A |
-| **Milklab Full Cream Milk (12L)** | ₱43,740 | 3 | 36 | ~11% | **A (rank #7)** |
+| #1 | Nutella Ferrero Food Service (3KG) | ₱68,635 | 37 | 2.7% | A |
+| #2 | Lotus Biscoff Smooth Spread (3KG) | ₱66,250 | 25 | 5.2% | A |
+| #3 | Strawberry Puree 64OZ | ₱60,000 | 30 | 7.6% | A |
+| #4 | Torani Strawberry Puree Blend (64OZ) | ₱56,000 | 28 | 9.8% | A |
+| #5 | DLA Pistachio Filling (1KG) | ₱54,366 | 26 | 11.9% | A |
+| #6 | Da Vinci Caramel Sauce (2L) | ₱44,940 | 42 | 13.6% | A |
+| #7 | Da Vinci White Chocolate Sauce (2L) | ₱38,520 | 36 | 15.1% | A |
 
-Milk is ₱1,215 per case but sells in volume week after week — milk, syrups,
-purees, and coffee beans are every café's core inputs, so they dominate the
-value ranking. Contrast the tail: **Jersey Condensed Milk (390G)** sits at
-rank #203 with ₱931 and **Flat Lid 95mm (50PCS)** dead last at ₱923 — C-class
-by value. Note the nuance: condensed milk is still *milk*, but its small
-pack/low price keeps it C — **ABC ranks by what sells, not what it is.**
+**Why spreads and fillings outrank milk.** ABC ranks by *value × frequency*, not
+by unit price. A café buys chocolate spread and nut filling constantly; the
+₱1,855 Nutella is not the top item because it is expensive, but because it sells
+**37 cases**. Contrast the tail: **Oatbedient Artisan Oatmilk Barista (₱520,
+rank #202)**, **Marie Condensada (₱642, #203)**, **Milklab Oat Milk (₱656, #204)**
+— all C.
 
-**How the system uses it:** A-items get tight stock monitoring and priority
-replenishment; the Optimization page and "Why?" tooltip show each item's rank
-and cumulative share as evidence.
+**The nuance worth saying out loud:** condensed milk is still *milk*, but its
+pack and price keep it in C. **ABC ranks by what sells, not by what it is.**
+
+> **Note:** `Milklab Full Cream Milk (12L)` sits at **rank #12, ₱36,450,
+> cum. share 22.3%** — A-class, but outside the top 7.
 
 ---
 
@@ -115,56 +143,63 @@ and cumulative share as evidence.
 
 ### Basis — usage-rate classification
 
-Where ABC ranks by **value**, FSN ranks by **movement** — how *often* a
-product sells and how *recently* it last sold (a standard VED/FSN family
-technique). The pair is complementary: "A + F" = high-value **and** fast-moving
-(protect it); "A + N" = high-value but dead (a red flag worth investigating).
+Where ABC ranks by **value**, FSN ranks by **movement** — how *often* a product
+sells and how *recently* it last sold. A widely-used retail and pharmacy
+technique, in the VED/FSN family. *(The classification is standard industry
+practice; cite your textbook for the primary source rather than trusting a
+specific attribution here.)*
 
-The system measures inside a **selectable analysis window** (default **90
-days** — a quarter, the conventional FSN window; the admin Days/Weeks/Months/
-Quarterly/Annually filter maps to `window=7|30|90|180|365`).
+The pair is complementary and the combinations are the actual insight:
 
-### Formula (as implemented in `backend/src/fsn.js`)
+| | Fast (F) | Slow (S) | Non-moving (N) |
+|---|---|---|---|
+| **Class A** | ★ protect — the core business | review price / range | **investigate — high value, dead stock** |
+| **Class C** | fine | minor | ignore |
+
+### Formula (as implemented — `backend/src/fsn.js`)
 
 ```text
-transactions = count of sales in the window
-frequency    = window / transactions        (avg days between sales; floor 1)
-recency      = today − date of last sale    (days)
+transactions = count of sales inside the window
+frequency    = clamp( window / transactions, 1 … window )   // avg days between sales
+recency      = today − date of last sale                      // days
 ratePerDay   = totalQty / window
 
-N (Non-moving)  = zero transactions in the window  → dead stock
-F (Fast)        = frequency ≤ 7 days  OR  recency ≤ 7 days
-S (Slow)        = everything else
+N = zero transactions in the window                        → dead stock
+F = frequency ≤ 7 days  OR  recency ≤ 7 days
+S = everything else
 ```
 
-**Why 7 days:** café supplies run on a *weekly replenishment rhythm* — an item
-that hasn't sold this week (recency) and doesn't average weekly sales
-(frequency) is not flowing. The `OR` is deliberate: recency rescues genuinely
-popular items whose average interval is skewed by one early sale.
+**Why 7 days:** café supplies run on a *weekly* replenishment rhythm. An item
+that hasn't sold this week, and doesn't average weekly sales, is not flowing.
+The `OR` is deliberate — **recency rescues genuinely popular items whose average
+interval is skewed by one early sale.** Da Vinci Caramel Sauce below is exactly
+that case: average interval 30 days, but it sold 4 days ago, so it is Fast.
 
-The page sorts **N → S → F** so the dead stock the owner must act on surfaces
-at the top.
+The page sorts **N → S → F** so the dead stock the owner must act on surfaces first.
 
-### Live examples
+### Live result — 90-day window, measured 2026-10-03
 
-The seeded ledger spreads sales thinly (3 txns per product at ~monthly
-intervals), so most items read **S** — and that is the algorithm working as
-designed: it judges movement, not reputation:
+| Class | Products |
+|---|---|
+| **F** (Fast) | 86 |
+| **S** (Slow) | 93 |
+| **N** (Non-moving) | 25 |
 
-| Product | Txns (90d) | Frequency | Recency | Class |
-|---|---|---|---|---|
-| Torani Vanilla Syrup (750ML) | 3 | 30.0d | 81d | **S** (neither weekly) |
-| Oatside Barista Blend Oatmilk (1L) | 3 | 30.0d | 63d | **S** |
-| Da Vinci Butterscotch Sauce (2L) | 3 | 30.0d | 65d | **S** |
-| *(any product with no sale in window)* | 0 | — | — | **N** → dead stock |
+| Product | Txns | Frequency | Recency | Class | Why |
+|---|---|---|---|---|---|
+| Da Vinci Caramel Sauce (2L) | 3 | 30.0d | **4d** | **F** | recency ≤ 7 fires, despite a 30-day average |
+| Nutella Ferrero Food Service (3KG) | 3 | 30.0d | **2d** | **F** | same — sold this week |
+| Oatbedient Artisan Oatmilk Barista | 0 | — | — | **N** | no sale in the window |
+| Acc Caramel Syrup (1KG) | 0 | — | — | **N** | no sale in the window |
 
-In the demo: widen the window to Annually (or scan a product in via Stock In
-to record today's movement) and items flip to **F**. A product scanned and
-sold *this week* hits the `recency ≤ 7` arm and reads Fast immediately.
+> ⚠️ **Reproducibility caveat — state this if challenged.** ABC is
+> time-invariant: it reads the whole ledger, so the numbers above are exact and
+> reproducible forever. **FSN is time-*dependent*** — `recency` is measured
+> against the current date, so classes shift as the calendar moves. That is
+> correct behaviour, not a bug; the date above is stamped for that reason.
 
-**How the system uses it:** dead-stock candidates are sorted to the top of the
-Optimization page (clear / discount / stop reordering), and — most importantly
-— the FSN class **drives the Critical Level** (§4).
+**To see F flip live:** widen the window to Annually, or scan a product in via
+Stock In to record today's movement — it hits the `recency ≤ 7` arm immediately.
 
 ---
 
@@ -172,253 +207,440 @@ Optimization page (clear / discount / stop reordering), and — most importantly
 
 **Question:** *How many units should one purchase order contain?*
 
-### Basis — Harris's classical lot-size model (1913)
+### Basis — the Harris classical lot-size model (1913)
 
 Two costs oppose each other:
 
-- **Ordering cost (S)** — delivery fees, paperwork, receiving labor. Paid
-  **per order**, so ordering small amounts often is expensive.
-- **Holding cost (H)** — capital tied up in stock, spoilage, space. Paid
-  **per unit per year**, so ordering large amounts rarely is expensive.
+- **Ordering cost (S)** — delivery, paperwork, receiving labour. Paid **per
+  order**, so ordering small amounts often is expensive.
+- **Holding cost (H)** — capital tied up, spoilage, space. Paid **per unit per
+  year**, so ordering rarely in bulk is expensive.
 
-EOQ is the order size where the two cost curves cross at their minimum:
+EOQ is the order size where the two curves cross at their minimum.
+
+> **Primary source (confident):** F. W. Harris, *"How Many Parts to Make When"*,
+> Factory and Industrial Management, 1913.
+
+### Formula (as implemented)
 
 ```text
 EOQ = √( 2·D·S / H )
 
-D = annual demand (units sold per year — from the sales ledger)
-S = ordering cost per order   → ₱50  (as implemented)
-H = holding cost per unit/yr  → 20% × unit cost C   (capital-carrying rate)
+D = annual demand (units/year, from the ledger)
+S = ordering cost per order  → 50  (constant, as implemented)
+H = 0.20 × C                 (capital-carrying rate of 20%)
+C = product.price
 ```
 
-### Worked example — Milklab Full Cream Milk (12L)
+> **Honest modelling note — say this before a panel finds it.** `C` is the
+> **selling price**, because the seeded catalog ships with `cost = NULL` for
+> every product. In production, once costs are entered, holding cost should be
+> derived from *cost*, not price — price is a revenue figure and capital is tied
+> up in what the goods cost. The formula takes `C` as a parameter precisely so
+> this is a one-line change.
+
+### Worked example — Da Vinci Caramel Sauce (2L)
 
 ```text
-D = 36 cases/year        (ledger total)
-C = ₱1,215               H = 0.20 × 1,215 = ₱243
+D = 42 cases/year          (ledger total for this product)
+C = ₱1,070                 H = 0.20 × 1,070 = ₱214
 S = ₱50
 
-EOQ = √(2 × 36 × 50 / 243) = √14.8 ≈ 4 cases per order
+EOQ = √(2 × 42 × 50 / 214) = √19.6 ≈ 4 cases per order
 ```
 
 **Interpretation:** don't buy a pallet at once (holding cost soars on a
 perishable) and don't buy one case daily (delivery cost soars) — order in
 **~4-case batches**.
 
-The same endpoint (`GET /api/optimization/:id`) also returns the
-**turnover ratio**:
+| Product | D | C | H | EOQ | Stock on hand | Turnover |
+|---|---|---|---|---|---|---|
+| Da Vinci Caramel Sauce (2L) | 42 | ₱1,070 | ₱214 | **4** | 190 | 0.22× |
+| Nutella Ferrero Food Service (3KG) | 37 | ₱1,855 | ₱371 | **3** | 321 | 0.12× |
+| Oatbedient Artisan Oatmilk Barista | 4 | ₱130 | ₱26 | **4** | 240 | **0.02×** |
 
-```text
-turnover = D / average inventory
-```
-
-For the milk: 36 / 210 on hand ≈ **0.17×/yr** — the seeded stock is deep
-relative to demand, i.e. capital parked on shelves. A turnover above ~1 with
-Class A value is the ideal "lean and moving" quadrant; the Optimization page
-lists every product's EOQ and turnover so the owner can spot both extremes.
+Oatbedient is the one to point at: **0.02×/yr** — a ₱520 product sitting on 240
+units of shelf. That is a number a panel can see is *obviously* wrong for a
+healthy business, and the system reports it without being asked.
 
 > **Model assumptions (fair to state at a defense):** demand is constant and
-> known; costs are linear. Real cafés deviate — which is exactly why EOQ is
-> paired with Safety Stock (buffer against variability) and FSN (reclassifies
-> as behavior changes).
+> known; costs are linear; no quantity discounts. Real cafés deviate — which is
+> exactly why EOQ is paired with Safety Stock (buffer against variability) and
+> FSN (reclassifies as behaviour changes).
 
 ---
 
-## 4. ROP (Reorder Point) + Safety Stock — and the Critical Level
+## 4. ROP + Safety Stock, and the Critical Level
 
-**Question:** *At what stock level must a replenishment be triggered?*
+**Question:** *At what stock level must replenishment be triggered?*
 
-### 4a. ROP + Safety Stock (as implemented)
-
-```text
-dailyDemand = D / 365
-leadTime    = 7 days (supplier delivery assumption)
-
-ROP = ⌈ dailyDemand × leadTime ⌉
-Safety Stock = ⌈ √D × 0.1 ⌉        (√D — variance scales with demand magnitude)
-```
-
-**Basis:** the reorder point covers **demand during lead time** (if you sell
-0.1 units/day and delivery takes 7 days, ordering when you hit 0.7 units is
-too late — you must order before you run dry). Safety stock buffers the
-uncertainty *around* that demand; scaling it by √D is a common simple
-approximation of demand variability (the square-root-of-demand rule of thumb
-from classical safety-stock theory).
-
-Worked example (Milklab milk): dailyDemand = 36/365 ≈ 0.099 →
-**ROP = ⌈0.69⌉ = 1**, **SS = ⌈√36 × 0.1⌉ = 1**. Thin — because D is small in
-the seeded window; the mechanism scales up with real demand.
-
-### 4b. Critical Level — the per-product alert threshold (the one the badges use)
-
-**Basis:** before this was computed, every product shared one flat 80-unit
-threshold — wrong in both directions: a genuinely fast mover blows past the
-alert before it fires usefully, while a non-mover screams "low stock!" forever
-with no sales. The fix: derive the threshold **from movement** (the FSN class
-the product already carries), so the bar fits the product's actual rhythm.
+### ROP + Safety Stock (as implemented)
 
 ```text
-criticalLevel = max( classFloor , ⌈ratePerDay × leadTime⌉ + safetyStock )
-
-safetyStock = ⌈ ratePerDay × leadTime × z ⌉        (z = service factor)
-
-         F (Fast)     S (Slow)     N (Non-moving)
-lead        7d          14d            30d
-z           0.65        0.50           0.25
-floor       120          60             32
+leadTimeDays = 7
+ROP          = ⌈ (D / 365) × leadTimeDays ⌉
+safetyStock  = ⌈ √D × 0.1 ⌉
 ```
 
-Clamped to [5, 5000] so a data spike can never produce an absurd threshold.
-Products with no sales history take the non-moving floor (32) — the same
-value for a brand-new product on both backends.
+For Da Vinci Caramel Sauce: `ROP = ⌈0.115⌉ = 1`, `SS = ⌈√42 × 0.1⌉ = ⌈0.65⌉ = 1`.
 
-**Worked examples from the live ledger (90-day window):**
+> **State the limitation:** a 7-day lead time and a 10%-of-demand buffer are
+> *parameters*, not derived facts — the business has not supplied real supplier
+> lead times. They are exposed as named constants precisely so they can be
+> replaced with measured values.
 
-| Product | Rate/day | Class | Cycle demand (rate×lead) | Safety (×z) | **Critical level** |
-|---|---|---|---|---|---|
-| Milklab Full Cream Milk | 0.40 | F | 0.40×7 = 2.8 | ⌈1.82⌉ = 2 | **max(3.8→4, 120) = 120** |
-| Torani Vanilla Syrup | 0.22 | F | 1.54 | ⌈1.0⌉ = 1 | **max(3, 120) = 120** |
-| Strawberry Puree 64OZ | 0.36 | F | 2.52 | ⌈1.64⌉ = 2 | **max(5, 120) = 120** |
+### Critical Level — the per-product threshold (what the badges actually use)
 
-Note what the floors do: with the thin seeded demand, the **class floor
-dominates** (120), guaranteeing every product a sane, visible bar even with
-little history. On a real ledger where a milk sells 40 units/day, the demand
-term takes over: `40×7 + 40×7×0.65 = 460` → the alert fires *before* the
-shelf empties instead of never.
+Before this, every product shared one flat **80-unit** threshold — wrong in both
+directions: a fast-moving milk selling 40/day hits empty long before an 80-unit
+alert fires, while a display piece raises a false alarm forever. The critical
+level is therefore derived per product from its own FSN classification.
 
-**The three stock badges** consumers see (web catalog + mobile app):
+### Formula (`backend/src/critical-level.js`, exact)
 
 ```text
-qty ≤ 0                          → Out of Stock
-qty ≤ criticalLevel              → Critical
-qty ≤ 1.5 × criticalLevel        → Low Stock
-otherwise                        → In Stock
+cycleDemand  = ratePerDay × LEAD_TIME_DAYS[class]
+safetyStock  = ⌈ cycleDemand × SERVICE_FACTOR[class] ⌉
+demandLevel  = ⌈ cycleDemand ⌉ + safetyStock
+
+criticalLevel = clamp( max(demandLevel, CLASS_FLOOR[class]), MIN_LEVEL, MAX_LEVEL )
 ```
 
-(`backend/src/critical-level.js → stockStatus()`, shared verbatim by the web
-admin and the mobile client.)
+| Class | Lead time (days) | Service factor | Class floor |
+|---|---|---|---|
+| **F** Fast-moving | 7 | 0.65 | 120 |
+| **S** Slow-moving | 14 | 0.50 | 60 |
+| **N** Non-moving | 30 | 0.25 | 32 |
+
+`MIN_LEVEL = 5`, `MAX_LEVEL = 5000` — the absolute clamp, so a data spike can
+never produce an absurd threshold.
+
+**Worked example — a fast mover selling 40/day** (the motivating case):
+
+```text
+cycleDemand = 40 × 7 = 280
+safetyStock = ⌈280 × 0.65⌉ = 182
+demandLevel = 280 + 182      = 462
+criticalLevel = max(462, 120) = 462      → comfortably above the old flat 80
+```
+
+**Why it matters:** it is movement-aware, so the same alert means different
+things for different products — which is exactly the criticism the flat threshold
+deserved. The `CLASS_FLOOR` is what keeps a brand-new product (no sales history)
+at an orderable threshold instead of zero, and the badge ladder is:
+
+```text
+qty ≤ 0              → out_of_stock
+qty ≤ criticalLevel  → critical
+qty ≤ ⌈level × 1.5⌉  → low_stock     (1.5× is owner-tunable; ≤1 is refused)
+otherwise            → in_stock
+```
+
+> The widening factor comes from live System Settings. A factor of 1 or less is
+> **rejected**, because it would collapse the "low" band onto the critical level
+> and make the badge unreachable.
 
 ---
 
 ## 5. FIFO / FEFO — Stock-Lot Consumption Order
 
-**Question:** *When several purchase batches are on the shelf, which one leaves first?*
+**Question:** *Which batch leaves the shelf first?*
 
 ### Basis — the two classical issue disciplines
 
-- **FIFO (First-In, First-Out):** oldest arrival goes out first. The default
-  for shelf-stable café supplies (syrups, powders, cups, lids) — prevents
-  old stock being buried behind new stock indefinitely.
-- **FEFO (First-Expired, First-Out):** the **soonest-expiring** lot goes out
-  first, **regardless of arrival date**. Correct for perishables — milks,
-  purees, anything with a best-before date. FEFO *overrides* FIFO whenever an
-  expiry date exists.
+- **FIFO** (First-In, First-Out) — consume in arrival order. Correct when value
+  decays with age.
+- **FEFO** (First-Expired, First-Out) — consume the batch with the **earliest
+  expiry** first. Correct where the product *becomes unsellable* with age.
 
-The user's rule, implemented literally: *"FIFO is good combined with FEFO —
-FEFO mostly for milks and things that expire fast, regardless of arrival
-date."*
+For a café, perishable dairy and syrups make **FEFO** the governing rule and FIFO
+the fallback for non-dated stock. FEFO is standard practice in food safety and
+pharmaceutical inventory management, where the expiry date is a regulatory fact
+rather than a preference.
 
-### Formula (the consumption sort, both backends)
-
-```sql
-ORDER BY (expiry_date IS NULL) ASC,   -- dated lots first
-         expiry_date ASC,             -- soonest expiry wins
-         received_at ASC,             -- arrival order as tiebreaker
-         id ASC
-```
-
-1. Every lot **with** an expiry date is consumed before any lot **without**
-   one (non-expiring goods keep pure FIFO among themselves).
-2. Within dated lots: soonest expiry first — *that* is FEFO.
-3. Within the same expiry (or among non-expiring lots): oldest arrival first —
-   *that* is FIFO.
-
-Each consumption returns a **manifest** of `{expiry_date, qty}` per lot taken,
-so a **stock transfer recreates matching destination lots** — expiry travels
-with the goods. If stock exists without a matching lot (legacy data), the
-overflow path decrements it and treats it as non-expiring.
-
-### Where it runs
-
-- **Stock-outs and transfers** consume lots in this order
-  (`consumeStockLots()` in both backends — SQLite `stock_lots` table / in-app
-  FEFO ledger on Firestore & Supabase).
-- **Best-before alerts** are *derived from the same lot ledger*: a lot whose
-  expiry is within the alert window raises `expiring_soon`; a past-date lot
-  raises `expired`; consumed/re-dated lots auto-resolve their alerts.
-- Stock-in with an `expiry_date` records the dated lot (mobile Scan & Count
-  can capture best-before dates directly).
-
-### Worked example (from the FEFO test suite)
+### Formula (the consumption sort, identical in both backends)
 
 ```text
-Lot A: syrup, received 01 May,   NO expiry  (non-expiring — FIFO forever)
-Lot B: milk,  received 15 May,   expires 20 May   ← later arrival!
-Lot C: milk,  received 01 Jun,   expires 05 Jun   ← newest, expires soonest
+sort lots by:
+   1. lots WITH an expiry date, earliest first
+   2. lots WITHOUT an expiry date
+   3. within each group, earlier arrival first  (FIFO tiebreak)
 
-Sell 1 milk  →  FEFO consumes C (expires soonest), NOT the oldest B.
-Sell 1 syrup →  FIFO consumes A (oldest non-expiring).
+then consume greedily down the sorted list.
 ```
 
-Pure FIFO would have drunk B before C and let C expire on the shelf — the
-exact loss FEFO exists to prevent.
+Each consumption emits a **manifest** — `[{ expiry_date, qty }, …]` — which is
+what lets a *transfer* recreate matching destination lots. **The expiry travels
+with the goods**, so moving stock between branches cannot silently reset its
+best-before date.
 
 ---
 
-## 6. Money Visibility by Role (masking, not mathematics)
+# PART B — Pricing & Costing (the INVENTRAK-specific algorithms)
 
-The owner's requirement — *"hide the value/money by role"* — is a **presentation
-rule** layered on top of every algorithm above, not a change to any formula:
+These are not textbook inventory algorithms; they are the decisions this system
+makes that a spreadsheet cannot.
 
-- **Owner / Super Admin** see full ₱ figures everywhere.
-- **Inventory Staff** (mobile) and price-restricted admin roles see quantities,
-  ranks, classes, and the formulas themselves — but peso amounts render as
-  `••••`.
-- Every **FormulaBanner** carries the note: *the math is public, the amounts
-  are role-gated.*
+## 6. Target-Margin Pricing
 
-So the algorithms remain auditable to every role while competitive figures
-(purchase prices, sales values) stay restricted — least-privilege applied to
-information, consistent with the RBAC design in SECURITY.md.
+**Question:** *What price buys a target margin, and which products are below it?*
+
+### Basis — gross margin on price, solved algebraically
+
+Gross margin is defined on the **selling price**, not on cost:
+
+```text
+margin% = (price − cost) / price
+```
+
+Setting `margin = t` and solving for price gives the price that achieves it:
+
+```text
+price = cost / (1 − t/100)
+```
+
+> The common mistake is `price = cost × (1 + t)` — that yields the margin *on
+> cost*, not on price, and undershoots the target. At t = 30% the difference is
+> ₱27 on a ₱330 cost.
+
+### The rounding detail worth defending
+
+The suggestion is `⌈cost / (1 − t/100)⌉` — **rounded up, not to nearest.**
+Rounding to nearest lands *below* the target whenever the exact figure is
+fractional (cost ₱850 at 30% → 1214.28 → **1214**, a 29.98% margin). The row
+would stay flagged as under-priced forever while a reprice reported success.
+Rounding up guarantees the suggestion clears the very threshold that flagged it.
+`frontend-admin/src/reprice.test.js` replays the write and asserts the list
+empties.
+
+### Live result
+
+3 costed products in the demo dataset, all below the 30% target, each with the
+price that fixes it. **The margin overview also flags cost ≥ price (loss-makers)
+separately** — at a 0 count today, and that count is the honest state.
 
 ---
 
-## 7. Date Filtering — Days / Weeks / Months / Quarterly / Annually
+## 7. Cost Normalization — one supplier rate → a costed catalog
 
-Every analytics and optimization surface accepts a **date-range window**
-(`from`/`to` or the preset buttons) which re-scopes all of the above:
+**Question:** *Suppliers quote "₱___ per litre". The catalog stores per-bottle
+cost. How do they connect?*
 
-| Preset | Window |
-|---|---|
-| Days | 7 |
-| Weeks | 30 |
-| Months | 90 (default) |
-| Quarterly | 180 |
-| Annually | 365 |
+### Basis — unit normalisation onto a common basis
 
-Concretely: FSN re-measures frequency/recency inside the window (`windowDays`
-in `fsn.js`), the dashboard's Total Sales / monthly charts group by month over
-the range, and velocity (Top/Bottom movers) re-ranks. ABC is always measured
-over the **full annual ledger** (annual value is its basis), while FSN,
-velocity, and the critical-level `ratePerDay` follow the selected window —
-which is why widening the window can move an item from S to F without
-touching its ABC class.
+Products are priced and costed **per single unit**, so a 1kg bag and a 750ml
+bottle are not comparable: both read "margin 40%" and neither tells you which
+earns more per litre. Normalisation divides both price and cost by the same
+quantity onto a common basis.
+
+> Scaling price and cost by the *same* factor cannot change a margin
+> percentage — so this is for **comparability across sizes**, not for changing
+> the answer about any one product.
+
+| Dimension | Common basis | Source fields |
+|---|---|---|
+| volume | per 100 ml | `750 ML`, `2 L`, `1.89 L`, `cl`, `dl` |
+| weight | per 100 g | `1 KG`, `610G`, `16.5 OZ`, `lb` |
+| count | per **piece** | `50PCS`, `unit = bottle/can/box` |
+
+### The bug this design guards against — say it, it is your best point
+
+**`kg` and `l` are both 1000.** A lookup that returns only a multiplier cannot
+tell them apart, and reports a **kilogram of chocolate as a litre of syrup** —
+which then gets costed at a per-litre rate and reports success. The parser
+therefore carries the **dimension** with every factor, not just the number.
+
+### Conservative by construction
+
+A wrong parse is worse than no parse: it writes a fabricated cost and makes every
+margin downstream confidently wrong. So the parser returns `null` whenever the
+text is ambiguous, and unreadable products get a **blank** cost cell — which the
+cost sheet already reads as *"leave this product alone"*. A bad parse degrades to
+**"still uncosted"**, never to **"a made-up cost"**.
+
+Deliberately **not** done: converting a ₱/kg figure to ₱/L (different commodities,
+different densities — that would be invented, not measured), and word-form
+multipacks ("dozen of 250ml" — only numeric `6 x 250ml` is recognised).
+
+### Live result
+
+| Dimension | Products | Reading |
+|---|---|---|
+| volume | 102 | ₹ per 100 ml |
+| weight | 50 | per 100 g |
+| count | 17 | per piece |
+| **no size recorded** | **35** | excluded — the panel names this count |
+
+169 of 204 products are readable. **The 35 without a size are reported, not
+silently skipped** — adding a size to a product brings it into the rate.
 
 ---
 
-## Verification — how to reproduce every number in this doc
+## 8. The Three-State Cost Parse
+
+**Question:** *In a pasted sheet, what does a blank cost cell mean?*
+
+### Basis — ambiguity must resolve to the safe reading
+
+A cost sheet needs three instructions — *set this*, *clear this*, *ignore this* —
+and they must not collapse into each other:
+
+| Input | Meaning | Why |
+|---|---|---|
+| `380` | **set** the cost to 380 | unambiguous |
+| `-` / `clear` / `none` | **clear** to "not costed" | spelled out deliberately |
+| *(blank)* | **leave alone** | ⚠️ the safe default |
+| `abc` | **junk — report it** | never silently 0 |
+
+**Why blank must mean "leave alone":** defaulting blank → clear is the
+catastrophic reading. An admin who downloads the current cost sheet, fills in
+four products, and re-uploads would **silently wipe the other 200 real costs** —
+and the response would still report success.
+
+This is mirrored exactly in the server contract (`backend/src/costing.js`), the
+admin sheet (`frontend-admin/src/cost-sheet.js`) and the CLI script
+(`backend/scripts/backfill-costs.js`) — one rule, three implementations, all
+tested against the same cases.
+
+**The sibling trap:** `Number('') === 0`. An unreduced cell is *junk*, not a free
+product. This has been hit three times in this codebase — in the cost sheet, in
+the CLI parser, and in the normalisation module. Each is now guarded and tested.
+
+---
+
+## 9. Immutable Costing Snapshot
+
+**Question:** *A past order quotes a profit. The catalog changes. Which is true?*
+
+### Basis — derived figures must be frozen at the moment of decision
+
+An inquiry's stored `estimated_cost` is recomputed from live line subtotals, so
+reprice a product today and **last month's order silently reports a different
+profit**. A quote given to a customer must not be retroactively rewritten.
+
+The system writes an immutable `costing_records` row at submission —
+`UNIQUE(inquiry_id)`, never updated — carrying `total_cost, total_revenue,
+cost_per_cup, suggested_selling_price, estimated_profit, cost_basis`.
+
+> **Defensible property:** `cost_basis` distinguishes a *measured* cost from an
+> *assumed* one. An uncosted product reports `cost_basis: "none"` — a null, not a
+> zero. Conflating those two is what makes an uncosted catalog look like a
+> business in trouble.
+
+**Live demo:** open any submitted order, then reprice its product, then reopen the
+order. The figures do not move.
+
+---
+
+## 10. Customer Identity Resolution
+
+**Question:** *612 legacy sales rows carry only a free-text name. Whose are they?*
+
+### Basis — deterministic entity resolution with a strict identity order
+
+```
+user_id  →  email  →  name  →  (nothing)
+```
+
+A candidate is matched in that order, first match wins. If none applies, the row
+is **left unlinked** — the system never invents a person to make a total add up.
+This is the same shared module (`backend/src/customers.js`) on both backends, so
+the answer cannot differ between them.
+
+**Why it matters:** every customer attribute used to be smeared across
+`order_inquiries` (name/email/phone, once per order) and `sales_transactions`
+(free-text name). "This customer's history" was **unanswerable** — two orders
+from the same person typed slightly differently look like two people.
+
+**Live result:** the 612 seeded sales resolve to **3 real customers**
+(₱933,773 / ₱945,868 / ₱947,832) via `npm run customers:backfill` — dry-run by
+default, idempotent, and it re-reads before reporting success.
+
+---
+
+# PART C — Security algorithms
+
+## 11. The RBAC Tier Wall
+
+**Question:** *What does "admin only" actually mean?*
+
+### Basis — role hierarchies with least privilege, enforced server-side
+
+```
+customer <  staff <  admin <  super_admin
+                        └── owner (full oversight + authorises access decisions)
+```
+
+Enforced in the **backend**, not the UI — the phone apps are thin and make no
+authorisation decisions. `cost` is stripped from *every* non-admin product read
+(**unconditionally**, because the public catalog is CDN-cacheable and a
+role-dependent payload could be served to an anonymous visitor from a shared
+cache).
+
+**Live demo:** log in as `staff` and open the cost endpoints. 403. The button is
+hidden in the UI *and* the wall holds server-side — the panel can test either.
+
+## 12. Exponential-Backoff Login Lockout
+
+### Basis — throttling a sustained attack harder over time
+
+Per `(username, source-IP)`: count failures in a sliding window; on breach, lock
+the account for a duration that **doubles** per successive breach, capped. A
+single typo costs nothing; a sustained attack is throttled progressively. Success
+clears the counter immediately.
+
+## 13. TOTP / MFA
+
+### Basis — RFC 6238 (time-based one-time passwords)
+
+6-digit codes derived from `⌊(T − T₀)/X⌋` with HMAC-SHA-1, **server-verified**
+with a replay window. Secrets are stored hashed; recovery codes are single-use
+and hashed too, so a database leak yields neither.
+
+> Primary source (confident): **RFC 6238**. Related: **RFC 7519** (JWT),
+> **RFC 2104** (HMAC).
+
+---
+
+## Verification — reproduce every number in this document
 
 ```bash
 cd backend
-npm run verify          # 365/365 backend tests (FSN, FEFO, critical-level, EOQ parity)
+npm run verify      # 497/497 across 51 suites
 ```
 
-The suite includes, among others:
-- `test/fsn.test.js` — FSN classifier determinism + dual-backend parity
-- `test/fefo.test.js` — FEFO-overrides-FIFO consumption, expiry travels with transfers
-- `test/critical-level.test.js` — class floors, demand term, clamps, badges
-- `test/contract.test.js` — SQLite backend vs npm-free/Firestore/Supabase produce identical numbers
-- `test/optimization.test.js` — EOQ/ROP/turnover endpoint parity
+| Claim in this doc | Suite that locks it |
+|---|---|
+| FSN classification + dual-backend parity | `src/test/fsn.test.js` |
+| FEFO overrides FIFO; expiry travels with transfers | `src/test/fefo.test.js` |
+| Critical level: floors, clamps, badge ladder | `src/test/critical-level.test.js` |
+| ABC endpoint parity across drivers | `src/test/contract.test.js` |
+| Three-state cost parse | `src/test/costing.test.js`, `src/test/bulk-costs.test.js` |
+| Normalisation never conflates kg with L | `frontend-admin/src/cost-normalize.test.js` |
+| Reprice clears the under-priced list | `frontend-admin/src/reprice.test.js` |
+| Customer identity order | `src/test/customers.test.js`, `src/test/backfill-scripts.test.js` |
+| Maintenance scripts, Supabase + SQLite | `src/test/supabase-rest.test.js` |
+| Role wall / cost confidentiality | `src/test/roles.test.js`, `src/test/security.test.js` |
+| Lockout backoff | `src/test/login-lockout.test.js` |
 
-All numbers above were computed directly from `backend/data/inventrak.db`
-with the same SQL the endpoints run — no hand-typed figures.
+### Reproducing the dataset figures
+
+```bash
+cd backend
+INVENTRAK_DB_PATH=$(mktemp -d)/clean.db node -e "
+  const {db}=require('./src/db');
+  const {seedDatabase}=require('./src/seed');
+  seedDatabase({db});
+  console.log(db.prepare('SELECT COUNT(*) n FROM sales_transactions').get().n);   // 612
+  console.log(db.prepare('SELECT ROUND(SUM(total_amount)) v FROM sales_transactions').get().v); // 2571063
+"
+```
+
+The seeder uses a **fixed-seed PRNG** (`backend/src/prng.js`) and a fixed draw
+order shared by the SQLite and npm-free backends, so this reproduces
+**byte-identically** on any machine, any day. That is itself a defensible claim:
+*the demo data is reproducible, not hand-typed.*
+
+> **Do not compute these from `backend/data/inventrak.db`.** That file drifts as
+> the app is used. The committed catalog is `backend/data/products.json`, and
+> `npm run seed` is what regenerates a known state.
