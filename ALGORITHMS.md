@@ -400,8 +400,9 @@ price = cost / (1 − t/100)
 ```
 
 > The common mistake is `price = cost × (1 + t)` — that yields the margin *on
-> cost*, not on price, and undershoots the target. At t = 30% the difference is
-> ₱27 on a ₱330 cost.
+> cost*, not on price, and undershoots the target. Worked: at C = ₱330 and
+> t = 30%, the naive formula gives ₱429, which is a **23.1%** margin — 6.9 points
+> short. The correct price is ₱471, so the mistake costs **₱42 per unit**.
 
 ### The rounding detail worth defending
 
@@ -552,9 +553,13 @@ the answer cannot differ between them.
 (free-text name). "This customer's history" was **unanswerable** — two orders
 from the same person typed slightly differently look like two people.
 
-**Live result:** the 612 seeded sales resolve to **3 real customers**
-(₱933,773 / ₱945,868 / ₱947,832) via `npm run customers:backfill` — dry-run by
-default, idempotent, and it re-reads before reporting success.
+**Live result:** the 612 seeded sales resolve to **3 real customers** —
+Juan Dela Cruz (₱855,968), Maria Santos (₱865,167), Jose Rizal (₱849,928), 204
+sales each — via `npm run customers:backfill`: dry-run by default, idempotent,
+and it re-reads before reporting success so the verification cannot report a
+stale result. Those three figures sum to the ₱2,571,063 ledger total above, which
+is the cheapest way to check them: if they don't add up, one of them came from a
+different database.
 
 ---
 
