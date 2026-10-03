@@ -392,3 +392,73 @@ for (const side of [sqlite, npmfree]) {
     assert.strictEqual(forProduct.length, 1, `${tag} one row per product/location, got ${forProduct.length}`);
   });
 }
+
+// ---- Cross-backend parity --------------------------------------------------
+//
+// The repo rule is that the two backends must not merely agree on SHAPE but on
+// VALUES. The arithmetic is a shared pure module, but the INPUTS are gathered
+// by each backend separately (SQLite from tables, npm-free from its JSON
+// inventory) — and a divergence in those inputs would produce two different
+// shrinkage figures without any test failing. So the same scenario is driven
+// through both and the numbers compared.
+
+httpTest('both backends agree on the numbers, not just the shape', async () => {
+  const PRODUCT = 5;
+  const LOC = 1;
+  const SOLD = 4;      // goes through the till, so it is a RECORDED sale
+  const VANISHED = 2;  // leaves with no record at all — the shrinkage
+
+  const reports = {};
+  for (const side of [sqlite, npmfree]) {
+    const tag = side === sqlite ? 'sqlite' : 'npmfree';
+
+    // Read the real starting figure rather than hardcoding one. The seeded
+    // quantity is not something a test should assume — it differs by product
+    // and would silently make the scenario assert nothing.
+    const inv = await call(side.url, '/api/inventory', { token: side.token.admin });
+    const locName = inv.json.locations.find(l => Number(l.id) === LOC).name;
+    const item = inv.json.items.find(i => Number(i.product.id) === PRODUCT);
+    const start = Number(item.locations[locName] || 0);
+    assert.ok(start >= SOLD + VANISHED + 1, `${tag} has enough stock for the scenario (${start})`);
+
+    // Count the shelf exactly as the system believes it: variance 0.
+    const counted = await call(side.url, '/api/inventory/count', {
+      method: 'POST', token: side.token.admin,
+      body: { product_id: PRODUCT, location_id: LOC, counted_qty: start },
+    });
+    assert.strictEqual(counted.status, 201, `${tag} accepts the count`);
+    assert.strictEqual(counted.json.system_qty, start, `${tag} snapshots the system figure`);
+
+    await call(side.url, '/api/sales', {
+      method: 'POST', token: side.token.admin,
+      body: { product_id: PRODUCT, qty: SOLD, location_id: LOC, customer_name: 'Parity Buyer' },
+    });
+
+    // Re-count what the shelf REALLY holds: the start, minus the recorded sale,
+    // minus the pair that left with no record. The system is still sitting on
+    // that pair, so the report must find exactly VANISHED.
+    await call(side.url, '/api/inventory/count', {
+      method: 'POST', token: side.token.admin,
+      body: { product_id: PRODUCT, location_id: LOC, counted_qty: start - SOLD - VANISHED },
+    });
+
+    const res = await call(side.url, `/api/inventory/reconciliation?product_id=${PRODUCT}`, { token: side.token.admin });
+    assert.strictEqual(res.status, 200, `${tag} serves the report`);
+    const row = res.json.rows.find(r => r.product_id === PRODUCT && r.location_id === LOC);
+    assert.ok(row, `${tag} has a row for the counted shelf`);
+    reports[tag] = row;
+  }
+
+  assert.strictEqual(
+    reports.sqlite.unexplained_qty, reports.npmfree.unexplained_qty,
+    'the same shrinkage on both drivers'
+  );
+  assert.strictEqual(reports.sqlite.unexplained_qty, VANISHED, 'and it is exactly the units that vanished');
+  assert.strictEqual(reports.sqlite.classification, 'loss');
+  assert.strictEqual(reports.sqlite.classification, reports.npmfree.classification);
+  assert.strictEqual(
+    reports.sqlite.value_at_risk, reports.npmfree.value_at_risk,
+    'the money figure agrees too'
+  );
+  assert.strictEqual(reports.sqlite.system_qty_now, reports.npmfree.system_qty_now);
+});

@@ -10,7 +10,7 @@ Every number below is reproducible from a clean clone:
 ```bash
 cd backend
 npm run seed     # deterministic: fixed-seed PRNG -> identical 612-row ledger
-npm run verify   # 649/649
+npm run verify   # 650/650
 ```
 
 ---
@@ -800,7 +800,7 @@ overstating money-at-risk accuses someone of shrinkage.
 
 ```bash
 cd backend
-npm run verify      # 649/649 across 53 suites
+npm run verify      # 650/650 across 53 suites
 ```
 
 Every test file in `src/test/` is listed in the `npm test` script — 52 files,
@@ -812,7 +812,7 @@ being skipped without anyone noticing.)
 | FSN classification + dual-backend parity | `src/test/fsn.test.js` |
 | FEFO overrides FIFO; expiry travels with transfers | `src/test/fefo.test.js` |
 | Counter sale: stock decrement, FEFO, oversell refusal, audit, consumed-lot manifest | `src/test/walk-in-sales.test.js` |
-| Reconciliation arithmetic, sign convention, UTC stamps, tier split | `src/test/reconciliation.test.js` |
+| Reconciliation arithmetic, sign convention, UTC stamps, tier split, cross-backend value parity | `src/test/reconciliation.test.js` |
 | Reconciliation wording never names a cause | `frontend-admin/src/reconciliation.test.js` |
 | Till: FEFO preview + receipt, batch labels | `frontend-admin/src/till.test.js`, `frontend-admin/src/pages/TillPage.test.jsx` |
 | Settings RBAC + live effect, end-to-end flows, adjustment expiry | `src/test/settings.test.js`, `src/test/e2e-ci.test.js`, `src/test/adjustment-expiry.test.js` |
