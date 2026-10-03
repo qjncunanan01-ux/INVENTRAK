@@ -2,7 +2,7 @@ import { Alert, AlertTitle, Autocomplete, Box, Button, Dialog, DialogActions, Di
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiDelete, apiGet, apiPost, apiPut, bulkUpdatePrices, API_BASE_URL } from '../api';
+import { apiDelete, apiGet, apiPost, apiPut, bulkUpdatePrices, bulkUpdateCosts, API_BASE_URL } from '../api';
 import { colors } from '../theme';
 import usePageTitle from '../hooks/usePageTitle';
 import AdminLayout from './AdminLayout';
@@ -10,6 +10,7 @@ import QrTagSheet from '../components/QrTagSheet';
 import QrImage from '../components/QrImage';
 import { printElement } from '../printReport';
 import { parseQrPayload, productQrPayload } from '../qr';
+import { parseCostSheet, toCostPayload, summarizeCostSheet, buildCostTemplate } from '../cost-sheet';
 
 const filter = createFilterOptions();
 
@@ -20,7 +21,7 @@ export default function ProductsPage({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [form, setForm] = useState({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '', image: '' });
+  const [form, setForm] = useState({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '', cost: '', image: '' });
   const [saving, setSaving] = useState(false);
   const [editingProductId, setEditingProductId] = useState(null);
   const [search, setSearch] = useState('');
@@ -31,6 +32,15 @@ export default function ProductsPage({ onLogout }) {
   const [bulkResult, setBulkResult] = useState(null); // { updated, skipped }
   const [bulkBusy, setBulkBusy] = useState(false);
   const fileInputRef = useRef(null);
+  // Bulk cost-of-goods sheet state. Kept separate from the price state because
+  // the two sheets have genuinely different semantics — a blank PRICE cell is
+  // junk, a blank COST cell means "leave this one alone" (see cost-sheet.js).
+  const [costText, setCostText] = useState('');
+  const [costRows, setCostRows] = useState([]);
+  const [costSummary, setCostSummary] = useState(null);
+  const [costResult, setCostResult] = useState(null);
+  const [costBusy, setCostBusy] = useState(false);
+  const costFileRef = useRef(null);
 
   // QR tags: `activeTag` is the single-tag dialog, `showSheet` the batch
   // printable sheet, `scanValue` the scan-to-stock input box.
@@ -135,8 +145,22 @@ export default function ProductsPage({ onLogout }) {
 
   const loadProducts = () => {
     setLoading(true);
-    apiGet('/api/products')
-      .then(r => setProducts(r.data || r))
+    // The public catalog deliberately strips `cost` (product-visibility.js), so
+    // the cost sheet is fetched separately and merged in. Without this the
+    // edit form below would hold no cost and the PUT — which full-replaces
+    // every column — would wipe the cost of any product the admin merely
+    // renamed. `cost` is admin-tier only, so the whole request is gated.
+    Promise.all([apiGet('/api/products'), apiGet('/api/products/costs')])
+      .then(([r, costs]) => {
+        const rows = r.data || r;
+        const byId = new Map((Array.isArray(costs) ? costs : []).map(c => [String(c.id), c]));
+        setProducts(
+          (Array.isArray(rows) ? rows : []).map(p => ({
+            ...p,
+            cost: byId.has(String(p.id)) ? byId.get(String(p.id)).cost : null,
+          })),
+        );
+      })
       .finally(() => setLoading(false));
   };
 
@@ -149,7 +173,7 @@ export default function ProductsPage({ onLogout }) {
       await apiDelete(`/api/products/${confirmDelete}`);
       if (editingProductId === confirmDelete) {
         setEditingProductId(null);
-        setForm({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '' });
+        setForm({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '', cost: '', image: '' });
       }
       setSnackbar({ open: true, message: 'Product deleted', severity: 'success' });
       loadProducts();
@@ -173,6 +197,9 @@ export default function ProductsPage({ onLogout }) {
       size: product.size || '',
       unit: product.unit || '',
       price: product.price?.toString() || '',
+      // Merged in by loadProducts from the admin cost sheet. Null renders as an
+      // empty box, which is exactly "not costed" and round-trips as such.
+      cost: product.cost === null || product.cost === undefined ? '' : String(product.cost),
       image: product.image || '',
     });
     // Scroll to the edit form at the top
@@ -190,13 +217,22 @@ export default function ProductsPage({ onLogout }) {
       setSnackbar({ open: true, message: 'Price cannot be negative', severity: 'warning' });
       return;
     }
+    // Cost is optional and nullable. An empty box means "not costed" and is
+    // sent as an explicit null so a cleared cost actually clears — the server
+    // PUT full-replaces this column, so omitting it would silently keep stale
+    // data while an empty string here reads as "I blanked it".
+    if (form.cost !== '' && !(Number(form.cost) >= 0)) {
+      setSnackbar({ open: true, message: 'Cost must be a positive number, or blank for "not costed"', severity: 'warning' });
+      return;
+    }
+    const costValue = form.cost === '' ? null : Number(form.cost);
     setSaving(true);
     try {
       if (editingProductId) {
         await apiPut(`/api/products/${editingProductId}`, {
           name: form.name, category: form.category, brand: form.brand,
           description: form.description,
-          size: form.size, unit: form.unit, price: parseFloat(form.price) || 0, status: 'active', image: form.image,
+          size: form.size, unit: form.unit, price: parseFloat(form.price) || 0, cost: costValue, status: 'active', image: form.image,
         });
         setEditingProductId(null);
         setSnackbar({ open: true, message: 'Product updated', severity: 'success' });
@@ -204,11 +240,11 @@ export default function ProductsPage({ onLogout }) {
         await apiPost('/api/products', {
           name: form.name, category: form.category, brand: form.brand,
           description: form.description,
-          size: form.size, unit: form.unit, price: parseFloat(form.price) || 0, status: 'active', image: form.image,
+          size: form.size, unit: form.unit, price: parseFloat(form.price) || 0, cost: costValue, status: 'active', image: form.image,
         });
         setSnackbar({ open: true, message: 'Product created', severity: 'success' });
       }
-      setForm({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '', image: '' });
+      setForm({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '', cost: '', image: '' });
       loadProducts();
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
@@ -333,6 +369,68 @@ export default function ProductsPage({ onLogout }) {
     e.target.value = '';
   };
 
+  // --- Bulk cost-of-goods helpers ---
+
+  // Downloads the current cost sheet, with the selling price alongside the cost
+  // so the margin is visible while typing. Uncosted products export a BLANK
+  // cost cell, which re-imports as "leave alone" rather than "clear" — the
+  // round trip is therefore lossless (see cost-sheet.js).
+  const downloadCostTemplate = () => {
+    const csv = buildCostTemplate(products);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inventrak-costs.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const runCostPreview = () => {
+    const rows = parseCostSheet(costText);
+    if (!rows.length) {
+      setCostSummary(null);
+      setSnackbar({ open: true, message: 'No parseable rows. Use Product Name,Cost per line (header row optional).', severity: 'warning' });
+      return;
+    }
+    setCostRows(rows);
+    setCostResult(null);
+    setCostSummary(summarizeCostSheet(rows, products));
+  };
+
+  const applyCostSheet = async() => {
+    const payload = toCostPayload(costRows);
+    if (!payload.length) {
+      setSnackbar({ open: true, message: 'Nothing to apply — every row was left blank. Type a cost, or "-" to clear one.', severity: 'warning' });
+      return;
+    }
+    setCostBusy(true);
+    try {
+      const res = await bulkUpdateCosts({ costs: payload });
+      setCostResult({ updated: res.updated, cleared: res.cleared || 0, skipped: res.skipped || [] });
+      setCostText('');
+      setCostRows([]);
+      setCostSummary(null);
+      const parts = [`${res.updated} cost${res.updated === 1 ? '' : 's'} set`];
+      if (res.cleared) parts.push(`${res.cleared} cleared`);
+      setSnackbar({ open: true, message: `${parts.join(', ')} of ${res.total}`, severity: res.updated > 0 || res.cleared > 0 ? 'success' : 'warning' });
+      loadProducts();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    } finally {
+      setCostBusy(false);
+    }
+  };
+
+  const handleCostFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setCostText(String(reader.result || ''));
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const prodList = Array.isArray(products) ? products.filter(p => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -355,6 +453,18 @@ export default function ProductsPage({ onLogout }) {
           <Grid item xs={12} sm={6} md={4}><TextField fullWidth variant="outlined" label="Size (e.g. 1.5 KG, 2 L)" value={form.size} onChange={e => setForm(prev => ({ ...prev, size: e.target.value }))} /></Grid>
           <Grid item xs={12} sm={6} md={2}>{renderCreatableSelect('Unit', form.unit, val => setForm(prev => ({ ...prev, unit: val })), unitOptions, 'pcs')}</Grid>
           <Grid item xs={12} sm={6} md={3}><TextField fullWidth variant="outlined" label="Price" type="text" inputMode="decimal" inputProps={{ inputMode: 'decimal' }} value={form.price} onChange={e => setForm({ ...form, price: sanitizePrice(e.target.value) })} /></Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Cost of goods"
+              type="text"
+              inputProps={{ inputMode: 'decimal' }}
+              value={form.cost}
+              onChange={e => setForm({ ...form, cost: sanitizePrice(e.target.value) })}
+              helperText="Blank = not costed"
+            />
+          </Grid>
           <Grid item xs={12} md={9}><TextField fullWidth variant="outlined" label="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} multiline minRows={2} /></Grid>
           <Grid item xs={12} md={6}>
             <TextField fullWidth variant="outlined" label="Image URL or /images/... path" value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} placeholder="/images/da-vinci-sauces--butterscotch.jpg" />
@@ -371,7 +481,7 @@ export default function ProductsPage({ onLogout }) {
           </Grid>
           {editingProductId ? (
             <Grid item xs={12} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
-              <Button variant="outlined" fullWidth onClick={() => { setEditingProductId(null); setForm({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '', image: '' }); }}>
+              <Button variant="outlined" fullWidth onClick={() => { setEditingProductId(null); setForm({ name: '', category: '', brand: '', description: '', size: '', unit: '', price: '', cost: '', image: '' }); }}>
                 Cancel edit
               </Button>
             </Grid>
@@ -442,6 +552,85 @@ export default function ProductsPage({ onLogout }) {
         ) : null}
       </Paper>
 
+      <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+          <Typography variant="h6">Cost of goods</Typography>
+          <Button size="small" variant="outlined" onClick={downloadCostTemplate}>
+            Download current costs (CSV)
+          </Button>
+        </Box>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          Paste or upload a <code>Product Name,Cost</code> sheet to cost the whole catalog in one go
+          (a <code>Product Name,Price,Cost</code> sheet works too — the exported template is that shape).
+          A <strong>blank cost cell leaves that product alone</strong>; type <code>-</code> or <code>clear</code> to
+          deliberately mark one as not costed. Costing a query is what makes the margin figures on
+          Costing Records real — an uncosted product reports <code>cost_basis: &quot;none&quot;</code> rather than a guess.
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              multiline
+              minRows={6}
+              variant="outlined"
+              placeholder={'Almond Roca,380\nBlueberry,295\nCaramel Syrup (750 ML) - Torani,-'}
+              value={costText}
+              onChange={e => setCostText(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button variant="contained" component="label">
+              Upload .csv
+              <input type="file" accept=".csv,text/csv,text/plain" hidden ref={costFileRef} onChange={handleCostFile} />
+            </Button>
+            <Button variant="outlined" onClick={runCostPreview} disabled={!costText.trim()}>Parse preview</Button>
+            <Button variant="contained" color="success" onClick={applyCostSheet} disabled={costBusy || !costRows.length}>
+              {costBusy ? 'Applying…' : `Apply ${costRows.length || ''} cost${costRows.length === 1 ? '' : 's'}`}
+            </Button>
+          </Grid>
+        </Grid>
+        {costSummary ? (
+          <Alert severity={costSummary.unmatched.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+            <AlertTitle>Parsed {costSummary.total} row{costSummary.total === 1 ? '' : 's'}</AlertTitle>
+            {costSummary.willSet} cost{costSummary.willSet === 1 ? '' : 's'} will be set
+            {costSummary.willClear > 0 ? `, ${costSummary.willClear} cleared back to "not costed"` : ''}
+            {costSummary.willSkip > 0 ? `, ${costSummary.willSkip} left untouched (blank cost cell)` : ''}.
+            {' '}{costSummary.matched} of {costSummary.total} names match the catalog.
+            {costSummary.unmatched.length > 0 && (
+              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                {costSummary.unmatched.slice(0, 8).map((u, i) => (
+                  <li key={i}>{u.name}: {u.reason}</li>
+                ))}
+                {costSummary.unmatched.length > 8 && <li>…and {costSummary.unmatched.length - 8} more</li>}
+              </Box>
+            )}
+            {costSummary.lossMakers.length > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <strong>Check these — the cost is at or above the selling price:</strong>
+                <Box component="ul" sx={{ mt: 0.5, mb: 0, pl: 2 }}>
+                  {costSummary.lossMakers.slice(0, 8).map((l, i) => (
+                    <li key={i}>{l.name}: cost {l.cost} vs price {l.price}</li>
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </Alert>
+        ) : null}
+        {costResult ? (
+          <Alert severity={costResult.skipped.length === 0 ? 'success' : 'warning'} sx={{ mt: 2 }}>
+            <AlertTitle>Applied — {costResult.updated} set, {costResult.cleared} cleared</AlertTitle>
+            {costResult.skipped.length > 0 && (
+              <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                {costResult.skipped.slice(0, 8).map((s, i) => (
+                  <li key={i}>{s.name}: {s.reason}</li>
+                ))}
+                {costResult.skipped.length > 8 && <li>…and {costResult.skipped.length - 8} more</li>}
+              </Box>
+            )}
+          </Alert>
+        ) : null}
+      </Paper>
+
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h6">Active products</Typography>
@@ -489,15 +678,17 @@ export default function ProductsPage({ onLogout }) {
               <TableCell>Category</TableCell>
               <TableCell>Unit Measurement</TableCell>
               <TableCell>Price</TableCell>
+              <TableCell>Cost</TableCell>
+              <TableCell>Margin</TableCell>
               <TableCell>Brand</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7}>Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9}>Loading…</TableCell></TableRow>
             ) : prodList.length === 0 ? (
-              <TableRow><TableCell colSpan={7}>No products found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9}>No products found</TableCell></TableRow>
             ) : prodList.map(product => (
               <TableRow key={product.id}>
                 <TableCell>
@@ -513,6 +704,18 @@ export default function ProductsPage({ onLogout }) {
                   )}
                 </TableCell>
                 <TableCell>P{product.price}</TableCell>
+                {/* Cost and margin are admin-tier only, and arrive via the
+                    separate cost sheet rather than the public catalog. */}
+                <TableCell>
+                  {product.cost === null || product.cost === undefined ? (
+                    <Typography variant="caption" color="text.secondary">not costed</Typography>
+                  ) : `P${product.cost}`}
+                </TableCell>
+                <TableCell>
+                  {product.cost === null || product.cost === undefined || !(Number(product.price) > 0) ? (
+                    <Typography variant="caption" color="text.secondary">—</Typography>
+                  ) : `${Math.round(((Number(product.price) - Number(product.cost)) / Number(product.price)) * 100)}%`}
+                </TableCell>
                 <TableCell>{product.brand}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
