@@ -16,6 +16,14 @@
 //   AUDIT_REMOTE_KEY   service key for that REST endpoint
 //   AUDIT_REMOTE_TABLE (default "audit_log")
 //
+// ZERO-CONFIG DERIVATION: when AUDIT_REMOTE_* are not set, the sink is derived
+// from the Supabase driver config the app ALREADY has — SUPABASE_URL and
+// SUPABASE_KEY (see store-supabase.js). Any deployment already talking to
+// Supabase therefore gets a durable audit trail with no new env vars and, more
+// importantly, no new secret to paste into a dashboard: the service_role key is
+// already there under SUPABASE_KEY. Explicit AUDIT_REMOTE_* still wins, so an
+// operator can point the trail at a different project than the data.
+//
 //   - audit() mirrors every line to the remote table (best-effort, never
 //     blocks or fails a request; failures are throttled, not silent-spammy).
 //   - At boot, reSeedFromRemote() pulls the remote snapshot back into the
@@ -42,8 +50,23 @@ const DEFAULT_DATA_DIR = process.env.INVENTRAK_DATA_DIR || path.join(__dirname, 
 const AUDIT_LOG_FILE = process.env.AUDIT_LOG_FILE || path.join(DEFAULT_DATA_DIR, 'audit.log');
 
 // ---- Remote sink (optional) ------------------------------------------------
-const REMOTE_URL = (process.env.AUDIT_REMOTE_URL || '').replace(/\/+$/, '');
-const REMOTE_KEY = process.env.AUDIT_REMOTE_KEY || '';
+// Explicit AUDIT_REMOTE_URL, else derive the PostgREST base from SUPABASE_URL
+// ("https://abc.supabase.co" -> "https://abc.supabase.co/rest/v1").
+function deriveRemoteUrl() {
+  const explicit = (process.env.AUDIT_REMOTE_URL || '').trim();
+  if (explicit) return explicit;
+  const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
+  if (!supabaseUrl) return '';
+  return `${supabaseUrl.replace(/\/+$/, '')}/rest/v1`;
+}
+
+// Prefer the service_role key. SUPABASE_ANON_KEY is accepted last as a
+// best-effort fallback only because the Supabase driver accepts it too; the
+// audit_log table ships no RLS policies, so an anon-key write fails — and that
+// failure is warned about (throttled), never silent, and never fatal.
+const REMOTE_URL = deriveRemoteUrl().replace(/\/+$/, '');
+const REMOTE_KEY =
+  (process.env.AUDIT_REMOTE_KEY || process.env.SUPABASE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
 const REMOTE_TABLE = process.env.AUDIT_REMOTE_TABLE || 'audit_log';
 const remoteEnabled = Boolean(REMOTE_URL && REMOTE_KEY);
 
@@ -174,4 +197,17 @@ function audit(event, details = {}) {
   }
 }
 
-module.exports = { audit, AUDIT_LOG_FILE, reSeedFromRemote };
+module.exports = {
+  audit,
+  AUDIT_LOG_FILE,
+  reSeedFromRemote,
+  // Exposed for GET /api/meta so an operator (or a health check) can see
+  // whether the durable sink is live without opening a dashboard. Returns the
+  // shape, never the key.
+  remoteStatus: () => ({
+    enabled: remoteEnabled,
+    url: REMOTE_URL || null,
+    table: REMOTE_TABLE,
+    derived: !process.env.AUDIT_REMOTE_URL && Boolean(process.env.SUPABASE_URL),
+  }),
+};

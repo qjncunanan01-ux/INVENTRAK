@@ -34,6 +34,10 @@ backend/data/revoked-tokens.json
 **/ios/
 
 # Backend data (track JSON files, ignore databases and temp files)
+# The '@'-prefixed datasets (@users, @sales, @alerts, @lots, @costingRecords) are
+# cloud-driver runtime state written only when Supabase/Firestore is active
+# locally — never seed data, so they must not be committed.
+backend/data/@*
 backend/data/*.db
 backend/data/*.db-wal
 backend/data/*.db-shm

@@ -11,6 +11,16 @@ const settings = require('../settings');
 const { audit } = require('../audit');
 const { skuForProductId, isSkuShape, handleQrProductLookup } = require('../qr-codes');
 const { enrichInquiryRows } = require('../inquiry-helpers');
+const { stripCost, stripCostAll } = require('../product-visibility');
+
+// The catalog is public and served with `Cache-Control: public, max-age=300`,
+// so it can be cached by a CDN or proxy. That rules out making the payload
+// depend on WHO is asking: an admin's response could sit in a shared cache and
+// be handed to an anonymous visitor. `cost` is therefore stripped
+// UNCONDITIONALLY from every public product read, and admin-only cost access
+// lives on its own endpoint (GET /api/products/costs), which is authenticated
+// and never publicly cached.
+const shapeProducts = (rows) => stripCostAll(rows);
 
 const MAX_BULK_PRICES = 2000;
 
@@ -37,13 +47,13 @@ router.get('/', (req, res) => {
 
   if (!req.query.page && !req.query.limit) {
     const rows = db.prepare(`SELECT * FROM products ${where} ORDER BY name ASC`).all(...params);
-    return res.json(rows);
+    return res.json(shapeProducts(rows));
   }
 
   const countRow = db.prepare(`SELECT COUNT(*) as total FROM products ${where}`).get(...params);
   const rows = db.prepare(`SELECT * FROM products ${where} ORDER BY name ASC LIMIT ? OFFSET ?`).all(...params, limitNum, offset);
 
-  res.json({ data: rows, pagination: { page: pageNum, limit: limitNum, total: countRow.total, totalPages: Math.ceil(countRow.total / limitNum) } });
+  res.json({ data: shapeProducts(rows), pagination: { page: pageNum, limit: limitNum, total: countRow.total, totalPages: Math.ceil(countRow.total / limitNum) } });
 });
 
 // GET /api/products/categories
@@ -59,8 +69,21 @@ router.get('/categories', (req, res) => {
 // full tag payload ("INVENTRAK:PROD:42"), a SKU ("PRD-000042" / "MILK-001")
 // or a bare numeric id (legacy barcode fallback). NOTE: declared BEFORE
 // /:id so Express does not swallow "qr" as an id.
+// GET /api/products/costs — admin-only cost-of-goods sheet (the bulk cost-entry
+// screen). Kept OFF the cached public catalog on purpose: it is authenticated,
+// never publicly cached, and is the only read path that reveals `cost`.
+// Declared BEFORE /:id so Express does not swallow "costs" as a product id.
+router.get('/costs', authenticateToken, adminOnly, (req, res) => {
+  const rows = db.prepare('SELECT id, sku, name, price, cost FROM products ORDER BY name ASC').all();
+  res.json(rows);
+});
+
+// GET /api/products/qr/:code — QR product identification (staff or admin).
 router.get('/qr/:code', authenticateToken, staffOrAdmin, async (req, res) => {
-  const products = db.prepare('SELECT * FROM products').all();
+  // Strip cost unconditionally: this response goes to STAFF devices, and the
+  // staff tier is deliberately not entitled to the margin (locked by
+  // security.test.js, which fails if "cost" appears in this payload).
+  const products = db.prepare('SELECT * FROM products').all().map(stripCost);
   const stockLookup = (productId) => {
     const rows = db.prepare('SELECT l.name, s.quantity FROM stock s JOIN locations l ON s.location_id = l.id WHERE s.product_id = ?').all(productId);
     const locations = {};
@@ -84,7 +107,7 @@ router.get('/qr/:code', authenticateToken, staffOrAdmin, async (req, res) => {
 router.get('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Product not found' });
-  res.json(row);
+  res.json(shapeProducts([row])[0]);
 });
 
 // POST /api/products
@@ -94,7 +117,13 @@ router.post('/', authenticateToken, adminOnly, validate({
   price: { required: true, type: 'number', min: 0 },
   image: { maxLength: 300 },
 }), (req, res) => {
-  const { name, category, brand, description, size, unit, price, status, image, sku } = req.body;
+  const { name, category, brand, description, size, unit, price, cost, status, image, sku } = req.body;
+  // Cost of goods (optional). Null means "not costed" — costing then skips this
+  // product honestly rather than guessing (see costing.js cost_basis).
+  if (cost !== undefined && cost !== null && !(Number(cost) >= 0)) {
+    return res.status(400).json({ error: 'Validation failed', details: ['cost must be a non-negative number or null'] });
+  }
+  const costValue = cost === undefined || cost === '' ? null : (cost === null ? null : Number(cost));
   // SKU: a valid custom code wins; otherwise the deterministic system code is
   // assigned on create, so every product is QR-addressable from birth.
   let skuValue = null;
@@ -108,8 +137,8 @@ router.post('/', authenticateToken, adminOnly, validate({
     }
     skuValue = candidate;
   }
-  const info = db.prepare('INSERT INTO products (sku, name, category, brand, description, size, unit, price, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(skuValue, sanitizeObject(name), sanitizeObject(category), sanitizeObject(brand || ''), sanitizeObject(description || ''), sanitizeObject(size || ''), sanitizeObject(unit || 'pcs'), price, status || 'active', image || null);
+  const info = db.prepare('INSERT INTO products (sku, name, category, brand, description, size, unit, price, cost, status, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(skuValue, sanitizeObject(name), sanitizeObject(category), sanitizeObject(brand || ''), sanitizeObject(description || ''), sanitizeObject(size || ''), sanitizeObject(unit || 'pcs'), price, costValue, status || 'active', image || null);
   const newId = Number(info.lastInsertRowid);
   if (skuValue === null) {
     db.prepare('UPDATE products SET sku = ? WHERE id = ?').run(skuForProductId(newId), newId);
@@ -122,7 +151,7 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
   const existing = db.prepare('SELECT id FROM products WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Product not found' });
 
-  const { name, category, brand, description, size, unit, price, status, image, sku } = req.body;
+  const { name, category, brand, description, size, unit, price, cost, status, image, sku } = req.body;
   // Optional custom SKU on update: same validation as create. An absent/blank
   // value leaves the existing SKU untouched (labels must stay valid).
   let skuValue;
@@ -140,8 +169,14 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
     }
     skuValue = candidate;
   }
-  db.prepare('UPDATE products SET name=?, category=?, brand=?, description=?, size=?, unit=?, price=?, status=?, image=?, sku=COALESCE(?, sku), updated_at=datetime(\'now\') WHERE id=?')
-    .run(sanitizeObject(name), sanitizeObject(category), sanitizeObject(brand), sanitizeObject(description), sanitizeObject(size), sanitizeObject(unit), price, status, image || null, skuValue === undefined ? null : skuValue, req.params.id);
+  // Cost is a full-replace field like price (this PUT nulls every unspecified
+  // column), so `cost: null` deliberately clears it back to "not costed".
+  if (cost !== undefined && cost !== null && !(Number(cost) >= 0)) {
+    return res.status(400).json({ error: 'Validation failed', details: ['cost must be a non-negative number or null'] });
+  }
+  const costValue = cost === undefined || cost === '' ? null : (cost === null ? null : Number(cost));
+  db.prepare('UPDATE products SET name=?, category=?, brand=?, description=?, size=?, unit=?, price=?, cost=?, status=?, image=?, sku=COALESCE(?, sku), updated_at=datetime(\'now\') WHERE id=?')
+    .run(sanitizeObject(name), sanitizeObject(category), sanitizeObject(brand), sanitizeObject(description), sanitizeObject(size), sanitizeObject(unit), price, costValue, status, image || null, skuValue === undefined ? null : skuValue, req.params.id);
   res.json({ ok: true });
 });
 

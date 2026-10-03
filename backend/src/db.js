@@ -182,4 +182,24 @@ if (!userNames.has('mfa_recovery')) {
   db.exec('ALTER TABLE users ADD COLUMN mfa_recovery TEXT');
 }
 
+// Cost of goods: products gain a nullable `cost` — what the café actually pays,
+// as opposed to `price`, what the customer pays. Costing had no basis at all
+// before this, so every existing product is legitimately uncosted rather than
+// backfilled with a guess. Additive.
+if (!productColumns.some(c => c.name === 'cost')) {
+  db.exec('ALTER TABLE products ADD COLUMN cost REAL');
+}
+
+// Customer Records: inquiries and sales gain a customer_id linking them to the
+// Customer Record they belong to. Additive and nullable — historical/seeded rows
+// keep customer_id NULL (they carry only a free-text name; backfill with
+// scripts/backfill-customers.js rather than guessing at boot).
+if (!inquiryColumns.some(c => c.name === 'customer_id')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN customer_id INTEGER');
+}
+const salesColumns = db.prepare('PRAGMA table_info(sales_transactions)').all();
+if (!salesColumns.some(c => c.name === 'customer_id')) {
+  db.exec('ALTER TABLE sales_transactions ADD COLUMN customer_id INTEGER');
+}
+
 module.exports = { db };

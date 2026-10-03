@@ -6,6 +6,8 @@ const { adminOnly } = require('../middleware');
 const { validate } = require('../validation');
 const { sanitizeObject } = require('../sanitize');
 const { normalizeLines } = require('../product-lines');
+const { computeCostingSnapshot, snapshotRow, toPublic } = require('../costing');
+const { resolveCustomer } = require('../customers');
 const { buildPaymentStep } = require('../payments');
 const { notifyInquiryStatus } = require('../notify');
 const { enrichInquiryRows } = require('../inquiry-helpers');
@@ -101,8 +103,73 @@ router.post('/', validate({
   const { lines, total } = normalizeLines(products);
   const storedCost = total !== null ? total : (estimated_cost || 0);
 
-  const inquiryId = db.prepare('INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, user_id, status_history, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(cleanName, cleanEmail, customer_phone || null, JSON.stringify(lines), storedCost, cleanNotes || '', cleanAddress || null, payment_method || 'cod', userId, JSON.stringify([{ status: 'pending', at: now }]), 'pending', now).lastInsertRowid;
+  // Resolve the Customer Record this order belongs to BEFORE the insert, so the
+  // inquiry can carry its customer_id. Resolve-or-create: one row per real
+  // person, enriched with anything this order supplies that the first one did
+  // not. Guests get a customer row too — a customer does not need an account.
+  // Guarded: an order must never fail because customer bookkeeping did.
+  let customerId = null;
+  try {
+    const existingCustomers = db.prepare('SELECT * FROM customers').all();
+    const { customer, created, changed } = resolveCustomer(existingCustomers, {
+      name: cleanName,
+      email: cleanEmail,
+      contact_number: customer_phone,
+      address: cleanAddress,
+      user_id: userId,
+      now,
+    });
+    if (customer) {
+      if (created) {
+        const info = db.prepare(
+          `INSERT INTO customers (name, business_name, contact_number, email, address, user_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(
+          customer.name, customer.business_name, customer.contact_number,
+          customer.email, customer.address, customer.user_id,
+          customer.created_at, customer.updated_at,
+        );
+        customerId = Number(info.lastInsertRowid);
+      } else if (changed) {
+        db.prepare(
+          `UPDATE customers SET business_name = ?, contact_number = ?, email = ?,
+             address = ?, user_id = ?, updated_at = ? WHERE id = ?`,
+        ).run(
+          customer.business_name, customer.contact_number, customer.email,
+          customer.address, customer.user_id, customer.updated_at, customer.id,
+        );
+        customerId = Number(customer.id);
+      } else {
+        customerId = Number(customer.id);
+      }
+    }
+  } catch (err) {
+    console.error('[customers] resolve failed for inquiry:', err && err.message);
+    customerId = null;
+  }
+
+  const inquiryId = db.prepare('INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, user_id, customer_id, status_history, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(cleanName, cleanEmail, customer_phone || null, JSON.stringify(lines), storedCost, cleanNotes || '', cleanAddress || null, payment_method || 'cod', userId, customerId, JSON.stringify([{ status: 'pending', at: now }]), 'pending', now).lastInsertRowid;
+
+  // Freeze the economics NOW, while the catalog still reflects what the
+  // customer was quoted. Without this, repricing a product silently rewrites
+  // the profit of every past order. Never fatal: costing must not be able to
+  // reject an order, so a failure is logged and the inquiry stands.
+  try {
+    const catalog = db.prepare('SELECT id, name, cost FROM products').all();
+    const snapshot = computeCostingSnapshot({ lines, products: catalog, revenue: storedCost });
+    const row = snapshotRow(inquiryId, snapshot, now);
+    db.prepare(
+      `INSERT INTO costing_records (inquiry_id, total_cost, total_revenue, target_quantity,
+        cost_per_cup, suggested_selling_price, estimated_profit, cost_basis,
+        lines_priced, lines_total, margin_percent, computed_at)
+       VALUES (@inquiry_id, @total_cost, @total_revenue, @target_quantity,
+        @cost_per_cup, @suggested_selling_price, @estimated_profit, @cost_basis,
+        @lines_priced, @lines_total, @margin_percent, @computed_at)`,
+    ).run(row);
+  } catch (err) {
+    console.error('[costing] snapshot failed for inquiry', inquiryId, err && err.message);
+  }
 
   let payment = null;
   try { payment = await buildPaymentStep({ id: inquiryId, amount: storedCost, description: `INVENTRAK order ${inquiryId} — ${customer_name}`, email: customer_email, paymentMethod: payment_method || 'cod' }); } catch (err) { console.error('[payments] buildPaymentStep failed:', err && err.message); }
@@ -115,6 +182,22 @@ router.post('/', validate({
     ok: true, message: 'Inquiry submitted', id: inquiryId,
     ...(payment ? { payment: { payment_method: payment.payment_method, payment_status: payment.payment_status, payment_reference: payment.payment_reference, payment_url: payment.payment_url, payment_qr: payment.payment_qr } } : {}),
   });
+});
+
+// GET /api/order-inquiries/:id/costing
+// The immutable snapshot taken when the inquiry was submitted. Scoped exactly
+// like the inquiry itself: admins see any, a customer sees only their own.
+router.get('/:id/costing', authenticateToken, (req, res) => {
+  const existing = db.prepare('SELECT id, user_id, customer_email FROM order_inquiries WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Order inquiry not found' });
+  if (!ADMIN_TIER.includes(req.user.role)) {
+    const owner = db.prepare('SELECT email FROM users WHERE id = ?').get(req.user.id);
+    const mine = Number(existing.user_id) === Number(req.user.id) || (owner && String(existing.customer_email || '').toLowerCase() === String(owner.email || '').toLowerCase());
+    if (!mine) return res.status(403).json({ error: 'Not your inquiry' });
+  }
+  const row = db.prepare('SELECT * FROM costing_records WHERE inquiry_id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'No costing record for this inquiry' });
+  res.json(toPublic(row));
 });
 
 // PUT /api/order-inquiries/:id/payment

@@ -112,3 +112,31 @@ CREATE TABLE IF NOT EXISTS stock_lots (
   idx       INTEGER NOT NULL DEFAULT 0,
   data      JSONB NOT NULL DEFAULT '{}'
 );
+
+-- ============================================================
+-- Costing snapshots (immutable economics per order inquiry)
+-- ============================================================
+-- One row per inquiry, written once at submission and never rewritten, so the
+-- profit a customer was quoted does not drift when the catalog is repriced.
+-- `data` carries total_cost / total_revenue / target_quantity / cost_per_cup /
+-- suggested_selling_price / estimated_profit plus cost_basis, which records how
+-- much of it is exact vs imputed. See backend/src/costing.js.
+CREATE TABLE IF NOT EXISTS costing_records (
+  id        INTEGER PRIMARY KEY,
+  idx       INTEGER NOT NULL DEFAULT 0,
+  data      JSONB NOT NULL DEFAULT '{}'
+);
+
+-- ============================================================
+-- Customer Records
+-- ============================================================
+-- The business entity behind orders and sales. Distinct from `users`, which are
+-- ACCOUNTS (login/role/password): guest checkout is first-class, so a customer
+-- need not have an account and `user_id` lives inside the row as data. `data`
+-- holds name, business_name, contact_number, email, address, user_id.
+-- See backend/src/customers.js for the resolve-or-create identity rule.
+CREATE TABLE IF NOT EXISTS customers (
+  id        INTEGER PRIMARY KEY,
+  idx       INTEGER NOT NULL DEFAULT 0,
+  data      JSONB NOT NULL DEFAULT '{}'
+);

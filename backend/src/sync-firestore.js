@@ -184,6 +184,7 @@ function canonicalFromSqlite(snap) {
         id: o.id,
         customer_name: o.customer_name,
         customer_email: o.customer_email,
+        customer_id: o.customer_id,
         customer_phone: o.customer_phone,
         products: o.products,
         estimated_cost: o.estimated_cost,
@@ -315,6 +316,7 @@ function canonicalFromFirestore(read) {
       id: o.id,
       customer_name: o.customer_name,
       customer_email: o.customer_email,
+      customer_id: o.customer_id,
       customer_phone: o.customer_phone,
       products: o.products,
       estimated_cost: o.estimated_cost,
@@ -703,8 +705,8 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
   }
 
   const upsertInquiry = db.prepare(
-    `INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, payment_status, payment_reference, payment_url, payment_qr, payment_provider, user_id, status_history, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, payment_status, payment_reference, payment_url, payment_qr, payment_provider, user_id, customer_id, status_history, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        customer_name=excluded.customer_name, customer_email=excluded.customer_email,
        customer_phone=excluded.customer_phone, products=excluded.products,
@@ -713,7 +715,8 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        payment_status=excluded.payment_status, payment_reference=excluded.payment_reference,
        payment_url=excluded.payment_url, payment_qr=excluded.payment_qr,
        payment_provider=excluded.payment_provider,
-       user_id=excluded.user_id, status_history=excluded.status_history,
+       user_id=excluded.user_id, customer_id=excluded.customer_id,
+       status_history=excluded.status_history,
        status=excluded.status, created_at=excluded.created_at`
   );
   for (const o of byId(canonical['order_inquiries.json'])) {
@@ -733,6 +736,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
       o.payment_qr || null,
       o.payment_provider || null,
       o.user_id || null,
+      o.customer_id || null,
       o.status_history || null,
       o.status,
       o.created_at

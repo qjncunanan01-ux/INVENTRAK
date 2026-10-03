@@ -587,6 +587,67 @@
         }
       }
     },
+    "/api/products/costs": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "listProductCosts",
+        "summary": "Cost-of-goods sheet (admin only) \u2014 the only read path that reveals product cost",
+        "description": "Cost of goods is the business's margin, so it is stripped from every public product read (catalog list, single product, QR lookup, tag page) regardless of who is asking. That catalog is served with `Cache-Control: public, max-age=300`, so an admin's response could otherwise sit in a shared cache and be read by an anonymous visitor. This endpoint is authenticated, admin-tier only, and never publicly cached.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per product with its cost",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "price"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      },
+                      "sku": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "price": {
+                        "type": "number"
+                      },
+                      "cost": {
+                        "type": "number",
+                        "nullable": true,
+                        "description": "Cost of goods; null means the product is not costed."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
     "/api/products/categories": {
       "get": {
         "tags": [
@@ -1750,6 +1811,52 @@
         }
       }
     },
+    "/api/order-inquiries/{id}/costing": {
+      "get": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "getInquiryCosting",
+        "summary": "Get the immutable costing snapshot frozen when the inquiry was submitted",
+        "description": "Written once at submission and never rewritten, so the profit a customer was quoted does not drift when the catalog is repriced. Scoped like the inquiry: admins see any, a customer sees only their own.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Costing snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostingRecord"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/order-inquiries/{id}/payment": {
       "put": {
         "tags": [
@@ -2073,6 +2180,204 @@
         }
       }
     },
+    "/api/customers": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "listCustomers",
+        "summary": "Customer Records with per-customer aggregates (admin only)",
+        "description": "The business entity behind orders and sales, distinct from accounts. Admin-only: it exposes what one person ordered and what they spent. Each row carries inquiry_count, total_spend and last_activity.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/customers/{id}": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "getCustomer",
+        "summary": "One customer's record with their order and purchase history (admin only)",
+        "description": "The query the old schema could not answer: customer_name was free text repeated on every row, so a single person's history across orders was unretrievable.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "inquiries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "estimated_cost": {
+                            "type": "number"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "status_history": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "sales": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "product_id": {
+                            "type": "integer"
+                          },
+                          "qty": {
+                            "type": "number"
+                          },
+                          "total_amount": {
+                            "type": "number"
+                          },
+                          "transaction_date": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "updateCustomer",
+        "summary": "Edit a Customer Record (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Customer updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Another customer already uses this email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sales": {
       "get": {
         "tags": [
@@ -2364,6 +2669,26 @@
                       "type": "string",
                       "format": "date-time",
                       "nullable": true
+                    },
+                    "audit": {
+                      "type": "object",
+                      "description": "Durable audit-trail status. Derived from the Supabase driver config when AUDIT_REMOTE_* is unset, so it reads enabled=true on any Supabase-backed deploy. Reports the sink URL and table, never the key.",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "table": {
+                          "type": "string"
+                        },
+                        "derived": {
+                          "type": "boolean",
+                          "description": "True when the sink was derived from SUPABASE_URL rather than set explicitly"
+                        }
+                      }
                     },
                     "time": {
                       "type": "string",
@@ -3434,6 +3759,12 @@
           "price": {
             "type": "number"
           },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Cost of goods \u2014 what the caf\u00e9 pays, as opposed to price (what the customer pays). Null means the product is not costed; order costing then records cost_basis='none'/'imputed' rather than inventing a figure."
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -3491,6 +3822,12 @@
             "type": "number",
             "minimum": 0
           },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Cost of goods (optional, nullable). Omit or null to mark the product as not costed."
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -3506,6 +3843,78 @@
           "sku": {
             "type": "string",
             "description": "Custom SKU (3-32 chars: A-Z, 0-9, dashes). Omit to get the deterministic system SKU (PRD-<padded id>). Cannot be cleared once set \u00e2\u20ac\u201d reprint the tag instead."
+          }
+        }
+      },
+      "CostingRecord": {
+        "type": "object",
+        "required": [
+          "inquiry_id",
+          "total_revenue",
+          "target_quantity",
+          "cost_basis",
+          "lines_priced",
+          "lines_total",
+          "margin_percent",
+          "computed_at"
+        ],
+        "properties": {
+          "inquiry_id": {
+            "type": "integer",
+            "description": "The order inquiry this snapshot belongs to"
+          },
+          "total_cost": {
+            "type": "number",
+            "nullable": true,
+            "description": "Sum of unit cost x quantity. Null when no line could be costed."
+          },
+          "total_revenue": {
+            "type": "number",
+            "description": "What the customer was charged at submission (the inquiry's estimated_cost)."
+          },
+          "target_quantity": {
+            "type": "number",
+            "description": "Sum of line quantities \u2014 one ordered unit is one 'cup'."
+          },
+          "cost_per_cup": {
+            "type": "number",
+            "nullable": true,
+            "description": "total_cost / target_quantity."
+          },
+          "suggested_selling_price": {
+            "type": "number",
+            "nullable": true,
+            "description": "Revenue needed to hit margin_percent on this cost: total_cost / (1 - margin)."
+          },
+          "estimated_profit": {
+            "type": "number",
+            "nullable": true,
+            "description": "total_revenue - total_cost."
+          },
+          "cost_basis": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "imputed",
+              "none"
+            ],
+            "description": "How much of total_cost is real: every priced line had a known cost (exact); some did and the rest were estimated from the blended cost ratio (imputed); nothing could be costed (none)."
+          },
+          "lines_priced": {
+            "type": "integer",
+            "description": "Order lines whose product had a known unit cost."
+          },
+          "lines_total": {
+            "type": "integer",
+            "description": "Total order lines."
+          },
+          "margin_percent": {
+            "type": "number",
+            "description": "Target margin used for suggested_selling_price (COSTING_TARGET_MARGIN, default 30)."
+          },
+          "computed_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -4630,6 +5039,87 @@
           }
         }
       },
+      "Customer": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "business_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "contact_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "description": "Unique when present (case-insensitive). The most stable identifier a walk-in customer gives."
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "user_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Optional link to the account this customer signs in with; null for walk-ins, since guest checkout is first-class."
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "inquiry_count": {
+            "type": "integer",
+            "description": "How many order inquiries belong to this customer."
+          },
+          "total_spend": {
+            "type": "number",
+            "description": "Sum of their linked sales' total_amount."
+          },
+          "last_activity": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CustomerInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "business_name": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "contact_number": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
       "OrderInquiry": {
         "type": "object",
         "required": [
@@ -4652,6 +5142,11 @@
           "customer_phone": {
             "type": "string",
             "nullable": true
+          },
+          "customer_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Links to the Customer Record this order belongs to. Guests get a Customer Record too \u2014 they simply have no account. Null only when the order carries no usable identity at all."
           },
           "products": {
             "type": "string"
@@ -5305,6 +5800,11 @@
           },
           "customer_name": {
             "type": "string"
+          },
+          "customer_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Links to the Customer Record this sale belongs to. Null on seeded/historical rows, which carry only a free-text name."
           },
           "product_name": {
             "type": "string"

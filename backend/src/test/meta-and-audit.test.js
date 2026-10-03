@@ -109,24 +109,48 @@ describe('durable audit trail — remote sink + re-seed', () => {
 
   // audit.js snapshots env + file path at require time, so each scenario
   // loads a fresh copy of the module from a pristine require cache.
-  function freshAuditModule({ remoteUrl, remoteKey, logFile }) {
+  //
+  // SUPABASE_* are settable here too: the sink now derives its URL/key from the
+  // Supabase driver config when AUDIT_REMOTE_* is absent, so a "file only"
+  // scenario MUST also clear SUPABASE_* — otherwise a developer machine with
+  // those exported fails the test for entirely the wrong reason.
+  function freshAuditModule({ remoteUrl, remoteKey, logFile, supabaseUrl, supabaseKey, supabaseAnonKey }) {
     delete require.cache[require.resolve('../audit')];
-    if (remoteUrl === undefined) delete process.env.AUDIT_REMOTE_URL;
-    else process.env.AUDIT_REMOTE_URL = remoteUrl;
-    if (remoteKey === undefined) delete process.env.AUDIT_REMOTE_KEY;
-    else process.env.AUDIT_REMOTE_KEY = remoteKey;
-    if (logFile === undefined) delete process.env.AUDIT_LOG_FILE;
-    else process.env.AUDIT_LOG_FILE = logFile;
+    for (const [key, value] of [
+      ['AUDIT_REMOTE_URL', remoteUrl],
+      ['AUDIT_REMOTE_KEY', remoteKey],
+      ['SUPABASE_URL', supabaseUrl],
+      ['SUPABASE_KEY', supabaseKey],
+      ['SUPABASE_ANON_KEY', supabaseAnonKey],
+      ['AUDIT_LOG_FILE', logFile],
+    ]) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     return require('../audit');
+  }
+
+  // Snapshot the six vars so a test can restore the ambient environment exactly.
+  function snapshotAuditEnv() {
+    const out = {};
+    for (const key of [
+      'AUDIT_REMOTE_URL',
+      'AUDIT_REMOTE_KEY',
+      'AUDIT_LOG_FILE',
+      'SUPABASE_URL',
+      'SUPABASE_KEY',
+      'SUPABASE_ANON_KEY',
+    ]) {
+      out[key] = process.env[key];
+    }
+    return out;
   }
 
   test('audit() mirrors entries to the remote sink and reSeedFromRemote() restores them into the file (dedup by t)', async () => {
     const { server, port, rows } = await startFakeSupabase();
     const isolatedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-durability-'));
     const isolatedFile = path.join(isolatedDir, 'audit.log');
-    const prevUrl = process.env.AUDIT_REMOTE_URL;
-    const prevKey = process.env.AUDIT_REMOTE_KEY;
-    const prevFile = process.env.AUDIT_LOG_FILE;
+    const prev = snapshotAuditEnv();
     try {
       const auditModule = freshAuditModule({
         remoteUrl: `http://127.0.0.1:${port}/rest/v1`,
@@ -159,15 +183,13 @@ describe('durable audit trail — remote sink + re-seed', () => {
       const lines2 = fs.readFileSync(isolatedFile, 'utf8').split('\n').filter(Boolean);
       assert.equal(lines2.length, 1);
     } finally {
-      freshAuditModule({ remoteUrl: prevUrl, remoteKey: prevKey, logFile: prevFile });
+      freshAuditModule(prev);
       server.close();
     }
   });
 
   test('without AUDIT_REMOTE_* everything behaves exactly as before (file only)', async () => {
-    const prevUrl = process.env.AUDIT_REMOTE_URL;
-    const prevKey = process.env.AUDIT_REMOTE_KEY;
-    const prevFile = process.env.AUDIT_LOG_FILE;
+    const prev = snapshotAuditEnv();
     try {
       const auditModule = freshAuditModule({ remoteUrl: undefined, remoteKey: undefined, logFile: undefined });
       const result = await auditModule.reSeedFromRemote();
@@ -178,7 +200,86 @@ describe('durable audit trail — remote sink + re-seed', () => {
       const last = JSON.parse(lines[lines.length - 1]);
       assert.equal(last.event, 'test.file.only');
     } finally {
-      freshAuditModule({ remoteUrl: prevUrl, remoteKey: prevKey, logFile: prevFile });
+      freshAuditModule(prev);
+    }
+  });
+
+  // ---- Zero-config derivation from the Supabase driver config ---------------
+  //
+  // The whole point of the change: a deploy that already talks to Supabase (it
+  // has SUPABASE_URL + SUPABASE_KEY to run the driver) must get a durable audit
+  // trail with NO new env vars and no new secret pasted into a dashboard.
+  test('derives the remote sink from SUPABASE_URL/SUPABASE_KEY when AUDIT_REMOTE_* is unset', async () => {
+    const { server, port, rows } = await startFakeSupabase();
+    const prev = snapshotAuditEnv();
+    const isolatedFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'audit-derived-')), 'audit.log');
+    try {
+      const auditModule = freshAuditModule({
+        supabaseUrl: `http://127.0.0.1:${port}`,
+        supabaseKey: 'service-role-from-driver',
+        logFile: isolatedFile,
+      });
+
+      const status = auditModule.remoteStatus();
+      assert.equal(status.enabled, true, 'sink is live with no AUDIT_REMOTE_* configured');
+      assert.equal(status.derived, true, 'reported as derived, not explicit');
+      // The bare project URL must gain the PostgREST /rest/v1 suffix.
+      assert.equal(status.url, `http://127.0.0.1:${port}/rest/v1`);
+      assert.equal(status.table, 'audit_log');
+
+      auditModule.audit('test.derived', { actor: 'tester' });
+      const deadline = Date.now() + 3000;
+      while (rows.length === 0 && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      assert.equal(rows.length, 1, 'the derived sink actually receives the audit line');
+      assert.equal(rows[0].data.event, 'test.derived');
+    } finally {
+      freshAuditModule(prev);
+      server.close();
+    }
+  });
+
+  test('explicit AUDIT_REMOTE_URL wins over SUPABASE_URL (trail can point elsewhere)', () => {
+    const prev = snapshotAuditEnv();
+    try {
+      const auditModule = freshAuditModule({
+        remoteUrl: 'https://audit-only.example.com/rest/v1',
+        remoteKey: 'explicit-key',
+        supabaseUrl: 'https://data-project.supabase.co',
+        supabaseKey: 'driver-key',
+      });
+      const status = auditModule.remoteStatus();
+      assert.equal(status.enabled, true);
+      assert.equal(status.derived, false, 'explicit config is reported as explicit');
+      assert.equal(status.url, 'https://audit-only.example.com/rest/v1');
+    } finally {
+      freshAuditModule(prev);
+    }
+  });
+
+  test('no Supabase config and no AUDIT_REMOTE_* leaves the sink disabled', () => {
+    const prev = snapshotAuditEnv();
+    try {
+      const auditModule = freshAuditModule({ supabaseUrl: undefined, supabaseKey: undefined });
+      const status = auditModule.remoteStatus();
+      assert.equal(status.enabled, false);
+      assert.equal(status.derived, false);
+      assert.equal(status.url, null);
+    } finally {
+      freshAuditModule(prev);
+    }
+  });
+
+  test('/api/meta reports the durable audit status on both backends', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const res = await call(side.url, '/api/meta');
+      assert.equal(res.status, 200);
+      assert.ok(res.json.audit, `${side.label || 'backend'}: /api/meta carries an audit block`);
+      assert.equal(typeof res.json.audit.enabled, 'boolean');
+      assert.equal(res.json.audit.table, 'audit_log');
+      // Shape only — the key must never be exposed on a public endpoint.
+      assert.equal(res.json.audit.key, undefined, 'no key is ever exposed');
     }
   });
 });

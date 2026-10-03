@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { remoteStatus } = require('../audit');
 
 // GET /api/meta — public build/driver identity (no auth: nothing sensitive).
 //
@@ -30,6 +31,10 @@ router.get('/meta', (req, res) => {
     commit: normalizeCommit(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT),
     driver: 'sqlite',
     startedAt: process.env.INVENTRAK_STARTED_AT || null,
+    // Is the audit trail durable? Derived from the same Supabase config the
+    // driver uses, so this reads true on any Supabase-backed deploy. Exposes
+    // the shape (url + table), never the key.
+    audit: remoteStatus(),
     time: new Date().toISOString(),
   });
 });

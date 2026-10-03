@@ -31,6 +31,11 @@ CREATE TABLE IF NOT EXISTS products (
   size TEXT,
   unit TEXT,
   price REAL,
+  -- Cost of goods (what the café pays). NULLABLE and optional: a product with
+  -- no cost simply is not costed, and the costing snapshot records that
+  -- honestly (cost_basis) instead of inventing a number. Distinct from price,
+  -- which is what the customer pays.
+  cost REAL,
   status TEXT DEFAULT 'active',
   image TEXT,
   created_at TEXT DEFAULT (datetime('now')),
@@ -89,6 +94,10 @@ CREATE TABLE IF NOT EXISTS order_inquiries (
   payment_qr TEXT,
   payment_provider TEXT,
   user_id INTEGER,
+  -- Links the inquiry to the Customer Record it belongs to. Guests have a
+  -- customer row too (they just have no account), so this is only NULL for
+  -- orders with no usable identity at all.
+  customer_id INTEGER,
   status_history TEXT,
   status TEXT DEFAULT 'pending',
   created_at TEXT DEFAULT (datetime('now'))
@@ -102,8 +111,40 @@ CREATE TABLE IF NOT EXISTS sales_transactions (
   total_amount REAL,
   transaction_date TEXT DEFAULT (datetime('now')),
   customer_name TEXT,
+  -- Links the sale to a Customer Record. NULL on seeded/historical rows, which
+  -- carry only a free-text name (backfill with scripts/backfill-customers.js).
+  customer_id INTEGER,
   FOREIGN KEY(product_id) REFERENCES products(id)
 );
+
+-- Customer Records: the business entity behind orders and sales.
+--
+-- Distinct from the users table, which holds ACCOUNTS (login, role, password). Guest
+-- checkout is first-class, so a customer does not need an account — user_id is
+-- an optional link, null for walk-ins. Everything else (business_name,
+-- contact_number, email, address) previously lived smeared across
+-- order_inquiries and sales_transactions, once per order, which made "this
+-- customer's history" unanswerable. See backend/src/customers.js for the
+-- resolve-or-create identity rule.
+CREATE TABLE IF NOT EXISTS customers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  business_name TEXT,
+  contact_number TEXT,
+  email TEXT,
+  address TEXT,
+  -- Optional link to the account this customer signs in with.
+  user_id INTEGER,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+-- Email is the most stable identifier a café customer gives, so it is unique
+-- when present. A partial index, because NULL/'' (walk-ins with no email) must
+-- not collide with each other.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_email
+  ON customers (lower(email)) WHERE email IS NOT NULL AND email <> '';
 
 CREATE TABLE IF NOT EXISTS inventory_alerts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -186,6 +227,38 @@ CREATE TABLE IF NOT EXISTS stock_transfers (
   FOREIGN KEY(product_id) REFERENCES products(id),
   FOREIGN KEY(src_location) REFERENCES locations(id),
   FOREIGN KEY(dst_location) REFERENCES locations(id)
+);
+
+-- Costing snapshot: the economics of one order inquiry FROZEN at submission.
+--
+-- Why a table at all: the inquiry's estimated_cost is the total the CUSTOMER
+-- PAYS, and it is recomputed from line subtotals. That makes it a function of
+-- today's catalog -- reprice a product and last month's order silently reports
+-- a different (wrong) profit. This row is written once and never rewritten, so
+-- the figures a customer was quoted stay true forever. See backend/src/costing.js.
+--
+-- UNIQUE(inquiry_id) enforces "one snapshot per inquiry" in the database, not
+-- just in application code. cost_basis records how much is real:
+--   'exact'   every priced line had a known unit cost
+--   'imputed' some did; the rest were estimated from the blended cost ratio
+--   'none'    nothing could be costed, so the money fields are NULL
+CREATE TABLE IF NOT EXISTS costing_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  inquiry_id INTEGER NOT NULL,
+  total_cost REAL,
+  total_revenue REAL,
+  -- "A cup" is one ordered unit: the sum of the line quantities.
+  target_quantity REAL,
+  cost_per_cup REAL,
+  suggested_selling_price REAL,
+  estimated_profit REAL,
+  cost_basis TEXT DEFAULT 'none',
+  lines_priced INTEGER DEFAULT 0,
+  lines_total INTEGER DEFAULT 0,
+  margin_percent REAL,
+  computed_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(inquiry_id),
+  FOREIGN KEY(inquiry_id) REFERENCES order_inquiries(id)
 );
 `;
 

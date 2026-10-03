@@ -5,13 +5,24 @@
 -- events seemed to vanish. The backend now mirrors every audit line to this
 -- table (best-effort) and re-seeds the local file from it at boot.
 --
--- Wired to the backend with two Render env vars on inventrak-api:
---   AUDIT_REMOTE_URL   = https://<project-ref>.supabase.co/rest/v1
---   AUDIT_REMOTE_KEY   = the service_role secret (same as SUPABASE_KEY)
+-- Wired to the backend automatically. Running this SQL IS the whole setup:
+-- audit.js derives its sink from the Supabase driver config the app already
+-- has, so there is no env var to add and no secret to paste.
+--
+--   SUPABASE_URL + SUPABASE_KEY  (already set on inventrak-api)
+--       -> https://<ref>.supabase.co/rest/v1 + service_role key
+--
+-- Optional overrides (rare — only to point the trail at a DIFFERENT project
+-- than the data):
+--   AUDIT_REMOTE_URL   = https://<other-ref>.supabase.co/rest/v1
+--   AUDIT_REMOTE_KEY   = that project's service_role secret
 --   AUDIT_REMOTE_TABLE = audit_log (optional — this is the default)
 --
--- Without those vars the backend behaves exactly as before (file only), so
--- this migration is safe to run on any environment.
+-- Check status without a dashboard: GET /api/meta -> .audit
+--
+-- If the table does not exist, the backend still works exactly as before
+-- (file only) — the mirror is best-effort and only warns, throttled to once
+-- every 5 minutes.
 --
 -- Storage shape: one row per audit event — the full JSON entry (t, event,
 -- actor, actorRole, kind, target_id, payload, ...) lives in a single jsonb

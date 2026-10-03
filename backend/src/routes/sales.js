@@ -4,6 +4,7 @@ const { db } = require('../db');
 const { authenticateToken } = require('../auth-core');
 const { adminOnly } = require('../middleware');
 const { validate } = require('../validation');
+const { resolveCustomer } = require('../customers');
 
 // POST /api/sales
 router.post('/', authenticateToken, adminOnly, validate({
@@ -15,8 +16,34 @@ router.post('/', authenticateToken, adminOnly, validate({
   if (!product) return res.status(404).json({ error: 'Product not found or inactive' });
 
   const total = qty * product.price;
-  db.prepare('INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, customer_name) VALUES (?, ?, ?, ?, ?)')
-    .run(product_id, qty, product.price, total, customer_name || req.user?.username || 'anonymous');
+  const buyerName = customer_name || req.user?.username || 'anonymous';
+
+  // Link the sale to a Customer Record. A counter sale carries only a name, so
+  // resolve-or-create on name (customers.js). Guarded: never fail a sale over
+  // customer bookkeeping — the row simply lands with customer_id NULL.
+  let customerId = null;
+  try {
+    const rows = db.prepare('SELECT * FROM customers').all();
+    const { customer, created, changed } = resolveCustomer(rows, { name: buyerName, now: new Date().toISOString() });
+    if (customer) {
+      if (created) {
+        customerId = Number(db.prepare(
+          `INSERT INTO customers (name, business_name, contact_number, email, address, user_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(customer.name, customer.business_name, customer.contact_number, customer.email, customer.address, customer.user_id, customer.created_at, customer.updated_at).lastInsertRowid);
+      } else {
+        customerId = Number(customer.id);
+        if (changed) {
+          db.prepare('UPDATE customers SET updated_at = ? WHERE id = ?').run(customer.updated_at, customer.id);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[customers] resolve failed for sale:', err && err.message);
+  }
+
+  db.prepare('INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, customer_name, customer_id) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(product_id, qty, product.price, total, buyerName, customerId);
 
   res.status(201).json({ ok: true, total });
 });

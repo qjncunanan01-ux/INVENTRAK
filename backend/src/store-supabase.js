@@ -30,6 +30,12 @@ const TABLES = {
   '@inventoryMeta': 'inventory_meta',
   '@resetTokens': 'reset_tokens',
   '@lots': 'stock_lots',
+  // Costing snapshots — the immutable per-inquiry economics frozen at
+  // submission (see backend/src/costing.js).
+  '@costingRecords': 'costing_records',
+  // Customer Records — the business entity behind orders and sales. Distinct
+  // from `users`, which are accounts (see backend/src/customers.js).
+  '@customers': 'customers',
 };
 
 let client = null; // supabase client

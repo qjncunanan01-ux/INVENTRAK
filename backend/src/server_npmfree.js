@@ -24,6 +24,9 @@ const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./criti
 const { buildPaymentStep } = require('./payments');
 const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./qr-codes');
 const { normalizeLines } = require('./product-lines');
+const { computeCostingSnapshot, snapshotRow, toPublic } = require('./costing');
+const { stripCost, stripCostAll } = require('./product-visibility');
+const { resolveCustomer, summarize } = require('./customers');
 const {
   generateSecret,
   verifyTOTP,
@@ -200,6 +203,19 @@ let salesTransactions = [];
 let nextSaleId = 1;
 let alerts = [];
 let nextAlertId = 1;
+// Costing snapshots: one immutable row per order inquiry, mirroring the
+// costing_records table in the SQLite backend. Hydrated from the cloud store
+// like @lots so the economics of past orders survive a redeploy.
+let costingRecords = [];
+// Customer Records: the business entity behind orders and sales, distinct from
+// `users` (which are accounts). Kept in memory and persisted to '@customers'
+// under a cloud driver, exactly like @lots and @costingRecords.
+let customers = [];
+let nextCustomerId = 1;
+
+function persistCustomers() {
+  if (useFirestore || useSupabase) writeJSON('@customers', customers);
+}
 
 // Memoized movement-aware critical levels (see critical-level.js). Declared up
 // here because bootstrap() derives alerts before the helper block below runs.
@@ -385,6 +401,19 @@ function bootstrap() {
       stockLots = persistedLots;
       nextLotId = Math.max(...persistedLots.map(l => l.id)) + 1;
     }
+    // Costing snapshots hydrate the same way: a redeploy must not erase the
+    // profit figures a customer was quoted.
+    const persistedCosting = readJSON('@costingRecords');
+    if (Array.isArray(persistedCosting)) {
+      costingRecords = persistedCosting;
+    }
+    // Customer Records hydrate the same way — one row per real person must
+    // survive a redeploy, or customer history silently resets.
+    const persistedCustomers = readJSON('@customers');
+    if (Array.isArray(persistedCustomers) && persistedCustomers.length) {
+      customers = persistedCustomers;
+      nextCustomerId = Math.max(...customers.map(c => Number(c.id) || 0)) + 1;
+    }
     // Hydrated users may predate verification (or come from a plaintext-era
     // migration) — treat any row that isn't explicitly false as verified, so
     // existing accounts are never locked out by the new signup gate.
@@ -490,6 +519,11 @@ function seedSales() {
         total_amount: saleQty * price,
         transaction_date: new Date(SEED_EPOCH - daysAgo * 86400000).toISOString(),
         customer_name: cust,
+        // Seeded history predates Customer Records and carries only a free-text
+        // name, so customer_id is NULL. Stated explicitly (rather than omitted)
+        // so the row shape matches SQLite's SELECT *, which always emits the key
+        // — the cross-backend contract test compares key sets.
+        customer_id: null,
       });
     });
   });
@@ -508,6 +542,9 @@ function formatProduct(p, idx) {
     unit: pick(p['Unit'], p.unit, ''),
     // Preserve an explicit null (partial PUT nulls the column) to match SQLite.
     price: pick(p['Price'], p.price, 0),
+    // Cost of goods: absent in the seeded catalog means "not costed", which
+    // must surface as null (not 0) so costing.js can tell them apart.
+    cost: pick(p['Cost'], p.cost, null) === undefined ? null : (pick(p['Cost'], p.cost, null) || null),
     status: pick(p['status'], p.status, 'active'),
     // Firestore maps null -> ''; normalize back to null for SQLite parity.
     image: pick(p['Image'], p.image, '') || null,
@@ -1027,8 +1064,8 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  // Public build/driver identity — mirrors routes/meta.js on the SQLite
-  // backend (same shape; the contract test asserts both stay identical).
+// Public build/driver identity — mirrors routes/meta.js on the SQLite
+// backend (same shape; the contract test asserts both stay identical).
   // Nothing sensitive: name, version, deploy commit, storage driver, uptime.
   if (req.method === 'GET' && url.split('?')[0] === '/api/meta') {
     let commit = null;
@@ -1048,6 +1085,9 @@ const server = http.createServer((req, res) => {
       commit,
       driver: useSupabase ? 'supabase' : firestoreConfigured() ? 'firestore' : 'json',
       startedAt: process.env.INVENTRAK_STARTED_AT || null,
+      // Mirrors routes/meta.js: whether the audit trail is durable. See the
+      // matching comment there — shape only, never the key.
+      audit: require('./audit').remoteStatus(),
       time: new Date().toISOString(),
     });
   }
@@ -1062,7 +1102,10 @@ const server = http.createServer((req, res) => {
     const parts = url.split('?')[0].split('/').filter(Boolean); // [t, ...code]
     let code = parts.slice(1).join('/');
     try { code = decodeURIComponent(code); } catch { /* keep the raw value */ }
-    const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
+    // `cost` is business-confidential: strip it from every non-admin product read
+    // (the public tag page and the staff QR lookup). Staff are authenticated but
+    // deliberately NOT entitled to the margin — locked by security.test.js.
+    const products = (readJSON(productsFile) || []).map((p, idx) => stripCost(formatProduct(p, idx)));
     const inv = getInventory();
     const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));
     const stockLookup = productId => {
@@ -1996,6 +2039,13 @@ const server = http.createServer((req, res) => {
       .map(formatProduct)
       .filter(f => (want === 'active' ? isProductActive(f) : f.status === want))
       .sort((a, b) => a.name.localeCompare(b.name, 'en'));
+    // `cost` is business-confidential and this response is served with
+    // `Cache-Control: public, max-age=300`, so it can sit in a shared CDN cache.
+    // Strip it unconditionally — an admin must never be able to seed the cache
+    // with a cost-bearing response that anonymous visitors then read. Admin-only
+    // cost access lives on /api/products/costs instead (mirrors the SQLite
+    // backend; see backend/src/product-visibility.js).
+    formatted = stripCostAll(formatted);
 
     if (search) {
       const s = search.toLowerCase();
@@ -2027,6 +2077,40 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, formatted, READ_CACHE_TTL);
   }
 
+  // Customer Records (admin only) — the customer list with aggregates, and one
+  // customer's order + purchase history. Mirrors routes/customers.js.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/customers') {
+    return requireAuth(req, res, true, (req, res) => {
+      const orders = readJSON(orderFile) || [];
+      const sales = salesTransactions.length ? salesTransactions : readJSON('@sales') || [];
+      const rows = summarize(customers, {
+        inquiries: orders.filter(o => o.customer_id != null).map(o => ({ customer_id: o.customer_id, created_at: o.created_at })),
+        sales: sales.filter(s => s.customer_id != null).map(s => ({ customer_id: s.customer_id, total_amount: s.total_amount, transaction_date: s.transaction_date })),
+      }).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'en'));
+      return sendJson(res, 200, rows);
+    });
+  }
+
+  if (req.method === 'GET' && /^\/api\/customers\/\d+$/.test(url.split('?')[0])) {
+    return requireAuth(req, res, true, (req, res) => {
+      const id = Number(url.split('?')[0].split('/')[3]);
+      const customer = customers.find(c => Number(c.id) === id);
+      if (!customer) return sendJson(res, 404, { error: 'Customer not found' });
+      const orders = readJSON(orderFile) || [];
+      const sales = salesTransactions.length ? salesTransactions : readJSON('@sales') || [];
+      const inquiries = orders
+        .filter(o => Number(o.customer_id) === id)
+        .map(o => ({ id: o.id, status: o.status, estimated_cost: o.estimated_cost, created_at: o.created_at, status_history: o.status_history }))
+        .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      const mine = sales
+        .filter(s => Number(s.customer_id) === id)
+        .map(s => ({ id: s.id, product_id: s.product_id, qty: s.qty, total_amount: s.total_amount, transaction_date: s.transaction_date }))
+        .sort((a, b) => String(b.transaction_date || '').localeCompare(String(a.transaction_date || '')));
+      const [withAgg] = summarize([customer], { inquiries, sales: mine });
+      return sendJson(res, 200, { ...withAgg, inquiries, sales: mine });
+    });
+  }
+
   // QR product identification (staff or admin): the scanned tag yields an
   // identifier, the database resolves it. Same response shape as the SQLite
   // backend's GET /api/products/qr/:code — contract tests assert parity.
@@ -2038,7 +2122,10 @@ const server = http.createServer((req, res) => {
     // both forms (qr-lookup.test.js locks this parity).
     let code = parts.slice(3).join('/');
     try { code = decodeURIComponent(code); } catch { /* keep the raw value */ }
-    const products = (readJSON(productsFile) || []).map((p, idx) => formatProduct(p, idx));
+    // `cost` is business-confidential: strip it from every non-admin product read
+    // (the public tag page and the staff QR lookup). Staff are authenticated but
+    // deliberately NOT entitled to the margin — locked by security.test.js.
+    const products = (readJSON(productsFile) || []).map((p, idx) => stripCost(formatProduct(p, idx)));
     const inv = getInventory();
     const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));
     const stockLookup = productId => {
@@ -2062,8 +2149,24 @@ const server = http.createServer((req, res) => {
     const id = parseInt(url.split('?')[0].split('/').pop(), 10);
     const products = readJSON(productsFile) || [];
     if (!products[id - 1]) return sendJson(res, 404, { error: 'Product not found' });
-    // Match the SQLite backend: the row is returned regardless of status.
-    return sendJson(res, 200, formatProduct(products[id - 1], id - 1));
+    // Match the SQLite backend: the row is returned regardless of status, and
+    // `cost` is stripped (business-confidential — admin-only access lives on
+    // /api/products/costs).
+    return sendJson(res, 200, stripCost(formatProduct(products[id - 1], id - 1)));
+  }
+
+  // GET /api/products/costs — admin-only cost-of-goods sheet (the bulk cost-entry
+  // screen). Mirrors the SQLite backend. Declared BEFORE the /:id matcher above
+  // is irrelevant here (that matcher requires a numeric final segment), and the
+  // response is never given a public cache header.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/products/costs') {
+    return requireAuth(req, res, true, (req, res) => {
+      const rows = (readJSON(productsFile) || []).map((p, idx) => {
+        const f = formatProduct(p, idx);
+        return { id: f.id, sku: f.sku, name: f.name, price: f.price, cost: f.cost };
+      });
+      return sendJson(res, 200, rows);
+    });
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/products') {
@@ -2092,6 +2195,12 @@ const server = http.createServer((req, res) => {
           });
         }
         const products = readJSON(productsFile) || [];
+        // Cost of goods: optional and nullable. Absent/blank/null all mean
+        // "not costed", which stays null so costing.js reports it honestly.
+        if (obj.cost !== undefined && obj.cost !== null && obj.cost !== '' && !(Number(obj.cost) >= 0)) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['cost must be a non-negative number or null'] });
+        }
+        const costNum = obj.cost === undefined || obj.cost === null || obj.cost === '' ? null : Number(obj.cost);
         // QR identification: optional custom SKU (same validation/shape rules
         // as the SQLite backend), else the deterministic system SKU from the
         // new row's positional id.
@@ -2120,6 +2229,8 @@ const server = http.createServer((req, res) => {
           Size: sanitizeObject(obj.size || ''),
           Unit: sanitizeObject(obj.unit || 'pcs'),
           Price: priceNum,
+          // Cost of goods (optional; null = not costed). Mirrors SQLite.
+          Cost: costNum,
           status: 'active',
           Image: obj.image || '',
         };
@@ -2233,6 +2344,12 @@ const server = http.createServer((req, res) => {
         p['Size'] = obj.size != null ? sanitizeObject(obj.size) : null;
         p['Unit'] = obj.unit != null ? sanitizeObject(obj.unit) : null;
         p['Price'] = obj.price !== undefined ? Number(obj.price) : null;
+        // Cost of goods: full-replace like price, so null deliberately clears
+        // it back to "not costed" (see costing.js cost_basis).
+        if (obj.cost !== undefined && obj.cost !== null && !(Number(obj.cost) >= 0)) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['cost must be a non-negative number or null'] });
+        }
+        p['Cost'] = obj.cost === undefined || obj.cost === '' ? null : (obj.cost === null ? null : Number(obj.cost));
         p['status'] = obj.status ?? null;
         p['Image'] = obj.image ?? null;
         // QR identification: optional custom SKU on update, mirroring the
@@ -3278,6 +3395,28 @@ const server = http.createServer((req, res) => {
       // always matches what the customer was charged (SQLite parity).
       const { lines, total } = normalizeLines(obj.products);
       const storedCost = total !== null ? total : obj.estimated_cost || 0;
+      // Resolve the Customer Record BEFORE building the row so the inquiry can
+      // carry its customer_id (SQLite parity — see backend/src/customers.js).
+      // Guarded: an order must never fail over customer bookkeeping.
+      let customerId = null;
+      try {
+        const { customer, created } = resolveCustomer(customers, {
+          name: obj.customer_name,
+          email: obj.customer_email,
+          contact_number: obj.customer_phone,
+          address: obj.delivery_address,
+          user_id: userId,
+          now,
+        });
+        if (customer) {
+          if (customer.id == null) customer.id = nextCustomerId++;
+          customerId = Number(customer.id);
+          if (created) audit('customer.created', { customerId, name: obj.customer_name });
+          persistCustomers();
+        }
+      } catch (err) {
+        console.error('[customers] resolve failed for order:', err && err.message);
+      }
       const newOrder = {
         id,
         customer_name: obj.customer_name,
@@ -3294,10 +3433,22 @@ const server = http.createServer((req, res) => {
         payment_qr: null,
         payment_provider: null,
         user_id: userId,
+        customer_id: customerId,
         status_history: JSON.stringify([{ status: 'pending', at: now }]),
         status: 'pending',
         created_at: now,
       };
+      // Freeze the economics now, while the catalog still reflects what the
+      // customer was quoted (SQLite parity — see backend/src/costing.js).
+      // Guarded: costing must never be able to reject an order.
+      try {
+        const catalog = (readJSON(productsFile) || []).map((p, idx) => ({ id: idx + 1, ...p }));
+        const snapshot = computeCostingSnapshot({ lines, products: catalog, revenue: storedCost });
+        costingRecords.push({ id: costingRecords.length + 1, ...snapshotRow(id, snapshot, now) });
+        if (useFirestore || useSupabase) writeJSON('@costingRecords', costingRecords);
+      } catch (err) {
+        console.error('[costing] snapshot failed for order', id, err && err.message);
+      }
       // GCash/Card checkout: build the payment step (PayMongo when configured,
       // else the QR demo fallback) — identical to the SQLite backend. Guarded
       // so a provider failure can never leave the client hanging.
@@ -3341,6 +3492,28 @@ const server = http.createServer((req, res) => {
             }
           : {}),
       });
+    });
+  }
+
+  // The immutable costing snapshot taken when the inquiry was submitted.
+  // Scoped exactly like the inquiry itself (admins see any, a customer sees
+  // only their own) — mirrors the SQLite backend's /:id/costing route.
+  if (req.method === 'GET' && /^\/api\/order-inquiries\/\d+\/costing$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, false, (req, res) => {
+      const orders = readJSON(orderFile) || [];
+      const order = orders.find(o => o.id === id);
+      if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+      if (!ADMIN_TIER.includes(req.user.role)) {
+        const owner = users.find(u => u.id === req.user.id);
+        const myEmail = ((owner && owner.email) || '').toLowerCase();
+        const mine =
+          Number(order.user_id) === Number(req.user.id) || (order.customer_email || '').toLowerCase() === myEmail;
+        if (!mine) return sendJson(res, 403, { error: 'Not your inquiry' });
+      }
+      const row = costingRecords.find(c => Number(c.inquiry_id) === id);
+      if (!row) return sendJson(res, 404, { error: 'No costing record for this inquiry' });
+      return sendJson(res, 200, toPublic(row));
     });
   }
 
@@ -3775,6 +3948,22 @@ const server = http.createServer((req, res) => {
         const p = products[salePid - 1];
         if (!p || !isProductActive(p)) return sendJson(res, 404, { error: 'Product not found or inactive' });
         const total = saleQty * (p['Price'] || p.price || 0);
+        // Link the sale to a Customer Record (a counter sale carries only a
+        // name, so resolve-or-create on name). Guarded, like the SQLite backend.
+        let saleCustomerId = null;
+        try {
+          const { customer, created } = resolveCustomer(customers, {
+            name: obj.customer_name || 'anonymous',
+            now: new Date().toISOString(),
+          });
+          if (customer) {
+            if (customer.id == null) customer.id = nextCustomerId++;
+            saleCustomerId = Number(customer.id);
+            if (created) persistCustomers();
+          }
+        } catch (err) {
+          console.error('[customers] resolve failed for sale:', err && err.message);
+        }
         salesTransactions.push({
           id: nextSaleId++,
           product_id: salePid,
@@ -3783,6 +3972,7 @@ const server = http.createServer((req, res) => {
           total_amount: total,
           transaction_date: new Date().toISOString(),
           customer_name: obj.customer_name || 'anonymous',
+          customer_id: saleCustomerId,
         });
         if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
         return sendJson(res, 201, { ok: true, total });
