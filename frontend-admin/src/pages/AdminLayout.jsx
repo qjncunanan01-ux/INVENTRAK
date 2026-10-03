@@ -9,6 +9,7 @@ import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import PointOfSaleOutlined from '@mui/icons-material/PointOfSaleOutlined';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
+import RuleOutlined from '@mui/icons-material/RuleOutlined';
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
 import LocationOnOutlined from '@mui/icons-material/LocationOnOutlined';
@@ -50,6 +51,7 @@ const NAV_SECTIONS = [
     label: 'Inventory',
     items: [
       { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined, roles: STAFF_TIER },
+      { label: 'Shelf vs System', path: '/reconciliation', Icon: RuleOutlined, roles: STAFF_TIER },
       { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined, roles: ADMIN_TIER },
     ],
   },

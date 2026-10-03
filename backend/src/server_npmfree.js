@@ -27,6 +27,7 @@ const { normalizeLines } = require('./product-lines');
 const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry, targetMarginPercent } = require('./costing');
 const { stripCost, stripCostAll } = require('./product-visibility');
 const { resolveCustomer, summarize } = require('./customers');
+const { reconcile } = require('./reconciliation');
 const {
   generateSecret,
   verifyTOTP,
@@ -134,6 +135,10 @@ const orderFile = path.join(dataDir, 'order_inquiries.json');
 const adjustmentsFile = path.join(dataDir, 'stock_adjustments.json');
 const transfersFile = path.join(dataDir, 'stock_transfers.json');
 const openapiFile = path.join(__dirname, '..', 'openapi.json');
+// Stocktake counts: the in-memory equivalent of the SQLite inventory_counts
+// table. Persisted like the other ledgers so the reconciliation survives a
+// redeploy on the Firestore/Supabase drivers.
+const countsFile = path.join(dataDir, 'inventory_counts.json');
 
 // In-memory datasets. The JSON driver keeps users/sales/alerts in memory (as
 // it always has); the Firestore driver hydrates them from the cloud at boot
@@ -201,6 +206,12 @@ let users = [
 let nextUserId = 6;
 let salesTransactions = [];
 let nextSaleId = 1;
+// Stocktake counts (mirrors the SQLite inventory_counts table).
+let inventoryCounts = [];
+let nextCountId = 1;
+function persistCounts() {
+  writeJSON(countsFile, inventoryCounts);
+}
 let alerts = [];
 let nextAlertId = 1;
 // Costing snapshots: one immutable row per order inquiry, mirroring the
@@ -2623,6 +2634,134 @@ const server = http.createServer((req, res) => {
     if (lowStock) items = items.filter(item => item.total < item.critical_level);
     const locations = inv.locations.map((name, index) => ({ id: index + 1, name }));
     return sendJson(res, 200, { locations, items }, READ_CACHE_TTL);
+  }
+
+  // ================= INVENTORY RECONCILIATION =================
+  //
+  // Shelf vs system. Staff record a count (counting is the staff role); the
+  // reconciliation that turns counts into shrinkage is admin-tier because it
+  // reports money at risk. Arithmetic is shared with SQLite via
+  // reconciliation.js, so both drivers produce identical numbers.
+
+  if (req.method === 'POST' && url === '/api/inventory/count') {
+    return requireAuth(req, res, false, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const countPid = Number(obj.product_id);
+        const countLoc = Number(obj.location_id);
+        const countQty = Number(obj.counted_qty);
+        // Mirror the SQLite validate() schema: ids positive integers, counted
+        // quantity a non-negative number. A negative count is nonsense and a
+        // NaN would silently become 0.
+        if (!Number.isInteger(countPid) || countPid < 1) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
+        }
+        if (!Number.isInteger(countLoc) || countLoc < 1) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
+        }
+        if (obj.counted_qty === undefined || obj.counted_qty === null || obj.counted_qty === '' || !Number.isFinite(countQty) || countQty < 0) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['counted_qty must be a non-negative number'] });
+        }
+        const products = readJSON(productsFile) || [];
+        if (!products[countPid - 1] || !isProductActive(products[countPid - 1])) {
+          return sendJson(res, 404, { error: 'Product not found' });
+        }
+        const inv = getInventory();
+        const locName = inv.locations[countLoc - 1];
+        if (!locName) return sendJson(res, 404, { error: 'Location not found' });
+
+        // Snapshot what the system believes NOW — the only moment the system's
+        // figure still matches the shelf the counter is looking at.
+        const item = inv.items.find(i => i.product && Number(i.product.id) === countPid);
+        const systemQty = item ? Number(item.locations[locName] || 0) : 0;
+
+        const row = {
+          id: nextCountId++,
+          product_id: countPid,
+          location_id: countLoc,
+          counted_qty: countQty,
+          system_qty: systemQty,
+          counted_at: new Date().toISOString(),
+          counted_by: (req.user && req.user.username) || 'unknown',
+          note: obj.note || null,
+        };
+        inventoryCounts.push(row);
+        persistCounts();
+
+        audit('inventory.counted', {
+          actor: row.counted_by,
+          actorRole: (req.user && req.user.role) || null,
+          count_id: row.id,
+          product_id: countPid,
+          location_id: countLoc,
+          counted_qty: countQty,
+          system_qty: systemQty,
+          variance: countQty - systemQty,
+        });
+
+        return sendJson(res, 201, {
+          ok: true,
+          count_id: row.id,
+          product_id: countPid,
+          location_id: countLoc,
+          counted_qty: countQty,
+          system_qty: systemQty,
+          variance: countQty - systemQty,
+        });
+      });
+    });
+  }
+
+  if (req.method === 'GET' && url.split('?')[0] === '/api/inventory/reconciliation') {
+    return requireAuth(req, res, true, (req, res) => {
+      const parsed = new URL(url, 'http://localhost');
+      const onlyVariance = parsed.searchParams.get('only_variance') === 'true';
+      const filterPid = parsed.searchParams.get('product_id');
+      const inv = getInventory();
+      const products = readJSON(productsFile) || [];
+
+      // Only the most recent count per product/location (mirrors SQLite).
+      const latest = new Map();
+      for (const c of inventoryCounts) {
+        const key = `${c.product_id}@${c.location_id}`;
+        const seen = latest.get(key);
+        if (!seen || String(c.counted_at) > String(seen.counted_at)) latest.set(key, c);
+      }
+      let counts = [...latest.values()];
+      if (filterPid) counts = counts.filter(c => Number(c.product_id) === Number(filterPid));
+
+      const stock = [];
+      for (const item of inv.items) {
+        if (!item || !item.product) continue;
+        for (let i = 0; i < inv.locations.length; i++) {
+          const name = inv.locations[i];
+          if (item.locations[name] === undefined) continue; // no row -> no stock record
+          stock.push({ product_id: Number(item.product.id), location_id: i + 1, quantity: Number(item.locations[name]) || 0 });
+        }
+      }
+
+      const sales = (salesTransactions.length ? salesTransactions : readJSON('@sales') || []).map(s => ({
+        product_id: Number(s.product_id),
+        qty: Number(s.qty) || 0,
+        transaction_date: s.transaction_date,
+      }));
+      const productRows = products.map((p, idx) => ({
+        id: idx + 1,
+        name: p['Product Name'] || p.name || `Product ${idx + 1}`,
+        category: p.Category || p.category || null,
+        price: Number(p.Price != null ? p.Price : p.price) || 0,
+      }));
+
+      const report = reconcile({ counts, stock, sales, products: productRows });
+      const rows = onlyVariance ? report.rows.filter(r => r.classification !== 'balanced') : report.rows;
+      const locations = inv.locations.map((name, index) => ({ id: index + 1, name }));
+      const names = Object.fromEntries(locations.map(l => [l.id, l.name]));
+      return sendJson(res, 200, {
+        ...report,
+        rows: rows.map(r => ({ ...r, location: names[r.location_id] || `Location ${r.location_id}` })),
+        locations,
+      });
+    });
   }
 
   // ================= LOCATIONS =================

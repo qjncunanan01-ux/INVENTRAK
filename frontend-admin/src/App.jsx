@@ -11,6 +11,7 @@ import LocationsPage from './pages/LocationsPage';
 import LoginPage from './pages/LoginPage';
 import OptimizationPage from './pages/OptimizationPage';
 import OrderInquiriesPage from './pages/OrderInquiriesPage';
+import ReconciliationPage from './pages/ReconciliationPage';
 import ProductsPage from './pages/ProductsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ReportsPage from './pages/ReportsPage';
@@ -100,6 +101,7 @@ function AppRoutes() {
         <Route path="/" element={<RequireRole roles={ADMIN_TIER}><DashboardPage user={user} onLogout={handleLogout} /></RequireRole>} />
         <Route path="/products" element={<RequireRole roles={ADMIN_TIER}><ProductsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/inventory" element={<InventoryPage onLogout={handleLogout} />} />
+        <Route path="/reconciliation" element={<ReconciliationPage onLogout={handleLogout} />} />
         <Route path="/scan-stock" element={<ScanStockPage onLogout={handleLogout} />} />
         <Route path="/till" element={<RequireRole roles={ADMIN_TIER}><TillPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/stock-movement" element={<StockMovementPage onLogout={handleLogout} />} />

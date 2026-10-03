@@ -200,7 +200,7 @@
         },
         "responses": {
           "200": {
-            "description": "Always succeeds \u00e2\u20ac\u201d never reveals whether the email has an unverified account",
+            "description": "Always succeeds â€” never reveals whether the email has an unverified account",
             "content": {
               "application/json": {
                 "schema": {
@@ -237,7 +237,7 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful \u00e2\u20ac\u201d either a session token (AuthResponse) or, when the admin has enrolled MFA, an MfaChallenge",
+            "description": "Login successful â€” either a session token (AuthResponse) or, when the admin has enrolled MFA, an MfaChallenge",
             "content": {
               "application/json": {
                 "schema": {
@@ -260,7 +260,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Forbidden \u00e2\u20ac\u201d a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin, code: portal_mobile_only), or a non-staff role attempted to sign in from the staff app (portal=staff, code: staff_app_exclusive).",
+            "description": "Forbidden â€” a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin, code: portal_mobile_only), or a non-staff role attempted to sign in from the staff app (portal=staff, code: staff_app_exclusive).",
             "content": {
               "application/json": {
                 "schema": {
@@ -366,7 +366,7 @@
         },
         "responses": {
           "200": {
-            "description": "Always succeeds \u00e2\u20ac\u201d the response never reveals whether the email has an account",
+            "description": "Always succeeds â€” the response never reveals whether the email has an account",
             "content": {
               "application/json": {
                 "schema": {
@@ -548,7 +548,7 @@
           "Products"
         ],
         "operationId": "bulkUpdateCosts",
-        "summary": "Set unit cost on many products in one request (admin only) \u2014 the cost-of-goods CSV import",
+        "summary": "Set unit cost on many products in one request (admin only) — the cost-of-goods CSV import",
         "description": "The cost-of-goods counterpart to /api/products/bulk-prices. A blank or null cost CLEARS the product back to \"not costed\"; an entry with no cost key at all is skipped and left unchanged. Cost is never exposed on any public product read.",
         "security": [
           {
@@ -594,7 +594,7 @@
           "Products"
         ],
         "operationId": "bulkUpdatePrices",
-        "summary": "Set prices for many products in one request (admin only) \u00e2\u20ac\u201d the price-list CSV import",
+        "summary": "Set prices for many products in one request (admin only) â€” the price-list CSV import",
         "security": [
           {
             "bearerAuth": []
@@ -639,7 +639,7 @@
           "Products"
         ],
         "operationId": "listProductCosts",
-        "summary": "Cost-of-goods sheet (admin only) \u2014 the only read path that reveals product cost",
+        "summary": "Cost-of-goods sheet (admin only) — the only read path that reveals product cost",
         "description": "Cost of goods is the business's margin, so it is stripped from every public product read (catalog list, single product, QR lookup, tag page) regardless of who is asking. That catalog is served with `Cache-Control: public, max-age=300`, so an admin's response could otherwise sit in a shared cache and be read by an anonymous visitor. This endpoint is authenticated, admin-tier only, and never publicly cached.",
         "security": [
           {
@@ -1250,7 +1250,7 @@
           "Stock Movements"
         ],
         "operationId": "createStockAdjustment",
-        "summary": "Create a stock adjustment request (admin only) \u00e2\u20ac\u201d PENDING until approved",
+        "summary": "Create a stock adjustment request (admin only) â€” PENDING until approved",
         "security": [
           {
             "bearerAuth": []
@@ -1455,7 +1455,7 @@
           "Stock Movements"
         ],
         "operationId": "createStockTransfer",
-        "summary": "Create a stock transfer request (admin only) \u00e2\u20ac\u201d PENDING until approved",
+        "summary": "Create a stock transfer request (admin only) â€” PENDING until approved",
         "security": [
           {
             "bearerAuth": []
@@ -2049,7 +2049,7 @@
           "Analytics"
         ],
         "operationId": "getAnalyticsSummary",
-        "summary": "Dashboard summary metrics (admin tier \u00e2\u20ac\u201d contains revenue)",
+        "summary": "Dashboard summary metrics (admin tier â€” contains revenue)",
         "security": [
           {
             "bearerAuth": []
@@ -2685,7 +2685,7 @@
           "Admin"
         ],
         "operationId": "promoteUser",
-        "summary": "Promote a customer account to admin (admin only) \u00e2\u20ac\u201d the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)",
+        "summary": "Promote a customer account to admin (admin only) â€” the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)",
         "security": [
           {
             "bearerAuth": []
@@ -2733,7 +2733,7 @@
           "Health"
         ],
         "operationId": "getHealth",
-        "summary": "Public liveness probe \u00e2\u20ac\u201d returns 200 with service status and active driver",
+        "summary": "Public liveness probe â€” returns 200 with service status and active driver",
         "responses": {
           "200": {
             "description": "Service is up",
@@ -2775,7 +2775,7 @@
           "Health"
         ],
         "operationId": "getMeta",
-        "summary": "Public build identity \u00e2\u20ac\u201d name, package version, deployed git commit, storage driver, process start time",
+        "summary": "Public build identity â€” name, package version, deployed git commit, storage driver, process start time",
         "responses": {
           "200": {
             "description": "Build metadata",
@@ -3165,7 +3165,7 @@
           "Auth"
         ],
         "operationId": "mfaDisable",
-        "summary": "Disable MFA \u00e2\u20ac\u201d requires the current authenticator code",
+        "summary": "Disable MFA â€” requires the current authenticator code",
         "security": [
           {
             "bearerAuth": []
@@ -3326,7 +3326,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Get runtime system settings (admin tier \u00e2\u20ac\u201d read-only)",
+        "summary": "Get runtime system settings (admin tier â€” read-only)",
         "description": "Returns the live runtime configuration: demo-account gate, default FSN window, low-stock multiplier, and session token lifetime. Readable by the admin tier; changes only via PUT (Owner/Super Admin).",
         "security": [
           {
@@ -3348,7 +3348,7 @@
             "description": "Unauthorized"
           },
           "403": {
-            "description": "Forbidden \u00e2\u20ac\u201d non-admin token"
+            "description": "Forbidden â€” non-admin token"
           }
         }
       },
@@ -3358,7 +3358,7 @@
           "Users"
         ],
         "summary": "Update runtime system settings (Owner / Super Admin only)",
-        "description": "Partial update \u00e2\u20ac\u201d only provided keys change. Every value is validated and clamped server-side; the change is written to the audit trail and takes effect immediately (session TTL applies to tokens issued afterwards).",
+        "description": "Partial update â€” only provided keys change. Every value is validated and clamped server-side; the change is written to the audit trail and takes effect immediately (session TTL applies to tokens issued afterwards).",
         "security": [
           {
             "bearerAuth": []
@@ -3376,7 +3376,7 @@
         },
         "responses": {
           "200": {
-            "description": "Saved \u00e2\u20ac\u201d returns the full updated settings",
+            "description": "Saved â€” returns the full updated settings",
             "content": {
               "application/json": {
                 "schema": {
@@ -3397,13 +3397,13 @@
             }
           },
           "400": {
-            "description": "Validation failed \u00e2\u20ac\u201d details list the offending keys"
+            "description": "Validation failed â€” details list the offending keys"
           },
           "401": {
             "description": "Unauthorized"
           },
           "403": {
-            "description": "Forbidden \u00e2\u20ac\u201d requires Owner or Super Admin"
+            "description": "Forbidden â€” requires Owner or Super Admin"
           }
         }
       }
@@ -3414,7 +3414,7 @@
           "Users"
         ],
         "operationId": "listAuditTrail",
-        "summary": "Security audit log entries (admin only) \u00e2\u20ac\u201d newest first",
+        "summary": "Security audit log entries (admin only) â€” newest first",
         "security": [
           {
             "bearerAuth": []
@@ -3427,7 +3427,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) \u00e2\u20ac\u201d keeps only entries whose details.status matches"
+            "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) â€” keeps only entries whose details.status matches"
           },
           {
             "name": "limit",
@@ -3508,7 +3508,7 @@
         ],
         "operationId": "getProductByQr",
         "summary": "QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)",
-        "description": "The single round-trip behind QR product identification. Accepts the tag payload (INVENTRAK:PROD:<id>), a SKU (PRD-000042 or a custom code), or a bare numeric id (legacy barcode fallback). Returns the product, its QR tag data, a live per-location stock snapshot and open FIFO lots. The QR authorizes NOTHING \u00e2\u20ac\u201d normal authentication, product status, location, quantity and approval rules all still apply after the scan.",
+        "description": "The single round-trip behind QR product identification. Accepts the tag payload (INVENTRAK:PROD:<id>), a SKU (PRD-000042 or a custom code), or a bare numeric id (legacy barcode fallback). Returns the product, its QR tag data, a live per-location stock snapshot and open FIFO lots. The QR authorizes NOTHING â€” normal authentication, product status, location, quantity and approval rules all still apply after the scan.",
         "security": [
           {
             "bearerAuth": []
@@ -3551,6 +3551,112 @@
           },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/inventory/count": {
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "recordInventoryCount",
+        "summary": "Record a stocktake count (staff or admin)",
+        "description": "What a person physically counted on a shelf, plus a snapshot of what the system believed at that moment. The snapshot is the only chance to capture it — once the stock column moves on, the variance the counter found can no longer be computed. Counting is a staff duty; reading the reconciliation is not (it reports money at risk).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryCountInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Count recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryCountResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/reconciliation": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getInventoryReconciliation",
+        "summary": "Shelf-vs-system reconciliation: shrinkage and unrecorded sales (admin only)",
+        "description": "Compares the last physical count of each shelf against what the system believes and against the sales the till recorded since. unexplained = system_now - (counted - recorded_sales_since). Positive means the system believes stock that is not on the shelf; negative means more was found than expected. Reports units and money at risk; it deliberately does NOT assert a cause, because theft, breakage and a till error are indistinguishable from the data.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "only_variance",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Return only rows that are not balanced"
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reconciliation report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         }
       }
@@ -3774,7 +3880,7 @@
             "type": "string",
             "maxLength": 20,
             "pattern": "^(\\+63|63|0)?9[0-9]{9}$",
-            "description": "Valid PH mobile number (09171234567, +639171234567 or 639171234567). Required \u00e2\u20ac\u201d used for SMS verification and order updates under the Data Privacy Act (RA 10173)."
+            "description": "Valid PH mobile number (09171234567, +639171234567 or 639171234567). Required â€” used for SMS verification and order updates under the Data Privacy Act (RA 10173)."
           }
         }
       },
@@ -3841,7 +3947,7 @@
               "admin",
               "staff"
             ],
-            "description": "Portal flag identifying which app is signing in. portal=admin (web admin): mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only. portal=staff (dedicated staff app): only Inventory Staff is admitted \u00e2\u20ac\u201d admins/owners are refused with 403 staff_app_exclusive. Omitted by the customer app."
+            "description": "Portal flag identifying which app is signing in. portal=admin (web admin): mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only. portal=staff (dedicated staff app): only Inventory Staff is admitted â€” admins/owners are refused with 403 staff_app_exclusive. Omitted by the customer app."
           }
         }
       },
@@ -3916,7 +4022,7 @@
             "type": "number",
             "nullable": true,
             "minimum": 0,
-            "description": "Cost of goods \u2014 what the caf\u00e9 pays, as opposed to price (what the customer pays). Null means the product is not costed; order costing then records cost_basis='none'/'imputed' rather than inventing a figure."
+            "description": "Cost of goods — what the café pays, as opposed to price (what the customer pays). Null means the product is not costed; order costing then records cost_basis='none'/'imputed' rather than inventing a figure."
           },
           "status": {
             "type": "string",
@@ -3939,7 +4045,7 @@
           "sku": {
             "type": "string",
             "nullable": true,
-            "description": "Stable product identifier encoded in the printed QR tag (system default PRD-000001; custom codes allowed). The QR payload itself is INVENTRAK:PROD:<id> \u00e2\u20ac\u201d the sku is display/back-compat only."
+            "description": "Stable product identifier encoded in the printed QR tag (system default PRD-000001; custom codes allowed). The QR payload itself is INVENTRAK:PROD:<id> â€” the sku is display/back-compat only."
           }
         }
       },
@@ -3995,7 +4101,7 @@
           },
           "sku": {
             "type": "string",
-            "description": "Custom SKU (3-32 chars: A-Z, 0-9, dashes). Omit to get the deterministic system SKU (PRD-<padded id>). Cannot be cleared once set \u00e2\u20ac\u201d reprint the tag instead."
+            "description": "Custom SKU (3-32 chars: A-Z, 0-9, dashes). Omit to get the deterministic system SKU (PRD-<padded id>). Cannot be cleared once set â€” reprint the tag instead."
           }
         }
       },
@@ -4027,7 +4133,7 @@
           },
           "target_quantity": {
             "type": "number",
-            "description": "Sum of line quantities \u2014 one ordered unit is one 'cup'."
+            "description": "Sum of line quantities — one ordered unit is one 'cup'."
           },
           "cost_per_cup": {
             "type": "number",
@@ -4674,7 +4780,7 @@
             "type": "number",
             "minimum": 1,
             "maximum": 3,
-            "description": "Low-stock badge widening factor: low_stock when qty \u00e2\u2030\u00a4 criticalLevel \u00c3\u2014 factor."
+            "description": "Low-stock badge widening factor: low_stock when qty â‰¤ criticalLevel Ã— factor."
           },
           "session_token_hours": {
             "type": "integer",
@@ -4686,7 +4792,7 @@
       },
       "UpdateSettingsRequest": {
         "type": "object",
-        "description": "Partial update \u00e2\u20ac\u201d only the provided keys are changed.",
+        "description": "Partial update â€” only the provided keys are changed.",
         "properties": {
           "demo_accounts_disabled": {
             "type": "boolean"
@@ -5395,7 +5501,7 @@
           "customer_id": {
             "type": "integer",
             "nullable": true,
-            "description": "Links to the Customer Record this order belongs to. Guests get a Customer Record too \u2014 they simply have no account. Null only when the order carries no usable identity at all."
+            "description": "Links to the Customer Record this order belongs to. Guests get a Customer Record too — they simply have no account. Null only when the order carries no usable identity at all."
           },
           "products": {
             "type": "string"
@@ -5926,7 +6032,7 @@
           },
           "orderStatusCounts": {
             "type": "object",
-            "description": "Alias of orderStatusSummary \u00e2\u20ac\u201d inquiry counts per status",
+            "description": "Alias of orderStatusSummary â€” inquiry counts per status",
             "properties": {
               "pending": {
                 "type": "integer"
@@ -6157,7 +6263,7 @@
         "properties": {
           "secret": {
             "type": "string",
-            "description": "Base32 TOTP secret \u00e2\u20ac\u201d paste into an authenticator app"
+            "description": "Base32 TOTP secret â€” paste into an authenticator app"
           },
           "otpauth_url": {
             "type": "string",
@@ -6236,7 +6342,7 @@
               "type": "string",
               "example": "ABCD-EFGH-JKLM"
             },
-            "description": "One-time recovery codes \u00e2\u20ac\u201d shown exactly once, stored only as hashes. Save them somewhere safe."
+            "description": "One-time recovery codes â€” shown exactly once, stored only as hashes. Save them somewhere safe."
           }
         }
       },
@@ -6427,7 +6533,7 @@
             "properties": {
               "payload": {
                 "type": "string",
-                "description": "INVENTRAK:PROD:<id> \u00e2\u20ac\u201d the exact string encoded in the printed tag; handy for reprinting."
+                "description": "INVENTRAK:PROD:<id> â€” the exact string encoded in the printed tag; handy for reprinting."
               },
               "sku": {
                 "type": "string",
@@ -6468,6 +6574,222 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StockLot"
+            }
+          }
+        }
+      },
+      "InventoryCountInput": {
+        "type": "object",
+        "required": [
+          "product_id",
+          "location_id",
+          "counted_qty"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "location_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "counted_qty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "InventoryCountResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "count_id",
+          "product_id",
+          "location_id",
+          "counted_qty",
+          "system_qty",
+          "variance"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "count_id": {
+            "type": "integer"
+          },
+          "product_id": {
+            "type": "integer"
+          },
+          "location_id": {
+            "type": "integer"
+          },
+          "counted_qty": {
+            "type": "number"
+          },
+          "system_qty": {
+            "type": "number",
+            "description": "What the system believed at the moment of the count"
+          },
+          "variance": {
+            "type": "number",
+            "description": "counted_qty - system_qty: what the counter found"
+          }
+        }
+      },
+      "ReconciliationRow": {
+        "type": "object",
+        "required": [
+          "product_id",
+          "location_id",
+          "product",
+          "counted_qty",
+          "system_qty_now",
+          "unexplained_qty",
+          "classification",
+          "value_at_risk"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "integer"
+          },
+          "location_id": {
+            "type": "integer"
+          },
+          "product": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "counted_qty": {
+            "type": "number"
+          },
+          "system_qty_at_count": {
+            "type": "number"
+          },
+          "variance_at_count": {
+            "type": "number",
+            "description": "counted - system at count time: the variance the counter found"
+          },
+          "counted_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "counted_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "sales_since_count": {
+            "type": "number"
+          },
+          "unparsed_sales": {
+            "type": "number"
+          },
+          "count_undated": {
+            "type": "boolean",
+            "description": "The count has no usable timestamp, so it cannot be reconciled against sales"
+          },
+          "expected_qty_now": {
+            "type": "number",
+            "description": "counted - recorded sales since the count"
+          },
+          "system_qty_now": {
+            "type": "number"
+          },
+          "unexplained_qty": {
+            "type": "number",
+            "description": "system_qty_now - expected_qty_now. Positive = the system believes stock that is not there."
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "loss",
+              "overage"
+            ]
+          },
+          "value_at_risk": {
+            "type": "number",
+            "description": "unexplained units x SELLING price (cost is null across most of the catalog)"
+          },
+          "unit_price": {
+            "type": "number"
+          }
+        }
+      },
+      "ReconciliationReport": {
+        "type": "object",
+        "required": [
+          "rows",
+          "summary",
+          "locations"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationRow"
+            }
+          },
+          "summary": {
+            "type": "object",
+            "required": [
+              "counted_rows",
+              "balanced",
+              "losses",
+              "overages",
+              "shrinkage_units",
+              "overage_units",
+              "value_at_risk"
+            ],
+            "properties": {
+              "counted_rows": {
+                "type": "integer"
+              },
+              "balanced": {
+                "type": "integer"
+              },
+              "losses": {
+                "type": "integer"
+              },
+              "overages": {
+                "type": "integer"
+              },
+              "shrinkage_units": {
+                "type": "number"
+              },
+              "overage_units": {
+                "type": "number"
+              },
+              "value_at_risk": {
+                "type": "number"
+              },
+              "incomplete_sales_rows": {
+                "type": "integer",
+                "description": "Counts whose sales carry an unreadable timestamp"
+              },
+              "undated_counts": {
+                "type": "integer",
+                "description": "Counts that cannot be reconciled against sales at all"
+              }
+            }
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "object"
             }
           }
         }

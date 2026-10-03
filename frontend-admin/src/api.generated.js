@@ -190,6 +190,10 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getCacheStats: (_) => request('GET', '/api/cache/stats', {  }),
   // GET /api/products/qr/{code} — QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)
   getProductByQr: ({ code }) => request('GET', '/api/products/qr/{code}', { params: { code } }),
+  // POST /api/inventory/count — Record a stocktake count (staff or admin)
+  recordInventoryCount: (body) => request('POST', '/api/inventory/count', { body }),
+  // GET /api/inventory/reconciliation — Shelf-vs-system reconciliation: shrinkage and unrecorded sales (admin only)
+  getInventoryReconciliation: (params) => request('GET', '/api/inventory/reconciliation', { query: params }),
   };
 }
 

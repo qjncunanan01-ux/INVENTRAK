@@ -10,7 +10,7 @@ Every number below is reproducible from a clean clone:
 ```bash
 cd backend
 npm run seed     # deterministic: fixed-seed PRNG -> identical 612-row ledger
-npm run verify   # 620/620
+npm run verify   # 649/649
 ```
 
 ---
@@ -40,6 +40,7 @@ produced a single classification.
 | 14 | Exponential-backoff lockout | Fail a login 5× | "Wait time doubles each breach." |
 | 15 | TOTP / MFA | **Security → Enable MFA** | "RFC 6238, server-verified." |
 | 16 | The counter sale | **Stock Control → Till** | "One tap writes the revenue row, takes the stock off the shelf — and it shows you WHICH batch, before and after." |
+| 17 | Shelf-vs-system reconciliation | **Inventory → Shelf vs System** | "Count the shelf. Here is what the ledger cannot account for." |
 
 **If a panel member asks "prove it"** — the strongest single move is the
 **cross-backend contract test**: the SQLite backend and the npm-free/Firestore/
@@ -719,11 +720,87 @@ number.
 
 ---
 
+## 17. Shelf-vs-System Reconciliation (shrinkage)
+
+**Question:** *The shelf and the ledger disagree. Which products, and how much money?*
+
+### Basis — and the two things it refuses to pretend
+
+Two facts constrain the whole design, and both were found by reading the
+schema rather than assuming:
+
+1. **There is no recorded opening balance.** The seeder invents per-product
+   stock numbers and writes no movement rows for them. So the obvious formula
+   `expected = stock − sales` is arithmetically meaningless here — it just
+   echoes the seed back. Any report claiming to know the opening stock would
+   be inventing it.
+2. **Physical stock is only observable by counting.** No database can detect
+   that a bottle walked out. Only a person on the shelf can.
+
+Which leaves one comparison that is both computable and honest.
+
+### Formula (`backend/src/reconciliation.js`, exact)
+
+```text
+expected_now   = counted − recorded_sales_since_the_count
+unexplained    = system_now − expected_now
+
+unexplained > 0  →  the system believes stock that is NOT on the shelf.  LOSS.
+unexplained < 0  →  more is on the shelf than expected.               OVERAGE.
+```
+
+`counted` is a real stocktake. `system_qty` is **snapshotted at the moment of
+the count** (`POST /api/inventory/count`), because once the stock column moves
+on, the variance the counter found can no longer be computed at all.
+
+### Worked example — verified against the running backend
+
+```text
+Mon  count 113   system said 113   variance   0     <- stocktake, everything agreed
+     sale of 5 through the Till                -> system 108
+     3 units leave with NO record              -> shelf is really 105
+Fri  count 105   system said 108   variance  −3     <- the counter found them
+
+REPORT  counted 105 · sales since 0 · expected 105 · system now 108
+        UNEXPLAINED = +3   -> loss
+        3 units x Php 1070 selling price = Php 3,210 at risk
+```
+
+### What it deliberately does not claim
+
+- **It does not name a cause.** A unit missing from a shelf is identical in
+  the data whether it was stolen, broken, or rung up on paper. The report says
+  "unaccounted for" and stops. A test asserts the word "theft" never appears in
+  a finding — only in the disclaimer explaining why it cannot be known.
+- **It does not blame anyone.** `counted_by` is on screen for the audit trail.
+- **It does not hide its own gaps.** Counts with an unusable timestamp, and
+  sales whose timestamp cannot be read, are counted in the summary rather than
+  quietly folded into a clean-looking total.
+
+### The bug worth defending
+
+Found by running it, not reading it: `sales_since_count` came back **0** for a
+sale that had definitely been recorded.
+
+SQLite's `datetime('now')` writes `2026-10-03 16:38:32` — UTC, space-separated,
+**no zone marker**. `Date.parse` reads that shape as *local* time. On a UTC+8
+machine (the Philippines) that is an **eight-hour error** against the ISO `Z`
+rows the seeder writes, and a count can order against a sale it should follow.
+Second-resolution stamps also collide with a sale made in the same second.
+
+Both spellings are now parsed explicitly as UTC, and the count is stamped at
+millisecond precision. The same-instant sale is then *included*, because
+excluding it makes the physical expectation too high — **overstating** a loss
+the business cannot have committed. Understating merely delays a finding;
+overstating money-at-risk accuses someone of shrinkage.
+
+---
+
 ## Verification — reproduce every number in this document
 
 ```bash
 cd backend
-npm run verify      # 620/620 across 52 suites
+npm run verify      # 649/649 across 53 suites
 ```
 
 Every test file in `src/test/` is listed in the `npm test` script — 52 files,
@@ -735,6 +812,8 @@ being skipped without anyone noticing.)
 | FSN classification + dual-backend parity | `src/test/fsn.test.js` |
 | FEFO overrides FIFO; expiry travels with transfers | `src/test/fefo.test.js` |
 | Counter sale: stock decrement, FEFO, oversell refusal, audit, consumed-lot manifest | `src/test/walk-in-sales.test.js` |
+| Reconciliation arithmetic, sign convention, UTC stamps, tier split | `src/test/reconciliation.test.js` |
+| Reconciliation wording never names a cause | `frontend-admin/src/reconciliation.test.js` |
 | Till: FEFO preview + receipt, batch labels | `frontend-admin/src/till.test.js`, `frontend-admin/src/pages/TillPage.test.jsx` |
 | Settings RBAC + live effect, end-to-end flows, adjustment expiry | `src/test/settings.test.js`, `src/test/e2e-ci.test.js`, `src/test/adjustment-expiry.test.js` |
 | Critical level: floors, clamps, badge ladder | `src/test/critical-level.test.js` |

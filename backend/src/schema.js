@@ -117,6 +117,35 @@ CREATE TABLE IF NOT EXISTS sales_transactions (
   FOREIGN KEY(product_id) REFERENCES products(id)
 );
 
+-- Stocktake counts: what a person physically saw on a shelf.
+--
+-- This table exists because PHYSICAL STOCK IS ONLY OBSERVABLE BY COUNTING. No
+-- database can tell that a bottle walked out; only someone on the shelf can.
+-- There is also no recorded opening balance anywhere in this schema — the
+-- seeder invents stock numbers and writes no movement rows for them — so
+-- "expected = stock - sales" would only echo the seed back. The count is
+-- therefore the anchor the reconciliation hangs off (see reconciliation.js).
+--
+-- system_qty is a SNAPSHOT of what the system believed at the moment of the
+-- count, recorded alongside the physical figure. Without it the variance the
+-- counter found could not be computed later, once the stock column has moved
+-- on. See backend/src/reconciliation.js for the arithmetic.
+CREATE TABLE IF NOT EXISTS inventory_counts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL,
+  location_id INTEGER NOT NULL,
+  counted_qty REAL NOT NULL,
+  system_qty REAL NOT NULL,
+  counted_at TEXT DEFAULT (datetime('now')),
+  counted_by TEXT,
+  note TEXT,
+  FOREIGN KEY(product_id) REFERENCES products(id),
+  FOREIGN KEY(location_id) REFERENCES locations(id)
+);
+
+CREATE INDEX IF NOT EXISTS inventory_counts_product_idx
+  ON inventory_counts(product_id, location_id);
+
 -- Customer Records: the business entity behind orders and sales.
 --
 -- Distinct from the users table, which holds ACCOUNTS (login, role, password). Guest
