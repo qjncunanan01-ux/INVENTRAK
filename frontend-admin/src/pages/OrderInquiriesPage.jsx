@@ -257,8 +257,8 @@ export default function OrderInquiriesPage({ onLogout }) {
           </div>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 160, backgroundColor: colors.surface }}>
-              <InputLabel>Status</InputLabel>
-              <Select value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
+              <InputLabel id="inq-status-label">Status</InputLabel>
+              <Select labelId="inq-status-label" id="inq-status" value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
                 {STATUS_FILTERS.map(f => <MenuItem key={f.key || 'all'} value={f.key}>{f.label}</MenuItem>)}
               </Select>
             </FormControl>

@@ -100,14 +100,14 @@ export default function StockAdjustmentsPage({ onLogout }) {
         </Typography>
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-            <InputLabel>Product</InputLabel>
-            <Select value={form.product_id} label="Product" onChange={e => setForm({ ...form, product_id: e.target.value })}>
+            <InputLabel id="adj-product-label">Product</InputLabel>
+            <Select labelId="adj-product-label" id="adj-product" value={form.product_id} label="Product" onChange={e => setForm({ ...form, product_id: e.target.value })}>
               {prodList.map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-            <InputLabel>Location</InputLabel>
-            <Select value={form.location_id} label="Location" onChange={e => setForm({ ...form, location_id: e.target.value })}>
+            <InputLabel id="adj-location-label">Location</InputLabel>
+            <Select labelId="adj-location-label" id="adj-location" value={form.location_id} label="Location" onChange={e => setForm({ ...form, location_id: e.target.value })}>
               {locList.map(l => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
             </Select>
           </FormControl>
@@ -150,8 +150,8 @@ export default function StockAdjustmentsPage({ onLogout }) {
           </Box>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 150, backgroundColor: colors.surface }}>
-              <InputLabel>Status</InputLabel>
-              <Select value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
+              <InputLabel id="adj-status-label">Status</InputLabel>
+              <Select labelId="adj-status-label" id="adj-status" value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
                 <MenuItem value="">All</MenuItem>
                 <MenuItem value="pending">Pending</MenuItem>
                 <MenuItem value="approved">Approved</MenuItem>

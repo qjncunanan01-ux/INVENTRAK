@@ -133,8 +133,8 @@ export default function StockMovementPage({ onLogout }) {
           </Typography>
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-              <InputLabel>Movement type</InputLabel>
-              <Select value={form.type} label="Movement type" onChange={e => setForm({ ...form, type: e.target.value })}>
+              <InputLabel id="mov-type-label">Movement type</InputLabel>
+              <Select labelId="mov-type-label" id="mov-type" value={form.type} label="Movement type" onChange={e => setForm({ ...form, type: e.target.value })}>
                 <MenuItem value="stock-in">Stock In</MenuItem>
                 <MenuItem value="stock-out">Stock Out</MenuItem>
                 <MenuItem value="transfer">Transfer</MenuItem>
@@ -142,8 +142,8 @@ export default function StockMovementPage({ onLogout }) {
               </Select>
             </FormControl>
             <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-              <InputLabel>Product</InputLabel>
-              <Select value={form.product_id} label="Product" onChange={e => setForm({ ...form, product_id: e.target.value })}>
+              <InputLabel id="mov-product-label">Product</InputLabel>
+              <Select labelId="mov-product-label" id="mov-product" value={form.product_id} label="Product" onChange={e => setForm({ ...form, product_id: e.target.value })}>
                 {prodList.map(product => (
                   <MenuItem key={product.id} value={product.id}>{product.name}</MenuItem>
                 ))}
@@ -152,8 +152,8 @@ export default function StockMovementPage({ onLogout }) {
             <TextField label="Quantity" type="text" inputMode="decimal" value={form.qty} onChange={e => setForm({ ...form, qty: e.target.value.replace(/[^0-9.]/g, '') })} fullWidth />
             {showSrc && (
               <FormControl fullWidth>
-                <InputLabel>Source location</InputLabel>
-                <Select value={form.src_location} label="Source location" onChange={e => setForm({ ...form, src_location: e.target.value })}>
+                <InputLabel id="mov-src-label">Source location</InputLabel>
+                <Select labelId="mov-src-label" id="mov-src" value={form.src_location} label="Source location" onChange={e => setForm({ ...form, src_location: e.target.value })}>
                   <MenuItem value="">None</MenuItem>
                   {locList.map(loc => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
                 </Select>
@@ -161,8 +161,8 @@ export default function StockMovementPage({ onLogout }) {
             )}
             {showDst && (
               <FormControl fullWidth>
-                <InputLabel>Destination location</InputLabel>
-                <Select value={form.dst_location} label="Destination location" onChange={e => setForm({ ...form, dst_location: e.target.value })}>
+                <InputLabel id="mov-dst-label">Destination location</InputLabel>
+                <Select labelId="mov-dst-label" id="mov-dst" value={form.dst_location} label="Destination location" onChange={e => setForm({ ...form, dst_location: e.target.value })}>
                   <MenuItem value="">None</MenuItem>
                   {locList.map(loc => <MenuItem key={loc.id} value={loc.id}>{loc.name}</MenuItem>)}
                 </Select>

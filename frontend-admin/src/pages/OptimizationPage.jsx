@@ -370,8 +370,8 @@ export default function OptimizationPage({ onLogout }) {
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
           <FormControl sx={{ minWidth: 240 }}>
-            <InputLabel>Product</InputLabel>
-            <Select value={selectedProductId} label="Product" onChange={e => setSelectedProductId(e.target.value)}>
+            <InputLabel id="opt-product-label">Product</InputLabel>
+            <Select labelId="opt-product-label" id="opt-product" value={selectedProductId} label="Product" onChange={e => setSelectedProductId(e.target.value)}>
               {prodList.map(product => (
                 <MenuItem key={product.id} value={product.id.toString()}>{product.name}</MenuItem>
               ))}

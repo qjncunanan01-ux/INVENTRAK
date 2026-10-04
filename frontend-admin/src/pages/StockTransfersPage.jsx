@@ -101,20 +101,20 @@ export default function StockTransfersPage({ onLogout }) {
         </Typography>
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
           <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-            <InputLabel>Product</InputLabel>
-            <Select value={form.product_id} label="Product" onChange={e => setForm({ ...form, product_id: e.target.value })}>
+            <InputLabel id="trf-product-label">Product</InputLabel>
+            <Select labelId="trf-product-label" id="trf-product" value={form.product_id} label="Product" onChange={e => setForm({ ...form, product_id: e.target.value })}>
               {prodList.map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-            <InputLabel>From location</InputLabel>
-            <Select value={form.src_location} label="From location" onChange={e => setForm({ ...form, src_location: e.target.value })}>
+            <InputLabel id="trf-from-label">From location</InputLabel>
+            <Select labelId="trf-from-label" id="trf-from" value={form.src_location} label="From location" onChange={e => setForm({ ...form, src_location: e.target.value })}>
               {locList.map(l => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControl fullWidth sx={{ backgroundColor: colors.surface }}>
-            <InputLabel>To location</InputLabel>
-            <Select value={form.dst_location} label="To location" onChange={e => setForm({ ...form, dst_location: e.target.value })}>
+            <InputLabel id="trf-to-label">To location</InputLabel>
+            <Select labelId="trf-to-label" id="trf-to" value={form.dst_location} label="To location" onChange={e => setForm({ ...form, dst_location: e.target.value })}>
               {locList.map(l => <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>)}
             </Select>
           </FormControl>
@@ -138,8 +138,8 @@ export default function StockTransfersPage({ onLogout }) {
           <Typography variant="h6">Transfer history</Typography>
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 150, backgroundColor: colors.surface }}>
-              <InputLabel>Status</InputLabel>
-              <Select value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
+              <InputLabel id="trf-status-label">Status</InputLabel>
+              <Select labelId="trf-status-label" id="trf-status" value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
                 <MenuItem value="">All</MenuItem>
                 <MenuItem value="pending">Pending</MenuItem>
                 <MenuItem value="approved">Approved</MenuItem>

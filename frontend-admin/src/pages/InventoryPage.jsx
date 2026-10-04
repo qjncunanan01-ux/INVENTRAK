@@ -356,22 +356,22 @@ export default function InventoryPage({ onLogout }) {
               sx={{ minWidth: 220, backgroundColor: colors.surface }}
             />
             <FormControl size="small" sx={{ minWidth: 160 }}>
-              <InputLabel>Location</InputLabel>
-              <Select value={selectedLocation} label="Location" onChange={e => setSelectedLocation(e.target.value)}>
+              <InputLabel id="inv-filter-location-label">Location</InputLabel>
+              <Select labelId="inv-filter-location-label" id="inv-filter-location" value={selectedLocation} label="Location" onChange={e => setSelectedLocation(e.target.value)}>
                 <MenuItem value="">All locations</MenuItem>
                 {locs.map(loc => <MenuItem key={loc.name} value={loc.name}>{loc.name}</MenuItem>)}
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 150, backgroundColor: colors.surface }}>
-              <InputLabel>Stock level</InputLabel>
-              <Select value={lowStockOnly ? 'low' : ''} label="Stock level" onChange={e => setLowStockOnly(e.target.value === 'low')}>
+              <InputLabel id="inv-filter-level-label">Stock level</InputLabel>
+              <Select labelId="inv-filter-level-label" id="inv-filter-level" value={lowStockOnly ? 'low' : ''} label="Stock level" onChange={e => setLowStockOnly(e.target.value === 'low')}>
                 <MenuItem value="">All items</MenuItem>
                 <MenuItem value="low">Low stock only</MenuItem>
               </Select>
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 190, backgroundColor: colors.surface }}>
-              <InputLabel>Best before</InputLabel>
-              <Select value={expiryFilter} label="Best before" onChange={e => setExpiryFilter(e.target.value)}>
+              <InputLabel id="inv-filter-expiry-label">Best before</InputLabel>
+              <Select labelId="inv-filter-expiry-label" id="inv-filter-expiry" value={expiryFilter} label="Best before" onChange={e => setExpiryFilter(e.target.value)}>
                 <MenuItem value="">Any expiry</MenuItem>
                 {EXPIRY_FILTERS.map(f => <MenuItem key={f.value} value={f.value}>{f.label}</MenuItem>)}
               </Select>
