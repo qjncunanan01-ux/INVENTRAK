@@ -39,12 +39,17 @@ const DEFAULTS = Object.freeze({
   low_stock_multiplier: 1.5,
   // Session token lifetime in hours (1–168; default 24h).
   session_token_hours: Math.round(TOKEN_TTL_MS_DEFAULT / 3600000),
+  // How long a shelf count stays fresh before that shelf is due to be walked
+  // again (1–365; default 30 days — a monthly stocktake, the cadence most
+  // small retail operations actually run). Read by src/stocktake.js.
+  stocktake_cycle_days: 30,
 });
 
 const LIMITS = Object.freeze({
   fsn_window_days: { min: 7, max: 730 },
   low_stock_multiplier: { min: 1.0, max: 3.0 },
   session_token_hours: { min: 1, max: 168 },
+  stocktake_cycle_days: { min: 1, max: 365 },
 });
 
 let memo = { at: 0, value: null };
@@ -112,7 +117,7 @@ function updateSettings(patch) {
     }
   }
 
-  for (const key of ['fsn_window_days', 'low_stock_multiplier', 'session_token_hours']) {
+  for (const key of ['fsn_window_days', 'low_stock_multiplier', 'session_token_hours', 'stocktake_cycle_days']) {
     if (patch[key] === undefined) continue;
     const num = Number(patch[key]);
     if (!Number.isFinite(num)) {
@@ -124,7 +129,8 @@ function updateSettings(patch) {
       errors.push(`${key} must be between ${min} and ${max}`);
       continue;
     }
-    next[key] = key === 'fsn_window_days' ? Math.round(num) : num;
+    // Day counts are whole days; a multiplier is not.
+    next[key] = key.endsWith('_days') || key === 'session_token_hours' ? Math.round(num) : num;
   }
 
   if (errors.length > 0) return { ok: false, errors, settings: current };
@@ -151,6 +157,13 @@ function getSessionTokenTtlMs() {
   return Math.round(Number(readAll().session_token_hours) * 3600000);
 }
 
+// How long a count stays fresh before its shelf is due again. Always >= 1: a
+// zero-day cycle would make every shelf permanently overdue and say nothing.
+function getStocktakeCycleDays() {
+  const n = Math.round(Number(readAll().stocktake_cycle_days));
+  return n > 0 ? n : DEFAULTS.stocktake_cycle_days;
+}
+
 module.exports = {
   DEFAULTS,
   LIMITS,
@@ -161,4 +174,5 @@ module.exports = {
   getFsnWindowDays,
   getLowStockMultiplier,
   getSessionTokenTtlMs,
+  getStocktakeCycleDays,
 };

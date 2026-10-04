@@ -10,7 +10,7 @@ Every number below is reproducible from a clean clone:
 ```bash
 cd backend
 npm run seed     # deterministic: fixed-seed PRNG -> identical 612-row ledger
-npm run verify   # 674/674
+npm run verify   # 709/709
 ```
 
 **The deck:** [`docs/algorithms-deck.html`](docs/algorithms-deck.html) — this whole
@@ -809,10 +809,10 @@ overstating money-at-risk accuses someone of shrinkage.
 
 ```bash
 cd backend
-npm run verify      # 674/674 across 54 suites
+npm run verify      # 709/709 across 55 suites
 ```
 
-Every test file in `src/test/` is listed in the `npm test` script — 54 files,
+Every test file in `src/test/` is listed in the `npm test` script — 55 files,
 all run. (Three of them had been left off the list, so 106 real tests were
 being skipped without anyone noticing.)
 

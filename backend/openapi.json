@@ -3660,6 +3660,39 @@
           }
         }
       }
+    },
+    "/api/stocktake": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getStocktakeSchedule",
+        "summary": "Recount board: which shelves are due to be walked (admin only)",
+        "description": "Returns one row per shelf with how far behind it is on its recount cycle. A shelf is re-counted only when EVERY product stocked on it has a count inside stocktake_cycle_days; a partial walk is reported as partial (coverage < 1) rather than resetting the shelf clock. Only products with stock on the shelf are counted — nothing stocked, nothing to walk. Empty shelves are never overdue. Computed on read, and the same pass raises and resolves stale_count flags on /api/alerts, so the board and the alert badge can never disagree.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recount board, worst shelf first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StocktakeBoard"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4787,6 +4820,12 @@
             "minimum": 1,
             "maximum": 168,
             "description": "Session token lifetime in hours (applies to tokens issued after the change)."
+          },
+          "stocktake_cycle_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365,
+            "description": "How long a shelf count stays fresh before that shelf is due to be walked again, in days. A shelf counts as re-counted only when EVERY line stocked on it is inside this window."
           }
         }
       },
@@ -4811,6 +4850,11 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 168
+          },
+          "stocktake_cycle_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
           }
         }
       },
@@ -6066,20 +6110,25 @@
             "type": "integer"
           },
           "product_id": {
-            "type": "integer"
+            "type": "integer",
+            "nullable": true,
+            "description": "NULL for shelf-level alerts (stale_count), which belong to a location rather than a product. Filter on alert_type to tell the two kinds apart."
           },
           "location_id": {
             "type": "integer",
             "nullable": true
           },
           "product_name": {
-            "type": "string"
+            "type": "string",
+            "nullable": true,
+            "description": "NULL for shelf-level alerts, which name a location instead."
           },
           "location_name": {
             "type": "string"
           },
           "alert_type": {
-            "type": "string"
+            "type": "string",
+            "description": "low_stock | expiring_soon | expired | stale_count. stale_count is raised against a whole shelf (location_id, product_id null) when the shelf has passed its recount cycle."
           },
           "threshold": {
             "type": "number"
@@ -6791,6 +6840,123 @@
             "items": {
               "type": "object"
             }
+          }
+        }
+      },
+      "StocktakeRow": {
+        "type": "object",
+        "required": [
+          "location_id",
+          "location",
+          "status",
+          "total_lines",
+          "fresh_lines"
+        ],
+        "properties": {
+          "location_id": {
+            "type": "integer"
+          },
+          "location": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "due_soon",
+              "overdue",
+              "never_counted",
+              "empty"
+            ],
+            "description": "ok = every stocked line is inside the cycle. overdue = at least one line is past due, or some lines were never counted. never_counted = the shelf has stocked lines but no usable count at all. empty = nothing is stocked there, so there is nothing to walk."
+          },
+          "total_lines": {
+            "type": "integer",
+            "description": "Products with stock on this shelf right now."
+          },
+          "fresh_lines": {
+            "type": "integer",
+            "description": "Of those, how many have a count inside the cycle."
+          },
+          "stale_lines": {
+            "type": "integer"
+          },
+          "never_counted_lines": {
+            "type": "integer"
+          },
+          "coverage": {
+            "type": "number",
+            "nullable": true,
+            "description": "fresh_lines / total_lines. Stays below 1 until EVERY line is fresh — counting one line out of forty does not re-count the shelf."
+          },
+          "last_count_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "due_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "When this shelf next needs a full walk. Anchored on the WORST line, never the newest: a fully-fresh shelf is due when its OLDEST fresh count ages out, a shelf with a stale line is already due, and a shelf with any never-counted line is due now (there is no date to count down from). A shelf that is not fully counted therefore never reports a future due date."
+          },
+          "days_until_due": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Negative once past due, by how many days the worst dated line is late. Zero when part of the shelf was never counted at all. Positive only when every stocked line is inside the cycle."
+          },
+          "cycle_days": {
+            "type": "integer"
+          },
+          "days_since_oldest_count": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Age in days of the oldest count recorded on this shelf (null if none)."
+          }
+        }
+      },
+      "StocktakeSummary": {
+        "type": "object",
+        "properties": {
+          "cycle_days": {
+            "type": "integer"
+          },
+          "locations": {
+            "type": "integer"
+          },
+          "shelves_needing_count": {
+            "type": "integer",
+            "description": "Overdue or never counted — the shelves to walk today."
+          },
+          "shelves_ok": {
+            "type": "integer"
+          },
+          "shelves_empty": {
+            "type": "integer"
+          },
+          "lines_total": {
+            "type": "integer"
+          },
+          "lines_stale": {
+            "type": "integer"
+          },
+          "computed_at": {
+            "type": "string"
+          }
+        }
+      },
+      "StocktakeBoard": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StocktakeRow"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/StocktakeSummary"
+          },
+          "cycle_days": {
+            "type": "integer"
           }
         }
       }

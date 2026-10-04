@@ -52,6 +52,10 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined, roles: STAFF_TIER },
       { label: 'Shelf vs System', path: '/reconciliation', Icon: RuleOutlined, roles: STAFF_TIER },
+      // Admin-tier to match GET /api/stocktake: it reports how far behind each
+      // shelf is, which is an oversight surface, not a counting one. Staff
+      // record the counts on Shelf vs System.
+      { label: 'Stocktake Schedule', path: '/stocktake', Icon: FactCheckOutlined, roles: ADMIN_TIER },
       { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined, roles: ADMIN_TIER },
     ],
   },

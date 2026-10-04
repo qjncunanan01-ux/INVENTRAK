@@ -194,6 +194,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   recordInventoryCount: (body) => request('POST', '/api/inventory/count', { body }),
   // GET /api/inventory/reconciliation — Shelf-vs-system reconciliation: shrinkage and unrecorded sales (admin only)
   getInventoryReconciliation: (params) => request('GET', '/api/inventory/reconciliation', { query: params }),
+  // GET /api/stocktake — Recount board: which shelves are due to be walked (admin only)
+  getStocktakeSchedule: (_) => request('GET', '/api/stocktake', {  }),
   };
 }
 

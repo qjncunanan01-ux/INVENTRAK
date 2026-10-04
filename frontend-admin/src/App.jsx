@@ -20,6 +20,7 @@ import SecurityPage from './pages/SecurityPage';
 import StockAdjustmentsPage from './pages/StockAdjustmentsPage';
 import StockMovementPage from './pages/StockMovementPage';
 import StockTransfersPage from './pages/StockTransfersPage';
+import StocktakePage from './pages/StocktakePage';
 import SettingsPage from './pages/SettingsPage';
 import TillPage from './pages/TillPage';
 import { createAppTheme } from './theme';
@@ -102,6 +103,10 @@ function AppRoutes() {
         <Route path="/products" element={<RequireRole roles={ADMIN_TIER}><ProductsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/inventory" element={<InventoryPage onLogout={handleLogout} />} />
         <Route path="/reconciliation" element={<ReconciliationPage onLogout={handleLogout} />} />
+        {/* GET /api/stocktake is adminOnly on both backends (it reports which
+            shelves are overdue and for how long), so the route is admin-tier —
+            a staff link here would be a button that always 403s. */}
+        <Route path="/stocktake" element={<RequireRole roles={ADMIN_TIER}><StocktakePage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/scan-stock" element={<ScanStockPage onLogout={handleLogout} />} />
         <Route path="/till" element={<RequireRole roles={ADMIN_TIER}><TillPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/stock-movement" element={<StockMovementPage onLogout={handleLogout} />} />

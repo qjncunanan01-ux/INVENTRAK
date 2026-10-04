@@ -1,6 +1,7 @@
 const { db } = require('./db');
 const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./critical-level');
 const settings = require('./settings');
+const { schedule } = require('./stocktake');
 
 let criticalCache = { at: 0, map: new Map() };
 
@@ -70,9 +71,66 @@ function refreshExpiryAlerts(now = new Date()) {
   }
 }
 
+// Stocktake overdue flags — one per shelf that is due to be walked.
+//
+// Same upsert/resolve shape as the two passes above, so it is idempotent: the
+// row is created when a shelf goes overdue, kept in step while it stays
+// overdue, and resolved the moment the shelf is counted again. Re-running it a
+// hundred times must not create a hundred rows or a hundred emails later.
+//
+// Column reuse, since inventory_alerts grew for a different feature:
+//   threshold   days PAST due (so the number on screen is the urgency)
+//   current_qty the shelf's stale+never-counted line count
+// product_id is NULL by design — staleness belongs to the SHELF, not to a line.
+function refreshStocktakeAlerts(now = Date.now()) {
+  const cycleDays = settings.getStocktakeCycleDays();
+
+  const locations = db.prepare('SELECT id, name FROM locations').all();
+  const stock = db.prepare('SELECT product_id, location_id, quantity FROM stock').all();
+  const counts = db.prepare('SELECT product_id, location_id, counted_at FROM inventory_counts').all();
+
+  const board = schedule({ locations, stock, counts, cycleDays, now });
+
+  const openFor = db.prepare(
+    "SELECT id, threshold, current_qty FROM inventory_alerts WHERE location_id = ? AND alert_type = 'stale_count' AND status = 'active'",
+  );
+  const insert = db.prepare(
+    "INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status) VALUES (NULL, ?, 'stale_count', ?, ?, 'active')",
+  );
+  const refresh = db.prepare('UPDATE inventory_alerts SET threshold = ?, current_qty = ? WHERE id = ?');
+  const resolve = db.prepare("UPDATE inventory_alerts SET status = 'resolved', resolved_at = datetime('now') WHERE id = ?");
+
+  const live = new Set();
+  for (const row of board.rows) {
+    if (row.status !== 'overdue' && row.status !== 'never_counted') continue;
+    live.add(row.location_id);
+
+    const daysPastDue = Math.max(0, -(row.days_until_due ?? 0));
+    const staleLines = row.stale_lines + row.never_counted_lines;
+
+    const open = openFor.get(row.location_id);
+    if (!open) insert.run(row.location_id, daysPastDue, staleLines);
+    else if (open.threshold !== daysPastDue || open.current_qty !== staleLines)
+      refresh.run(daysPastDue, staleLines, open.id);
+  }
+
+  // Anything flagged and no longer due is resolved — including shelves that were
+  // deleted outright, which is why this is keyed on the live set rather than on
+  // the board alone.
+  const stale = db
+    .prepare("SELECT id, location_id FROM inventory_alerts WHERE status = 'active' AND alert_type = 'stale_count'")
+    .all();
+  for (const row of stale) {
+    if (!live.has(Number(row.location_id))) resolve.run(row.id);
+  }
+
+  return board;
+}
+
 function refreshAlerts() {
   refreshLowStockAlerts();
   refreshExpiryAlerts();
+  refreshStocktakeAlerts();
 }
 
-module.exports = { refreshAlerts, criticalLevels, criticalLevelOf };
+module.exports = { refreshAlerts, refreshStocktakeAlerts, criticalLevels, criticalLevelOf };

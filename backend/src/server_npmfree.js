@@ -28,6 +28,7 @@ const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry, targetMar
 const { stripCost, stripCostAll } = require('./product-visibility');
 const { resolveCustomer, summarize } = require('./customers');
 const { reconcile } = require('./reconciliation');
+const { schedule } = require('./stocktake');
 const {
   generateSecret,
   verifyTOTP,
@@ -928,9 +929,82 @@ function refreshExpiryAlerts(now = new Date()) {
   if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
 }
 
+// Stocktake overdue flags — the in-memory twin of alert-helpers.js's pass.
+// Same pure scheduler (src/stocktake.js) fed from the JSON store, so the
+// npm-free backend produces the same board and the same flags as SQLite.
+function refreshStocktakeAlerts(now = Date.now()) {
+  const cycleDays = settings.getStocktakeCycleDays();
+  const inv = getInventory();
+  const locations = (inv.locations || []).map((name, index) => ({ id: index + 1, name }));
+
+  const stock = [];
+  for (const item of inv.items || []) {
+    if (!item || !item.product) continue;
+    for (let i = 0; i < (inv.locations || []).length; i++) {
+      const name = inv.locations[i];
+      if (item.locations[name] === undefined) continue; // no row -> no stock record
+      stock.push({ product_id: Number(item.product.id), location_id: i + 1, quantity: Number(item.locations[name]) || 0 });
+    }
+  }
+  const counts = (inventoryCounts.length ? inventoryCounts : readJSON('@counts') || []).map(c => ({
+    product_id: Number(c.product_id),
+    location_id: Number(c.location_id),
+    counted_at: c.counted_at,
+  }));
+
+  const board = schedule({ locations, stock, counts, cycleDays, now });
+  const live = new Set();
+
+  for (const row of board.rows) {
+    if (row.status !== 'overdue' && row.status !== 'never_counted') continue;
+    live.add(row.location_id);
+    const daysPastDue = Math.max(0, -(row.days_until_due == null ? 0 : row.days_until_due));
+    const staleLines = row.stale_lines + row.never_counted_lines;
+
+    const existing = alerts.find(
+      a =>
+        (a.product_id == null || a.product_id === '') &&
+        Number(a.location_id) === row.location_id &&
+        a.alert_type === 'stale_count' &&
+        a.status === 'active',
+    );
+    if (existing) {
+      existing.threshold = daysPastDue;
+      existing.current_qty = staleLines;
+      continue;
+    }
+    alerts.push({
+      id: nextAlertId++,
+      product_id: null,
+      location_id: row.location_id,
+      product_name: null,
+      location_name: row.location,
+      alert_type: 'stale_count',
+      threshold: daysPastDue,
+      current_qty: staleLines,
+      expiry_date: null,
+      status: 'active',
+      created_at: new Date(now).toISOString(),
+      resolved_at: null,
+    });
+  }
+
+  alerts.forEach(a => {
+    if (a.status !== 'active') return;
+    if (a.alert_type !== 'stale_count') return;
+    if (!live.has(Number(a.location_id))) {
+      a.status = 'resolved';
+      a.resolved_at = new Date(now).toISOString();
+    }
+  });
+  if (useFirestore || useSupabase) writeJSON('@alerts', alerts);
+  return board;
+}
+
 function refreshAlerts() {
   refreshLowStockAlerts();
   refreshExpiryAlerts();
+  refreshStocktakeAlerts();
 }
 
 function computeAlerts() {
@@ -4446,6 +4520,38 @@ const server = http.createServer((req, res) => {
           user: { id: user.id, username: user.username, role: user.role, email: user.email },
         });
       });
+    });
+  }
+
+  // GET /api/stocktake — the recount board. Admin-tier, and computed on read for
+  // the same reason as the SQLite route: a timer that sleeps with the free tier
+  // is not a schedule. The same pass refreshes the stale_count flags, so this
+  // board and the Alerts page can never disagree. Arithmetic in src/stocktake.js.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/stocktake') {
+    return requireAuth(req, res, true, (req, res) => {
+      const cycleDays = settings.getStocktakeCycleDays();
+      const inv = getInventory();
+      const locations = (inv.locations || []).map((name, index) => ({ id: index + 1, name }));
+
+      const stock = [];
+      for (const item of inv.items || []) {
+        if (!item || !item.product) continue;
+        for (let i = 0; i < (inv.locations || []).length; i++) {
+          const name = inv.locations[i];
+          if (item.locations[name] === undefined) continue; // no row -> no stock record
+          stock.push({ product_id: Number(item.product.id), location_id: i + 1, quantity: Number(item.locations[name]) || 0 });
+        }
+      }
+      const counts = (inventoryCounts.length ? inventoryCounts : readJSON('@counts') || []).map(c => ({
+        product_id: Number(c.product_id),
+        location_id: Number(c.location_id),
+        counted_at: c.counted_at,
+      }));
+
+      const board = schedule({ locations, stock, counts, cycleDays });
+      refreshStocktakeAlerts(Date.parse(board.summary.computed_at));
+
+      return sendJson(res, 200, { ...board, cycle_days: cycleDays });
     });
   }
 
