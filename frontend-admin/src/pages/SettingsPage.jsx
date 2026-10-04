@@ -58,6 +58,7 @@ export default function SettingsPage({ user, onLogout }) {
         fsn_window_days: Number(form.fsn_window_days),
         low_stock_multiplier: Number(form.low_stock_multiplier),
         session_token_hours: Number(form.session_token_hours),
+        stocktake_cycle_days: Number(form.stocktake_cycle_days),
       });
       setForm({ ...result.settings, _dirty: false });
       setToast('Settings saved — changes take effect immediately.');
@@ -137,6 +138,21 @@ export default function SettingsPage({ user, onLogout }) {
           >
             {[1, 4, 8, 12, 24, 48, 72, 168].map((h) => (
               <MenuItem key={h} value={h}>{h} {h === 1 ? 'hour' : 'hours'}{h === 8 ? ' (a shift)' : ''}{h === 24 ? ' (default)' : ''}</MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            select
+            label="Stocktake recount cycle"
+            value={Number(form.stocktake_cycle_days)}
+            onChange={(e) => change('stocktake_cycle_days', Number(e.target.value))}
+            disabled={!isManagement || saving}
+            helperText="How long a count stays fresh before its shelf is due to be walked again. A shelf counts as re-counted only when EVERY line stocked on it is inside this window, so a partial walk never resets the clock — see the Stocktake Schedule."
+          >
+            {[7, 14, 30, 60, 90, 180, 365].map((d) => (
+              <MenuItem key={d} value={d}>
+                {d} days{d === 30 ? ' (default — monthly)' : d === 7 ? ' (weekly)' : d === 90 ? ' (quarterly)' : d === 365 ? ' (yearly)' : ''}
+              </MenuItem>
             ))}
           </TextField>
 

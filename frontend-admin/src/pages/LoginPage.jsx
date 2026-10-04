@@ -3,7 +3,7 @@ import AdminPanelSettingsOutlined from '@mui/icons-material/AdminPanelSettingsOu
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../api';
 import ShaderGradientBg from '../components/ShaderGradientBg';
 import { ADMIN_TIER, roleMeta } from '../roles';
@@ -42,6 +42,13 @@ export default function LoginPage({ onLogin }) {
   // returns mfa_required + a short-lived challenge token instead of a session.
   const [mfaToken, setMfaToken] = useState(null);
   const [mfaCode, setMfaCode] = useState('');
+
+  // The post-login redirect is deferred 500ms so the success snackbar is seen.
+  // It must be cancellable: see the handleLogin comment.
+  const redirectRef = useRef(null);
+  useEffect(() => () => {
+    if (redirectRef.current) clearTimeout(redirectRef.current);
+  }, []);
 
   // Live countdown while the account is locked out (429 with retryAfterSeconds).
   useEffect(() => {
@@ -114,7 +121,12 @@ export default function LoginPage({ onLogin }) {
       }
       setToken(data.token);
       setSnackbar({ open: true, message: 'Login successful!', severity: 'success' });
-      setTimeout(() => {
+      // Held in a ref and cleared on unmount. A bare setTimeout here fires into
+      // a torn-down environment if the page goes away inside the 500ms — which
+      // surfaced as an unhandled "window is not defined" that failed an
+      // unrelated test file, and would equally redirect a user who had already
+      // navigated somewhere else.
+      redirectRef.current = setTimeout(() => {
         onLogin(data.user);
         // Always land on this role's home after login, regardless of which
         // page the user was on before (e.g. logged out from Products).
