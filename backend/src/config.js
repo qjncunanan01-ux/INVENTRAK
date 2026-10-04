@@ -42,6 +42,12 @@ const READ_CACHE_TTL = 'public, max-age=300, stale-while-revalidate=60';
 /** Max entries allowed in a single bulk price update request. */
 const BULK_PRICES_MAX_ENTRIES = 2000;
 
+// Most lines one stocktake submission may carry. A stocked shelf here runs to
+// ~204 products, so this is generous rather than tight — it exists to bound a
+// single request body, not to ration a shelf walk. Shared by both backends so
+// the two cannot disagree about what "too big" means.
+const MAX_BATCH_LINES = 500;
+
 /** Max product name length (matches SQLite validation schema). */
 const PRODUCT_NAME_MAX_LENGTH = 200;
 
@@ -63,6 +69,7 @@ module.exports = {
   MAX_BODY_BYTES,
   READ_CACHE_TTL,
   BULK_PRICES_MAX_ENTRIES,
+  MAX_BATCH_LINES,
   PRODUCT_NAME_MAX_LENGTH,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,

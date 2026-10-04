@@ -313,6 +313,16 @@ export const createStockAdjustment = client.createStockAdjustment;
 export const listStockAdjustments = client.listStockAdjustments;
 // Audit: every QR/barcode scan lands in the server audit trail.
 export const createScanEvent = client.createScanEvent;
+// Stocktake (staff+): ONE shelf, with every line on it, what the system
+// believes is there and when each line was last counted. Scoped to a single
+// shelf on purpose — the whole-operation board is admin-tier because it is an
+// oversight view, and the person holding the phone only needs the shelf in
+// front of them.
+export const getShelfStocktake = client.getShelfStocktake;
+// Record a whole shelf walk in ONE request. Deliberately NOT the CountCard's
+// pending-adjustment path: those wait for approval, so they would never clear a
+// shelf's count or feed the reconciliation report. This writes real counts.
+export const createShelfCounts = client.createShelfCounts;
 
 // Server-side logout: revoke the session token, then clear the local session
 // regardless of network state (a dead network must never trap a shift device

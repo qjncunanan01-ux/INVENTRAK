@@ -196,6 +196,10 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getInventoryReconciliation: (params) => request('GET', '/api/inventory/reconciliation', { query: params }),
   // GET /api/stocktake — Recount board: which shelves are due to be walked (admin only)
   getStocktakeSchedule: (_) => request('GET', '/api/stocktake', {  }),
+  // GET /api/inventory/shelf-stocktake/{id} — One shelf with every line on it, ready to be walked (staff tier)
+  getShelfStocktake: ({ id }) => request('GET', '/api/inventory/shelf-stocktake/{id}', { params: { id } }),
+  // POST /api/inventory/counts — Record a shelf walk in one request (staff tier)
+  createShelfCounts: (body) => request('POST', '/api/inventory/counts', { body }),
   };
 }
 

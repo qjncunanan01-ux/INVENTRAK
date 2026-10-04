@@ -8,6 +8,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import LoginScreen from './screens/LoginScreen';
 import QrScanScreen from './screens/QrScanScreen';
 import CountScreen from './screens/CountScreen';
+import StocktakeScreen from './screens/StocktakeScreen';
 import RequestsScreen from './screens/RequestsScreen';
 import AccountScreen from './screens/AccountScreen';
 import { isSessionInvalidated, useSession, useSessionHydrated, wakeBackend } from './api';
@@ -25,6 +26,7 @@ function tabIcon(name, { color, size }) {
 //   Scan Tag  — QR/barcode camera (location stock inline, product count card)
 //   Label Scan — merged into the QR tag scanner (OCR retired)
 //   Count     — searchable inventory, no camera
+//   Stocktake — walk a shelf end to end, submitted in one batch
 //   Requests  — my pending/approved/rejected adjustments
 //   Account   — shift identity, dark mode, logout
 function WorkTabsNavigator() {
@@ -55,6 +57,15 @@ function WorkTabsNavigator() {
         name="CountTab"
         component={CountScreen}
         options={{ tabBarLabel: 'Count', tabBarIcon: (p) => tabIcon('clipboard-list-outline', p) }}
+      />
+      {/* Shelf-first walk, for counting a whole shelf from the shelf itself.
+          Count stays alongside it: that one is PRODUCT-first (you know the
+          name, you want the number recorded), this one is SHELF-first (you can
+          see the rows, you do not know what they are called). */}
+      <WorkTabs.Screen
+        name="StocktakeTab"
+        component={StocktakeScreen}
+        options={{ tabBarLabel: 'Stocktake', tabBarIcon: (p) => tabIcon('clipboard-check-outline', p) }}
       />
       <WorkTabs.Screen
         name="RequestsTab"

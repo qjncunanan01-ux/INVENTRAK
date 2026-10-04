@@ -3693,6 +3693,103 @@
           }
         }
       }
+    },
+    "/api/inventory/shelf-stocktake/{id}": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getShelfStocktake",
+        "summary": "One shelf with every line on it, ready to be walked (staff tier)",
+        "description": "Returns the shelf’s due status, its coverage, and per line what the system believes is there and when that line was last counted. Counts a shelf as re-counted only when EVERY line on it is inside stocktake_cycle_days, so the phone and the admin board can never disagree about whether a line is fresh. Computed on read.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Location id (the shelf)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The shelf",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShelfStocktake"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Location not found"
+          }
+        }
+      }
+    },
+    "/api/inventory/counts": {
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "createShelfCounts",
+        "summary": "Record a shelf walk in one request (staff tier)",
+        "description": "Records many counts at once for one shelf. The whole batch is validated before anything is written, then written in a single transaction: either every line in the walk is recorded, or none of them are — so a failure can never leave a shelf looking deliberately half-counted. A partial walk is still allowed and legitimate; it simply does not clear the shelf. A duplicate product_id within one batch is refused rather than silently resolved. Returns the shelf’s remaining work so the phone can update its progress without a second round-trip.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShelfCountInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The walk was recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShelfCountResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed; details list every offending line"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Location not found"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6957,6 +7054,198 @@
           },
           "cycle_days": {
             "type": "integer"
+          }
+        }
+      },
+      "ShelfStocktakeLine": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "system_qty": {
+            "type": "number",
+            "description": "What the system believes is on this shelf right now."
+          },
+          "last_counted_qty": {
+            "type": "number",
+            "nullable": true
+          },
+          "last_counted_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "days_since_count": {
+            "type": "integer",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "fresh",
+              "stale",
+              "never"
+            ],
+            "description": "fresh = counted inside the cycle; stale = counted but too long ago; never = stocked here, never counted."
+          }
+        }
+      },
+      "ShelfStocktakeSummary": {
+        "type": "object",
+        "properties": {
+          "total_lines": {
+            "type": "integer"
+          },
+          "fresh_lines": {
+            "type": "integer"
+          },
+          "stale_lines": {
+            "type": "integer"
+          },
+          "never_counted_lines": {
+            "type": "integer"
+          },
+          "lines_remaining": {
+            "type": "integer",
+            "description": "How far the shelf still is from being re-counted."
+          },
+          "last_count_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "due_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "days_until_due": {
+            "type": "integer",
+            "nullable": true
+          },
+          "computed_at": {
+            "type": "string"
+          }
+        }
+      },
+      "ShelfStocktake": {
+        "type": "object",
+        "description": "One shelf, in enough detail to walk it. Scoped to a single location on purpose: the whole-operation board (/api/stocktake) is admin-tier because it is an oversight view, while the person holding the phone only needs the shelf in front of them.",
+        "properties": {
+          "location_id": {
+            "type": "integer"
+          },
+          "location": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "overdue",
+              "never_counted",
+              "empty"
+            ]
+          },
+          "cycle_days": {
+            "type": "integer"
+          },
+          "coverage": {
+            "type": "number",
+            "nullable": true,
+            "description": "fresh_lines / total_lines."
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShelfStocktakeLine"
+            }
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ShelfStocktakeSummary"
+          }
+        }
+      },
+      "ShelfCountInputLine": {
+        "type": "object",
+        "required": [
+          "product_id",
+          "counted_qty"
+        ],
+        "properties": {
+          "product_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "counted_qty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ShelfCountInput": {
+        "type": "object",
+        "required": [
+          "location_id",
+          "counts"
+        ],
+        "properties": {
+          "location_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "counts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 500,
+            "items": {
+              "$ref": "#/components/schemas/ShelfCountInputLine"
+            }
+          }
+        }
+      },
+      "ShelfCountResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "recorded": {
+            "type": "integer",
+            "description": "Lines written. Every line in the batch, or none."
+          },
+          "location_id": {
+            "type": "integer"
+          },
+          "counted_at": {
+            "type": "string"
+          },
+          "shelf": {
+            "type": "object",
+            "description": "The shelf's remaining work, so the phone updates without refetching.",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "coverage": {
+                "type": "number",
+                "nullable": true
+              },
+              "lines_remaining": {
+                "type": "integer"
+              },
+              "fresh_lines": {
+                "type": "integer"
+              },
+              "total_lines": {
+                "type": "integer"
+              }
+            }
           }
         }
       }

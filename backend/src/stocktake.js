@@ -254,4 +254,109 @@ export function schedule({ locations, stock, counts, cycleDays = 30, now = Date.
   };
 }
 
+// One shelf, in enough detail to walk it with a phone.
+//
+// This is the staff-facing half of the feature. The board above is deliberately
+// admin-tier — it reports how far behind the WHOLE operation is, which is an
+// oversight concern — but the person holding the phone is standing in front of
+// one shelf and needs THAT shelf: every line on it, what the system thinks is
+// there, when each line was last counted, and whether the shelf is due. They get
+// exactly that and no cross-shelf picture.
+//
+// `counts` rows are matched per product+location and the NEWEST wins, the same
+// rule the reconciliation report uses, so the phone and the board can never
+// disagree about whether a line is fresh.
+//
+// A line's `state` is the honest label for a person to act on:
+//   'fresh'   counted inside the cycle
+//   'stale'   counted, but longer ago than the cycle
+//   'never'   stocked on this shelf, never counted
+export function shelfDetail({ location, stock, counts, cycleDays = 30, now = Date.now(), products } = {}) {
+  const cycle = Number(cycleDays) > 0 ? Number(cycleDays) : 30;
+  const lid = location && location.id != null ? Number(location.id) : null;
+
+  const nameById = new Map();
+  for (const p of Array.isArray(products) ? products : []) {
+    if (p && p.id != null) nameById.set(Number(p.id), p.name || `Product ${p.id}`);
+  }
+
+  // Newest count per product for THIS location.
+  const newest = new Map();
+  for (const c of Array.isArray(counts) ? counts : []) {
+    if (!c || Number(c.location_id) !== lid) continue;
+    const at = parseStamp(c.counted_at);
+    if (at === null) continue; // undated: not provably fresh
+    const pid = Number(c.product_id);
+    const seen = newest.get(pid);
+    if (!seen || at > seen.at) newest.set(pid, { at, qty: Number(c.counted_qty) || 0 });
+  }
+
+  const lines = [];
+  for (const s of Array.isArray(stock) ? stock : []) {
+    if (!s || Number(s.location_id) !== lid) continue;
+    const qty = Number(s.quantity);
+    if (!(qty > 0)) continue; // nothing on the shelf to walk
+    const pid = Number(s.product_id);
+    const seen = newest.get(pid);
+    const age = seen ? daysSince(seen.at, now) : null;
+    const state = !seen ? 'never' : age <= cycle ? 'fresh' : 'stale';
+    lines.push({
+      product_id: pid,
+      name: nameById.get(pid) || `Product ${pid}`,
+      system_qty: qty,
+      last_counted_qty: seen ? seen.qty : null,
+      last_counted_at: seen ? new Date(seen.at).toISOString() : null,
+      days_since_count: age,
+      state,
+    });
+  }
+  lines.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Same coverage arithmetic as the board, recomputed from these lines so the
+  // phone and the board cannot drift: one function owns the rule.
+  const fresh = lines.filter((l) => l.state === 'fresh').length;
+  const stale = lines.filter((l) => l.state === 'stale').length;
+  const never = lines.filter((l) => l.state === 'never').length;
+  const total = lines.length;
+
+  let status;
+  if (total === 0) status = 'empty';
+  else if (never > 0 && fresh === 0) status = 'never_counted';
+  else if (stale > 0 || never > 0) status = 'overdue';
+  else status = 'ok';
+
+  // The whole-shelf view the staff screen shows at the top. Derived from
+  // schedule() on the same inputs, so one rule decides "is this shelf due".
+  const board = schedule({
+    locations: location && location.id != null ? [location] : [],
+    stock,
+    counts,
+    cycleDays,
+    now,
+  });
+  const row = board.rows[0] || null;
+
+  return {
+    location_id: lid,
+    location: (location && location.name) || (lid != null ? `Location ${lid}` : null),
+    status,
+    cycle_days: cycle,
+    coverage: total === 0 ? null : fresh / total,
+    lines,
+    summary: {
+      total_lines: total,
+      fresh_lines: fresh,
+      stale_lines: stale,
+      never_counted_lines: never,
+      // How far the shelf still is from being re-counted — the number that
+      // tells someone standing there whether they are done.
+      lines_remaining: total - fresh,
+      last_count_at: row ? row.last_count_at : null,
+      due_at: row ? row.due_at : null,
+      days_until_due: row ? row.days_until_due : null,
+      computed_at: new Date(now).toISOString(),
+    },
+  };
+}
+
 export { DAY_MS };

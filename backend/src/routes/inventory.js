@@ -5,6 +5,8 @@ const { authenticateToken, signToken } = require('../auth-core');
 const { adminOnly, staffOrAdmin } = require('../middleware');
 const { criticalLevels, criticalLevelFromMap, stockStatus } = require('../critical-level');
 const { reconcile } = require('../reconciliation');
+const { schedule, shelfDetail } = require('../stocktake');
+const { MAX_BATCH_LINES } = require('../config');
 const { audit } = require('../audit');
 const { validate } = require('../validation');
 const settings = require('../settings');
@@ -153,6 +155,164 @@ router.get('/reconciliation', authenticateToken, adminOnly, (req, res) => {
     ...report,
     rows: rows.map(r => ({ ...r, location: names[r.location_id] || `Location ${r.location_id}` })),
     locations: db.prepare('SELECT id, name FROM locations').all(),
+  });
+});
+
+// GET /api/inventory/shelf-stocktake/:id — one shelf, ready to be walked.
+//
+// Staff-tier on purpose, and deliberately scoped to ONE shelf. The full board
+// (GET /api/stocktake) is admin-only because it reports how far behind the
+// whole operation is — an oversight view. The person holding the phone is
+// standing in front of one shelf and needs that shelf: its due status, its
+// coverage, and for every line what the system thinks is there and when it was
+// last counted. They get that and no cross-shelf picture.
+router.get('/shelf-stocktake/:id', authenticateToken, staffOrAdmin, (req, res) => {
+  const location = db.prepare('SELECT id, name FROM locations WHERE id = ?').get(req.params.id);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  const stock = db.prepare('SELECT product_id, location_id, quantity FROM stock').all();
+  const counts = db.prepare('SELECT product_id, location_id, counted_at FROM inventory_counts').all();
+  const products = db.prepare('SELECT id, name FROM products').all();
+
+  res.json(shelfDetail({
+    location,
+    stock,
+    counts,
+    products,
+    cycleDays: settings.getStocktakeCycleDays(),
+  }));
+});
+
+// POST /api/inventory/counts — a shelf walk, submitted in one request.
+//
+// The single-count endpoint is the right primitive but the wrong shape for a
+// stocktake: a stocked shelf here carries 204 lines, so walking it one request
+// at a time means 204 round-trips over a phone connection and, worse, a
+// failure halfway leaves the shelf half-counted — which the schedule reads as
+// "partially walked", i.e. still not due to clear.
+//
+// So: validate the WHOLE batch first, then write it in one transaction. Either
+// every line in the walk is recorded or none of them are, so the shelf is
+// never left in a state that looks deliberately half-done.
+//
+// A partial walk is still legitimate — someone may genuinely only have counted
+// half a shelf before their shift ended — so the endpoint does NOT require every
+// line. It records what was sent, and the shelf's remaining work comes back in
+// the response so the phone can update without refetching.
+
+router.post('/counts', authenticateToken, staffOrAdmin, (req, res) => {
+  const { location_id, counts } = req.body || {};
+  const locId = Number(location_id);
+
+  if (!Number.isInteger(locId) || locId < 1) {
+    return res.status(400).json({ error: 'Validation failed', details: ['location_id must be a positive number'] });
+  }
+  if (!Array.isArray(counts) || counts.length === 0) {
+    return res.status(400).json({ error: 'Validation failed', details: ['counts must be a non-empty array'] });
+  }
+  if (counts.length > MAX_BATCH_LINES) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: [`counts must hold at most ${MAX_BATCH_LINES} lines, got ${counts.length}`],
+    });
+  }
+
+  const location = db.prepare('SELECT id, name FROM locations WHERE id = ?').get(locId);
+  if (!location) return res.status(404).json({ error: 'Location not found' });
+
+  // Validate every line BEFORE writing anything. A duplicate product in one
+  // walk is ambiguous — there would be no way to say which figure was counted —
+  // so it is refused rather than silently taking the last one.
+  const details = [];
+  const seen = new Set();
+  const staged = [];
+  for (let i = 0; i < counts.length; i++) {
+    const line = counts[i] || {};
+    const pid = Number(line.product_id);
+    const qty = Number(line.counted_qty);
+    if (!Number.isInteger(pid) || pid < 1) {
+      details.push(`counts[${i}].product_id must be a positive number`);
+      continue;
+    }
+    if (seen.has(pid)) {
+      details.push(`counts[${i}].product_id ${pid} appears more than once`);
+      continue;
+    }
+    seen.add(pid);
+    if (line.counted_qty === undefined || line.counted_qty === null || line.counted_qty === '' ||
+        !Number.isFinite(qty) || qty < 0) {
+      details.push(`counts[${i}].counted_qty must be a non-negative number`);
+      continue;
+    }
+    if (!db.prepare('SELECT id FROM products WHERE id = ?').get(pid)) {
+      details.push(`counts[${i}].product_id ${pid} not found`);
+      continue;
+    }
+    staged.push({ product_id: pid, counted_qty: qty, note: typeof line.note === 'string' ? line.note : null });
+  }
+  if (details.length) {
+    return res.status(400).json({ error: 'Validation failed', details });
+  }
+
+  // Snapshot the system's figure for each line NOW — the only moment it still
+  // matches the shelf being walked. Identical rule to the single-count route.
+  const stockFor = db.prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?');
+  const insert = db.prepare(
+    'INSERT INTO inventory_counts (product_id, location_id, counted_qty, system_qty, counted_at, counted_by, note) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  );
+  // Explicit millisecond precision, for the same reason the single-count route
+  // does it: the reconciliation report compares counted_at against sale
+  // timestamps, and a second-resolution stamp collides with a sale in the same
+  // second.
+  const countedAt = new Date().toISOString();
+  const actor = req.user.username;
+
+  const write = db.transaction((lines) => {
+    for (const line of lines) {
+      const row = stockFor.get(line.product_id, locId);
+      insert.run(
+        line.product_id,
+        locId,
+        line.counted_qty,
+        row ? row.quantity : 0,
+        countedAt,
+        actor,
+        line.note,
+      );
+    }
+  });
+  write(staged);
+
+  audit('inventory.counted_batch', {
+    actor,
+    actorRole: req.user.role,
+    location_id: locId,
+    lines: staged.length,
+    counted_at: countedAt,
+  });
+
+  // Hand back the shelf's remaining work so the phone can update its progress
+  // bar without a second round-trip.
+  const detail = shelfDetail({
+    location,
+    stock: db.prepare('SELECT product_id, location_id, quantity FROM stock').all(),
+    counts: db.prepare('SELECT product_id, location_id, counted_at FROM inventory_counts').all(),
+    products: db.prepare('SELECT id, name FROM products').all(),
+    cycleDays: settings.getStocktakeCycleDays(),
+  });
+
+  res.status(201).json({
+    ok: true,
+    recorded: staged.length,
+    location_id: locId,
+    counted_at: countedAt,
+    shelf: {
+      status: detail.status,
+      coverage: detail.coverage,
+      lines_remaining: detail.summary.lines_remaining,
+      fresh_lines: detail.summary.fresh_lines,
+      total_lines: detail.summary.total_lines,
+    },
   });
 });
 

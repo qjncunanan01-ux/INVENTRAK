@@ -12,6 +12,7 @@ const {
   MAX_BODY_BYTES,
   READ_CACHE_TTL,
   BULK_PRICES_MAX_ENTRIES,
+  MAX_BATCH_LINES,
   PRODUCT_NAME_MAX_LENGTH,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
@@ -28,7 +29,7 @@ const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry, targetMar
 const { stripCost, stripCostAll } = require('./product-visibility');
 const { resolveCustomer, summarize } = require('./customers');
 const { reconcile } = require('./reconciliation');
-const { schedule } = require('./stocktake');
+const { schedule, shelfDetail } = require('./stocktake');
 const {
   generateSecret,
   verifyTOTP,
@@ -2716,6 +2717,170 @@ const server = http.createServer((req, res) => {
   // reconciliation that turns counts into shrinkage is admin-tier because it
   // reports money at risk. Arithmetic is shared with SQLite via
   // reconciliation.js, so both drivers produce identical numbers.
+
+  // GET /api/inventory/shelf-stocktake/:id — one shelf, ready to be walked.
+  // Staff-tier and scoped to ONE shelf on purpose: the full board
+  // (/api/stocktake) is admin-only because it is an oversight view, while the
+  // person holding the phone only needs the shelf in front of them. Same pure
+  // module as the SQLite route, so both drivers agree line for line.
+  {
+    const m = url.split('?')[0].match(/^\/api\/inventory\/shelf-stocktake\/(\d+)$/);
+    if (req.method === 'GET' && m) {
+      return requireAuth(req, res, false, (req, res) => {
+        const locId = Number(m[1]);
+        const inv = getInventory();
+        const locName = inv.locations[locId - 1];
+        if (!locName) return sendJson(res, 404, { error: 'Location not found' });
+
+        const stock = [];
+        for (const item of inv.items || []) {
+          if (!item || !item.product) continue;
+          if (item.locations[locName] === undefined) continue; // no row -> no stock record
+          stock.push({ product_id: Number(item.product.id), location_id: locId, quantity: Number(item.locations[locName]) || 0 });
+        }
+        const counts = (inventoryCounts.length ? inventoryCounts : readJSON('@counts') || []).map(c => ({
+          product_id: Number(c.product_id),
+          location_id: Number(c.location_id),
+          counted_at: c.counted_at,
+        }));
+        const products = (readJSON(productsFile) || []).map((p, idx) => ({
+          id: idx + 1,
+          name: p['Product Name'] || p.name || `Product ${idx + 1}`,
+        }));
+
+        return sendJson(res, 200, shelfDetail({
+          location: { id: locId, name: locName },
+          stock,
+          counts,
+          products,
+          cycleDays: settings.getStocktakeCycleDays(),
+        }));
+      });
+    }
+  }
+
+  // POST /api/inventory/counts — a shelf walk in one request. Validates the
+  // whole batch before writing any of it, so a shelf is never left looking
+  // deliberately half-counted. Mirrors the SQLite route exactly, including the
+  // refusal of a duplicate product in one walk.
+  if (req.method === 'POST' && url === '/api/inventory/counts') {
+    return requireAuth(req, res, false, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const locId = Number(obj.location_id);
+        const lines = obj.counts;
+        if (!Number.isInteger(locId) || locId < 1) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
+        }
+        if (!Array.isArray(lines) || lines.length === 0) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['counts must be a non-empty array'] });
+        }
+        if (lines.length > MAX_BATCH_LINES) {
+          return sendJson(res, 400, {
+            error: 'Validation failed',
+            details: [`counts must hold at most ${MAX_BATCH_LINES} lines, got ${lines.length}`],
+          });
+        }
+
+        const inv = getInventory();
+        const locName = inv.locations[locId - 1];
+        if (!locName) return sendJson(res, 404, { error: 'Location not found' });
+
+        const productsFileRows = readJSON(productsFile) || [];
+        const details = [];
+        const seen = new Set();
+        const staged = [];
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i] || {};
+          const pid = Number(line.product_id);
+          const qty = Number(line.counted_qty);
+          if (!Number.isInteger(pid) || pid < 1) {
+            details.push(`counts[${i}].product_id must be a positive number`);
+            continue;
+          }
+          if (seen.has(pid)) {
+            details.push(`counts[${i}].product_id ${pid} appears more than once`);
+            continue;
+          }
+          seen.add(pid);
+          if (line.counted_qty === undefined || line.counted_qty === null || line.counted_qty === '' ||
+              !Number.isFinite(qty) || qty < 0) {
+            details.push(`counts[${i}].counted_qty must be a non-negative number`);
+            continue;
+          }
+          if (!productsFileRows[pid - 1] || !isProductActive(productsFileRows[pid - 1])) {
+            details.push(`counts[${i}].product_id ${pid} not found`);
+            continue;
+          }
+          staged.push({ product_id: pid, counted_qty: qty, note: typeof line.note === 'string' ? line.note : null });
+        }
+        if (details.length) return sendJson(res, 400, { error: 'Validation failed', details });
+
+        const countedAt = new Date().toISOString();
+        const actor = (req.user && req.user.username) || 'unknown';
+        for (const line of staged) {
+          const item = inv.items.find(i => i.product && Number(i.product.id) === line.product_id);
+          const systemQty = item ? Number(item.locations[locName] || 0) : 0;
+          inventoryCounts.push({
+            id: nextCountId++,
+            product_id: line.product_id,
+            location_id: locId,
+            counted_qty: line.counted_qty,
+            system_qty: systemQty,
+            counted_at: countedAt,
+            counted_by: actor,
+            note: line.note,
+          });
+        }
+        persistCounts();
+
+        audit('inventory.counted_batch', {
+          actor,
+          actorRole: (req.user && req.user.role) || null,
+          location_id: locId,
+          lines: staged.length,
+          counted_at: countedAt,
+        });
+
+        // The phone updates its progress from this rather than refetching.
+        const stock = [];
+        for (const item of inv.items || []) {
+          if (!item || !item.product) continue;
+          if (item.locations[locName] === undefined) continue;
+          stock.push({ product_id: Number(item.product.id), location_id: locId, quantity: Number(item.locations[locName]) || 0 });
+        }
+        const counts = (inventoryCounts.length ? inventoryCounts : readJSON('@counts') || []).map(c => ({
+          product_id: Number(c.product_id),
+          location_id: Number(c.location_id),
+          counted_at: c.counted_at,
+        }));
+        const detail = shelfDetail({
+          location: { id: locId, name: locName },
+          stock,
+          counts,
+          products: productsFileRows.map((p, idx) => ({
+            id: idx + 1,
+            name: p['Product Name'] || p.name || `Product ${idx + 1}`,
+          })),
+          cycleDays: settings.getStocktakeCycleDays(),
+        });
+
+        return sendJson(res, 201, {
+          ok: true,
+          recorded: staged.length,
+          location_id: locId,
+          counted_at: countedAt,
+          shelf: {
+            status: detail.status,
+            coverage: detail.coverage,
+            lines_remaining: detail.summary.lines_remaining,
+            fresh_lines: detail.summary.fresh_lines,
+            total_lines: detail.summary.total_lines,
+          },
+        });
+      });
+    });
+  }
 
   if (req.method === 'POST' && url === '/api/inventory/count') {
     return requireAuth(req, res, false, (req, res) => {
