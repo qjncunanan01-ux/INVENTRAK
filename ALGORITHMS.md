@@ -10,8 +10,17 @@ Every number below is reproducible from a clean clone:
 ```bash
 cd backend
 npm run seed     # deterministic: fixed-seed PRNG -> identical 612-row ledger
-npm run verify   # 650/650
+npm run verify   # 674/674
 ```
+
+**The deck:** [`docs/algorithms-deck.html`](docs/algorithms-deck.html) — this whole
+document as a slide presentation, with the rehearsal table below printed as the
+speaker line on the slide it belongs to. It is one self-contained file: open it
+straight from disk with no install and no network. `←`/`→` move, `C` opens the
+contents, `N` toggles speaker notes, `F` fullscreen, `P` prints to PDF, and a
+number jumps to that slide. Rebuild it from `backend/` with `npm run slides`;
+`npm run slides:check` fails if this document and the deck ever drift apart, and
+it is wired into `npm run verify` for that reason.
 
 ---
 
@@ -800,10 +809,10 @@ overstating money-at-risk accuses someone of shrinkage.
 
 ```bash
 cd backend
-npm run verify      # 650/650 across 53 suites
+npm run verify      # 674/674 across 54 suites
 ```
 
-Every test file in `src/test/` is listed in the `npm test` script — 52 files,
+Every test file in `src/test/` is listed in the `npm test` script — 54 files,
 all run. (Three of them had been left off the list, so 106 real tests were
 being skipped without anyone noticing.)
 
