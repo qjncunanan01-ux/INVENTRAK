@@ -6,7 +6,9 @@ Firestore, the admin dashboard and mobile web site are deployed, and the APK
 talks to the live backend from any network.
 
 > Related docs: [APK-INSTALL.md](APK-INSTALL.md) (installing on Android),
-> [DEPLOY.md](DEPLOY.md) (how it's hosted). This file is the *script*.
+> [DEPLOY.md](DEPLOY.md) (how it's hosted),
+> [docs/algorithms-deck.html](docs/algorithms-deck.html) (the defence deck this
+> script is run from). This file is the *script*.
 
 ---
 
@@ -20,6 +22,7 @@ talks to the live backend from any network.
 | 4 | APK installed on phone | The **latest production build** (contains the QR scanner, stock badges, and staff scan-and-count flow) — see the newest link in APK-INSTALL.md. Same signing key → updates in place |
 | 5 | Internet on the demo machine + phone | Backend is hosted — no Wi-Fi pairing needed |
 | 6 | Google sign-in works (optional) | Gmail button appears on the mobile login screen; test users approved in the Google Cloud console |
+| 7 | Defence deck opens | Open `docs/algorithms-deck.html` from disk — 45 slides, press `→` to move, `C` for contents, `F` fullscreen. Needs no install and no network, so it works even if the demo machine is offline. Print a PDF copy with `P` as a fallback |
 
 **Demo credentials (all verified live):**
 - Web admin (desktop): `owner` / `owner123` (OWNER — full oversight), `superadmin` / `super123` (SUPER ADMIN — accounts & roles), `admin` / `admin123` (ADMIN — products & approvals)

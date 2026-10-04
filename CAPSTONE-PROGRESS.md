@@ -107,14 +107,14 @@
 - [ ] Webhook endpoint for automatic payment confirmation
 - [ ] Payment receipt/records screen for admins
 
-## 10. Paper, Testing & Presentation — 0/8 ⬅️ *the remaining 40% lives here*
+## 10. Paper, Testing & Presentation — 1/8 ⬅️ *the remaining 40% lives here*
 
 - [ ] Capstone manuscript: Chapters 1–3 (final-form)
 - [ ] Capstone manuscript: Chapter 4 (methodology/system architecture) with screenshots
 - [ ] Capstone manuscript: Chapter 5 (testing results — cite the 732 backend + 258 admin + 30 smoke checks)
 - [ ] Company UAT sign-off document (SYLVER owner/staff testing session)
 - [ ] User manual (admin + staff + customer)
-- [ ] Defense slide deck + printed demo script (DEMO-SCRIPT.md is the source)
+- [x] Defense slide deck + printed demo script (DEMO-SCRIPT.md is the source) — deck is `docs/algorithms-deck.html`: ALGORITHMS.md generated into 45 slides with each rehearsal-table line on its own slide, one self-contained file, no install or network needed; `npm run slides` rebuilds it and `slides:check` (inside `npm run verify`) fails on any drift from the spec
 - [ ] Full dress-rehearsal recording (backup if live demo fails)
 - [ ] Final panel presentation
 

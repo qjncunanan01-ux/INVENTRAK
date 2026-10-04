@@ -17,6 +17,8 @@ Start here depending on what you need to know:
 | **[SECURITY.md](SECURITY.md)** | OWASP Top-10 → module/endpoint/test compliance mapping (the capstone paper's evidence table). |
 | **[DEPLOY.md](DEPLOY.md)** | Deployment runbook (Render / Railway / Cloud Run), the Supabase + Firestore setups, and the durable audit trail. |
 | **[DEMO-SCRIPT.md](DEMO-SCRIPT.md)** | The live demo walkthrough, with the exact records to show at each step. |
+| **[ALGORITHMS.md](ALGORITHMS.md)** | Every algorithm in the system, explained — the rule, why it is that rule, and the numbers it produces. Also holds the rehearsal table ("show it here / what to say") the defence is run from. |
+| **[docs/algorithms-deck.html](docs/algorithms-deck.html)** | The defence deck: ALGORITHMS.md generated into 45 projector slides, with each rehearsal-table line printed on the slide it belongs to. One self-contained file — open it from disk, no install, no network. `←`/`→` move, `C` contents, `N` speaker notes, `F` fullscreen, `P` prints to PDF, a number jumps to that slide. Generated, so it cannot drift from the spec: rebuild with `npm run slides`, and `slides:check` (inside `npm run verify`) fails if it ever does. |
 | **[MODULES.md](MODULES.md)** | Feature-by-feature module guide — what each capability does and where it lives. |
 | **[CAPSTONE-PROGRESS.md](CAPSTONE-PROGRESS.md)** | Delivery status per workstream, including what is intentionally unfinished. |
 | **[APK-INSTALL.md](APK-INSTALL.md)** | Building and installing the Android APKs without Expo Go. |
