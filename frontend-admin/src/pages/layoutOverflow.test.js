@@ -23,13 +23,29 @@ import path from 'node:path';
 // adding one page, so they are checked here the same way the dropdown labels
 // are: by reading the source.
 
-const PAGES_DIR = path.resolve(__dirname);
-const pageFiles = fs
-  .readdirSync(PAGES_DIR)
-  .filter((f) => f.endsWith('.jsx') && !f.endsWith('.test.jsx'));
+const SRC_DIR = path.resolve(__dirname, '..');
+
+// Every .jsx under src/, not just src/pages/. A bare `fr` inside a component
+// blows out the page exactly as hard as one inside a page, and a table in a
+// component is just as unscrollable — so scoping this to pages would leave the
+// same bug reachable one directory over.
+function collectJsx(dir, acc = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) collectJsx(full, acc);
+    else if (entry.name.endsWith('.jsx') && !entry.name.endsWith('.test.jsx')) acc.push(full);
+  }
+  return acc;
+}
+
+const pageFiles = collectJsx(SRC_DIR);
+
+function rel(file) {
+  return path.relative(SRC_DIR, file).split(path.sep).join('/');
+}
 
 function read(file) {
-  return fs.readFileSync(path.join(PAGES_DIR, file), 'utf8');
+  return fs.readFileSync(file, 'utf8');
 }
 
 function lineOf(src, index) {
@@ -37,8 +53,11 @@ function lineOf(src, index) {
 }
 
 describe('admin pages cannot push content out sideways', () => {
-  it('finds the pages to check (guard against a silent no-op)', () => {
-    expect(pageFiles.length).toBeGreaterThan(10);
+  it('finds the files to check (guard against a silent no-op)', () => {
+    expect(pageFiles.length).toBeGreaterThan(15);
+    // The walk has to reach components/ too, or this whole file is a guard over
+    // one directory with the other one unguarded.
+    expect(pageFiles.some((f) => f.includes(`${path.sep}components${path.sep}`))).toBe(true);
   });
 
   it('every Table sits inside a TableContainer', () => {
@@ -48,7 +67,7 @@ describe('admin pages cannot push content out sideways', () => {
       for (const m of src.matchAll(/<Table\b[^>]*>/g)) {
         // `size="small"` / `stickyHeader` props do not make a scroll container.
         if (!/<TableContainer\b[^>]*>\s*$/.test(src.slice(0, m.index))) {
-          offenders.push(`${file}:${lineOf(src, m.index)} ${m[0]}`);
+          offenders.push(`${rel(file)}:${lineOf(src, m.index)} ${m[0]}`);
         }
       }
     }
@@ -61,7 +80,7 @@ describe('admin pages cannot push content out sideways', () => {
       const src = read(file);
       for (const m of src.matchAll(/<TableContainer\b([^>]*)>/g)) {
         if (!/overflowX/.test(m[1])) {
-          offenders.push(`${file}:${lineOf(src, m.index)} <TableContainer${m[1]}>`);
+          offenders.push(`${rel(file)}:${lineOf(src, m.index)} <TableContainer${m[1]}>`);
         }
       }
     }
@@ -84,7 +103,7 @@ describe('admin pages cannot push content out sideways', () => {
             .replace(/minmax\([^)]*\)/g, 'SAFE')
             .match(/(?:^|[\s(,])\d*\.?\d*fr(?=$|[\s,)])/g);
           if (bare) {
-            offenders.push(`${file}:${lineOf(src, m.index)} gridTemplateColumns: '${value}'`);
+            offenders.push(`${rel(file)}:${lineOf(src, m.index)} gridTemplateColumns: '${value}'`);
           }
         }
       }
