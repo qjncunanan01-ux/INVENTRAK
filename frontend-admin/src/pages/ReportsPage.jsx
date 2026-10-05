@@ -1,4 +1,4 @@
-import { Box, Button, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiGet, getCurrentUser } from '../api';
 import { colors } from '../theme';
@@ -106,77 +106,87 @@ export default function ReportsPage({ onLogout }) {
 
           <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
             <Typography variant="h6" mb={2}>Daily sales value</Typography>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Transactions</TableCell>
-                  <TableCell align="right">Value</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {report.dailySales.length === 0 ? (
-                  <TableRow><TableCell colSpan={3}>No sales in this period.</TableCell></TableRow>
-                ) : report.dailySales.map(d => (
-                  <TableRow key={d.date}>
-                    <TableCell>{d.date}</TableCell>
-                    <TableCell>{d.transactions}</TableCell>
-                    <TableCell align="right">{money(d.value)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Paper>
-
-          <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' } }}>
-            <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
-              <Typography variant="h6" mb={2}>Available stocks per location</Typography>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small">
-                <TableHead><TableRow><TableCell>Location</TableCell><TableCell align="right">Total</TableCell></TableRow></TableHead>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Transactions</TableCell>
+                    <TableCell align="right">Value</TableCell>
+                  </TableRow>
+                </TableHead>
                 <TableBody>
-                  {report.stockByLocation.map(l => (
-                    <TableRow key={l.location}><TableCell>{l.location}</TableCell><TableCell align="right">{l.total}</TableCell></TableRow>
+                  {report.dailySales.length === 0 ? (
+                    <TableRow><TableCell colSpan={3}>No sales in this period.</TableCell></TableRow>
+                  ) : report.dailySales.map(d => (
+                    <TableRow key={d.date}>
+                      <TableCell>{d.date}</TableCell>
+                      <TableCell>{d.transactions}</TableCell>
+                      <TableCell align="right">{money(d.value)}</TableCell>
+                    </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            </TableContainer>
+          </Paper>
+
+          <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' } }}>
+            <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
+              <Typography variant="h6" mb={2}>Available stocks per location</Typography>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead><TableRow><TableCell>Location</TableCell><TableCell align="right">Total</TableCell></TableRow></TableHead>
+                  <TableBody>
+                    {report.stockByLocation.map(l => (
+                      <TableRow key={l.location}><TableCell>{l.location}</TableCell><TableCell align="right">{l.total}</TableCell></TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
 
             <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
               <Typography variant="h6" mb={2}>Order status summary</Typography>
-              <Table size="small">
-                <TableHead><TableRow><TableCell>Status</TableCell><TableCell align="right">Count</TableCell></TableRow></TableHead>
-                <TableBody>
-                  {Object.entries(statuses).map(([k, v]) => (
-                    <TableRow key={k}><TableCell sx={{ textTransform: 'capitalize' }}>{k}</TableCell><TableCell align="right">{v}</TableCell></TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead><TableRow><TableCell>Status</TableCell><TableCell align="right">Count</TableCell></TableRow></TableHead>
+                  <TableBody>
+                    {Object.entries(statuses).map(([k, v]) => (
+                      <TableRow key={k}><TableCell sx={{ textTransform: 'capitalize' }}>{k}</TableCell><TableCell align="right">{v}</TableCell></TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
 
             <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
               <Typography variant="h6" mb={2}>Low-stock items (below 80)</Typography>
-              <Table size="small">
-                <TableHead><TableRow><TableCell>Product</TableCell><TableCell align="right">Total</TableCell></TableRow></TableHead>
-                <TableBody>
-                  {report.lowStock.length === 0 ? (
-                    <TableRow><TableCell colSpan={2}>No low-stock items.</TableCell></TableRow>
-                  ) : report.lowStock.map(l => (
-                    <TableRow key={l.id}><TableCell>{l.name}</TableCell><TableCell align="right">{l.total}</TableCell></TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead><TableRow><TableCell>Product</TableCell><TableCell align="right">Total</TableCell></TableRow></TableHead>
+                  <TableBody>
+                    {report.lowStock.length === 0 ? (
+                      <TableRow><TableCell colSpan={2}>No low-stock items.</TableCell></TableRow>
+                    ) : report.lowStock.map(l => (
+                      <TableRow key={l.id}><TableCell>{l.name}</TableCell><TableCell align="right">{l.total}</TableCell></TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
 
             <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
               <Typography variant="h6" mb={2}>Fast-moving products</Typography>
-              <Table size="small">
-                <TableHead><TableRow><TableCell>Product</TableCell><TableCell align="right">Units sold</TableCell><TableCell align="right">Value</TableCell></TableRow></TableHead>
-                <TableBody>
-                  {report.fastMovers.map(m => (
-                    <TableRow key={m.name}><TableCell>{m.name}</TableCell><TableCell align="right">{m.qty_sold}</TableCell><TableCell align="right">{money(m.value)}</TableCell></TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead><TableRow><TableCell>Product</TableCell><TableCell align="right">Units sold</TableCell><TableCell align="right">Value</TableCell></TableRow></TableHead>
+                  <TableBody>
+                    {report.fastMovers.map(m => (
+                      <TableRow key={m.name}><TableCell>{m.name}</TableCell><TableCell align="right">{m.qty_sold}</TableCell><TableCell align="right">{money(m.value)}</TableCell></TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
           </Box>
         </Box>

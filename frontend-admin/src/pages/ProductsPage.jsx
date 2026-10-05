@@ -1,4 +1,4 @@
-import { Alert, AlertTitle, Autocomplete, Box, Button, ButtonGroup, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, LinearProgress, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TableSortLabel, TextField, Tooltip, Typography, createFilterOptions } from '@mui/material';
+import { Alert, AlertTitle, Autocomplete, Box, Button, ButtonGroup, Chip, createFilterOptions, Dialog, DialogActions, DialogContent, DialogTitle, Grid, LinearProgress, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel, TextField, Tooltip, Typography } from '@mui/material';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -1036,47 +1036,49 @@ export default function ProductsPage({ onLogout }) {
                 Confirmed before anything is written, and recorded in the audit trail.
               </Typography>
             </Box>
-            <Table size="small" aria-label="Products priced below the target margin">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell align="right">Price</TableCell>
-                  <TableCell align="right">Cost</TableCell>
-                  <TableCell align="right">Margin</TableCell>
-                  <TableCell align="right">Price for {insights.target}%</TableCell>
-                  <TableCell align="right">Action</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {insights.underPriced.slice(0, 8).map(u => (
-                  <TableRow key={u.id}>
-                    <TableCell>{u.name}</TableCell>
-                    <TableCell align="right">P{u.price}</TableCell>
-                    <TableCell align="right">P{u.cost}</TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" color={u.margin < 0 ? 'error.main' : 'warning.main'}>{u.margin}%</Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      P{u.suggested}
-                      <WhyCell
-                        align="right"
-                        lines={[
-                          `cost ${u.cost}`,
-                          `margin ${u.margin}% < ${insights.target}%`,
-                          `cost / (1 - ${insights.target}/100)`,
-                        ]}
-                        result={`= ${u.suggested}  (rounded up)`}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button size="small" onClick={() => askReprice([u])} disabled={repriceBusy}>
-                        Reprice
-                      </Button>
-                    </TableCell>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table size="small" aria-label="Products priced below the target margin">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Product</TableCell>
+                    <TableCell align="right">Price</TableCell>
+                    <TableCell align="right">Cost</TableCell>
+                    <TableCell align="right">Margin</TableCell>
+                    <TableCell align="right">Price for {insights.target}%</TableCell>
+                    <TableCell align="right">Action</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {insights.underPriced.slice(0, 8).map(u => (
+                    <TableRow key={u.id}>
+                      <TableCell>{u.name}</TableCell>
+                      <TableCell align="right">P{u.price}</TableCell>
+                      <TableCell align="right">P{u.cost}</TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" color={u.margin < 0 ? 'error.main' : 'warning.main'}>{u.margin}%</Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        P{u.suggested}
+                        <WhyCell
+                          align="right"
+                          lines={[
+                            `cost ${u.cost}`,
+                            `margin ${u.margin}% < ${insights.target}%`,
+                            `cost / (1 - ${insights.target}/100)`,
+                          ]}
+                          result={`= ${u.suggested}  (rounded up)`}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" onClick={() => askReprice([u])} disabled={repriceBusy}>
+                          Reprice
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
             {insights.underPriced.length > 8 && (
               <Typography variant="caption" color="text.secondary">
                 …and {insights.underPriced.length - 8} more — use “Reprice all” to cover every one.
@@ -1092,28 +1094,30 @@ export default function ProductsPage({ onLogout }) {
         {insights.categories.length > 0 && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="subtitle2" mb={1}>Margin by category</Typography>
-            <Table size="small" aria-label="Margin by category">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Category</TableCell>
-                  <TableCell align="right">Costed</TableCell>
-                  <TableCell align="right">Margin</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {insights.categories.slice(0, 10).map(c => (
-                  <TableRow key={c.category}>
-                    <TableCell>{c.category}</TableCell>
-                    <TableCell align="right">{c.costed}</TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" color={c.margin === null ? 'text.secondary' : c.margin < 0 ? 'error.main' : c.margin < 20 ? 'warning.main' : 'success.main'}>
-                        {c.margin === null ? '—' : `${Math.round(c.margin)}%`}
-                      </Typography>
-                    </TableCell>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table size="small" aria-label="Margin by category">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Category</TableCell>
+                    <TableCell align="right">Costed</TableCell>
+                    <TableCell align="right">Margin</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {insights.categories.slice(0, 10).map(c => (
+                    <TableRow key={c.category}>
+                      <TableCell>{c.category}</TableCell>
+                      <TableCell align="right">{c.costed}</TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" color={c.margin === null ? 'text.secondary' : c.margin < 0 ? 'error.main' : c.margin < 20 ? 'warning.main' : 'success.main'}>
+                          {c.margin === null ? '—' : `${Math.round(c.margin)}%`}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Box>
         )}
 
@@ -1219,119 +1223,121 @@ export default function ProductsPage({ onLogout }) {
             Copy uncosted names
           </Button>
         </Box>
-        <Table aria-label="Active products">
-          <TableHead>
-            <TableRow>
-              <TableCell>Photo</TableCell>
-              <TableCell sortDirection={sort.key === 'name' ? sort.dir : false}>
-                <TableSortLabel active={sort.key === 'name'} direction={sort.dir} onClick={() => toggleSort('name')}>Name</TableSortLabel>
-              </TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Unit Measurement</TableCell>
-              <TableCell sortDirection={sort.key === 'price' ? sort.dir : false}>
-                <TableSortLabel active={sort.key === 'price'} direction={sort.dir} onClick={() => toggleSort('price')}>Price</TableSortLabel>
-              </TableCell>
-              <TableCell sortDirection={sort.key === 'cost' ? sort.dir : false}>
-                <TableSortLabel active={sort.key === 'cost'} direction={sort.dir} onClick={() => toggleSort('cost')}>Cost</TableSortLabel>
-              </TableCell>
-              <TableCell sortDirection={sort.key === 'margin' ? sort.dir : false}>
-                <TableSortLabel active={sort.key === 'margin'} direction={sort.dir} onClick={() => toggleSort('margin')}>Margin</TableSortLabel>
-              </TableCell>
-              <TableCell>Brand</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={9}>Loading…</TableCell></TableRow>
-            ) : prodList.length === 0 ? (
-              <TableRow><TableCell colSpan={9}>No products found</TableCell></TableRow>
-            ) : prodList.map(product => (
-              <TableRow key={product.id}>
-                <TableCell>
-                  {product.image ? (
-                    <img src={product.image.startsWith('http') ? product.image : API_BASE_URL + product.image} alt={product.name} style={{ height: 48, width: 48, borderRadius: 8, objectFit: 'cover' }} />
-                  ) : <Typography variant="body2" color="text.secondary">—</Typography>}
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table aria-label="Active products">
+            <TableHead>
+              <TableRow>
+                <TableCell>Photo</TableCell>
+                <TableCell sortDirection={sort.key === 'name' ? sort.dir : false}>
+                  <TableSortLabel active={sort.key === 'name'} direction={sort.dir} onClick={() => toggleSort('name')}>Name</TableSortLabel>
                 </TableCell>
-                <TableCell>{product.name}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell>{[product.size, product.unit].filter(Boolean).join(' ')}
-                  {product.description && (
-                    <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>{product.description}</Typography>
-                  )}
+                <TableCell>Category</TableCell>
+                <TableCell>Unit Measurement</TableCell>
+                <TableCell sortDirection={sort.key === 'price' ? sort.dir : false}>
+                  <TableSortLabel active={sort.key === 'price'} direction={sort.dir} onClick={() => toggleSort('price')}>Price</TableSortLabel>
                 </TableCell>
-                <TableCell>P{product.price}</TableCell>
-                {/* Cost and margin are admin-tier only, and arrive via the
-                    separate cost sheet rather than the public catalog.
-                    The Cost cell edits in place: click, type, Enter. It saves
-                    through the single-row bulk-costs call, which touches only
-                    this column — unlike the product PUT, which full-replaces
-                    every column and would wipe the cost if a field were
-                    missed. */}
-                <TableCell sx={{ width: 130 }}>
-                  {editingCostId === product.id ? (
-                    <TextField
-                      autoFocus
-                      size="small"
-                      value={editingCostValue}
-                      disabled={costBusyId === product.id}
-                      onChange={e => setEditingCostValue(sanitizePrice(e.target.value))}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') saveInlineCost(product, editingCostValue);
-                        if (e.key === 'Escape') setEditingCostId(null);
-                      }}
-                      onBlur={e => saveInlineCost(product, e.target.value)}
-                      placeholder="not costed"
-                      inputProps={{ 'aria-label': `Cost of goods for ${product.name}` }}
-                    />
-                  ) : (
-                    <Tooltip title="Click to edit this product's cost">
-                      <Box
-                        component="button"
-                        type="button"
-                        onClick={() => { setEditingCostId(product.id); setEditingCostValue(product.cost === null || product.cost === undefined ? '' : String(product.cost)); }}
-                        sx={{
-                          background: 'none', border: '1px dashed transparent', borderRadius: 1,
-                          cursor: 'pointer', font: 'inherit', px: 1, py: 0.5, width: '100%',
-                          textAlign: 'left', color: product.cost === null || product.cost === undefined ? 'text.secondary' : 'text.primary',
-                        }}
-                      >
-                        {product.cost === null || product.cost === undefined ? (
-                          <Typography variant="caption" color="text.secondary">not costed</Typography>
-                        ) : `P${product.cost}`}
-                      </Box>
-                    </Tooltip>
-                  )}
+                <TableCell sortDirection={sort.key === 'cost' ? sort.dir : false}>
+                  <TableSortLabel active={sort.key === 'cost'} direction={sort.dir} onClick={() => toggleSort('cost')}>Cost</TableSortLabel>
                 </TableCell>
-                <TableCell>
-                  {(() => {
-                    const bucket = marginBucket(product);
-                    if (bucket === 'uncosted') return <Typography variant="caption" color="text.secondary">—</Typography>;
-                    const pct = Math.round(marginPercentOf(product));
-                    const color = bucket === 'loss' ? 'error' : bucket === 'thin' ? 'warning' : 'success';
-                    return <Typography variant="body2" color={`${color}.main`}>{pct}%</Typography>;
-                  })()}
+                <TableCell sortDirection={sort.key === 'margin' ? sort.dir : false}>
+                  <TableSortLabel active={sort.key === 'margin'} direction={sort.dir} onClick={() => toggleSort('margin')}>Margin</TableSortLabel>
                 </TableCell>
-                <TableCell>{product.brand}</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button size="small" variant="outlined" onClick={() => handleEdit(product)}>Edit</Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<QrCode2Icon />}
-                      aria-label={`Show QR tag for ${product.name}`}
-                      onClick={() => setActiveTag(product)}
-                    >
-                      QR
-                    </Button>
-                    <Button size="small" variant="contained" color="error" onClick={() => setConfirmDelete(product.id)}>Delete</Button>
-                  </Box>
-                </TableCell>
+                <TableCell>Brand</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={9}>Loading…</TableCell></TableRow>
+              ) : prodList.length === 0 ? (
+                <TableRow><TableCell colSpan={9}>No products found</TableCell></TableRow>
+              ) : prodList.map(product => (
+                <TableRow key={product.id}>
+                  <TableCell>
+                    {product.image ? (
+                      <img src={product.image.startsWith('http') ? product.image : API_BASE_URL + product.image} alt={product.name} style={{ height: 48, width: 48, borderRadius: 8, objectFit: 'cover' }} />
+                    ) : <Typography variant="body2" color="text.secondary">—</Typography>}
+                  </TableCell>
+                  <TableCell>{product.name}</TableCell>
+                  <TableCell>{product.category}</TableCell>
+                  <TableCell>{[product.size, product.unit].filter(Boolean).join(' ')}
+                    {product.description && (
+                      <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>{product.description}</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>P{product.price}</TableCell>
+                  {/* Cost and margin are admin-tier only, and arrive via the
+                      separate cost sheet rather than the public catalog.
+                      The Cost cell edits in place: click, type, Enter. It saves
+                      through the single-row bulk-costs call, which touches only
+                      this column — unlike the product PUT, which full-replaces
+                      every column and would wipe the cost if a field were
+                      missed. */}
+                  <TableCell sx={{ width: 130 }}>
+                    {editingCostId === product.id ? (
+                      <TextField
+                        autoFocus
+                        size="small"
+                        value={editingCostValue}
+                        disabled={costBusyId === product.id}
+                        onChange={e => setEditingCostValue(sanitizePrice(e.target.value))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') saveInlineCost(product, editingCostValue);
+                          if (e.key === 'Escape') setEditingCostId(null);
+                        }}
+                        onBlur={e => saveInlineCost(product, e.target.value)}
+                        placeholder="not costed"
+                        inputProps={{ 'aria-label': `Cost of goods for ${product.name}` }}
+                      />
+                    ) : (
+                      <Tooltip title="Click to edit this product's cost">
+                        <Box
+                          component="button"
+                          type="button"
+                          onClick={() => { setEditingCostId(product.id); setEditingCostValue(product.cost === null || product.cost === undefined ? '' : String(product.cost)); }}
+                          sx={{
+                            background: 'none', border: '1px dashed transparent', borderRadius: 1,
+                            cursor: 'pointer', font: 'inherit', px: 1, py: 0.5, width: '100%',
+                            textAlign: 'left', color: product.cost === null || product.cost === undefined ? 'text.secondary' : 'text.primary',
+                          }}
+                        >
+                          {product.cost === null || product.cost === undefined ? (
+                            <Typography variant="caption" color="text.secondary">not costed</Typography>
+                          ) : `P${product.cost}`}
+                        </Box>
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const bucket = marginBucket(product);
+                      if (bucket === 'uncosted') return <Typography variant="caption" color="text.secondary">—</Typography>;
+                      const pct = Math.round(marginPercentOf(product));
+                      const color = bucket === 'loss' ? 'error' : bucket === 'thin' ? 'warning' : 'success';
+                      return <Typography variant="body2" color={`${color}.main`}>{pct}%</Typography>;
+                    })()}
+                  </TableCell>
+                  <TableCell>{product.brand}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Button size="small" variant="outlined" onClick={() => handleEdit(product)}>Edit</Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<QrCode2Icon />}
+                        aria-label={`Show QR tag for ${product.name}`}
+                        onClick={() => setActiveTag(product)}
+                      >
+                        QR
+                      </Button>
+                      <Button size="small" variant="contained" color="error" onClick={() => setConfirmDelete(product.id)}>Delete</Button>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog open={confirmDelete !== null} onClose={() => setConfirmDelete(null)}>
@@ -1397,27 +1403,29 @@ export default function ProductsPage({ onLogout }) {
           </Typography>
           {repricePlan && repricePlan.prices.length > 0 && (
             <Box sx={{ maxHeight: 240, overflowY: 'auto', mt: 1 }}>
-              <Table size="small" aria-label="Pending reprices">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Product</TableCell>
-                    <TableCell align="right">Now</TableCell>
-                    <TableCell align="right">New price</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {repricePlan.prices.map(r => {
-                    const row = insights.underPriced.find(u => u.id === r.id);
-                    return (
-                      <TableRow key={r.id}>
-                        <TableCell>{r.name}</TableCell>
-                        <TableCell align="right">{row ? `P${row.price}` : '—'}</TableCell>
-                        <TableCell align="right">P{r.price}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small" aria-label="Pending reprices">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Product</TableCell>
+                      <TableCell align="right">Now</TableCell>
+                      <TableCell align="right">New price</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {repricePlan.prices.map(r => {
+                      const row = insights.underPriced.find(u => u.id === r.id);
+                      return (
+                        <TableRow key={r.id}>
+                          <TableCell>{r.name}</TableCell>
+                          <TableCell align="right">{row ? `P${row.price}` : '—'}</TableCell>
+                          <TableCell align="right">P{r.price}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Box>
           )}
           {repricePlan && repricePlan.skipped.length > 0 && (

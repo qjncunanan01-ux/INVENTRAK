@@ -194,7 +194,7 @@ export default function SecurityPage({ onLogout }) {
                 <Typography variant="body2" sx={{ color: colors.textSecondary, mb: 1 }}>
                 If you lose your phone, enter any unused code instead of the authenticator code at login. Each code works once.
                 </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(5, 1fr)' }, gap: 1 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr) minmax(0, 1fr)', md: 'repeat(5, minmax(0, 1fr))' }, gap: 1 }}>
                   {recoveryCodes.map((c) => (
                     <Box key={c} sx={{ fontFamily: 'monospace', fontSize: 13, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 1, py: 0.5, textAlign: 'center' }}>
                       {c}

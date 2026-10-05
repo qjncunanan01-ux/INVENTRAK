@@ -1,22 +1,7 @@
 import QrCode2Outlined from '@mui/icons-material/QrCode2Outlined';
 import ReplayOutlined from '@mui/icons-material/ReplayOutlined';
 import VideocamOutlined from '@mui/icons-material/VideocamOutlined';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Divider,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, Chip, CircularProgress, Divider, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import {
@@ -578,42 +563,44 @@ export default function ScanStockPage({ onLogout }) {
             </Box>
           </Box>
 
-          <Table size="small" sx={{ maxWidth: 520 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell>Location</TableCell>
-                <TableCell align="right">Current</TableCell>
-                <TableCell align="right" sx={{ width: 140 }}>Counted</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {locs.length === 0 ? (
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ maxWidth: 520 }}>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={3}>No stock recorded — enter your count below.</TableCell>
+                  <TableCell>Location</TableCell>
+                  <TableCell align="right">Current</TableCell>
+                  <TableCell align="right" sx={{ width: 140 }}>Counted</TableCell>
                 </TableRow>
-              ) : (
-                locs.map((loc) => (
-                  <TableRow key={loc}>
-                    <TableCell>{loc}</TableCell>
-                    <TableCell align="right">
-                      <strong>{top.stock.locations[loc] ?? 0}</strong>
-                    </TableCell>
-                    <TableCell align="right">
-                      <TextField
-                        size="small"
-                        type="text"
-                        inputMode="decimal"
-                        value={counts[loc] ?? ''}
-                        onChange={(e) => setCounts({ ...counts, [loc]: e.target.value.replace(/[^0-9.]/g, '') })}
-                        sx={{ width: 120, backgroundColor: colors.surface }}
-                        aria-label={`Counted quantity in ${loc}`}
-                      />
-                    </TableCell>
+              </TableHead>
+              <TableBody>
+                {locs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3}>No stock recorded — enter your count below.</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  locs.map((loc) => (
+                    <TableRow key={loc}>
+                      <TableCell>{loc}</TableCell>
+                      <TableCell align="right">
+                        <strong>{top.stock.locations[loc] ?? 0}</strong>
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          size="small"
+                          type="text"
+                          inputMode="decimal"
+                          value={counts[loc] ?? ''}
+                          onChange={(e) => setCounts({ ...counts, [loc]: e.target.value.replace(/[^0-9.]/g, '') })}
+                          sx={{ width: 120, backgroundColor: colors.surface }}
+                          aria-label={`Counted quantity in ${loc}`}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
           {/* Verify & record — the capstone requirement: the staff member
               reviews the identified product, enters the physically counted

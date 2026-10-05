@@ -1,7 +1,4 @@
-import {
-  Alert, Box, Button, Chip, LinearProgress, Paper, Table, TableBody,
-  TableCell, TableHead, TableRow, Tooltip, Typography,
-} from '@mui/material';
+import { Alert, Box, Button, Chip, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { apiGet } from '../api';
@@ -133,53 +130,55 @@ export default function StocktakePage({ onLogout }) {
 
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
         <Typography variant="h6" mb={1}>Shelves</Typography>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Shelf</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Coverage</TableCell>
-              <TableCell align="right">Lines to walk</TableCell>
-              <TableCell>Last count</TableCell>
-              <TableCell>Next due</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6}>Loading…</TableCell></TableRow>
-            ) : rows.length === 0 ? (
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table size="small">
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={6}>No shelves yet. Add a branch location and stock will be scheduled automatically.</TableCell>
+                <TableCell>Shelf</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Coverage</TableCell>
+                <TableCell align="right">Lines to walk</TableCell>
+                <TableCell>Last count</TableCell>
+                <TableCell>Next due</TableCell>
               </TableRow>
-            ) : rows.map(r => {
-              const meta = statusMeta(r);
-              const due = Number(r.stale_lines) + Number(r.never_counted_lines);
-              const pct = r.coverage === null || r.coverage === undefined ? 0 : Math.round(r.coverage * 100);
-              return (
-                <TableRow key={r.location_id}>
-                  <TableCell>{r.location}</TableCell>
-                  <TableCell><Chip size="small" color={meta.color} label={meta.label} /></TableCell>
-                  <TableCell sx={{ minWidth: 140 }}>
-                    <Tooltip title={`${r.fresh_lines} of ${r.total_lines} lines counted inside the cycle`}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={pct}
-                          color={pct === 100 ? 'success' : 'warning'}
-                          sx={{ flex: 1, height: 8, borderRadius: 4 }}
-                        />
-                        <Typography variant="caption" color="text.secondary">{pct}%</Typography>
-                      </Box>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell align="right">{due}</TableCell>
-                  <TableCell>{r.last_count_at ? new Date(r.last_count_at).toLocaleDateString() : '—'}</TableCell>
-                  <TableCell>{dueLabel(r)}</TableCell>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={6}>Loading…</TableCell></TableRow>
+              ) : rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6}>No shelves yet. Add a branch location and stock will be scheduled automatically.</TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+              ) : rows.map(r => {
+                const meta = statusMeta(r);
+                const due = Number(r.stale_lines) + Number(r.never_counted_lines);
+                const pct = r.coverage === null || r.coverage === undefined ? 0 : Math.round(r.coverage * 100);
+                return (
+                  <TableRow key={r.location_id}>
+                    <TableCell>{r.location}</TableCell>
+                    <TableCell><Chip size="small" color={meta.color} label={meta.label} /></TableCell>
+                    <TableCell sx={{ minWidth: 140 }}>
+                      <Tooltip title={`${r.fresh_lines} of ${r.total_lines} lines counted inside the cycle`}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <LinearProgress
+                            variant="determinate"
+                            value={pct}
+                            color={pct === 100 ? 'success' : 'warning'}
+                            sx={{ flex: 1, height: 8, borderRadius: 4 }}
+                          />
+                          <Typography variant="caption" color="text.secondary">{pct}%</Typography>
+                        </Box>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell align="right">{due}</TableCell>
+                    <TableCell>{r.last_count_at ? new Date(r.last_count_at).toLocaleDateString() : '—'}</TableCell>
+                    <TableCell>{dueLabel(r)}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
         {rows.length > 0 && (
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 2 }}>

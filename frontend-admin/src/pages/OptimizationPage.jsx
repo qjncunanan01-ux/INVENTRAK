@@ -1,4 +1,4 @@
-import { Box, Card, CardContent, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Card, CardContent, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet, getCurrentUser } from '../api';
@@ -256,34 +256,36 @@ export default function OptimizationPage({ onLogout }) {
           note="A = the few products driving ~70% of revenue — protect their stock first."
         />
         <Box sx={{ height: 16 }} />
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Product</TableCell>
-              <TableCell>Value</TableCell>
-              <TableCell>Classification</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={3}>Loading…</TableCell></TableRow>
-            ) : abcList.length === 0 ? (
-              <TableRow><TableCell colSpan={3}>No optimization data available</TableCell></TableRow>
-            ) : abcList.map((item, idx) => (
-              <TableRow key={item.id}>
-                <TableCell>{item.name}</TableCell>
-                <TableCell>{item.value}</TableCell>
-                <TableCell>
-                  <Chip label={item.classification} color={getClassificationColor(item.classification)} size="small" />
-                  <WhyBadge
-                    title={`${item.name} is Class ${item.classification} — why?`}
-                    lines={abcWhyLines(item, abcEvidence.get(item.id) || { rank: '—', cumShare: 0 }, moneyVisible)}
-                  />
-                </TableCell>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Product</TableCell>
+                <TableCell>Value</TableCell>
+                <TableCell>Classification</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={3}>Loading…</TableCell></TableRow>
+              ) : abcList.length === 0 ? (
+                <TableRow><TableCell colSpan={3}>No optimization data available</TableCell></TableRow>
+              ) : abcList.map((item, idx) => (
+                <TableRow key={item.id}>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.value}</TableCell>
+                  <TableCell>
+                    <Chip label={item.classification} color={getClassificationColor(item.classification)} size="small" />
+                    <WhyBadge
+                      title={`${item.name} is Class ${item.classification} — why?`}
+                      lines={abcWhyLines(item, abcEvidence.get(item.id) || { rank: '—', cumShare: 0 }, moneyVisible)}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }}>
@@ -324,42 +326,44 @@ export default function OptimizationPage({ onLogout }) {
           note="N items are dead-stock candidates — clear, discount, or stop reordering."
         />
         <Box sx={{ height: 16 }} />
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Product</TableCell>
-              <TableCell>Class</TableCell>
-              <TableCell align="right">Sales (txns)</TableCell>
-              <TableCell align="right">Avg days between sales</TableCell>
-              <TableCell align="right">Last sold (days ago)</TableCell>
-              <TableCell align="right">Units sold</TableCell>
-              <TableCell align="right">Revenue</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {fsnLoading ? (
-              <TableRow><TableCell colSpan={7}>Analyzing movement…</TableCell></TableRow>
-            ) : fsnList.length === 0 ? (
-              <TableRow><TableCell colSpan={7}>No FSN data available</TableCell></TableRow>
-            ) : fsnList.map(item => (
-              <TableRow key={`${item.classification}-${item.id}`} sx={item.classification === 'N' ? { backgroundColor: 'rgba(211, 47, 47, 0.04)' } : undefined}>
-                <TableCell>{item.name}</TableCell>
-                <TableCell>
-                  <Chip label={item.classification} color={FSN_CHIP_COLOR[item.classification]} size="small" />
-                  <WhyBadge
-                    title={`${item.name} is ${FSN_LABEL[item.classification]} — why?`}
-                    lines={fsnWhyLines(item, moneyVisible)}
-                  />
-                </TableCell>
-                <TableCell align="right">{fmtNum(item.transactions)}</TableCell>
-                <TableCell align="right">{item.frequencyDays === null ? '—' : fmtNum(item.frequencyDays)}</TableCell>
-                <TableCell align="right">{item.recencyDays === null ? '—' : fmtNum(item.recencyDays)}</TableCell>
-                <TableCell align="right">{fmtNum(item.totalQty)}</TableCell>
-                <TableCell align="right">{moneyVisible ? `₱${fmtNum(item.valueSold)}` : MONEY_MASK}</TableCell>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Product</TableCell>
+                <TableCell>Class</TableCell>
+                <TableCell align="right">Sales (txns)</TableCell>
+                <TableCell align="right">Avg days between sales</TableCell>
+                <TableCell align="right">Last sold (days ago)</TableCell>
+                <TableCell align="right">Units sold</TableCell>
+                <TableCell align="right">Revenue</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {fsnLoading ? (
+                <TableRow><TableCell colSpan={7}>Analyzing movement…</TableCell></TableRow>
+              ) : fsnList.length === 0 ? (
+                <TableRow><TableCell colSpan={7}>No FSN data available</TableCell></TableRow>
+              ) : fsnList.map(item => (
+                <TableRow key={`${item.classification}-${item.id}`} sx={item.classification === 'N' ? { backgroundColor: 'rgba(211, 47, 47, 0.04)' } : undefined}>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>
+                    <Chip label={item.classification} color={FSN_CHIP_COLOR[item.classification]} size="small" />
+                    <WhyBadge
+                      title={`${item.name} is ${FSN_LABEL[item.classification]} — why?`}
+                      lines={fsnWhyLines(item, moneyVisible)}
+                    />
+                  </TableCell>
+                  <TableCell align="right">{fmtNum(item.transactions)}</TableCell>
+                  <TableCell align="right">{item.frequencyDays === null ? '—' : fmtNum(item.frequencyDays)}</TableCell>
+                  <TableCell align="right">{item.recencyDays === null ? '—' : fmtNum(item.recencyDays)}</TableCell>
+                  <TableCell align="right">{fmtNum(item.totalQty)}</TableCell>
+                  <TableCell align="right">{moneyVisible ? `₱${fmtNum(item.valueSold)}` : MONEY_MASK}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
         {fsnTotal > 0 && (
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             {fsnTotal} active products — {rangeCaption} ({fsnWindow} days) · F {fsnCounts.F} / S {fsnCounts.S} / N {fsnCounts.N} — non-moving items first.

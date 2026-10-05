@@ -1,4 +1,4 @@
-import { Box, Button, Chip, FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, Snackbar, Switch, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, Snackbar, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost, getCurrentUser } from '../api';
 import { colors } from '../theme';
@@ -201,34 +201,36 @@ export default function StockMovementPage({ onLogout }) {
             <Typography variant="body2" color="text.secondary">Total: {totalMovements}</Typography>
           </Box>
         </Box>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Type</TableCell>
-              <TableCell>Product</TableCell>
-              <TableCell>Quantity</TableCell>
-              <TableCell>Source</TableCell>
-              <TableCell>Destination</TableCell>
-              <TableCell>Date</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6}>Loading stock movements…</TableCell></TableRow>
-            ) : movList.length === 0 ? (
-              <TableRow><TableCell colSpan={6}>No stock movements found.</TableCell></TableRow>
-            ) : movList.map((movement) => (
-              <TableRow key={movement.id}>
-                <TableCell>{movement.type}</TableCell>
-                <TableCell>{productMap[movement.product_id] ?? movement.product_id}</TableCell>
-                <TableCell>{movement.qty}</TableCell>
-                <TableCell>{(locationMap[movement.src_location] ?? movement.src_location) || '-'}</TableCell>
-                <TableCell>{(locationMap[movement.dst_location] ?? movement.dst_location) || '-'}</TableCell>
-                <TableCell>{new Date(movement.created_at).toLocaleDateString()}</TableCell>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Type</TableCell>
+                <TableCell>Product</TableCell>
+                <TableCell>Quantity</TableCell>
+                <TableCell>Source</TableCell>
+                <TableCell>Destination</TableCell>
+                <TableCell>Date</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={6}>Loading stock movements…</TableCell></TableRow>
+              ) : movList.length === 0 ? (
+                <TableRow><TableCell colSpan={6}>No stock movements found.</TableCell></TableRow>
+              ) : movList.map((movement) => (
+                <TableRow key={movement.id}>
+                  <TableCell>{movement.type}</TableCell>
+                  <TableCell>{productMap[movement.product_id] ?? movement.product_id}</TableCell>
+                  <TableCell>{movement.qty}</TableCell>
+                  <TableCell>{(locationMap[movement.src_location] ?? movement.src_location) || '-'}</TableCell>
+                  <TableCell>{(locationMap[movement.dst_location] ?? movement.dst_location) || '-'}</TableCell>
+                  <TableCell>{new Date(movement.created_at).toLocaleDateString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
       <Paper sx={{ p: 3, mt: 3, backgroundColor: colors.surfaceAlt }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -238,32 +240,34 @@ export default function StockMovementPage({ onLogout }) {
             label="Expiring within 30 days"
           />
         </Box>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Product</TableCell>
-              <TableCell>Location</TableCell>
-              <TableCell>Qty</TableCell>
-              <TableCell>Received</TableCell>
-              <TableCell>Expiry</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={5}>Loading lots…</TableCell></TableRow>
-            ) : lotList.length === 0 ? (
-              <TableRow><TableCell colSpan={5}>{expiringOnly ? 'No lots expiring within 30 days.' : 'No lot data available.'}</TableCell></TableRow>
-            ) : lotList.map(lot => (
-              <TableRow key={lot.id}>
-                <TableCell>{lot.product_name}</TableCell>
-                <TableCell>{lot.location_name}</TableCell>
-                <TableCell>{lot.qty}</TableCell>
-                <TableCell>{new Date(lot.received_at).toLocaleDateString()}</TableCell>
-                <TableCell>{expiryChip(lot.expiry_date)}</TableCell>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Product</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Qty</TableCell>
+                <TableCell>Received</TableCell>
+                <TableCell>Expiry</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={5}>Loading lots…</TableCell></TableRow>
+              ) : lotList.length === 0 ? (
+                <TableRow><TableCell colSpan={5}>{expiringOnly ? 'No lots expiring within 30 days.' : 'No lot data available.'}</TableCell></TableRow>
+              ) : lotList.map(lot => (
+                <TableRow key={lot.id}>
+                  <TableCell>{lot.product_name}</TableCell>
+                  <TableCell>{lot.location_name}</TableCell>
+                  <TableCell>{lot.qty}</TableCell>
+                  <TableCell>{new Date(lot.received_at).toLocaleDateString()}</TableCell>
+                  <TableCell>{expiryChip(lot.expiry_date)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
       <Snackbar
         open={snackbar.open}

@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPut } from '../api';
 import { colors } from '../theme';
@@ -280,74 +280,76 @@ export default function OrderInquiriesPage({ onLogout }) {
             <Typography variant="subtitle2" color="text.secondary">{orderList.length} inquiries</Typography>
           </Box>
         </Box>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Customer</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Products</TableCell>
-              <TableCell>Estimated Cost</TableCell>
-              <TableCell>Delivery & Payment</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>
-            ) : orderList.length === 0 ? (
-              <TableRow><TableCell colSpan={8}>No order inquiries</TableCell></TableRow>
-            ) : orderList.map(order => {
-              const lines = parseLines(order);
-              return (
-                <TableRow key={order.id} sx={{ '&:hover': { backgroundColor: 'rgba(0,0,0,0.02)' } }}>
-                  <TableCell>{order.customer_name}</TableCell>
-                  <TableCell>{order.customer_email}</TableCell>
-                  <TableCell sx={{ maxWidth: 320 }}>
-                    {renderLineItems(lines)}
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ fontWeight: 700 }}>P{order.estimated_cost}</Typography>
-                    {lines.some((l) => {
-                      if (typeof l === 'string') return false;
-                      const orig = lineOriginal(l);
-                      const price = linePrice(l);
-                      return orig !== null && price !== null && orig > price;
-                    }) && (
-                      <Chip label="includes flash deals" size="small" sx={{ mt: 0.5, height: 18, backgroundColor: '#ffe3dd', color: '#e23744', fontWeight: 700, fontSize: '0.65rem' }} />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                      <Chip size="small" label={(order.payment_method || 'cod').toUpperCase()} color={order.payment_method === 'gcash' ? 'info' : 'default'} />
-                      {order.payment_status === 'paid' && <Chip size="small" label="PAID" color="success" />}
-                      {order.payment_status === 'unpaid' && order.payment_method !== 'cod' && <Chip size="small" label="UNPAID" variant="outlined" />}
-                    </Box>
-                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                      {order.delivery_address || '—'}
-                      {order.payment_reference ? ` · ${order.payment_reference}` : ''}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={order.status} color={STATUS_COLORS[order.status] || 'default'} size="small" />
-                    {/* Compact progress dots so the timeline is visible at a
-                        glance without opening Details (see StatusTimeline). */}
-                    <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                      {TIMELINE_STEPS.map((step, idx) => {
-                        const currentIdx = TIMELINE_STEPS.findIndex((s) => s.key === order.status);
-                        const reached = order.status === 'rejected' ? false : currentIdx >= idx;
-                        return <Box key={step.key} sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: reached ? colors.brandPrimary : '#e0e0e0' }} />;
-                      })}
-                    </Box>
-                  </TableCell>
-                  <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>{renderActions(order)}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Customer</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Products</TableCell>
+                <TableCell>Estimated Cost</TableCell>
+                <TableCell>Delivery & Payment</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>
+              ) : orderList.length === 0 ? (
+                <TableRow><TableCell colSpan={8}>No order inquiries</TableCell></TableRow>
+              ) : orderList.map(order => {
+                const lines = parseLines(order);
+                return (
+                  <TableRow key={order.id} sx={{ '&:hover': { backgroundColor: 'rgba(0,0,0,0.02)' } }}>
+                    <TableCell>{order.customer_name}</TableCell>
+                    <TableCell>{order.customer_email}</TableCell>
+                    <TableCell sx={{ maxWidth: 320 }}>
+                      {renderLineItems(lines)}
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontWeight: 700 }}>P{order.estimated_cost}</Typography>
+                      {lines.some((l) => {
+                        if (typeof l === 'string') return false;
+                        const orig = lineOriginal(l);
+                        const price = linePrice(l);
+                        return orig !== null && price !== null && orig > price;
+                      }) && (
+                        <Chip label="includes flash deals" size="small" sx={{ mt: 0.5, height: 18, backgroundColor: '#ffe3dd', color: '#e23744', fontWeight: 700, fontSize: '0.65rem' }} />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Chip size="small" label={(order.payment_method || 'cod').toUpperCase()} color={order.payment_method === 'gcash' ? 'info' : 'default'} />
+                        {order.payment_status === 'paid' && <Chip size="small" label="PAID" color="success" />}
+                        {order.payment_status === 'unpaid' && order.payment_method !== 'cod' && <Chip size="small" label="UNPAID" variant="outlined" />}
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        {order.delivery_address || '—'}
+                        {order.payment_reference ? ` · ${order.payment_reference}` : ''}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={order.status} color={STATUS_COLORS[order.status] || 'default'} size="small" />
+                      {/* Compact progress dots so the timeline is visible at a
+                          glance without opening Details (see StatusTimeline). */}
+                      <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                        {TIMELINE_STEPS.map((step, idx) => {
+                          const currentIdx = TIMELINE_STEPS.findIndex((s) => s.key === order.status);
+                          const reached = order.status === 'rejected' ? false : currentIdx >= idx;
+                          return <Box key={step.key} sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: reached ? colors.brandPrimary : '#e0e0e0' }} />;
+                        })}
+                      </Box>
+                    </TableCell>
+                    <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{renderActions(order)}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, id: null, status: '' })}>

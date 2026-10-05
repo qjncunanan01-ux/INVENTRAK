@@ -1,4 +1,4 @@
-import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet, apiPost } from '../api';
 import { colors } from '../theme';
@@ -148,47 +148,49 @@ export default function StockTransfersPage({ onLogout }) {
             </FormControl>              <TextField size="small" label="Search product / location / reason…" value={search} onChange={e => setSearch(e.target.value)} sx={{ minWidth: 240, backgroundColor: colors.surface }} />
           </Box>
         </Box>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Product</TableCell>
-              <TableCell>From</TableCell>
-              <TableCell>To</TableCell>
-              <TableCell>Qty</TableCell>
-              <TableCell>Reason</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Decided by</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={9}>Loading transfers…</TableCell></TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={9}>No transfers found.</TableCell></TableRow>
-            ) : filtered.map(r => (
-              <TableRow key={r.id}>
-                <TableCell>{r.product_name}</TableCell>
-                <TableCell>{r.src_location_name}</TableCell>
-                <TableCell>{r.dst_location_name}</TableCell>
-                <TableCell><strong>{r.qty}</strong></TableCell>
-                <TableCell>{r.reason || '-'}</TableCell>
-                <TableCell><Chip size="small" color={statusColor(r.status)} label={r.status} /></TableCell>
-                <TableCell>{r.decided_by || '-'}</TableCell>
-                <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
-                <TableCell>
-                  {r.status === 'pending' ? (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button size="small" variant="contained" color="success" onClick={() => decide(r.id, 'approve')}>✓ Approve</Button>
-                      <Button size="small" variant="outlined" color="error" onClick={() => decide(r.id, 'reject')}>✕ Reject</Button>
-                    </Box>
-                  ) : '-'}
-                </TableCell>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Product</TableCell>
+                <TableCell>From</TableCell>
+                <TableCell>To</TableCell>
+                <TableCell>Qty</TableCell>
+                <TableCell>Reason</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Decided by</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={9}>Loading transfers…</TableCell></TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={9}>No transfers found.</TableCell></TableRow>
+              ) : filtered.map(r => (
+                <TableRow key={r.id}>
+                  <TableCell>{r.product_name}</TableCell>
+                  <TableCell>{r.src_location_name}</TableCell>
+                  <TableCell>{r.dst_location_name}</TableCell>
+                  <TableCell><strong>{r.qty}</strong></TableCell>
+                  <TableCell>{r.reason || '-'}</TableCell>
+                  <TableCell><Chip size="small" color={statusColor(r.status)} label={r.status} /></TableCell>
+                  <TableCell>{r.decided_by || '-'}</TableCell>
+                  <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    {r.status === 'pending' ? (
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button size="small" variant="contained" color="success" onClick={() => decide(r.id, 'approve')}>✓ Approve</Button>
+                        <Button size="small" variant="outlined" color="error" onClick={() => decide(r.id, 'reject')}>✕ Reject</Button>
+                      </Box>
+                    ) : '-'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
       <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} message={snackbar.message} />
     </AdminLayout>

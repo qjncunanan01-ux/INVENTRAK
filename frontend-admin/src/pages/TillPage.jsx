@@ -116,7 +116,7 @@ export default function TillPage({ onLogout }) {
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
       )}
 
-      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1.1fr 1fr' }, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1.1fr) minmax(0, 1fr)' }, alignItems: 'start' }}>
         {/* ---------- the form ---------- */}
         <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
           <Typography variant="h6" mb={1}>Record a walk-in sale</Typography>

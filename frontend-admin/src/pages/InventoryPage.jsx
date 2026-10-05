@@ -1,5 +1,5 @@
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
-import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet } from '../api';
@@ -245,7 +245,7 @@ export default function InventoryPage({ onLogout }) {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Rollup across all {locs.length} locations — stock-in documents, movements and adjustments are detailed in their own pages.
         </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(6, 1fr)' }, gap: 1.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', md: 'repeat(6, minmax(0, 1fr))' }, gap: 1.5 }}>
           {summaryCards.map((card) => (
             <Box
               key={card.label}
@@ -398,63 +398,65 @@ export default function InventoryPage({ onLogout }) {
           note="Movement-aware: a fast mover gets a much higher bar than dead stock, so alerts fire before a top seller runs dry."
         />
         <Box sx={{ height: 16 }} />
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Product</TableCell>
-              {locs.map(loc => <TableCell key={loc.name}>{loc.name}</TableCell>)}
-              <TableCell>Total</TableCell>
-              <TableCell>Critical Level</TableCell>
-              <TableCell>
-                <Tooltip title="Earliest expiry across open stock lots (FEFO ledger). Staff counts can stamp a best-before date; the dated lot is consumed first.">
-                  <span>Best before</span>
-                </Tooltip>
-              </TableCell>
-              <TableCell>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={locs.length + 5}>Loading…</TableCell></TableRow>
-            ) : filteredItems.length === 0 ? (
-              <TableRow><TableCell colSpan={locs.length + 5}>No inventory data</TableCell></TableRow>
-            ) : filteredItems.map(item => {
-              const status = statusFor(item);
-              const meta = STATUS_META[status];
-              const below = status === 'critical' || status === 'low_stock';
-              const expiryEntry = nearestExpiry[item.product.id];
-              const expiry = expiryEntry ? expiryMeta(expiryEntry.expiry_date) : null;
-              return (
-                <TableRow key={item.product.id} sx={{
-                  backgroundColor: below ? 'rgba(249,168,37,0.08)' : 'inherit',
-                }}>
-                  <TableCell>{item.product.name}</TableCell>
-                  {locs.map(loc => <TableCell key={loc.name}>{item.locations[loc.name] ?? 0}</TableCell>)}
-                  <TableCell><strong>{item.total}</strong></TableCell>
-                  <TableCell>{item.critical_level ?? 80}</TableCell>
-                  <TableCell>
-                    {expiry ? (
-                      <Tooltip title={`${expiryEntry.qty} unit${expiryEntry.qty === 1 ? '' : 's'} on the dated lot · best before ${fmtDate(expiryEntry.expiry_date)} · FEFO consumes this lot first`}>
-                        <Chip
-                          label={expiry.label}
-                          size="small"
-                          color={expiry.color}
-                          variant={expiry.variant}
-                          aria-label={`${item.product.name} best before ${expiryEntry.expiry_date} — ${expiry.label}, ${expiryEntry.qty} units on the dated lot`}
-                        />
-                      </Tooltip>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">—</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={meta.label} size="small" color={meta.color} variant={status === 'in_stock' ? 'outlined' : 'filled'} />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Product</TableCell>
+                {locs.map(loc => <TableCell key={loc.name}>{loc.name}</TableCell>)}
+                <TableCell>Total</TableCell>
+                <TableCell>Critical Level</TableCell>
+                <TableCell>
+                  <Tooltip title="Earliest expiry across open stock lots (FEFO ledger). Staff counts can stamp a best-before date; the dated lot is consumed first.">
+                    <span>Best before</span>
+                  </Tooltip>
+                </TableCell>
+                <TableCell>Status</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={locs.length + 5}>Loading…</TableCell></TableRow>
+              ) : filteredItems.length === 0 ? (
+                <TableRow><TableCell colSpan={locs.length + 5}>No inventory data</TableCell></TableRow>
+              ) : filteredItems.map(item => {
+                const status = statusFor(item);
+                const meta = STATUS_META[status];
+                const below = status === 'critical' || status === 'low_stock';
+                const expiryEntry = nearestExpiry[item.product.id];
+                const expiry = expiryEntry ? expiryMeta(expiryEntry.expiry_date) : null;
+                return (
+                  <TableRow key={item.product.id} sx={{
+                    backgroundColor: below ? 'rgba(249,168,37,0.08)' : 'inherit',
+                  }}>
+                    <TableCell>{item.product.name}</TableCell>
+                    {locs.map(loc => <TableCell key={loc.name}>{item.locations[loc.name] ?? 0}</TableCell>)}
+                    <TableCell><strong>{item.total}</strong></TableCell>
+                    <TableCell>{item.critical_level ?? 80}</TableCell>
+                    <TableCell>
+                      {expiry ? (
+                        <Tooltip title={`${expiryEntry.qty} unit${expiryEntry.qty === 1 ? '' : 's'} on the dated lot · best before ${fmtDate(expiryEntry.expiry_date)} · FEFO consumes this lot first`}>
+                          <Chip
+                            label={expiry.label}
+                            size="small"
+                            color={expiry.color}
+                            variant={expiry.variant}
+                            aria-label={`${item.product.name} best before ${expiryEntry.expiry_date} — ${expiry.label}, ${expiryEntry.qty} units on the dated lot`}
+                          />
+                        </Tooltip>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">—</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={meta.label} size="small" color={meta.color} variant={status === 'in_stock' ? 'outlined' : 'filled'} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
     </AdminLayout>
   );

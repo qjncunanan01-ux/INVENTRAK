@@ -1,7 +1,4 @@
-import {
-  Alert, Box, Button, Chip, Divider, Paper, Table, TableBody, TableCell,
-  TableHead, TableRow, TextField, Typography,
-} from '@mui/material';
+import { Alert, Box, Button, Chip, Divider, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import { apiGet, apiPost, getCurrentUser } from '../api';
 import { colors } from '../theme';
@@ -117,7 +114,7 @@ export default function ReconciliationPage({ onLogout }) {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
 
-      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1.4fr' }, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) minmax(0, 1.4fr)' }, alignItems: 'start' }}>
         {/* ---------- record a count ---------- */}
         <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
           <Typography variant="h6" mb={1}>Count a shelf</Typography>
@@ -208,47 +205,49 @@ export default function ReconciliationPage({ onLogout }) {
                 </Alert>
               )}
 
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Product</TableCell>
-                    <TableCell>Shelf</TableCell>
-                    <TableCell align="right">Counted</TableCell>
-                    <TableCell align="right">System</TableCell>
-                    <TableCell align="right">Sales since</TableCell>
-                    <TableCell align="right">Expected</TableCell>
-                    <TableCell align="right">Unaccounted</TableCell>
-                    <TableCell align="right">Value at risk</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>
-                  ) : rows.length === 0 ? (
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={8}>
-                        Nothing to compare yet. Count a shelf and it appears here.
-                      </TableCell>
+                      <TableCell>Product</TableCell>
+                      <TableCell>Shelf</TableCell>
+                      <TableCell align="right">Counted</TableCell>
+                      <TableCell align="right">System</TableCell>
+                      <TableCell align="right">Sales since</TableCell>
+                      <TableCell align="right">Expected</TableCell>
+                      <TableCell align="right">Unaccounted</TableCell>
+                      <TableCell align="right">Value at risk</TableCell>
                     </TableRow>
-                  ) : rows.map(r => {
-                    const tone = rowTone(r);
-                    return (
-                      <TableRow key={`${r.product_id}@${r.location_id}`}>
-                        <TableCell>{r.product}</TableCell>
-                        <TableCell>{r.location}</TableCell>
-                        <TableCell align="right">{r.counted_qty}</TableCell>
-                        <TableCell align="right">{r.system_qty_now}</TableCell>
-                        <TableCell align="right">{r.sales_since_count}</TableCell>
-                        <TableCell align="right">{r.expected_qty_now}</TableCell>
-                        <TableCell align="right">
-                          <Chip size="small" color={tone.color} label={tone.label} />
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>
+                    ) : rows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8}>
+                          Nothing to compare yet. Count a shelf and it appears here.
                         </TableCell>
-                        <TableCell align="right">{r.value_at_risk ? peso(r.value_at_risk) : '—'}</TableCell>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                    ) : rows.map(r => {
+                      const tone = rowTone(r);
+                      return (
+                        <TableRow key={`${r.product_id}@${r.location_id}`}>
+                          <TableCell>{r.product}</TableCell>
+                          <TableCell>{r.location}</TableCell>
+                          <TableCell align="right">{r.counted_qty}</TableCell>
+                          <TableCell align="right">{r.system_qty_now}</TableCell>
+                          <TableCell align="right">{r.sales_since_count}</TableCell>
+                          <TableCell align="right">{r.expected_qty_now}</TableCell>
+                          <TableCell align="right">
+                            <Chip size="small" color={tone.color} label={tone.label} />
+                          </TableCell>
+                          <TableCell align="right">{r.value_at_risk ? peso(r.value_at_risk) : '—'}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
 
               {rows.length > 0 && (
                 <>

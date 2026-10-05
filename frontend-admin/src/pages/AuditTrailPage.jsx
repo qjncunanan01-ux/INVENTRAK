@@ -1,15 +1,4 @@
-import {
-  Box,
-  Chip,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet } from '../api';
 import { colors } from '../theme';
@@ -138,70 +127,72 @@ export default function AuditTrailPage({ onLogout }) {
           overflow: 'auto',
         }}
       >
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell><strong>Date / Time</strong></TableCell>
-              <TableCell><strong>User</strong></TableCell>
-              <TableCell><strong>Action</strong></TableCell>
-              <TableCell><strong>Module</strong></TableCell>
-              <TableCell><strong>Description</strong></TableCell>
-            </TableRow>
-          </TableHead>
-
-          <TableBody>
-            {loading ? (
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={5}>
-                  Loading audit trail...
-                </TableCell>
+                <TableCell><strong>Date / Time</strong></TableCell>
+                <TableCell><strong>User</strong></TableCell>
+                <TableCell><strong>Action</strong></TableCell>
+                <TableCell><strong>Module</strong></TableCell>
+                <TableCell><strong>Description</strong></TableCell>
               </TableRow>
-            ) : filteredLogs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5}>
-                  No audit records found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredLogs.map((log, index) => (
-                <TableRow key={log.id || index}>
-                  <TableCell>
-                    {log.t
-                      ? new Date(log.t).toLocaleString()
-                      : log.created_at
-                        ? new Date(log.created_at).toLocaleString()
-                        : '-'}
-                  </TableCell>
+            </TableHead>
 
-                  <TableCell>
-                    {log.username || '-'}
-                  </TableCell>
-
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={eventLabel(log.event || log.action || '')}
-                      color={eventColor(log.event || '')}
-                    />
-                  </TableCell>
-
-                  <TableCell>
-                    {log.module || eventModule(log.event || log.action || '')}
-                  </TableCell>
-
-                  <TableCell>
-                    {log.description ||
-                      log.error ||
-                      log.reason ||
-                      log.action ||
-                      log.event ||
-                      '-'}
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    Loading audit trail...
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : filteredLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    No audit records found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredLogs.map((log, index) => (
+                  <TableRow key={log.id || index}>
+                    <TableCell>
+                      {log.t
+                        ? new Date(log.t).toLocaleString()
+                        : log.created_at
+                          ? new Date(log.created_at).toLocaleString()
+                          : '-'}
+                    </TableCell>
+
+                    <TableCell>
+                      {log.username || '-'}
+                    </TableCell>
+
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={eventLabel(log.event || log.action || '')}
+                        color={eventColor(log.event || '')}
+                      />
+                    </TableCell>
+
+                    <TableCell>
+                      {log.module || eventModule(log.event || log.action || '')}
+                    </TableCell>
+
+                    <TableCell>
+                      {log.description ||
+                        log.error ||
+                        log.reason ||
+                        log.action ||
+                        log.event ||
+                        '-'}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
     </AdminLayout>
   );

@@ -1,6 +1,6 @@
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PrintIcon from '@mui/icons-material/Print';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Snackbar, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../api';
 import { colors } from '../theme';
@@ -123,41 +123,43 @@ export default function LocationsPage({ onLogout }) {
             />
           </Box>
         </Box>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>QR tag</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={4}>Loading…</TableCell></TableRow>
-            ) : locList.length === 0 ? (
-              <TableRow><TableCell colSpan={4}>No locations available</TableCell></TableRow>
-            ) : locList.map(loc => (
-              <TableRow key={loc.id}>
-                <TableCell>{loc.id}</TableCell>
-                <TableCell>{loc.name}</TableCell>
-                <TableCell>
-                  {/* Local QR generation — no third-party request, works offline. */}
-                  <QrImage
-                    payload={locationQrPayload(loc)}
-                    size={44}
-                    sx={{ borderRadius: 1, border: '1px solid rgba(0,0,0,0.12)' }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Button size="small" color="error" variant="contained" onClick={() => setConfirmDelete(loc.id)}>
-                    Delete
-                  </Button>
-                </TableCell>
+        <TableContainer sx={{ overflowX: 'auto' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Name</TableCell>
+                <TableCell>QR tag</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={4}>Loading…</TableCell></TableRow>
+              ) : locList.length === 0 ? (
+                <TableRow><TableCell colSpan={4}>No locations available</TableCell></TableRow>
+              ) : locList.map(loc => (
+                <TableRow key={loc.id}>
+                  <TableCell>{loc.id}</TableCell>
+                  <TableCell>{loc.name}</TableCell>
+                  <TableCell>
+                    {/* Local QR generation — no third-party request, works offline. */}
+                    <QrImage
+                      payload={locationQrPayload(loc)}
+                      size={44}
+                      sx={{ borderRadius: 1, border: '1px solid rgba(0,0,0,0.12)' }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button size="small" color="error" variant="contained" onClick={() => setConfirmDelete(loc.id)}>
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       <Dialog open={confirmDelete !== null} onClose={() => setConfirmDelete(null)}>
