@@ -305,7 +305,7 @@ log-only without the key (by design).
 
 ---
 
-## 10. Notifications — email + SMS (`backend/src/notify.js`, `mobile-client/src/screens/NotificationsScreen.js`)
+## 10. Notifications — email + SMS (`backend/src/notify.js`, `mobile-client/src/screens/orders/NotificationsScreen.js`)
 
 **How it works:** fire-and-forget senders behind env vars — **log-only until
 configured**, so the API never blocks and never costs anything by accident.
@@ -377,7 +377,7 @@ security), `staff-roles.test.js` (endpoint gates), `frontend-admin/src/qr.test.j
 **Where:** tag generation in `frontend-admin/src/qr.js` (shared payload
 helpers) + `components/QrTagSheet.jsx`; tags printed from **Locations → Print
 tag sheet** and **Products → Product QR tags**; scanning in
-`mobile-client/src/screens/QrScanScreen.js` and the admin's **Products →
+`mobile-client/src/screens/catalog/QrScanScreen.js` and the admin's **Products →
 Scan / paste QR tag** box; audit in `POST /api/scan-events`.
 
 **Payload contract** (must match on both sides — pinned by
@@ -499,10 +499,24 @@ npm run build      # production bundle → build/
 npx vite preview --port 4173   # serve the built bundle
 ```
 
-**Pages:** Dashboard · Products · Inventory · Stock Movement · Stock
-Adjustments · Stock Transfers · Order Inquiries · Approvals (admin-only) ·
-Locations (+ QR tags) · Optimization · Scan & Stock (QR) · Reports ·
-Security (MFA, admin-only) · Audit Trail. Role badge in the top bar
+**Pages — grouped into section folders** under `src/pages/`, mirroring the
+sidebar's `NAV_SECTIONS` (`pages/layout/AdminLayout.jsx`). Each page keeps its
+Vitest suite beside it:
+
+| Folder | Pages |
+|---|---|
+| `overview/` | Dashboard |
+| `inventory/` | Inventory Levels · Shelf vs System (reconciliation) · Stocktake Schedule · Branch Locations (+ QR tags) |
+| `stock-control/` | Till · Stock Movement · Stock Adjustments · Stock Transfers |
+| `catalog-orders/` | Products (+ QR tags) · Scan & Stock (QR) · Order Inquiries |
+| `insights/` | Optimization · Reports |
+| `governance/` | Approvals (admin-only) · Audit Trail · System Settings (management) |
+| `account/` | Security (MFA, admin-only) |
+| `auth/` | Login (cross-cutting) |
+| `layout/` | AdminLayout — the shell every page renders inside |
+
+`NotFoundPage.jsx` and the two source-guard suites (`fieldAccessibility.test.js`,
+`layoutOverflow.test.js`) sit at the `pages/` root. Role badge in the top bar
 (ADMIN/STAFF); quick-fill demo-credential buttons with role chips on login.
 
 **Env:** `REACT_APP_API_BASE_URL` (defaults to `http://localhost:4001`) —
@@ -511,7 +525,7 @@ set it at build time to point at the deployed backend.
 **Test:**
 
 ```bash
-npm test           # Vitest: 28 tests (pages + layout)
+npm test           # Vitest: 267 tests, 23 files (pages + layout)
 npx playwright test  # E2E + visual regression snapshots
 ```
 
@@ -539,6 +553,11 @@ npx expo export --platform web   # static web bundle for a quick browser demo
 Payment (GCash) · Inquiry History · Notifications · Recommendations · Account
 (+ staff tools) · Scan (QR) · QR/Barcode scanner · Stock Availability ·
 Forgot Password.
+
+**Layout:** the screen files live under `src/screens/<section>/`, one folder per
+navigator surface (`home/ catalog/ cart/ orders/ account/ auth/`) — the same
+section-folder rule the admin pages follow (§16), enforced by
+`npm run structure:check`.
 
 **Demo account:** `customer/customer123` (or Google sign-in). Staff features
 unlock automatically when a staff/admin account signs in.
@@ -582,6 +601,10 @@ npx eas-cli build -p android --profile production    # APK via EAS
 | **Count** | No-camera path: searchable inventory list → tap a product → enter per-location physical counts → submit as PENDING adjustments. |
 | **Requests** | The staff member's submitted adjustments with live status (pending / approved / rejected) and decision trail. |
 | Account | Shift identity + role badge, dark mode, logout (revokes the token server-side). |
+
+**Layout:** `src/screens/<section>/` — `auth/ qr-scan/ count/ stocktake/`
+`requests/ account/`, one folder per tab plus login, enforced by
+`npm run structure:check`.
 
 **Same brand palette as the customer app and web admin** — one INVENTRAK look across all three apps (light + dark).
 
@@ -666,10 +689,20 @@ Full runbook (Firebase env vars, Supabase, Render blueprint, secrets):
 
 ## 21. CI (what runs on every push)
 
-`.github/workflows/test.yml`: backend `npm run verify` (spec validation,
-route↔spec audit, client freshness, full suite) + migration-catalog drift
-guard + admin Vitest/build + mobile bundle smoke.
-`.github/workflows/docs.yml`: rebuilds the GitHub Pages Swagger site.
+`.github/workflows/ci.yml` — the single CI workflow, on push to
+main/master/develop and PRs to main/master, one source of truth per gate:
+`backend` (Node 20 + 22) runs the whole `npm run verify` chain (spec
+validation, route↔spec audit, workflow-file guard — including npm-script
+references — client freshness, slides, full suite) plus a check that the
+committed `docs/` output is a clean rebuild; `migration-catalog` drift guard;
+`admin` Vitest suite + build + Playwright E2E; `mobile` screen-structure
+guard for both Expo apps + a Metro/Hermes Android export; `security` audits
+(backend + admin, `--audit-level=high`) and the committed-secret /
+hardcoded-password scans.
+`.github/workflows/docs.yml`: runs the workflow-file guard too (cross-
+coverage — a workflow that does not parse never starts its own jobs, so
+ci.yml needs a second file to report it), then rebuilds and deploys the
+GitHub Pages Swagger site.
 
 ---
 
@@ -693,14 +726,34 @@ backend/src/
   fsn.js                 # FSN Fast/Slow/Non-moving classifier (shared)
   migrate-firestore.js / sync-firestore.js / seed-firestore.js  # data tooling
 
+backend/scripts/
+  audit-routes.js             # route ↔ openapi.json coverage guard
+  check-workflows.js          # workflow YAML + npm-script refs guard (§21)
+  generate-client.js          # regenerates both api.generated.js clients
+
 frontend-admin/src/
   api.js / api.generated.js   # typed API client (generated from openapi.json)
-  pages/…                     # one page per admin module (see §16)
+  pages/<section>/            # one page per admin module, grouped by the
+                              # sidebar's sections (overview/ inventory/
+                              # stock-control/ catalog-orders/ insights/
+                              # governance/ account/ + auth/ login, layout/
+                              # shell) — see §16
+  pages/*.test.js               # tree-wide source guards (a11y, layout)
   components/                 # LiquidGlassCard, AnimatedCounter, …
-  *.test.jsx                  # Vitest suites
+  *.test.jsx                  # shared helper suites (roles, qr, cost-sheet, …)
 
 mobile-client/src/
   api.js / api.generated.js   # client + wakeBackend() cold-start retry
-  screens/…                   # one file per screen (see §17)
+  screens/<section>/          # one file per screen, grouped by the navigator
+                              # that shows it: home/ catalog/ cart/ orders/
+                              # account/ auth/ — see §17
   theme-context.js / AnimatedEntry.js / BackButton.js  # shared UI
+
+staff-client/src/
+  screens/<section>/          # one file per screen: auth/ qr-scan/ count/
+                              # stocktake/ requests/ account/ — see §17b
+
+scripts/
+  demo-launch.js              # one-command demo boot
+  check-app-structure.js      # screen-section + orphan guard, both apps (§21)
 ```

@@ -63,7 +63,7 @@ INVENTRAK/
 │   │   ├── api.js              # API client facade
 │   │   ├── api.generated.js    # Auto-generated from OpenAPI
 │   │   ├── theme.js            # MUI theme (green brand palette)
-│   │   ├── pages/              # 14 page components
+│   │   ├── pages/              # page components, grouped by sidebar section (see MODULES.md §16)
 │   │   └── e2e/                # 27 Playwright E2E tests
 │   ├── vite.config.js          # Vite build config
 │   └── index.html              # SPA entry with CSP headers
@@ -72,7 +72,7 @@ INVENTRAK/
 │   │   ├── App.js              # Navigation + session management
 │   │   ├── api.js              # API client with retry logic
 │   │   ├── api.generated.js    # Auto-generated from OpenAPI
-│   │   ├── screens/            # 15 screen components
+│   │   ├── screens/<section>/  # screen per navigator section (see MODULES.md §17)
 │   │   ├── cart-context.js     # Shopping cart state
 │   │   ├── flash-sale.js       # Daily flash deal rotation
 │   │   ├── theme-context.js    # Light/dark theme

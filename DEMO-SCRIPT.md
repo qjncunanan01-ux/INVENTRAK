@@ -206,12 +206,12 @@ get from the shelf into the system without retyping?"*.
    same signals.
 
 *Where these features live in the code:*
-- QR tags: `frontend-admin/src/pages/LocationsPage.jsx` (payload + print dialog)
-- Admin QR scanner + verify-and-count: `frontend-admin/src/pages/ScanStockPage.jsx`
-- Mobile scanner + count flow: `mobile-client/src/screens/QrScanScreen.js`,
-  `mobile-client/src/screens/AccountScreen.js`
-- Stock badges: `mobile-client/src/screens/ProductScreen.js`,
-  `mobile-client/src/screens/RecommendationScreen.js`
+- QR tags: `frontend-admin/src/pages/inventory/LocationsPage.jsx` (payload + print dialog)
+- Admin QR scanner + verify-and-count: `frontend-admin/src/pages/catalog-orders/ScanStockPage.jsx`
+- Mobile scanner + count flow: `mobile-client/src/screens/catalog/QrScanScreen.js`,
+  `mobile-client/src/screens/account/AccountScreen.js`
+- Stock badges: `mobile-client/src/screens/catalog/ProductScreen.js`,
+  `mobile-client/src/screens/catalog/RecommendationScreen.js`
 - Backend QR lookup: `backend/src/qr-codes.js` (tag grammar, SKU rules,
   `GET /api/products/qr/{code}`); adjustments queue: `/api/stock-adjustments`
 

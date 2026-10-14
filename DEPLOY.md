@@ -557,8 +557,7 @@ Other hardening already built in (all covered by `backend/src/test/security.test
   `cd backend && npx firebase deploy --only firestore:rules` (or paste it in the
   Firebase console → Firestore Database → Rules).
 - **Login lockout** — brute-force lockout with exponential backoff (already
-  documented above; see `backend/src/login-lockout.js`).
-- **Secret scan CI** — `.github/workflows/test.yml` fails the build if any private
+  documented above; see `backend/src/login-lockout.js`).- **Secret scan CI** — `.github/workflows/ci.yml` fails the build if any private
   key / service-account / API key pattern is committed.
 
 Known dependency advisories (tracked, not auto-fixed because the fix is breaking):

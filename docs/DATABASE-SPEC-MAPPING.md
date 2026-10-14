@@ -274,7 +274,7 @@ feature are different things wearing the same name.
 |---|---|---|
 | Basis | A rule: recipe + product category + condition | ABC classification value |
 | Source | `recommendation_rules` table | `/api/optimization` — EOQ, ROP, safety stock, FSN |
-| Screen | not built | `mobile-client/src/screens/RecommendationScreen.js` |
+| Screen | not built | `mobile-client/src/screens/catalog/RecommendationScreen.js` |
 | Purpose | "Given this drink recipe and this condition, recommend these supplies" | "These are your highest-value products" |
 
 Anyone who reads the spec and then demos the app will notice. It needs an explicit

@@ -1,6 +1,6 @@
 # INVENTRAK - Inventory Management System
 
-[![Tests](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/test.yml/badge.svg)](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/test.yml)
+[![CI](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/ci.yml/badge.svg)](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/ci.yml)
 [![API Docs Deployment](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/docs.yml/badge.svg)](https://github.com/qjncunanan01-ux/INVENTRAK/actions/workflows/docs.yml)
 
 A full-stack inventory management system with admin dashboard, two mobile apps, and optimization algorithms.
@@ -77,15 +77,22 @@ capstone paper).
 - **Sales Transactions** - Dynamic demand data for optimization calculations
 
 ### Admin Web Dashboard
-- **Dashboard** - Summary cards + bar/pie charts (recharts) + monthly trends
-- **Products** - Create, edit, soft-delete with confirmation dialogs
-- **Inventory** - Location-matrix view with low-stock highlighting and filters
-- **Stock Movement** - Record movements with FIFO lot visualization
-- **Order Inquiries** - Review/approve/reject/fulfill with confirmation
-- **Locations** - Add/delete with confirmation
-- **Optimization** - ABC classification table + EOQ/ROP/Safety stock + Turnover ratio
-- **Snackbar notifications** - Success/error feedback on all actions
-- **JWT token management** - Automatic auth header injection via api.js helpers
+Pages live under `frontend-admin/src/pages/`, grouped into the same section
+folders the sidebar shows, and each page keeps its test beside it:
+
+| Section folder | Modules |
+|---|---|
+| `overview/` | Dashboard - Summary cards + bar/pie charts (recharts) + monthly trends |
+| `inventory/` | Inventory Levels - Location-matrix view with low-stock highlighting and filters · Shelf vs System · Stocktake Schedule · Locations (+ QR tags) |
+| `stock-control/` | Till · Stock Movement - FIFO/FEFO lot visualization · Stock Adjustments · Stock Transfers |
+| `catalog-orders/` | Products - Create, edit, soft-delete with confirmation dialogs (+ QR tags) · Scan & Stock (QR) · Order Inquiries - Review/approve/reject/fulfill with confirmation |
+| `insights/` | Optimization - ABC classification table + EOQ/ROP/Safety stock + Turnover ratio · Reports |
+| `governance/` | Approvals · Audit Trail · System Settings |
+| `account/` | Security (MFA) |
+| `auth/` | Login |
+
+Plus **snackbar notifications** - success/error feedback on all actions - and
+**JWT token management** - automatic auth-header injection via `api.js` helpers.
 
 ### Mobile Customer App
 - **Login** - JWT-based authentication with validation
@@ -390,7 +397,7 @@ npm run verify            # All of the above + the full test suite
   half pins that an uncosted product has NO margin rather than a 0% one, and
   that the blended margin is value-weighted rather than an average of
   percentages (which would let a ₱200 cup count as much as a ₱1,000 sack).
-- `frontend-admin/src/pages/ProductsPage.costs.test.jsx` — **the cost work
+- `frontend-admin/src/pages/catalog-orders/ProductsPage.costs.test.jsx` — **the cost work
   queue**: coverage, the filter chips, and the deliberate sort rule that sinks
   uncosted products to the bottom in *both* directions, plus inline cost editing
   and the blank-means-leave-alone diff in the sheet preview.
@@ -652,16 +659,23 @@ Firestore. See [`DEPLOY.md`](DEPLOY.md) for the complete runbook.
 ## CI/CD
 
 This project includes GitHub Actions for automated testing and docs:
-- `.github/workflows/test.yml` — on push/PR to main:
-  - Backend: OAS 3.0.3 validation, route <-> spec audit, generated-client
-    freshness check, static docs freshness check, then the full test suite
+- `.github/workflows/ci.yml` — the single CI workflow, on push to
+  main/master/develop and PRs to main/master. One source of truth per gate:
+  - `backend` (Node 20 + 22): the whole `npm run verify` chain — OAS 3.0.3
+    validation, route <-> spec audit, workflow-file guard, generated-client
+    freshness, slides, then the full test suite — plus a check that the
+    committed `docs/` output is a clean rebuild
   - `migration-catalog`: seeds a fresh temp SQLite DB from the committed
     catalog and fails if the migration transform output doesn't reproduce it
     (so catalog/seed/transform drift is caught before any Firestore migration)
-  - Admin smoke tests + production build
-  - Mobile dependency install + source validation + a Metro bundle smoke test
-- `.github/workflows/docs.yml` — validates the spec and deploys the static
-  Swagger UI site in `docs/` to GitHub Pages (enable Pages -> GitHub Actions)
+  - `admin`: Vitest suite, production build, then the Playwright E2E flow
+  - `mobile`: screen-structure guard for both Expo apps, then a Metro/Hermes
+    Android export that has to produce a bundle
+  - `security`: `npm audit --audit-level=high` for backend and admin, plus the
+    committed-secret and hardcoded-password scans
+- `.github/workflows/docs.yml` — runs the workflow-file guard too, then
+  validates the spec and deploys the static Swagger UI site in `docs/` to
+  GitHub Pages (enable Pages -> GitHub Actions)
   See [API Documentation](#api-documentation) for the live URL and local
   `docs/` instructions.
 
