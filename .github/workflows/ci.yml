@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
@@ -51,10 +51,30 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      # docs:validate → spec:audit → workflows:check → client:check →
-      # slides:check → the unit + e2e + contract + openapi suites.
-      - name: Run the backend verify chain
-        run: npm run verify
+      # The verify chain is split into individually-named steps so that when
+      # one of them fails — as the Node 20 leg did on the first push of the
+      # consolidated workflow — CI reports the exact step rather than a
+      # monolithic "npm run verify" with no way to tell which sub-step died.
+      # The single-chain form still exists in backend/package.json for local
+      # use; CI spells out the steps so the next run is diagnosable without
+      # the step logs (which the anonymous API cannot read).
+      - name: Validate the OpenAPI spec
+        run: npm run docs:validate
+
+      - name: Audit routes vs the spec
+        run: npm run spec:audit
+
+      - name: Validate workflow files and npm-script references
+        run: npm run workflows:check
+
+      - name: Check generated client freshness
+        run: npm run client:check
+
+      - name: Build the algorithms slide deck and verify it is committed
+        run: npm run slides:check
+
+      - name: Run the backend test suites
+        run: npm test
 
       - name: Build static docs and verify they are committed
         run: |
