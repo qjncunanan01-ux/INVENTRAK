@@ -13,16 +13,39 @@ async function loginAsAdmin(page) {
   await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 10_000 });
 }
 
-// Helper: login as staff
+// The API the built app was pointed at (vite bakes REACT_APP_API_BASE_URL in).
+const API_BASE = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4001';
+
+// The sidebar carries every module. Main content can contain a link with the
+// SAME name — the breadcrumb's "Dashboard", the inventory page's "Scan & Stock"
+// shortcut — so an unscoped nav assertion resolves to more than one element and
+// fails in strict mode. Every nav assertion and click goes through here.
+const navLink = (page, name) =>
+  page.getByLabel('Sidebar navigation').getByRole('link', { name });
+
+// Helper: login as staff.
+//
+// The portal deliberately offers no staff quick-fill, and the backend refuses a
+// staff login sent WITH the portal flag (403 portal_mobile_only —
+// admin-login.spec.js asserts that refusal). Staff hold sessions the mobile app
+// issued, so mint one the same way the app does: a login WITHOUT the portal
+// flag, handed to the browser as the stored token. AppRoutes restores it through
+// /api/auth/me, so this is exactly the path a staff token takes into the portal —
+// and the client-side role guard in src/App.jsx is what has to keep it out of
+// the money surfaces.
 async function loginAsStaff(page) {
+  const res = await page.request.post(`${API_BASE}/api/auth/login`, {
+    data: { username: 'staff', password: 'staff123' },
+  });
+  expect(res.ok(), `staff login failed with ${res.status()}`).toBeTruthy();
+  const { token } = await res.json();
+
   await page.goto('/');
-  await page.evaluate(() => sessionStorage.clear());
+  await page.evaluate((t) => sessionStorage.setItem('inventrak_token', t), token);
   await page.goto('/');
-  await page.waitForSelector('text=INVENTRAK Admin', { timeout: 10_000 });
-  await page.getByRole('button', { name: /staff/i }).click();
-  await page.getByRole('button', { name: /login/i }).click();
-  await page.waitForURL('**/', { timeout: 10_000 });
-  await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 10_000 });
+  // '/' is the dashboard, which is admin-tier only, so the role guard sends a
+  // staff session to its home page instead of rendering it.
+  await page.waitForURL('**/inventory', { timeout: 10_000 });
 }
 
 test.describe('Dashboard Smoke Test', () => {
@@ -52,8 +75,8 @@ test.describe('Dashboard Smoke Test', () => {
     await expect(page.getByText('Sales & Orders Analytics')).toBeVisible();
     await expect(page.getByText('Stock Movement Analytics')).toBeVisible();
 
-    // Role badge
-    await expect(page.getByText('ADMIN', { exact: true })).toBeVisible();
+    // Role badge — loginAsAdmin signs in as owner, so the badge reads OWNER.
+    await expect(page.getByText('OWNER', { exact: true })).toBeVisible();
 
     // Welcome message
     await expect(page.getByText(/welcome back/i)).toBeVisible();
@@ -98,37 +121,41 @@ test.describe('Navigation & Role-Based Access', () => {
     await loginAsAdmin(page);
 
     // All sections should be visible
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /inventory levels/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /stock movement/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /products/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /order inquiries/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /approvals/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /security/i })).toBeVisible();
+    await expect(navLink(page, /dashboard/i)).toBeVisible();
+    await expect(navLink(page, /inventory levels/i)).toBeVisible();
+    await expect(navLink(page, /stock movement/i)).toBeVisible();
+    await expect(navLink(page, /products/i)).toBeVisible();
+    await expect(navLink(page, /order inquiries/i)).toBeVisible();
+    await expect(navLink(page, /approvals/i)).toBeVisible();
+    await expect(navLink(page, /security/i)).toBeVisible();
   });
 
   test('staff sees limited nav (no Approvals, no Products, no Security)', async ({ page }) => {
     await loginAsStaff(page);
 
-    // Staff should see these
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /inventory levels/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /scan & stock/i })).toBeVisible();
+    // Staff see the daily inventory modules they legitimately work with.
+    await expect(navLink(page, /inventory levels/i)).toBeVisible();
+    await expect(navLink(page, /scan & stock/i)).toBeVisible();
+    await expect(navLink(page, /shelf vs system/i)).toBeVisible();
 
-    // Staff should NOT see these (admin-only)
-    await expect(page.getByRole('link', { name: /approvals/i })).not.toBeVisible();
-    await expect(page.getByRole('link', { name: /security/i })).not.toBeVisible();
+    // Admin-only surfaces are not offered at all — absent from the DOM, not
+    // merely hidden: money (Dashboard, Till), catalog, and governance.
+    await expect(navLink(page, /^dashboard$/i)).toHaveCount(0);
+    await expect(navLink(page, /till/i)).toHaveCount(0);
+    await expect(navLink(page, /products/i)).toHaveCount(0);
+    await expect(navLink(page, /approvals/i)).toHaveCount(0);
+    await expect(navLink(page, /security/i)).toHaveCount(0);
   });
 
   test('navigate to Products page and back', async ({ page }) => {
     await loginAsAdmin(page);
 
-    await page.getByRole('link', { name: /products/i }).click();
+    await navLink(page, /products/i).click();
     await page.waitForURL('**/products', { timeout: 5_000 });
     await expect(page.getByRole('heading', { name: /active products/i })).toBeVisible();
 
     // Navigate back to dashboard
-    await page.getByRole('link', { name: /dashboard/i }).click();
+    await navLink(page, /dashboard/i).click();
     await page.waitForURL('**/', { timeout: 5_000 });
     await expect(page.getByText('Admin Dashboard')).toBeVisible();
   });
@@ -136,7 +163,7 @@ test.describe('Navigation & Role-Based Access', () => {
   test('navigate to Inventory page', async ({ page }) => {
     await loginAsAdmin(page);
 
-    await page.getByRole('link', { name: /inventory levels/i }).click();
+    await navLink(page, /inventory levels/i).click();
     await page.waitForURL('**/inventory', { timeout: 5_000 });
     // Inventory page has a search field and product table
     await expect(page.getByRole('textbox', { name: /search products/i })).toBeVisible({ timeout: 5_000 });
@@ -169,7 +196,7 @@ test.describe('Navigation & Role-Based Access', () => {
       await page.waitForTimeout(300);
 
       // Sidebar should collapse (labels hidden) or expand (labels visible)
-      const inventoryLink = page.getByRole('link', { name: /inventory levels/i });
+      const inventoryLink = navLink(page, /inventory levels/i);
       // After toggle, the link text might be hidden (mini mode) or visible
       const isVisible = await inventoryLink.isVisible();
       // Toggle back
@@ -182,7 +209,7 @@ test.describe('Navigation & Role-Based Access', () => {
 test.describe('Products Page', () => {
   test('products list loads with search and filter controls', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.getByRole('link', { name: /products/i }).click();
+    await navLink(page, /products/i).click();
     await page.waitForURL('**/products', { timeout: 5_000 });
 
     // Search field exists (MUI TextField uses label, not placeholder)
@@ -198,7 +225,7 @@ test.describe('Products Page', () => {
 
   test('search filters products', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.getByRole('link', { name: /products/i }).click();
+    await navLink(page, /products/i).click();
     await page.waitForURL('**/products', { timeout: 5_000 });
 
     // Wait for table to load
@@ -224,7 +251,7 @@ test.describe('Products Page', () => {
 test.describe('Order Inquiries Page', () => {
   test('order inquiries page loads for admin', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.getByRole('link', { name: /order inquiries/i }).click();
+    await navLink(page, /order inquiries/i).click();
     await page.waitForURL('**/order-inquiries', { timeout: 5_000 });
 
     // Page should render
@@ -239,7 +266,7 @@ test.describe('Order Inquiries Page', () => {
 test.describe('Inventory Page', () => {
   test('inventory page loads with product data', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.getByRole('link', { name: /inventory levels/i }).click();
+    await navLink(page, /inventory levels/i).click();
     await page.waitForURL('**/inventory', { timeout: 5_000 });
 
     // Search field (MUI TextField uses label)

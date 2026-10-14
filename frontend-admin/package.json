@@ -44,6 +44,6 @@
     "eslint-plugin-react": "^7.37.5",
     "jsdom": "^26.1.0",
     "prettier": "^3.9.8",
-    "vitest": "^3.2.0"
+    "vitest": "^4.1.11"
   }
 }

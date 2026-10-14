@@ -15,22 +15,33 @@ test.describe('Admin Login Flow', () => {
     await expect(page.getByText('INVENTRAK Admin')).toBeVisible();
     await expect(page.getByText('Secure inventory controls and analytics.')).toBeVisible();
 
-    // Demo quick-fill buttons — one per sign-in role.
+    // Demo quick-fill buttons — one per role that may sign in HERE. Staff is
+    // deliberately absent: the portal is desktop-only for the admin tier, the
+    // backend refuses a staff login sent with the portal flag (403
+    // portal_mobile_only), and staff scan and count from the mobile app. Assert
+    // the grid has no staff entry rather than only that the portal ones exist.
     await expect(page.getByRole('button', { name: /owner/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /super admin/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Fill Admin/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /staff/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /staff/i })).toHaveCount(0);
+
+    // …and the page points staff at the app they do sign in from.
+    await expect(
+      page.getByText(/Inventory Staff: sign in from the INVENTRAK mobile app/i),
+    ).toBeVisible();
 
     // Credentials hidden by default
     await expect(page.getByText('owner / owner123')).not.toBeVisible();
     await expect(page.getByText('admin / admin123')).not.toBeVisible();
-    await expect(page.getByText('staff / staff123')).not.toBeVisible();
+    await expect(page.getByText('superadmin / super123')).not.toBeVisible();
 
     // Toggle reveals them
     await page.getByText('Show demo credentials').click();
     await expect(page.getByText('owner / owner123')).toBeVisible();
     await expect(page.getByText('admin / admin123')).toBeVisible();
-    await expect(page.getByText('staff / staff123')).toBeVisible();
+    await expect(page.getByText('superadmin / super123')).toBeVisible();
+    // Staff credentials are never shown on the portal, revealed or not.
+    await expect(page.getByText('staff / staff123')).toHaveCount(0);
 
     // Toggle hides them again
     await page.getByText('Hide demo credentials').click();
@@ -51,22 +62,21 @@ test.describe('Admin Login Flow', () => {
     await expect(page.getByText('OWNER', { exact: true })).toBeVisible();
   });
 
-  test('staff quick-fill lands on inventory — staff has no dashboard', async ({ page }) => {
-    await page.getByRole('button', { name: /fill staff/i }).click();
-
-    await expect(page.getByLabel('Username')).toHaveValue('staff');
-    await expect(page.getByRole('textbox', { name: 'Password' })).toHaveValue('staff123');
-
+  test('a staff account is refused at the portal door', async ({ page }) => {
+    await page.getByLabel('Username').fill('staff');
+    await page.getByRole('textbox', { name: 'Password' }).fill('staff123');
     await page.getByRole('button', { name: /login/i }).click();
-    // Inventory Staff must not see the dashboard (a money/analytics surface),
-    // so the login lands on the inventory levels page and the nav must not
-    // offer Dashboard / Reports / Optimization.
-    await page.waitForURL('**/inventory', { timeout: 10_000 });
-    await expect(page.getByText('Inventory Management')).toBeVisible();
-    await expect(page.getByText('STAFF', { exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Reports' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Optimization' })).toHaveCount(0);
+
+    // The credentials are valid (the mobile app accepts them), but the portal
+    // login carries portal: 'admin' and the backend refuses a mobile-only
+    // account with 403 portal_mobile_only — an error, never a session. Staff
+    // must not reach the dashboard (a money surface) from here at all.
+    await expect(page.getByRole('alert')).toContainText(/mobile-only/i, { timeout: 10_000 });
+    await expect(page.getByText('INVENTRAK Admin')).toBeVisible();
+    expect(await page.evaluate(() => sessionStorage.getItem('inventrak_token'))).toBeFalsy();
+
+    // The staff EXPERIENCE still exists for a token the mobile app issued —
+    // order-flow.spec.js drives that session and asserts the reduced nav.
   });
 
   test('wrong password shows generic error (no username oracle)', async ({ page }) => {
@@ -201,7 +211,7 @@ test.describe('Login Accessibility', () => {
 
     // Demo buttons have aria-labels
     await expect(page.getByRole('button', { name: /fill owner/i })).toHaveAttribute('aria-label');
-    await expect(page.getByRole('button', { name: /fill staff/i })).toHaveAttribute('aria-label');
+    await expect(page.getByRole('button', { name: /fill admin/i })).toHaveAttribute('aria-label');
   });
 
   test('error messages are announced to screen readers', async ({ page }) => {

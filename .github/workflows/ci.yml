@@ -119,6 +119,14 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
+      # The E2E specs drive the real API, and the npm-free server is only
+      # "npm-free" about native drivers: it still requires express, bcryptjs,
+      # cors and jsonwebtoken from backend/node_modules. Without this install
+      # the server dies with MODULE_NOT_FOUND and the health check below fails.
+      - name: Install backend dependencies for the E2E server
+        working-directory: ./backend
+        run: npm ci
+
       - name: Start the npm-free backend for E2E
         working-directory: ./backend
         run: |
@@ -194,24 +202,43 @@ jobs:
         with:
           node-version: '22'
 
-      # Audit only reads the lockfiles, so no install is needed.
-      - name: Audit backend dependencies
-        working-directory: ./backend
-        run: npm audit --audit-level=high
-
-      - name: Audit admin dependencies
-        working-directory: ./frontend-admin
-        run: npm audit --audit-level=high
-
+      # The two scans run FIRST and the audits after them: a failing step skips
+      # every later step in the job, so with the audits first a red dependency
+      # audit silently took the secret scan down with it — which is what happened
+      # on every run this pipeline has done. Scans need no install; they have no
+      # business queueing behind one.
       - name: Scan the tracked tree for secrets
         # Sensitive literal patterns are split below so this workflow does not
         # accidentally detect its own secret-scanning expression.
+        #
+        # The key pattern needs key MATERIAL, and grep matches one line at a
+        # time, so both shapes a real leak takes are spelled out:
+        #   - a committed .pem/.key file: the header is the whole line, so it is
+        #     anchored to end-of-line. Matching the bare header anywhere was not
+        #     an option: backend/src/store-firestore.js builds a PEM from an env
+        #     var, so it holds the header mid-line on purpose, and a pattern that
+        #     matched that turned the scan into a permanent failure.
+        #   - a service-account JSON: the PEM sits inside a JSON string on one
+        #     line, so its line breaks are the two characters \ and n. The
+        #     backslash and the n go in ONE bracket expression: outside one, this
+        #     grep reads `\n` as a literal `n`, so the escaped form never
+        #     matched — and a class of whitespace alone cannot match it either,
+        #     nor a real newline (a single grep line never contains one). A
+        #     committed key body therefore went undetected (verified by
+        #     running this step against a planted key).
+        #
+        # `-e "$PATTERN"` is load-bearing: the pattern begins with `-`, so grep
+        # parsed it as a pile of options, errored, and `|| true` swallowed that
+        # into an empty hit list. The step printed its success line and passed on
+        # every run without reading a single file. Verified against a planted
+        # key both ways: without `-e` a committed PEM is invisible, with it the
+        # step fails on the planted file.
         run: |
           set -euo pipefail
 
-          PATTERN='BEGIN (RSA |EC |OPENSSH )?PRIVATE '"KEY"'|firebase-'"adminsdk"'|GOCSPX-[A-Za-z0-9_-]{10,}|re_[A-Za-z0-9]{20,}'
+          PATTERN='-----BEGIN [A-Z ]*PRIVATE '"KEY"'-----[\n[:space:]]*[A-Za-z0-9+/]{40,}|-----BEGIN [A-Z ]*PRIVATE '"KEY"'-----[[:space:]]*$|firebase-'"adminsdk"'|GOCSPX-[A-Za-z0-9_-]{10,}|re_[A-Za-z0-9]{20,}'
 
-          HITS=$(grep -rInE \
+          HITS=$(grep -rInE -e \
             "$PATTERN" \
             --exclude-dir=node_modules \
             --exclude-dir=build \
@@ -229,9 +256,28 @@ jobs:
           echo 'No secrets found in the tracked tree.'
 
       - name: Scan backend sources for hardcoded passwords
+        # The previous form piped into `head` and tested THAT status, which is 0
+        # whether or not anything matched — so this step failed on every run,
+        # including runs with nothing to report. Capture the hits and test them.
+        # The pattern now wants a quoted literal directly after the assignment
+        # (`password = 'hunter2'`) instead of any quote later on the line, which
+        # is what made it flag `password = ?` and `password !== 'string'`.
         run: |
-          if grep -rn "password.*=.*['\"]" backend/src/ --include="*.js" | grep -v test | grep -v "hashPassword\|verifyPassword\|passwordError\|passwordError\|bcrypt\|process.env\|mfa_recovery\|mfa_secret\|sendJson\|validate\|123\|example\|demo\|placeholder\|test\|TODO\|FIXME" | head -5; then
-            echo "⚠️ Potential hardcoded password found"
+          HITS=$(grep -rnE "(password|passwd|pwd)[[:space:]]*[:=][[:space:]]*['\"][^'\"]{3,}['\"]" backend/src --include="*.js" \
+            | grep -vE "[:=][[:space:]]*['\"][*•]{3,}['\"]" \
+            | grep -vE "(process\.env|hashPassword|verifyPassword|passwordError|bcrypt|placeholder|example|demo|TODO|FIXME|\.test\.)" || true)
+          if [ -n "$HITS" ]; then
+            echo '::error::Potential hardcoded password found:'
+            echo "$HITS"
             exit 1
           fi
-          echo "✅ No hardcoded secrets detected"
+          echo '✅ No hardcoded passwords found'
+
+      # Audit only reads the lockfiles, so no install is needed.
+      - name: Audit backend dependencies
+        working-directory: ./backend
+        run: npm audit --audit-level=high
+
+      - name: Audit admin dependencies
+        working-directory: ./frontend-admin
+        run: npm audit --audit-level=high
