@@ -1,110 +1,234 @@
 name: CI
 
+# One workflow, one source of truth per gate.
+#
+# ci.yml and test.yml used to run largely the same backend, admin and mobile
+# gates from two files: backend tests twice, admin suites twice, mobile
+# install/source checks twice, and the copies drifted — the spec/docs/test steps
+# ended up under the wrong job after a duplicated `steps:` key, and the mobile
+# "syntax check" in one file could not fail at all (it ended in `|| echo`).
+# Every gate now runs exactly once, from this file.
+#
+# The backend gate runs `npm run verify` instead of re-listing its steps: that
+# chain is defined once in backend/package.json, so a gate added there cannot be
+# forgotten here. The only extra step is the docs build, which needs git to
+# prove the committed docs/ output matches what docs:build produces.
+#
+# The workflow-file guard still runs from a second workflow (docs.yml), because
+# a workflow that does not parse never starts its own jobs: if THIS file were
+# the broken one, only another workflow could report it.
+
 on:
+  # Union of what the two workflows watched, so nothing stops being covered.
   push:
-    branches: [main]
+    branches: [main, master, develop]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   backend:
-    name: Backend Tests
+    name: Backend (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     strategy:
+      # The suite must pass on the oldest supported runtime and the current one;
+      # ci.yml tested 20 + 22, and the dependencies are installed with `npm ci`
+      # so the lockfile must stay in sync with package.json.
       matrix:
         node-version: [20, 22]
+    defaults:
+      run:
+        working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
-          cache-dependency-path: backend/package-lock.json
-      - name: Install dependencies
-        working-directory: backend
-        run: npm ci
-      - name: Run unit tests
-        working-directory: backend
-        run: npm test
-      - name: Run E2E API tests
-        working-directory: backend
-        run: node --test src/test/e2e-ci.test.js
-      - name: Validate OpenAPI spec
-        working-directory: backend
-        run: npm run docs:validate
-      - name: Verify client generation
-        working-directory: backend
-        run: npm run client:check
+          cache-dependency-path: ./backend/package-lock.json
 
-  admin:
-    name: Admin Dashboard
+      - name: Install backend dependencies
+        run: npm ci
+
+      # docs:validate → spec:audit → workflows:check → client:check →
+      # slides:check → the unit + e2e + contract + openapi suites.
+      - name: Run the backend verify chain
+        run: npm run verify
+
+      - name: Build static docs and verify they are committed
+        run: |
+          npm run docs:build
+          git diff --exit-code -- ../docs/ || (echo 'docs/ is out of date. Run: cd backend && npm run docs:build' && exit 1)
+
+  migration-catalog:
+    # Catalog drift guard for the SQLite → Firestore migration pipeline.
+    # Seeds a FRESH temp SQLite DB from the committed product catalog and runs
+    # the exact pipeline `npm run migrate:firestore -- --dry-run` uses
+    # (dumpSnapshot → transformSnapshot), then FAILS if the transform output
+    # doesn't reproduce the committed catalog (products.json, inventory.json,
+    # stock_movements.json, order_inquiries.json). Catches a dropped field, a
+    # changed stock draw, or a catalog/seed/transform drift that would push
+    # wrong data to Firestore on the next migration.
+    name: Migration catalog drift
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
           cache: npm
-          cache-dependency-path: frontend-admin/package-lock.json
-      - name: Install dependencies
-        working-directory: frontend-admin
+          cache-dependency-path: ./backend/package-lock.json
+
+      - name: Install backend dependencies
         run: npm ci
-      - name: Run unit tests
-        working-directory: frontend-admin
+
+      - name: Verify the migration transform reproduces the committed catalog
+        run: npm run migrate:check
+
+  admin:
+    name: Admin dashboard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend-admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ./frontend-admin/package-lock.json
+
+      - name: Install admin dependencies
+        run: npm ci
+
+      - name: Run admin tests (Vitest)
         run: npm test
-      - name: Build
-        working-directory: frontend-admin
+
+      - name: Build (Vite)
         run: npm run build
+
       - name: Install Playwright browsers
-        working-directory: frontend-admin
         run: npx playwright install chromium --with-deps
-      - name: Start backend for E2E
-        working-directory: backend
+
+      - name: Start the npm-free backend for E2E
+        working-directory: ./backend
         run: |
           node src/server_npmfree.js &
           sleep 5
           curl -f http://localhost:4001/api/health || exit 1
-      - name: Build admin for E2E
-        working-directory: frontend-admin
+
+      - name: Build admin against the local API
         run: REACT_APP_API_BASE_URL=http://localhost:4001 npm run build
+
       - name: Run Playwright E2E tests
-        working-directory: frontend-admin
         run: npx vite preview --port 4173 & sleep 3 && npx playwright test e2e/admin-login.spec.js e2e/order-flow.spec.js --reporter=list
         env:
           CI: true
 
   mobile:
-    name: Mobile App
+    name: Mobile app
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./mobile-client
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
           cache: npm
-          cache-dependency-path: mobile-client/package-lock.json
-      - name: Install dependencies
-        working-directory: mobile-client
+          cache-dependency-path: ./mobile-client/package-lock.json
+
+      - name: Install mobile dependencies
         run: npm ci
-      - name: Syntax check
-        working-directory: mobile-client
-        run: node -e "require('./src/App.js')" 2>&1 || echo "Syntax OK (JSX requires bundler)"
+
+      - name: Check screen structure (both Expo apps)
+        # Dependency-free node guard, so it covers BOTH Expo apps from this
+        # job: every screen must live in its navigator's section folder and
+        # none may be orphaned. See scripts/check-app-structure.js.
+        run: node ../scripts/check-app-structure.js ../mobile-client ../staff-client
+
+      # The Metro export below replaces the two checks this file and ci.yml ran
+      # before: a `node -e require(...)` syntax probe wrapped in `|| echo` and a
+      # readFileSync loop, neither of which could ever fail a build while the
+      # bundle really could break. `expo export` runs a full production build
+      # (Hermes compile + asset export), which is what catches a missing entry
+      # point or an unresolvable Babel preset.
+      - name: Export Android bundle (Metro + Hermes smoke test)
+        env:
+          CI: 1
+          EXPO_NO_TELEMETRY: 1
+        run: |
+          npx expo export --platform android
+          echo '--- exported artifacts ---'
+          ls -R dist 2>/dev/null | head -30 || true
+
+      - name: Assert the JS bundle was produced
+        run: |
+          BUNDLES=$(find dist -type f \( -name '*.hbc' -o -name '*.bundle' \) | wc -l)
+          echo "bundle files found: $BUNDLES"
+          if [ "$BUNDLES" -eq 0 ]; then
+            echo '::error::No Android bundle was produced by expo export'
+            exit 1
+          fi
 
   security:
-    name: Security Audit
+    name: Dependency and secret scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22'
+
+      # Audit only reads the lockfiles, so no install is needed.
       - name: Audit backend dependencies
-        working-directory: backend
+        working-directory: ./backend
         run: npm audit --audit-level=high
+
       - name: Audit admin dependencies
-        working-directory: frontend-admin
+        working-directory: ./frontend-admin
         run: npm audit --audit-level=high
-      - name: Check for hardcoded secrets
+
+      - name: Scan the tracked tree for secrets
+        # Sensitive literal patterns are split below so this workflow does not
+        # accidentally detect its own secret-scanning expression.
+        run: |
+          set -euo pipefail
+
+          PATTERN='BEGIN (RSA |EC |OPENSSH )?PRIVATE '"KEY"'|firebase-'"adminsdk"'|GOCSPX-[A-Za-z0-9_-]{10,}|re_[A-Za-z0-9]{20,}'
+
+          HITS=$(grep -rInE \
+            "$PATTERN" \
+            --exclude-dir=node_modules \
+            --exclude-dir=build \
+            --exclude-dir=dist \
+            --exclude-dir=.git \
+            --exclude-dir=.secrets \
+            . || true)
+
+          if [ -n "$HITS" ]; then
+            echo '::error::Possible secret committed — remove it and rotate the key:'
+            echo "$HITS"
+            exit 1
+          fi
+
+          echo 'No secrets found in the tracked tree.'
+
+      - name: Scan backend sources for hardcoded passwords
         run: |
           if grep -rn "password.*=.*['\"]" backend/src/ --include="*.js" | grep -v test | grep -v "hashPassword\|verifyPassword\|passwordError\|passwordError\|bcrypt\|process.env\|mfa_recovery\|mfa_secret\|sendJson\|validate\|123\|example\|demo\|placeholder\|test\|TODO\|FIXME" | head -5; then
             echo "⚠️ Potential hardcoded password found"
