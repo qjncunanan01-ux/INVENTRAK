@@ -4,7 +4,7 @@
 // lock out identically and that legit users are never affected.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
-const { createLoginLockout } = require('../login-lockout');
+const { createLoginLockout } = require('../auth/login-lockout');
 const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness');
 
 // ===== Unit: factory with an injectable clock ==============================

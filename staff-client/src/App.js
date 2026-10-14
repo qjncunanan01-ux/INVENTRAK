@@ -5,12 +5,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import LoginScreen from './screens/LoginScreen';
-import QrScanScreen from './screens/QrScanScreen';
-import CountScreen from './screens/CountScreen';
-import StocktakeScreen from './screens/StocktakeScreen';
-import RequestsScreen from './screens/RequestsScreen';
-import AccountScreen from './screens/AccountScreen';
+import LoginScreen from './screens/auth/LoginScreen';
+import QrScanScreen from './screens/qr-scan/QrScanScreen';
+import CountScreen from './screens/count/CountScreen';
+import StocktakeScreen from './screens/stocktake/StocktakeScreen';
+import RequestsScreen from './screens/requests/RequestsScreen';
+import AccountScreen from './screens/account/AccountScreen';
 import { isSessionInvalidated, useSession, useSessionHydrated, wakeBackend } from './api';
 import { ThemeProvider, useThemeColors } from './theme-context';
 

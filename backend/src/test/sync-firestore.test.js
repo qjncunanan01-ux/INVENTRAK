@@ -18,7 +18,7 @@ fs.mkdirSync(process.env.INVENTRAK_DATA_DIR, { recursive: true });
 const { db } = require('../db');
 const { dumpSnapshot } = require('../migrate-firestore');
 const { makeFakeDb } = require('./fake-firestore');
-const { hashPassword } = require('../password-hash');
+const { hashPassword } = require('../auth/password-hash');
 const {
   canonicalFromSqlite, canonicalFromFirestore, diffAndMerge, applyToSqlite, applyToFirestore,
 } = require('../sync-firestore');

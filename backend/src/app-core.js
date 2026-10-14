@@ -1,5 +1,5 @@
-const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./critical-level');
-const { refreshAlerts } = require('./alert-helpers');
+const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./inventory/critical-level');
+const { refreshAlerts } = require('./inventory/alert-helpers');
 
 const SCAN_KINDS = ['location', 'product', 'barcode', 'unknown'];
 

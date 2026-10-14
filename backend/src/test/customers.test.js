@@ -10,7 +10,7 @@
 // on BOTH backends so the deployed driver behaves identically.
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
-const { resolveCustomer, findCustomer, summarize } = require('../customers');
+const { resolveCustomer, findCustomer, summarize } = require('../catalog-orders/customers');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
 before(async () => {

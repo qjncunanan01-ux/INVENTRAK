@@ -14,7 +14,7 @@
 // quietly uncosted while the admin believes it is done.
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
-const { parseCostEntry } = require('../costing');
+const { parseCostEntry } = require('../insights/costing');
 const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness');
 
 const FIXTURES = [

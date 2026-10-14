@@ -129,7 +129,7 @@ if (!productColumns.some(c => c.name === 'sku')) {
   // SQLite cannot ADD COLUMN ... UNIQUE — add plain, backfill, then enforce
   // uniqueness with a dedicated index (also speeds the QR lookup by sku).
   db.exec('ALTER TABLE products ADD COLUMN sku TEXT');
-  const { skuForProductId } = require('./qr-codes');
+  const { skuForProductId } = require('./catalog-orders/qr-codes');
   const backfill = db.prepare("UPDATE products SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = '')");
   db.transaction(() => {
     for (const row of db.prepare('SELECT id FROM products ORDER BY id').all()) {

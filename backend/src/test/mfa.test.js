@@ -5,7 +5,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
-const { totp } = require('../totp');
+const { totp } = require('../auth/totp');
 
 before(async () => {
   await bootBoth();

@@ -1,8 +1,8 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const { db: liveDb } = require('./db');
-const { hashPassword } = require('./password-hash');
-const { skuForProductId } = require('./qr-codes');
+const { hashPassword } = require('./auth/password-hash');
+const { skuForProductId } = require('./catalog-orders/qr-codes');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 
 const DEFAULT_PRODUCTS_FILE = path.join(__dirname, '..', 'data', 'products.json');
@@ -112,7 +112,7 @@ function seedDatabase({ db: dbOverride, productsFile = DEFAULT_PRODUCTS_FILE } =
   // binds the global db, so refreshing after seeding a caller-supplied temp
   // connection would silently touch the wrong database.
   if (!dbOverride) {
-    const { refreshAlerts } = require('./alert-helpers');
+    const { refreshAlerts } = require('./inventory/alert-helpers');
     refreshAlerts();
   }
 }

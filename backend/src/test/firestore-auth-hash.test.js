@@ -25,7 +25,7 @@ process.env.DB_DRIVER = 'firestore';
 const crypto = require('node:crypto');
 const { makeFakeDb } = require('./fake-firestore');
 const fsStore = require('../store-firestore');
-const { isHashed, verifyPassword } = require('../password-hash');
+const { isHashed, verifyPassword } = require('../auth/password-hash');
 
 // Inject the fake cloud BEFORE the server boots, so store.init() hydrates
 // from it instead of requiring Firebase credentials.

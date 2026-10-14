@@ -7,7 +7,7 @@
 // and the npm-free fallback (the same parity bar every other endpoint meets).
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
-const { FSN_WINDOW_DAYS, parseFsnWindow, classifyFsn, classifyFsnCatalog, summarizeFsn } = require('../fsn');
+const { FSN_WINDOW_DAYS, parseFsnWindow, classifyFsn, classifyFsnCatalog, summarizeFsn } = require('../insights/fsn');
 const { sqlite, npmfree, bootBoth, teardown, call, both, shapeOf } = require('./harness');
 
 // Fixed clock: 2026-09-10T12:00:00Z. All relative dates below are computed

@@ -6,7 +6,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const crypto = require('node:crypto');
 const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness');
-const { parseProductQrIdentifier } = require('../qr-codes');
+const { parseProductQrIdentifier } = require('../catalog-orders/qr-codes');
 
 // Test-facing alias: parseProductQrIdentifier returns {kind,value}; normalize
 // to an {ok} contract for these assertions.

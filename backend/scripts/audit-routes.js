@@ -34,7 +34,7 @@ function templateMatches(template, concrete) {
   return t.every((seg, i) => seg === c[i] || /^\{[^}]+\}$/.test(seg));
 }
 
-// --- Express route extraction (app.js + src/routes/*.js) ---
+// --- Express route extraction (app.js + src/routes/**/*.js) ---
 //
 // The backend was refactored so routes live in per-domain Express Routers
 // mounted in app.js (app.use('/api/auth', authRoutes) + router.post('/login'))
@@ -56,9 +56,11 @@ function expressRoutes(appSrc) {
     routes.push({ method: m[1].toUpperCase(), path: normalize(m[3]) });
   }
 
-  // 2. Mounted routers. Map `const xRoutes = require('./routes/x')` to its
-  //    mount path from `app.use('<mount>', xRoutes)`.
-  const requireRe = /const\s+(\w+)\s*=\s*require\(\s*['"]\.\/routes\/([\w-]+)['"]\s*\)/g;
+  // 2. Mounted routers. Map `const xRoutes = require('./routes/<section>/x')`
+  //    to its mount path from `app.use('<mount>', xRoutes)`. The capture allows
+  //    slashes because routers live in per-section subfolders (routes/auth/,
+  //    routes/inventory/, …) mirroring the admin's nav sections.
+  const requireRe = /const\s+(\w+)\s*=\s*require\(\s*['"]\.\/routes\/([\w/-]+)['"]\s*\)/g;
   const varToFile = {};
   while ((m = requireRe.exec(appSrc)) !== null) {
     varToFile[m[1]] = m[2];

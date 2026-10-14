@@ -358,7 +358,7 @@ async function sendSms({ to, message }) {
   return { sent: false };
 }
 
-const { summarizeProducts } = require('./product-lines');
+const { summarizeProducts } = require('./catalog-orders/product-lines');
 
 const STATUS_LABELS = { approved: 'APPROVED', rejected: 'REJECTED', fulfilled: 'FULFILLED', delivered: 'DELIVERED' };
 

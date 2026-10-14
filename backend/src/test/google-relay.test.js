@@ -23,7 +23,7 @@ const {
   relayCallbackUrl,
   googleUsername,
   resetJwksCache,
-} = require('../google-auth');
+} = require('../auth/google-auth');
 
 const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness');
 

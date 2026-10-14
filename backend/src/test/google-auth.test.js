@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const crypto = require('node:crypto');
-const { verifyGoogleIdToken, googleClientIds, isConfigured, resetJwksCache } = require('../google-auth');
+const { verifyGoogleIdToken, googleClientIds, isConfigured, resetJwksCache } = require('../auth/google-auth');
 
 test.beforeEach(() => resetJwksCache());
 

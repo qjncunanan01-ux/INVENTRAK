@@ -1,7 +1,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 
-const { reconcile, salesSince, EPSILON } = require('../reconciliation');
+const { reconcile, salesSince, EPSILON } = require('../insights/reconciliation');
 
 // Pure arithmetic for the shelf-vs-system report. The invariants locked here
 // are the ones a manager would rely on:

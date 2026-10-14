@@ -26,7 +26,7 @@
 // The identity rule is the shared module either way, so the RESULT is identical
 // on both targets — only the storage differs. That is why running this locally
 // against a copy is a valid rehearsal for the production run.
-const { resolveCustomer } = require('../src/customers');
+const { resolveCustomer } = require('../src/catalog-orders/customers');
 const { requireConfig, readAll, patchRow, insertRows } = require('./supabase-rest');
 
 const apply = process.argv.includes('--apply');

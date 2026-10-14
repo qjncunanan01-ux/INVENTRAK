@@ -2,8 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { passwordError } = require('./password-policy');
-const { hashPassword, verifyPassword, consumeComparisonTime } = require('./password-hash');
+const { passwordError } = require('./auth/password-policy');
+const { hashPassword, verifyPassword, consumeComparisonTime } = require('./auth/password-hash');
 const {
   TOKEN_TTL_MS,
   MFA_TOKEN_TTL_MS,
@@ -19,17 +19,17 @@ const {
 } = require('./config');
 const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
-const { createLoginLockout } = require('./login-lockout');
-const { classifyFsnCatalog, parseFsnWindow } = require('./fsn');
-const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./critical-level');
+const { createLoginLockout } = require('./auth/login-lockout');
+const { classifyFsnCatalog, parseFsnWindow } = require('./insights/fsn');
+const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./inventory/critical-level');
 const { buildPaymentStep } = require('./payments');
-const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./qr-codes');
-const { normalizeLines } = require('./product-lines');
-const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry, targetMarginPercent } = require('./costing');
-const { stripCost, stripCostAll } = require('./product-visibility');
-const { resolveCustomer, summarize } = require('./customers');
-const { reconcile } = require('./reconciliation');
-const { schedule, shelfDetail } = require('./stocktake');
+const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./catalog-orders/qr-codes');
+const { normalizeLines } = require('./catalog-orders/product-lines');
+const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry, targetMarginPercent } = require('./insights/costing');
+const { stripCost, stripCostAll } = require('./catalog-orders/product-visibility');
+const { resolveCustomer, summarize } = require('./catalog-orders/customers');
+const { reconcile } = require('./insights/reconciliation');
+const { schedule, shelfDetail } = require('./inventory/stocktake');
 const {
   generateSecret,
   verifyTOTP,
@@ -37,12 +37,12 @@ const {
   generateRecoveryCodes,
   normalizeRecoveryCode,
   matchRecoveryCode,
-} = require('./totp');
+} = require('./auth/totp');
 const { audit, AUDIT_LOG_FILE } = require('./audit');
 const { sanitizeObject, isValidName, isValidEmail, isValidPhone } = require('./sanitize');
 const cache = require('./cache');
-const { isDemoAccountBlocked } = require('./demo-accounts');
-const settings = require('./settings');
+const { isDemoAccountBlocked } = require('./auth/demo-accounts');
+const settings = require('./governance/settings');
 // Demo-account gate consults the LIVE settings toggle (Governance → System
 // Settings) in addition to the operator's env var — either one blocks the
 // seeded logins.
@@ -73,7 +73,7 @@ const {
   exchangeCodeForTokens,
   relayCallbackUrl,
   googleUsername,
-} = require('./google-auth');
+} = require('./auth/google-auth');
 
 // Brute-force throttling shared with the SQLite backend (same module, same
 // semantics): failed logins per (username, IP) lock the account with an

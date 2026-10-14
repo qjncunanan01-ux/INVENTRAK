@@ -28,7 +28,7 @@ const {
   criticalLevelMap,
   stockStatus,
   stockStatusLabel,
-} = require('../critical-level');
+} = require('../inventory/critical-level');
 
 describe('criticalLevelFor — the formula', () => {
   test('cycle demand is rate x lead time, with the service factor as buffer', () => {

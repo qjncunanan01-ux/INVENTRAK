@@ -25,7 +25,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 
-const { shelfDetail } = require('../stocktake');
+const { shelfDetail } = require('../inventory/stocktake');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
 const NOW = Date.UTC(2026, 9, 1, 12, 0, 0);

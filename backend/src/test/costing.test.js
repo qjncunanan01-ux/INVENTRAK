@@ -12,7 +12,7 @@
 // (SQLite + npm-free) so the deployed driver behaves identically.
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
-const { computeCostingSnapshot } = require('../costing');
+const { computeCostingSnapshot } = require('../insights/costing');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
 before(async () => {

@@ -3,7 +3,7 @@
 // contract suites never diverge on password validation.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { passwordError, PASSWORD_MIN_LENGTH } = require('../password-policy');
+const { passwordError, PASSWORD_MIN_LENGTH } = require('../auth/password-policy');
 
 test('password policy: rejects passwords shorter than the minimum', () => {
   assert.match(passwordError('Ab1!'), /at least 8 characters/);

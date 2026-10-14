@@ -5,7 +5,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { summarizeProducts, normalizeLines, summarizeLines } = require('../product-lines');
+const { summarizeProducts, normalizeLines, summarizeLines } = require('../catalog-orders/product-lines');
 
 test('summarizeProducts renders canonical line objects readably (the [object Object] regression)', () => {
   // Exactly what POST /api/order-inquiries stores today.

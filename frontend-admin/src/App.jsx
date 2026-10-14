@@ -3,26 +3,30 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { clearCurrentUser, clearToken, getCurrentUser, getMe, getToken, logout as apiLogout, setCurrentUser } from './api';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
-import ApprovalsPage from './pages/ApprovalsPage';
-import AuditTrailPage from './pages/AuditTrailPage';
-import DashboardPage from './pages/DashboardPage';
-import InventoryPage from './pages/InventoryPage';
-import LocationsPage from './pages/LocationsPage';
-import LoginPage from './pages/LoginPage';
-import OptimizationPage from './pages/OptimizationPage';
-import OrderInquiriesPage from './pages/OrderInquiriesPage';
-import ReconciliationPage from './pages/ReconciliationPage';
-import ProductsPage from './pages/ProductsPage';
+// Pages are grouped into the same sections the sidebar uses (see
+// pages/layout/AdminLayout.jsx NAV_SECTIONS): overview · inventory ·
+// stock-control · catalog-orders · insights · governance · account, plus
+// auth (login) and layout (the shell). Keep a page next to its section peers.
+import DashboardPage from './pages/overview/DashboardPage';
+import InventoryPage from './pages/inventory/InventoryPage';
+import ReconciliationPage from './pages/inventory/ReconciliationPage';
+import StocktakePage from './pages/inventory/StocktakePage';
+import LocationsPage from './pages/inventory/LocationsPage';
+import TillPage from './pages/stock-control/TillPage';
+import StockMovementPage from './pages/stock-control/StockMovementPage';
+import StockAdjustmentsPage from './pages/stock-control/StockAdjustmentsPage';
+import StockTransfersPage from './pages/stock-control/StockTransfersPage';
+import ProductsPage from './pages/catalog-orders/ProductsPage';
+import ScanStockPage from './pages/catalog-orders/ScanStockPage';
+import OrderInquiriesPage from './pages/catalog-orders/OrderInquiriesPage';
+import OptimizationPage from './pages/insights/OptimizationPage';
+import ReportsPage from './pages/insights/ReportsPage';
+import ApprovalsPage from './pages/governance/ApprovalsPage';
+import AuditTrailPage from './pages/governance/AuditTrailPage';
+import SettingsPage from './pages/governance/SettingsPage';
+import SecurityPage from './pages/account/SecurityPage';
+import LoginPage from './pages/auth/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
-import ReportsPage from './pages/ReportsPage';
-import ScanStockPage from './pages/ScanStockPage';
-import SecurityPage from './pages/SecurityPage';
-import StockAdjustmentsPage from './pages/StockAdjustmentsPage';
-import StockMovementPage from './pages/StockMovementPage';
-import StockTransfersPage from './pages/StockTransfersPage';
-import StocktakePage from './pages/StocktakePage';
-import SettingsPage from './pages/SettingsPage';
-import TillPage from './pages/TillPage';
 import { createAppTheme } from './theme';
 import { ADMIN_TIER, MANAGEMENT_TIER } from './roles';
 

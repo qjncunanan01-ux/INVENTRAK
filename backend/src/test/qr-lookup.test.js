@@ -10,7 +10,7 @@
 //     are rejected and sensitive fields never serialize into the response.
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
-const { parseProductQrIdentifier, PRODUCT_QR_PREFIX } = require('../qr-codes');
+const { parseProductQrIdentifier, PRODUCT_QR_PREFIX } = require('../catalog-orders/qr-codes');
 
 // Test-facing alias for the shared parser (returns { ok, kind, id, code } so
 // both backends' grammars fit one assertion style).
@@ -243,7 +243,7 @@ describe('public tag page (GET /t/:code — camera-friendly URL target)', () => 
     // The create/update APIs sanitize tags at input, but the page itself must
     // not trust stored data (pre-sanitization rows, cloud drivers, future
     // writers). Unit-test the renderer with hostile values directly.
-    const { renderTagPageHtml } = require('../qr-codes');
+    const { renderTagPageHtml } = require('../catalog-orders/qr-codes');
     const evil = {
       status: 200,
       body: {

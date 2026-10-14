@@ -4,7 +4,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { HASH_ROUNDS, isHashed, hashPassword, verifyPassword, consumeComparisonTime } = require('../password-hash');
+const { HASH_ROUNDS, isHashed, hashPassword, verifyPassword, consumeComparisonTime } = require('../auth/password-hash');
 
 test('hashPassword produces a bcrypt hash and never the plaintext', () => {
   const hash = hashPassword('Passw0rd!');

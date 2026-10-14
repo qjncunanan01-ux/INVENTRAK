@@ -22,7 +22,7 @@
  */
 const path = require('path');
 
-const { hashPassword } = require('../src/password-hash');
+const { hashPassword } = require('../src/auth/password-hash');
 
 const DEMO_USERS = [
   { id: 1, username: 'admin', password: 'admin123', role: 'admin', email: 'admin@inventrak.com' },

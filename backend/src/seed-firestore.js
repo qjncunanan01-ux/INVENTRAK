@@ -12,7 +12,7 @@ process.env.DB_DRIVER = 'firestore';
 const fs = require('fs');
 const path = require('path');
 const store = require('./store-firestore');
-const { hashPassword } = require('./password-hash');
+const { hashPassword } = require('./auth/password-hash');
 
 const dataDir = process.env.INVENTRAK_DATA_DIR || path.join(__dirname, '..', 'data');
 

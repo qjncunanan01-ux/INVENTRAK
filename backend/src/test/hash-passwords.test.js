@@ -13,7 +13,7 @@ const path = require('node:path');
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-hash-'));
 process.env.INVENTRAK_DB_PATH = path.join(tmpDir, 'legacy.db');
 
-const { isHashed, verifyPassword, hashPassword } = require('../password-hash');
+const { isHashed, verifyPassword, hashPassword } = require('../auth/password-hash');
 const { migrateSqliteUsers, migrateFirestoreUsers } = require('../hash-passwords');
 const { makeFakeDb } = require('./fake-firestore');
 const { db } = require('../db');

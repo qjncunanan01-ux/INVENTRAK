@@ -1,5 +1,5 @@
 // QR payload formats for INVENTRAK physical tags — a CROSS-APP CONTRACT.
-// The mobile scanner (mobile-client/src/screens/QrScanScreen.js) parses these
+// The mobile scanner (mobile-client/src/screens/catalog/QrScanScreen.js) parses these
 // exact prefixes, so any change here must land there too (and in the tests).
 //
 //   INVENTRAK:LOC:<locationId>:<urlEncodedName>   storage-area tag

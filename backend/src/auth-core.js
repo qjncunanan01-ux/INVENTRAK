@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
-const settings = require('./settings');
+const settings = require('./governance/settings');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'inventrak-secret-key-2024';
 

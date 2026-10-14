@@ -10,7 +10,7 @@
 // so this script is an eager, explicit pass rather than a hard requirement.
 // The pure helpers are exported for the unit tests.
 const path = require('path');
-const { isHashed, hashPassword } = require('./password-hash');
+const { isHashed, hashPassword } = require('./auth/password-hash');
 
 // SQLite: read-hash-update every plaintext user. Returns a summary.
 function migrateSqliteUsers(db) {

@@ -23,7 +23,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 
-const { schedule, parseStamp, daysSince, DAY_MS } = require('../stocktake');
+const { schedule, parseStamp, daysSince, DAY_MS } = require('../inventory/stocktake');
 
 const NOW = Date.UTC(2026, 9, 1, 12, 0, 0); // 2026-10-01T12:00:00Z
 const daysAgo = n => new Date(NOW - n * DAY_MS).toISOString();
@@ -300,7 +300,7 @@ describe('schedule — the board, shelf by shelf', () => {
 // ---------------------------------------------------------------------------
 
 const { sqlite, npmfree, bootBoth, teardown, call, shapeOf, db } = require('./harness');
-const { refreshStocktakeAlerts } = require('../alert-helpers');
+const { refreshStocktakeAlerts } = require('../inventory/alert-helpers');
 
 before(async() => {
   await bootBoth();

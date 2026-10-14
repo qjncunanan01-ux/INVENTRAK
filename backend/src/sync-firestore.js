@@ -36,7 +36,7 @@
 // The npm-free JSON-file mode is an ephemeral fallback and is not synced.
 const path = require('path');
 const fs = require('fs');
-const { isHashed } = require('./password-hash');
+const { isHashed } = require('./auth/password-hash');
 
 // Datasets: canonical key + timestamp used for last-write-wins. Inventory is
 // special-cased (locations array + per-product items) in its own handlers.
