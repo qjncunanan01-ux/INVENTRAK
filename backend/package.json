@@ -52,7 +52,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
-    "@apidevtools/swagger-parser": "^9.0.1",
+    "@apidevtools/swagger-parser": "^12.1.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^9.6.0",
     "@types/body-parser": "^1.19.6",
@@ -64,6 +64,7 @@
     "ajv-formats": "^3.0.1",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^10.1.8",
+    "js-yaml": "^4.3.2",
     "prettier": "^3.2.5",
     "swagger-jsdoc": "^6.3.0",
     "typescript": "^7.0.2"
