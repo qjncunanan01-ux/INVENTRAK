@@ -89,8 +89,15 @@ function remoteKey() {
 // A positive integer from the environment, or the default. `0` is a MEANINGFUL
 // value for the interval (it turns the schedule off), so it is not treated as
 // "unset" — while junk ("hourly") and negatives are.
+//
+// Unset/empty is checked BEFORE Number(), because Number('') === 0: folding
+// "never configured" into the meaningful 0 would silently start every
+// deployment that omits the variable with the schedule off, while the docs
+// (README, the migration SQL, the /api/meta description) all say hourly.
 function intFrom(raw, fallback, { allowZero = false } = {}) {
-  const n = Number(String(raw == null ? '' : raw).trim());
+  const text = String(raw == null ? '' : raw).trim();
+  if (text === '') return fallback;
+  const n = Number(text);
   if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return fallback;
   if (n === 0) return allowZero ? 0 : fallback;
   return n;

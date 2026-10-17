@@ -621,6 +621,11 @@ describe('the schedule is visible where an operator looks', () => {
     setEnv({ SUPABASE_URL: 'https://demo.supabase.co' });
     // Missing the key: nothing to authenticate with, so no schedule.
     assert.equal(remote.status().enabled, false);
+    // Unset is NOT zero: Number('') === 0, so without an explicit guard the
+    // variable's absence would read as 0 = off and silently disable the
+    // schedule on every deployment that never sets it — while README, the
+    // migration SQL and this module's own docs all promise hourly.
+    assert.equal(remote.status().interval_minutes, 60, 'unset falls back to the hourly default');
 
     setEnv({ SUPABASE_KEY: 'service-role', BACKUP_INTERVAL_MINUTES: 'hourly', BACKUP_KEEP: '-3' });
     const derived = remote.status();
