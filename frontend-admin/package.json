@@ -30,6 +30,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:visual": "npm run build && playwright test visual-regression",
+    "test:visual:record": "node e2e/visual-record.mjs",
     "lint": "eslint src/**/*.jsx src/**/*.js",
     "lint:fix": "eslint src/**/*.jsx src/**/*.js --fix",
     "format": "prettier --write src/**/*.jsx src/**/*.js",

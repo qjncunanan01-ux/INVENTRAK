@@ -289,6 +289,85 @@ CREATE TABLE IF NOT EXISTS costing_records (
   UNIQUE(inquiry_id),
   FOREIGN KEY(inquiry_id) REFERENCES order_inquiries(id)
 );
+
+-- Unit / packaging conversion catalog (Web Administration → Unit and Packaging
+-- Conversion Management). One linear row per (from_unit -> to_unit) pair; the
+-- UNIQUE constraint keeps the catalog from holding two conflicting rates for
+-- the same pair. Units are stored lowercased/trimmed by the route layer so
+-- 'KG' and 'kg' are the same unit. Identity rows (kg -> kg) are rejected in
+-- code, not here, because the error needs to reach the caller.
+CREATE TABLE IF NOT EXISTS unit_conversions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_unit TEXT NOT NULL,
+  to_unit TEXT NOT NULL,
+  rate REAL NOT NULL,
+  note TEXT,
+  created_by INTEGER,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(from_unit, to_unit)
+);
+
+-- Notification ledger (Web Administration → admin notifications view). Every
+-- notification ATTEMPT is recorded here with its channel and best-effort
+-- delivery status, so an admin has a sent/delivered/logged/failed view instead
+-- of hunting through server logs. 'logged' means no provider was configured
+-- (the message went to stdout only) -- stated honestly rather than as 'sent'.
+CREATE TABLE IF NOT EXISTS notification_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  recipient TEXT,
+  subject TEXT,
+  status TEXT DEFAULT 'attempted',
+  detail TEXT,
+  related_id INTEGER,
+  related_type TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS notification_records_created_idx
+  ON notification_records(created_at);
+
+-- Back orders (Web Administration → Back-Order Management). One row per order
+-- inquiry that could not be fully fulfilled, carrying the reason and the date
+-- the customer wants it by. A back order is conceptually an inquiry-level
+-- status, but persisting it as its own row lets the admin view treat "back
+-- ordered" as a real workflow (open -> fulfilled/cancelled) instead of a
+-- label smeared across the inquiry history.
+CREATE TABLE IF NOT EXISTS back_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  inquiry_id INTEGER NOT NULL,
+  reason TEXT,
+  requested_by_date TEXT,
+  status TEXT DEFAULT 'open',
+  note TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  -- One back order per inquiry. Deliberately NOT a FOREIGN KEY: the npm-free
+  -- ledger keys by inquiry id without requiring the inquiry row to exist yet
+  -- (an admin may record a back order as soon as a shortfall is known), and
+  -- the two backends must accept the same input.
+  UNIQUE(inquiry_id)
+);
+
+-- Approver comments / correction requests (Approvals queue feedback loop).
+-- When an admin rejects a submission with a comment, the comment is stored
+-- here linked to the submission so the staff app can show it as a visible
+-- correction instruction before the staff member resubmits.
+CREATE TABLE IF NOT EXISTS correction_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  submission_id INTEGER NOT NULL,
+  submission_type TEXT,
+  comment TEXT NOT NULL,
+  requested_by TEXT,
+  status TEXT DEFAULT 'open',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS correction_requests_submission_idx
+  ON correction_requests(submission_type, submission_id);
 `;
 
 module.exports = SCHEMA;

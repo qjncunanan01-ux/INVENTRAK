@@ -18,6 +18,10 @@ import SecurityOutlined from '@mui/icons-material/SecurityOutlined';
 import SwapHorizOutlined from '@mui/icons-material/SwapHorizOutlined';
 import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
+import StraightenOutlined from '@mui/icons-material/StraightenOutlined';
+import AssignmentLateOutlined from '@mui/icons-material/AssignmentLateOutlined';
+import NotificationsOutlined from '@mui/icons-material/NotificationsOutlined';
+import CloudDownloadOutlined from '@mui/icons-material/CloudDownloadOutlined';
 import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { getCurrentUser, getMeta } from '../../api';
@@ -81,6 +85,8 @@ export const NAV_SECTIONS = [
       { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ADMIN_TIER },
       { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: STAFF_TIER },
       { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ADMIN_TIER },
+      { label: 'Back Orders', path: '/back-orders', Icon: AssignmentLateOutlined, roles: ADMIN_TIER },
+      { label: 'Unit Conversions', path: '/unit-conversions', Icon: StraightenOutlined, roles: ADMIN_TIER },
     ],
   },
   {
@@ -95,6 +101,8 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ADMIN_TIER },
       { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: ADMIN_TIER },
+      { label: 'Notifications', path: '/notifications', Icon: NotificationsOutlined, roles: ADMIN_TIER },
+      { label: 'Backup & Restore', path: '/backup', Icon: CloudDownloadOutlined, roles: ADMIN_TIER },
       { label: 'System Settings', path: '/settings', Icon: SettingsOutlined, roles: MANAGEMENT_TIER },
     ],
   },
@@ -282,6 +290,7 @@ function NavContent({ collapsed = false, onNavigate, uiBuild, apiBuild }) {
             variant="caption"
             component="div"
             aria-label="Build versions"
+            data-testid="build-stamp"
             sx={{ mt: 1.5, fontSize: '0.65rem', lineHeight: 1.7, opacity: 0.75, wordBreak: 'break-word' }}
           >
             <Tooltip title="UI build — this browser bundle. If modules look wrong or missing, hard-refresh (Ctrl+Shift+R)." arrow placement="top">
@@ -320,7 +329,13 @@ export default function AdminLayout({ title, children, onLogout }) {
   // API build is fetched once from the public GET /api/meta. Held HERE (not
   // in NavContent) because NavContent mounts twice on mobile widths — the
   // footer must not own state or it would fetch per instance.
-  const uiBuildRaw = (typeof process !== 'undefined' && process.env && process.env.INVENTRAK_UI_BUILD) || 'dev';
+  // Read the define WITHOUT a `typeof process` guard: Vite replaces the whole
+  // `process.env.INVENTRAK_UI_BUILD` token with a string literal at build time,
+  // and the browser bundle has no `process` object — so the guard short-circuits
+  // to 'dev' and the deployed stamp never names the build it came from. The
+  // guard added nothing: an un-replaced token only happens in a non-Vite
+  // context (jsdom under Vitest), where `process` exists.
+  const uiBuildRaw = process.env.INVENTRAK_UI_BUILD || 'dev';
   // Shorten a full 40-char sha in the stamp to 7 for display.
   const uiBuild = uiBuildRaw.replace(/\(([0-9a-f]{8,40})\)/i, (_m, sha) => `(${sha.slice(0, 7)})`);
   const [apiBuild, setApiBuild] = useState(metaBuildCache);
@@ -369,6 +384,7 @@ export default function AdminLayout({ title, children, onLogout }) {
       <Box
         component="aside"
         aria-label="Sidebar navigation"
+        data-testid="admin-sidebar"
         sx={{
           display: { xs: 'none', md: 'flex' },
           flexDirection: 'column',
@@ -438,6 +454,7 @@ export default function AdminLayout({ title, children, onLogout }) {
               label={meta.label}
               size="small"
               aria-label={`Signed in as ${meta.label}`}
+              data-testid="role-badge"
               sx={{
                 fontWeight: 800,
                 letterSpacing: 1.2,

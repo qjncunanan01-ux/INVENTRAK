@@ -12,6 +12,26 @@ export default defineConfig({
     // Visual regression: consistent viewport for screenshot comparisons
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: 1,
+    // Rendering pins for the screenshot comparisons in
+    // e2e/visual-regression.spec.js. The spec itself pins the context options
+    // (locale, timezone, reduced motion); these are the Chromium-side knobs and
+    // have to be set at launch:
+    //   · srgb colour profile — otherwise the compositor tints the capture
+    //   · no font hinting / no LCD subpixel text — glyph rasterisation is
+    //     per-machine and per-font otherwise
+    //   · --disable-gpu — the login page's ShaderGradient background then paints
+    //     on the software rasterizer (SwiftShader) everywhere instead of
+    //     whatever GPU the machine has
+    //   · --hide-scrollbars — a scrollbar is a rendering difference too
+    launchOptions: {
+      args: [
+        '--force-color-profile=srgb',
+        '--font-render-hinting=none',
+        '--disable-lcd-text',
+        '--disable-gpu',
+        '--hide-scrollbars',
+      ],
+    },
   },
   webServer: {
     command: 'npx vite preview --port 4173',

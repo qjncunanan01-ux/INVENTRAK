@@ -1,6 +1,8 @@
 const { app, seedDatabase } = require('./app');
 const { db } = require('./db');
 const { reSeedFromRemote } = require('./audit');
+const { sqliteSnapshot, buildEnvelope } = require('./governance/backup');
+const backupRemote = require('./governance/backup-remote');
 
 // Build identity for GET /api/meta (first-boot time of this container).
 process.env.INVENTRAK_STARTED_AT = new Date().toISOString();
@@ -8,11 +10,20 @@ seedDatabase();
 // Durable audit trail: best-effort remote snapshot re-seed before serving
 // (a no-op unless AUDIT_REMOTE_* is configured). Never blocks boot.
 reSeedFromRemote().catch(() => {});
+// Scheduled snapshots into the durable store (governance/backup-remote.js).
+// Started by the entrypoint, never by app.js, so a test that boots the app
+// object leaves no timer behind. The first push is one full interval away on
+// purpose: a container that has just booted may have re-seeded itself from the
+// packaged demo data, and that must never become the newest snapshot.
+backupRemote.startScheduler(
+  () => buildEnvelope({ driver: 'sqlite', tables: sqliteSnapshot(), generatedBy: 'schedule' }),
+);
 const PORT = process.env.PORT || 4001;
 const server = app.listen(PORT, () => console.log(`Backend server running on ${PORT}`));
 
 function shutdown(signal) {
   console.log(`${signal} received, shutting down gracefully...`);
+  backupRemote.stopScheduler();
   server.close(() => {
     console.log('HTTP server closed');
     db.close();

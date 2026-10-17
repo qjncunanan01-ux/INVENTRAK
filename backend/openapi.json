@@ -62,54 +62,540 @@
     }
   ],
   "paths": {
-    "/api/docs": {
-      "get": {
-        "tags": [
-          "Docs"
-        ],
-        "operationId": "getDocs",
-        "summary": "Swagger UI for this API",
-        "responses": {
-          "200": {
-            "description": "Swagger UI HTML page"
-          }
-        }
-      }
-    },
-    "/api/openapi.json": {
-      "get": {
-        "tags": [
-          "Docs"
-        ],
-        "operationId": "getOpenapi",
-        "summary": "This OpenAPI specification document",
-        "responses": {
-          "200": {
-            "description": "The OpenAPI JSON document"
-          }
-        }
-      }
-    },
-    "/api/auth/register": {
+    "/api/admin/promote": {
       "post": {
         "tags": [
-          "Auth"
+          "Admin"
         ],
-        "operationId": "register",
-        "summary": "Register a new customer user",
+        "operationId": "promoteUser",
+        "summary": "Promote a customer account to admin (admin only) â€” the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
+                "$ref": "#/components/schemas/PromoteRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Registration successful",
+            "description": "User promoted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromoteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "No customer with that username"
+          }
+        }
+      }
+    },
+    "/api/admin/backup": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "exportBackup",
+        "summary": "Export a full database snapshot (admin only)",
+        "description": "A copy of the entire durable database — every table it holds — as one JSON document. This is the record that survives a redeploy: the backend container filesystem is wiped on deploy, so an off-container snapshot is the only recovery path. Exported and restores are both audited. The snapshot contains password hashes: it is a backup, not a report, and it must be stored accordingly.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "pushBackup",
+        "summary": "Take a snapshot now and store it in the durable store (admin only)",
+        "description": "The on-demand half of the scheduled backup: the same snapshot the timer takes (BACKUP_INTERVAL_MINUTES, default hourly), pushed immediately. Additive by construction — a push is a NEW row in the durable store, so it can never overwrite the copy an admin is relying on. Answers 503 with a reason when this server has no durable store to push to (SUPABASE_URL/SUPABASE_KEY or BACKUP_REMOTE_URL/BACKUP_REMOTE_KEY unset, store unreachable, or the snapshot is larger than BACKUP_MAX_BYTES).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snapshot stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupPushResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "503": {
+            "description": "No usable durable store: not configured, unreachable, or the snapshot exceeds BACKUP_MAX_BYTES. The body's error names the cause.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupPushFailure"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/backups": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "listStoredBackups",
+        "summary": "Snapshots held by the durable store, newest first (admin only)",
+        "description": "What a restore can start from, so recovery does not depend on a file that was downloaded before the container went away. Reports rather than throws: \"the schedule is off\" and \"the store is unreachable\" are states an operator needs to read (ok=false plus a reason), not errors to hide. Returns metadata only — the snapshot bodies are not shipped by a listing — and never the store key.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scheduler configuration and the stored snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupStoreStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/admin/restore": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "operationId": "restoreBackup",
+        "summary": "Restore the database from a snapshot (admin only)",
+        "description": "Replaces the database contents with the supplied snapshot. Requires `confirm: true`, and the snapshot must come from the same driver this server runs. SQLite restores run inside a single transaction: a snapshot with dangling references is rejected and the live database is left untouched.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Restored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/alerts": {
+      "get": {
+        "tags": [
+          "Alerts"
+        ],
+        "operationId": "listAlerts",
+        "summary": "List low-stock alerts (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alerts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Alert"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/alerts/{id}/resolve": {
+      "put": {
+        "tags": [
+          "Alerts"
+        ],
+        "operationId": "resolveAlert",
+        "summary": "Resolve an alert (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Alert resolved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/analytics/export/{type}": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "operationId": "exportAnalytics",
+        "summary": "Export data as JSON or CSV (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "products",
+                "inventory",
+                "movements"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exported rows (JSON array, or CSV when format=csv)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Unknown export type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analytics/summary": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "operationId": "getAnalyticsSummary",
+        "summary": "Dashboard summary metrics (admin tier â€” contains revenue)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/approvals": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "getApprovals",
+        "summary": "Pending stock adjustments and transfers in one approval queue (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending approvals queue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalsQueue"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/audit-trail": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "listAuditTrail",
+        "summary": "Security audit log entries (admin only) â€” newest first",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) â€” keeps only entries whose details.status matches"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "description": "Page size (default 200, max 1000)"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Skip this many entries (pagination together with limit)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit log entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditTrailResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "forgotPassword",
+        "summary": "Request a password reset code (emailed to the account, if the email exists)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Always succeeds â€” the response never reveals whether the email has an account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/api/auth/google": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "googleAuth",
+        "summary": "Sign in with a Google ID token (OAuth). Creates or links the customer account by email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
             "content": {
               "application/json": {
                 "schema": {
@@ -121,99 +607,94 @@
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
-          "409": {
-            "description": "Username already exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         }
       }
     },
-    "/api/auth/verify-email": {
-      "post": {
+    "/api/auth/google/callback": {
+      "get": {
         "tags": [
           "Auth"
         ],
-        "operationId": "verifyEmail",
-        "summary": "Redeem the signup verification code to verify the account email",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyEmailRequest"
-              }
-            }
+        "operationId": "googleAuthCallback",
+        "summary": "Google OAuth callback: exchanges the code server-side and deep-links back to the app with a session token.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "OAuth authorization code (from Google)."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "CSRF state issued by googleAuthStart."
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Google error, if the user was denied."
           }
-        },
+        ],
         "responses": {
-          "200": {
-            "description": "Email verified",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
+          "302": {
+            "description": "Deep link back into the app with token/username/role/email params"
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
           "401": {
-            "description": "Invalid or expired verification code",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
+            "$ref": "#/components/responses/Unauthorized"
           },
-          "429": {
-            "$ref": "#/components/responses/TooManyRequests"
+          "502": {
+            "description": "Google token exchange failed"
           }
         }
       }
     },
-    "/api/auth/resend-verification": {
-      "post": {
+    "/api/auth/google/start": {
+      "get": {
         "tags": [
           "Auth"
         ],
-        "operationId": "resendVerification",
-        "summary": "Resend the signup verification code (only acts on unverified accounts; never reveals whether the email has an account)",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResendVerificationRequest"
-              }
+        "operationId": "googleAuthStart",
+        "summary": "Start Google OAuth relay: redirects the browser to Google consent with the backend callback as redirect_uri.",
+        "parameters": [
+          {
+            "name": "returnUrl",
+            "in": "query",
+            "required": true,
+            "description": "App deep link to return to after sign-in (exp:// for Expo Go, inventrak:// for the standalone app, http://localhost for dev).",
+            "schema": {
+              "type": "string"
             }
           }
-        },
+        ],
         "responses": {
-          "200": {
-            "description": "Always succeeds â€” never reveals whether the email has an unverified account",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
+          "302": {
+            "description": "Redirect to Google sign-in"
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
-          "429": {
-            "$ref": "#/components/responses/TooManyRequests"
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
           }
         }
       }
@@ -275,42 +756,34 @@
         }
       }
     },
-    "/api/auth/google": {
+    "/api/auth/logout": {
       "post": {
         "tags": [
           "Auth"
         ],
-        "operationId": "googleAuth",
-        "summary": "Sign in with a Google ID token (OAuth). Creates or links the customer account by email.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GoogleAuthInput"
-              }
-            }
+        "operationId": "logout",
+        "summary": "Log out and revoke the presented session token",
+        "security": [
+          {
+            "bearerAuth": []
           }
-        },
+        ],
         "responses": {
           "200": {
-            "description": "Login successful",
+            "description": "Logged out",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
+                  "$ref": "#/components/schemas/LogoutResponse"
                 }
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
+          "403": {
+            "description": "Admin access required"
           }
         }
       }
@@ -347,26 +820,276 @@
         }
       }
     },
-    "/api/auth/forgot-password": {
+    "/api/auth/mfa/confirm": {
       "post": {
         "tags": [
           "Auth"
         ],
-        "operationId": "forgotPassword",
-        "summary": "Request a password reset code (emailed to the account, if the email exists)",
+        "operationId": "mfaConfirm",
+        "summary": "Confirm a live code to enable MFA for the admin account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ForgotPasswordRequest"
+                "$ref": "#/components/schemas/MfaConfirmRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Always succeeds â€” the response never reveals whether the email has an account",
+            "description": "MFA enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaEnableResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "Start MFA setup first"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/disable": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaDisable",
+        "summary": "Disable MFA â€” requires the current authenticator code",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaDisableRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MFA disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is not enabled"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/recovery-codes": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaRecoveryCodes",
+        "summary": "Regenerate one-time recovery codes (invalidates the previous set)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fresh recovery codes (shown once)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRecoveryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is not enabled"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaSetup",
+        "summary": "Generate a fresh TOTP secret for the admin (not enabled until confirmed)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetupResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Admin access required"
+          },
+          "409": {
+            "description": "MFA is already enabled"
+          }
+        }
+      }
+    },
+    "/api/auth/mfa/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "mfaVerify",
+        "summary": "Complete the second factor: exchange the MFA challenge for a session token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "register",
+        "summary": "Register a new customer user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Registration successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "description": "Username already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/resend-verification": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "resendVerification",
+        "summary": "Resend the signup verification code (only acts on unverified accounts; never reveals whether the email has an account)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendVerificationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Always succeeds â€” never reveals whether the email has an unverified account",
             "content": {
               "application/json": {
                 "schema": {
@@ -431,79 +1154,94 @@
         }
       }
     },
-    "/api/products": {
+    "/api/auth/verify-email": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "verifyEmail",
+        "summary": "Redeem the signup verification code to verify the account email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "description": "Invalid or expired verification code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        }
+      }
+    },
+    "/api/back-orders": {
       "get": {
         "tags": [
-          "Products"
+          "Order Inquiries"
         ],
-        "operationId": "listProducts",
-        "summary": "List products (optionally paginated, searched, filtered)",
-        "parameters": [
+        "operationId": "listBackOrders",
+        "summary": "List back orders (scoped to your own orders unless admin)",
+        "description": "Admins see every back order; every other caller sees only back orders belonging to their OWN order inquiries (matched on account or the email the order was placed with), because a back order carries the reason a customer’s order fell short.",
+        "security": [
           {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "description": "Page number (enables paginated response)"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            },
-            "description": "Items per page"
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Search name/category/brand"
-          },
-          {
-            "name": "category",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Filter by exact category"
+            "bearerAuth": []
           }
         ],
         "responses": {
           "200": {
-            "description": "List of products (plain array, or { data, pagination } when page/limit provided)",
+            "description": "Back orders",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Product"
-                      }
-                    },
-                    {
-                      "$ref": "#/components/schemas/PaginatedProducts"
-                    }
-                  ]
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BackOrder"
+                  }
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         }
       },
       "post": {
         "tags": [
-          "Products"
+          "Order Inquiries"
         ],
-        "operationId": "createProduct",
-        "summary": "Create a product (admin only)",
+        "operationId": "upsertBackOrder",
+        "summary": "Create or update a back order (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -514,18 +1252,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProductInput"
+                "$ref": "#/components/schemas/BackOrderInput"
               }
             }
           }
         },
         "responses": {
-          "201": {
-            "description": "Product created",
+          "200": {
+            "description": "Back order upserted",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedId"
+                  "$ref": "#/components/schemas/BackOrder"
                 }
               }
             }
@@ -535,196 +1273,23 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/products/bulk-costs": {
-      "post": {
-        "tags": [
-          "Products"
-        ],
-        "operationId": "bulkUpdateCosts",
-        "summary": "Set unit cost on many products in one request (admin only) — the cost-of-goods CSV import",
-        "description": "The cost-of-goods counterpart to /api/products/bulk-prices. A blank or null cost CLEARS the product back to \"not costed\"; an entry with no cost key at all is skipped and left unchanged. Cost is never exposed on any public product read.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BulkCostInput"
-              }
-            }
           }
         },
-        "responses": {
-          "200": {
-            "description": "Batch result: how many costs were set, how many were cleared, and which entries were skipped (with reasons)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BulkCostResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
+        "description": "Records a shortfall against an order inquiry and tracks it to fulfilment. Admin-only: it is back-office workflow, and an open write would let a caller change another customer’s back-order status."
       }
     },
-    "/api/products/bulk-prices": {
-      "post": {
+    "/api/back-orders/{id}": {
+      "get": {
         "tags": [
-          "Products"
+          "Order Inquiries"
         ],
-        "operationId": "bulkUpdatePrices",
-        "summary": "Set prices for many products in one request (admin only) â€” the price-list CSV import",
+        "operationId": "getBackOrder",
+        "summary": "Get a back order by inquiry id",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BulkPriceInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Batch result: how many were updated and which entries were skipped (with reasons)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BulkPriceResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/products/costs": {
-      "get": {
-        "tags": [
-          "Products"
-        ],
-        "operationId": "listProductCosts",
-        "summary": "Cost-of-goods sheet (admin only) — the only read path that reveals product cost",
-        "description": "Cost of goods is the business's margin, so it is stripped from every public product read (catalog list, single product, QR lookup, tag page) regardless of who is asking. That catalog is served with `Cache-Control: public, max-age=300`, so an admin's response could otherwise sit in a shared cache and be read by an anonymous visitor. This endpoint is authenticated, admin-tier only, and never publicly cached.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "One row per product with its cost",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "required": [
-                      "id",
-                      "name",
-                      "price"
-                    ],
-                    "properties": {
-                      "id": {
-                        "type": "integer"
-                      },
-                      "sku": {
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "name": {
-                        "type": "string"
-                      },
-                      "price": {
-                        "type": "number"
-                      },
-                      "cost": {
-                        "type": "number",
-                        "nullable": true,
-                        "description": "Cost of goods; null means the product is not costed."
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/products/categories": {
-      "get": {
-        "tags": [
-          "Products"
-        ],
-        "operationId": "listCategories",
-        "summary": "List distinct product categories",
-        "responses": {
-          "200": {
-            "description": "Category names",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/products/{id}": {
-      "get": {
-        "tags": [
-          "Products"
-        ],
-        "operationId": "getProduct",
-        "summary": "Get a single product",
         "parameters": [
           {
             "name": "id",
@@ -737,14 +1302,384 @@
         ],
         "responses": {
           "200": {
-            "description": "Product",
+            "description": "Back order",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Product"
+                  "$ref": "#/components/schemas/BackOrder"
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "description": "Admin tier may read any inquiry’s back order; anyone else must own the inquiry (404 for an unknown inquiry, 403 when it belongs to someone else)."
+      }
+    },
+    "/api/cache/stats": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "operationId": "getCacheStats",
+        "summary": "In-memory cache statistics (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cache hit rates, entry counts, and top keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheStats"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/correction-requests": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "listCorrectionRequests",
+        "summary": "List correction requests (admin only)",
+        "description": "Approver comments and correction requests. Open items are things staff should address before resubmitting.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "submission_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correction requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CorrectionRequest"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "createCorrectionRequest",
+        "summary": "Record a reject comment / correction request (admin only)",
+        "description": "Attach a visible correction request to a submission so staff can see what to fix. Requires submission_id and a comment.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectionRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correction request created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/correction-requests/{id}": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "getCorrectionRequest",
+        "summary": "Single correction request (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correction request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionRequest"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/correction-requests/{id}/resolve": {
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "resolveCorrectionRequest",
+        "summary": "Mark a correction request as addressed (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectionRequestResolve"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correction request updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionRequest"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/customers": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "listCustomers",
+        "summary": "Customer Records with per-customer aggregates (admin only)",
+        "description": "The business entity behind orders and sales, distinct from accounts. Admin-only: it exposes what one person ordered and what they spent. Each row carries inquiry_count, total_spend and last_activity.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Customer"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/customers/{id}": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "getCustomer",
+        "summary": "One customer's record with their order and purchase history (admin only)",
+        "description": "The query the old schema could not answer: customer_name was free text repeated on every row, so a single person's history across orders was unretrievable.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Customer"
+                    }
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "inquiries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "estimated_cost": {
+                            "type": "number"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "status_history": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "sales": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "product_id": {
+                            "type": "integer"
+                          },
+                          "qty": {
+                            "type": "number"
+                          },
+                          "total_amount": {
+                            "type": "number"
+                          },
+                          "transaction_date": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -753,10 +1688,10 @@
       },
       "put": {
         "tags": [
-          "Products"
+          "Customers"
         ],
-        "operationId": "updateProduct",
-        "summary": "Update a product (admin only)",
+        "operationId": "updateCustomer",
+        "summary": "Edit a Customer Record (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -777,14 +1712,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProductInput"
+                "$ref": "#/components/schemas/CustomerInput"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Update acknowledged",
+            "description": "Customer updated",
             "content": {
               "application/json": {
                 "schema": {
@@ -801,37 +1736,95 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Another customer already uses this email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
-      },
-      "delete": {
+      }
+    },
+    "/api/docs": {
+      "get": {
         "tags": [
-          "Products"
+          "Docs"
         ],
-        "operationId": "deleteProduct",
-        "summary": "Soft-delete a product (admin only)",
+        "operationId": "getDocs",
+        "summary": "Swagger UI for this API",
+        "responses": {
+          "200": {
+            "description": "Swagger UI HTML page"
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealth",
+        "summary": "Public liveness probe â€” returns 200 with service status and active driver",
+        "responses": {
+          "200": {
+            "description": "Service is up",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "status",
+                    "time"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "driver": {
+                      "type": "string",
+                      "description": "Active storage driver (sqlite | json | firestore)"
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/integrity": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getIntegrity",
+        "summary": "Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
         "responses": {
           "200": {
-            "description": "Product deactivated",
+            "description": "Integrity audit result",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Message"
+                  "$ref": "#/components/schemas/IntegrityReport"
                 }
               }
             }
@@ -841,9 +1834,6 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
           }
         }
       }
@@ -886,6 +1876,209 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/inventory/count": {
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "recordInventoryCount",
+        "summary": "Record a stocktake count (staff or admin)",
+        "description": "What a person physically counted on a shelf, plus a snapshot of what the system believed at that moment. The snapshot is the only chance to capture it — once the stock column moves on, the variance the counter found can no longer be computed. Counting is a staff duty; reading the reconciliation is not (it reports money at risk).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryCountInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Count recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryCountResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/counts": {
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "createShelfCounts",
+        "summary": "Record a shelf walk in one request (staff tier)",
+        "description": "Records many counts at once for one shelf. The whole batch is validated before anything is written, then written in a single transaction: either every line in the walk is recorded, or none of them are — so a failure can never leave a shelf looking deliberately half-counted. A partial walk is still allowed and legitimate; it simply does not clear the shelf. A duplicate product_id within one batch is refused rather than silently resolved. Returns the shelf’s remaining work so the phone can update its progress without a second round-trip.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShelfCountInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The walk was recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShelfCountResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed; details list every offending line"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Location not found"
+          }
+        }
+      }
+    },
+    "/api/inventory/reconciliation": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getInventoryReconciliation",
+        "summary": "Shelf-vs-system reconciliation: shrinkage and unrecorded sales (admin only)",
+        "description": "Compares the last physical count of each shelf against what the system believes and against the sales the till recorded since. unexplained = system_now - (counted - recorded_sales_since). Positive means the system believes stock that is not on the shelf; negative means more was found than expected. Reports units and money at risk; it deliberately does NOT assert a cause, because theft, breakage and a till error are indistinguishable from the data.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "only_variance",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Return only rows that are not balanced"
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reconciliation report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/inventory/shelf-stocktake/{id}": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getShelfStocktake",
+        "summary": "One shelf with every line on it, ready to be walked (staff tier)",
+        "description": "Returns the shelf’s due status, its coverage, and per line what the system believes is there and when that line was last counted. Counts a shelf as re-counted only when EVERY line on it is inside stocktake_cycle_days, so the phone and the admin board can never disagree about whether a line is fresh. Computed on read.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Location id (the shelf)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The shelf",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShelfStocktake"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Location not found"
           }
         }
       }
@@ -1031,54 +2224,88 @@
         }
       }
     },
-    "/api/stock-movement": {
-      "post": {
+    "/api/meta": {
+      "get": {
         "tags": [
-          "Stock Movements"
+          "Health"
         ],
-        "operationId": "createStockMovement",
-        "summary": "Record a stock movement (FIFO-aware)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StockMovementInput"
-              }
-            }
-          }
-        },
+        "operationId": "getMeta",
+        "summary": "Public build identity â€” name, package version, deployed git commit, storage driver, process start time",
         "responses": {
           "200": {
-            "description": "Movement recorded",
+            "description": "Build metadata",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Product not found or inactive",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "name",
+                    "time"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "commit": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Deployed git commit sha (Render RENDER_GIT_COMMIT); null on a local run"
+                    },
+                    "driver": {
+                      "type": "string",
+                      "description": "Active storage driver (sqlite | json | firestore | supabase)"
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    },
+                    "audit": {
+                      "type": "object",
+                      "description": "Durable audit-trail status. Derived from the Supabase driver config when AUDIT_REMOTE_* is unset, so it reads enabled=true on any Supabase-backed deploy. Reports the sink URL and table, never the key.",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "url": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "table": {
+                          "type": "string"
+                        },
+                        "derived": {
+                          "type": "boolean",
+                          "description": "True when the sink was derived from SUPABASE_URL rather than set explicitly"
+                        }
+                      }
+                    },
+                    "backup": {
+                      "$ref": "#/components/schemas/BackupSchedulerStatus"
+                    },
+                    "costing": {
+                      "type": "object",
+                      "description": "Margin policy the admin margin panel grades against. Read from COSTING_TARGET_MARGIN so the client never hardcodes a number the server can be told to change.",
+                      "properties": {
+                        "target_margin_percent": {
+                          "type": "number",
+                          "description": "Target gross margin, e.g. 30 means 30% (server default when the env var is unset)"
+                        }
+                      }
+                    },
+                    "time": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
                 }
               }
             }
@@ -1086,38 +2313,96 @@
         }
       }
     },
-    "/api/stock-movements": {
+    "/api/notifications": {
       "get": {
         "tags": [
-          "Stock Movements"
+          "Users"
         ],
-        "operationId": "listStockMovements",
-        "summary": "List stock movements",
-        "parameters": [
+        "operationId": "listNotifications",
+        "summary": "Paginated notification records (admin only)",
+        "description": "Dedicated admin notification ledger: every notification attempt is recorded here with event, channel, recipient, and best-effort delivery status.",
+        "security": [
           {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            }
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "limit",
             "in": "query",
             "schema": {
-              "type": "integer"
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
             }
           },
           {
-            "name": "type",
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "event",
             "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "product_id",
+            "name": "channel",
             "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "getNotification",
+        "summary": "Single notification record (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "integer"
             }
@@ -1125,21 +2410,58 @@
         ],
         "responses": {
           "200": {
-            "description": "Movements (plain array, or { data, pagination } when page/limit provided)",
+            "description": "Notification record",
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/StockMovement"
-                      }
-                    },
-                    {
-                      "$ref": "#/components/schemas/PaginatedMovements"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/NotificationRecord"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "tags": [
+          "Docs"
+        ],
+        "operationId": "getOpenapi",
+        "summary": "This OpenAPI specification document",
+        "responses": {
+          "200": {
+            "description": "The OpenAPI JSON document"
+          }
+        }
+      }
+    },
+    "/api/optimization": {
+      "get": {
+        "tags": [
+          "Optimization"
+        ],
+        "operationId": "getOptimizationBulk",
+        "summary": "Bulk optimization metrics for all products",
+        "responses": {
+          "200": {
+            "description": "Bulk metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BulkOptimization"
+                  }
                 }
               }
             }
@@ -1147,538 +2469,98 @@
         }
       }
     },
-    "/api/stock-lots": {
+    "/api/optimization/{productId}": {
       "get": {
         "tags": [
-          "Stock Movements"
+          "Optimization"
         ],
-        "operationId": "listStockLots",
-        "summary": "List FIFO stock lots",
+        "operationId": "getOptimization",
+        "summary": "EOQ, ROP, safety stock, and turnover for one product",
         "parameters": [
           {
-            "name": "product_id",
-            "in": "query",
+            "name": "productId",
+            "in": "path",
+            "required": true,
             "schema": {
-              "type": "integer"
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Optimization metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OptimizationMetrics"
+                }
+              }
             }
           },
-          {
-            "name": "location_id",
-            "in": "query",
-            "schema": {
-              "type": "integer"
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/optimization/abc": {
+      "get": {
+        "tags": [
+          "Optimization"
+        ],
+        "operationId": "getOptimizationAbc",
+        "summary": "ABC classification of products",
+        "responses": {
+          "200": {
+            "description": "ABC classifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AbcItem"
+                  }
+                }
+              }
             }
-          },
+          }
+        }
+      }
+    },
+    "/api/optimization/fsn": {
+      "get": {
+        "tags": [
+          "Optimization"
+        ],
+        "operationId": "getOptimizationFsn",
+        "summary": "FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency",
+        "parameters": [
           {
-            "name": "expiring_within",
+            "name": "window",
             "in": "query",
             "required": false,
             "schema": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 7,
+              "maximum": 730,
+              "default": 90
             },
-            "description": "Only return open lots expiring within N days (FEFO early-warning)."
+            "description": "Analysis window in days. Only sales inside the window are counted. Clamped to [7, 730]."
           }
         ],
         "responses": {
           "200": {
-            "description": "Stock lots",
+            "description": "FSN classifications sorted Non-moving first, then Slow, then Fast (so dead stock surfaces at the top)",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/StockLot"
+                    "$ref": "#/components/schemas/FsnItem"
                   }
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/stock-adjustments": {
-      "get": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "listStockAdjustments",
-        "summary": "List stock adjustment requests (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "approved",
-                "rejected"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Adjustments (pending until approved; approval applies the correction)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/StockAdjustment"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "createStockAdjustment",
-        "summary": "Create a stock adjustment request (admin only) â€” PENDING until approved",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StockAdjustmentInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Adjustment created (pending approval)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreatedMessage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Product or location not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/stock-adjustments/{id}/approve": {
-      "post": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "approveStockAdjustment",
-        "summary": "Approve a pending adjustment and apply it to stock (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Adjustment approved and applied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Already decided",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/stock-adjustments/{id}/reject": {
-      "post": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "rejectStockAdjustment",
-        "summary": "Reject a pending adjustment (stock unchanged) (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Adjustment rejected",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/stock-transfers": {
-      "get": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "listStockTransfers",
-        "summary": "List stock transfer requests (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "pending",
-                "approved",
-                "rejected"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Transfers",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/StockTransfer"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "createStockTransfer",
-        "summary": "Create a stock transfer request (admin only) â€” PENDING until approved",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StockTransferInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Transfer created (pending approval)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreatedMessage"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Product or location not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/stock-transfers/{id}/approve": {
-      "post": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "approveStockTransfer",
-        "summary": "Approve a pending transfer and move the stock (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Transfer approved and applied",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Already decided or insufficient stock",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/stock-transfers/{id}/reject": {
-      "post": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "rejectStockTransfer",
-        "summary": "Reject a pending transfer (stock unchanged) (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Transfer rejected",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Message"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/approvals": {
-      "get": {
-        "tags": [
-          "Stock Movements"
-        ],
-        "operationId": "getApprovals",
-        "summary": "Pending stock adjustments and transfers in one approval queue (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Pending approvals queue",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApprovalsQueue"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/reports": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "operationId": "getReports",
-        "summary": "Printable management report: daily sales, stock by location, order status, low stock, movers (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "days",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 90,
-              "default": 14
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Report data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportData"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
           }
         }
       }
@@ -1961,320 +2843,124 @@
         }
       }
     },
-    "/api/optimization": {
+    "/api/products": {
       "get": {
         "tags": [
-          "Optimization"
+          "Products"
         ],
-        "operationId": "getOptimizationBulk",
-        "summary": "Bulk optimization metrics for all products",
-        "responses": {
-          "200": {
-            "description": "Bulk metrics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BulkOptimization"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/optimization/abc": {
-      "get": {
-        "tags": [
-          "Optimization"
-        ],
-        "operationId": "getOptimizationAbc",
-        "summary": "ABC classification of products",
-        "responses": {
-          "200": {
-            "description": "ABC classifications",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AbcItem"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/optimization/{productId}": {
-      "get": {
-        "tags": [
-          "Optimization"
-        ],
-        "operationId": "getOptimization",
-        "summary": "EOQ, ROP, safety stock, and turnover for one product",
+        "operationId": "listProducts",
+        "summary": "List products (optionally paginated, searched, filtered)",
         "parameters": [
           {
-            "name": "productId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Optimization metrics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OptimizationMetrics"
-                }
-              }
-            }
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/analytics/summary": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "operationId": "getAnalyticsSummary",
-        "summary": "Dashboard summary metrics (admin tier â€” contains revenue)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Dashboard summary",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnalyticsSummary"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/analytics/export/{type}": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "operationId": "exportAnalytics",
-        "summary": "Export data as JSON or CSV (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "type",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "products",
-                "inventory",
-                "movements"
-              ]
-            }
-          },
-          {
-            "name": "format",
+            "name": "page",
             "in": "query",
             "schema": {
-              "type": "string",
-              "enum": [
-                "json",
-                "csv"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Exported rows (JSON array, or CSV when format=csv)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object"
-                  }
-                }
-              }
-            }
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Page number (enables paginated response)"
           },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Unknown export type",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/alerts": {
-      "get": {
-        "tags": [
-          "Alerts"
-        ],
-        "operationId": "listAlerts",
-        "summary": "List low-stock alerts (admin only)",
-        "security": [
           {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Alerts",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Alert"
-                  }
-                }
-              }
-            }
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Items per page"
           },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/alerts/{id}/resolve": {
-      "put": {
-        "tags": [
-          "Alerts"
-        ],
-        "operationId": "resolveAlert",
-        "summary": "Resolve an alert (admin only)",
-        "security": [
           {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
+            "name": "search",
+            "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search name/category/brand"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by exact category"
           }
         ],
         "responses": {
           "200": {
-            "description": "Alert resolved",
+            "description": "List of products (plain array, or { data, pagination } when page/limit provided)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Message"
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Product"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/PaginatedProducts"
+                    }
+                  ]
                 }
               }
             }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "createProduct",
+        "summary": "Create a product (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedId"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
           }
         }
       }
     },
-    "/api/customers": {
+    "/api/products/{id}": {
       "get": {
         "tags": [
-          "Customers"
+          "Products"
         ],
-        "operationId": "listCustomers",
-        "summary": "Customer Records with per-customer aggregates (admin only)",
-        "description": "The business entity behind orders and sales, distinct from accounts. Admin-only: it exposes what one person ordered and what they spent. Each row carries inquiry_count, total_spend and last_activity.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Customer list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Customer"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/customers/{id}": {
-      "get": {
-        "tags": [
-          "Customers"
-        ],
-        "operationId": "getCustomer",
-        "summary": "One customer's record with their order and purchase history (admin only)",
-        "description": "The query the old schema could not answer: customer_name was free text repeated on every row, so a single person's history across orders was unretrievable.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "operationId": "getProduct",
+        "summary": "Get a single product",
         "parameters": [
           {
             "name": "id",
@@ -2287,73 +2973,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Customer detail",
+            "description": "Product",
             "content": {
               "application/json": {
                 "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/Customer"
-                    }
-                  ],
-                  "type": "object",
-                  "properties": {
-                    "inquiries": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
-                          "status": {
-                            "type": "string"
-                          },
-                          "estimated_cost": {
-                            "type": "number"
-                          },
-                          "created_at": {
-                            "type": "string"
-                          },
-                          "status_history": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
-                    "sales": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "integer"
-                          },
-                          "product_id": {
-                            "type": "integer"
-                          },
-                          "qty": {
-                            "type": "number"
-                          },
-                          "total_amount": {
-                            "type": "number"
-                          },
-                          "transaction_date": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/Product"
                 }
               }
             }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -2362,10 +2989,10 @@
       },
       "put": {
         "tags": [
-          "Customers"
+          "Products"
         ],
-        "operationId": "updateCustomer",
-        "summary": "Edit a Customer Record (admin only)",
+        "operationId": "updateProduct",
+        "summary": "Update a product (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -2386,14 +3013,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CustomerInput"
+                "$ref": "#/components/schemas/ProductInput"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Customer updated",
+            "description": "Update acknowledged",
             "content": {
               "application/json": {
                 "schema": {
@@ -2410,16 +3037,323 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "description": "Another customer already uses this email",
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "deleteProduct",
+        "summary": "Soft-delete a product (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product deactivated",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Error"
+                  "$ref": "#/components/schemas/Message"
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/products/bulk-costs": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "bulkUpdateCosts",
+        "summary": "Set unit cost on many products in one request (admin only) — the cost-of-goods CSV import",
+        "description": "The cost-of-goods counterpart to /api/products/bulk-prices. A blank or null cost CLEARS the product back to \"not costed\"; an entry with no cost key at all is skipped and left unchanged. Cost is never exposed on any public product read.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkCostInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch result: how many costs were set, how many were cleared, and which entries were skipped (with reasons)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkCostResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/products/bulk-prices": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "bulkUpdatePrices",
+        "summary": "Set prices for many products in one request (admin only) â€” the price-list CSV import",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkPriceInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch result: how many were updated and which entries were skipped (with reasons)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkPriceResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/products/categories": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "listCategories",
+        "summary": "List distinct product categories",
+        "responses": {
+          "200": {
+            "description": "Category names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/costs": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "listProductCosts",
+        "summary": "Cost-of-goods sheet (admin only) — the only read path that reveals product cost",
+        "description": "Cost of goods is the business's margin, so it is stripped from every public product read (catalog list, single product, QR lookup, tag page) regardless of who is asking. That catalog is served with `Cache-Control: public, max-age=300`, so an admin's response could otherwise sit in a shared cache and be read by an anonymous visitor. This endpoint is authenticated, admin-tier only, and never publicly cached.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One row per product with its cost",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "price"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      },
+                      "sku": {
+                        "type": "string",
+                        "nullable": true
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "price": {
+                        "type": "number"
+                      },
+                      "cost": {
+                        "type": "number",
+                        "nullable": true,
+                        "description": "Cost of goods; null means the product is not costed."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/products/qr/{code}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "getProductByQr",
+        "summary": "QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)",
+        "description": "The single round-trip behind QR product identification. Accepts the tag payload (INVENTRAK:PROD:<id>), a SKU (PRD-000042 or a custom code), or a bare numeric id (legacy barcode fallback). Returns the product, its QR tag data, a live per-location stock snapshot and open FIFO lots. The QR authorizes NOTHING â€” normal authentication, product status, location, quantity and approval rules all still apply after the scan.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "description": "Scanned QR content: tag payload, SKU or bare product id. URL-encoded when it contains colons."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product identified with live stock and lots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QrProductLookup"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/reports": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "operationId": "getReports",
+        "summary": "Printable management report: daily sales, stock by location, order status, low stock, movers (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90,
+              "default": 14
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Report data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportData"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         }
       }
@@ -2644,249 +3578,6 @@
         }
       }
     },
-    "/api/users": {
-      "get": {
-        "tags": [
-          "Users"
-        ],
-        "operationId": "listUsers",
-        "summary": "List users (admin only)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Users",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/User"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/admin/promote": {
-      "post": {
-        "tags": [
-          "Admin"
-        ],
-        "operationId": "promoteUser",
-        "summary": "Promote a customer account to admin (admin only) â€” the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PromoteRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "User promoted",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PromoteResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "No customer with that username"
-          }
-        }
-      }
-    },
-    "/api/health": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "operationId": "getHealth",
-        "summary": "Public liveness probe â€” returns 200 with service status and active driver",
-        "responses": {
-          "200": {
-            "description": "Service is up",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "ok",
-                    "status",
-                    "time"
-                  ],
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    },
-                    "status": {
-                      "type": "string"
-                    },
-                    "driver": {
-                      "type": "string",
-                      "description": "Active storage driver (sqlite | json | firestore)"
-                    },
-                    "time": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/meta": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "operationId": "getMeta",
-        "summary": "Public build identity â€” name, package version, deployed git commit, storage driver, process start time",
-        "responses": {
-          "200": {
-            "description": "Build metadata",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "ok",
-                    "name",
-                    "time"
-                  ],
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "version": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "commit": {
-                      "type": "string",
-                      "nullable": true,
-                      "description": "Deployed git commit sha (Render RENDER_GIT_COMMIT); null on a local run"
-                    },
-                    "driver": {
-                      "type": "string",
-                      "description": "Active storage driver (sqlite | json | firestore | supabase)"
-                    },
-                    "startedAt": {
-                      "type": "string",
-                      "format": "date-time",
-                      "nullable": true
-                    },
-                    "audit": {
-                      "type": "object",
-                      "description": "Durable audit-trail status. Derived from the Supabase driver config when AUDIT_REMOTE_* is unset, so it reads enabled=true on any Supabase-backed deploy. Reports the sink URL and table, never the key.",
-                      "properties": {
-                        "enabled": {
-                          "type": "boolean"
-                        },
-                        "url": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "table": {
-                          "type": "string"
-                        },
-                        "derived": {
-                          "type": "boolean",
-                          "description": "True when the sink was derived from SUPABASE_URL rather than set explicitly"
-                        }
-                      }
-                    },
-                    "costing": {
-                      "type": "object",
-                      "description": "Margin policy the admin margin panel grades against. Read from COSTING_TARGET_MARGIN so the client never hardcodes a number the server can be told to change.",
-                      "properties": {
-                        "target_margin_percent": {
-                          "type": "number",
-                          "description": "Target gross margin, e.g. 30 means 30% (server default when the env var is unset)"
-                        }
-                      }
-                    },
-                    "time": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/health/integrity": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "operationId": "getIntegrity",
-        "summary": "Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Integrity audit result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IntegrityReport"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
     "/api/scan-events": {
       "post": {
         "tags": [
@@ -2957,365 +3648,6 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/auth/google/start": {
-      "get": {
-        "tags": [
-          "Auth"
-        ],
-        "operationId": "googleAuthStart",
-        "summary": "Start Google OAuth relay: redirects the browser to Google consent with the backend callback as redirect_uri.",
-        "parameters": [
-          {
-            "name": "returnUrl",
-            "in": "query",
-            "required": true,
-            "description": "App deep link to return to after sign-in (exp:// for Expo Go, inventrak:// for the standalone app, http://localhost for dev).",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Redirect to Google sign-in"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
-          }
-        }
-      }
-    },
-    "/api/auth/google/callback": {
-      "get": {
-        "tags": [
-          "Auth"
-        ],
-        "operationId": "googleAuthCallback",
-        "summary": "Google OAuth callback: exchanges the code server-side and deep-links back to the app with a session token.",
-        "parameters": [
-          {
-            "name": "code",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "description": "OAuth authorization code (from Google)."
-          },
-          {
-            "name": "state",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "description": "CSRF state issued by googleAuthStart."
-          },
-          {
-            "name": "error",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Google error, if the user was denied."
-          }
-        ],
-        "responses": {
-          "302": {
-            "description": "Deep link back into the app with token/username/role/email params"
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "502": {
-            "description": "Google token exchange failed"
-          }
-        }
-      }
-    },
-    "/api/auth/logout": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "operationId": "logout",
-        "summary": "Log out and revoke the presented session token",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Logged out",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LogoutResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "Admin access required"
-          }
-        }
-      }
-    },
-    "/api/auth/mfa/setup": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "operationId": "mfaSetup",
-        "summary": "Generate a fresh TOTP secret for the admin (not enabled until confirmed)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Secret generated",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MfaSetupResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "Admin access required"
-          },
-          "409": {
-            "description": "MFA is already enabled"
-          }
-        }
-      }
-    },
-    "/api/auth/mfa/confirm": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "operationId": "mfaConfirm",
-        "summary": "Confirm a live code to enable MFA for the admin account",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MfaConfirmRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "MFA enabled",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MfaEnableResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "Admin access required"
-          },
-          "409": {
-            "description": "Start MFA setup first"
-          }
-        }
-      }
-    },
-    "/api/auth/mfa/disable": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "operationId": "mfaDisable",
-        "summary": "Disable MFA â€” requires the current authenticator code",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MfaDisableRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "MFA disabled",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LogoutResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "Admin access required"
-          },
-          "409": {
-            "description": "MFA is not enabled"
-          }
-        }
-      }
-    },
-    "/api/auth/mfa/verify": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "operationId": "mfaVerify",
-        "summary": "Complete the second factor: exchange the MFA challenge for a session token",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MfaVerifyRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Session issued",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "429": {
-            "$ref": "#/components/responses/TooManyRequests"
-          }
-        }
-      }
-    },
-    "/api/auth/mfa/recovery-codes": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "operationId": "mfaRecoveryCodes",
-        "summary": "Regenerate one-time recovery codes (invalidates the previous set)",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Fresh recovery codes (shown once)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MfaRecoveryResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "description": "Admin access required"
-          },
-          "409": {
-            "description": "MFA is not enabled"
-          }
-        }
-      }
-    },
-    "/api/optimization/fsn": {
-      "get": {
-        "tags": [
-          "Optimization"
-        ],
-        "operationId": "getOptimizationFsn",
-        "summary": "FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency",
-        "parameters": [
-          {
-            "name": "window",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 7,
-              "maximum": 730,
-              "default": 90
-            },
-            "description": "Analysis window in days. Only sales inside the window are counted. Clamped to [7, 730]."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "FSN classifications sorted Non-moving first, then Slow, then Fast (so dead stock surfaces at the top)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/FsnItem"
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -3408,13 +3740,13 @@
         }
       }
     },
-    "/api/audit-trail": {
+    "/api/stock-adjustments": {
       "get": {
         "tags": [
-          "Users"
+          "Stock Movements"
         ],
-        "operationId": "listAuditTrail",
-        "summary": "Security audit log entries (admin only) â€” newest first",
+        "operationId": "listStockAdjustments",
+        "summary": "List stock adjustment requests (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -3425,37 +3757,25 @@
             "name": "status",
             "in": "query",
             "schema": {
-              "type": "string"
-            },
-            "description": "Filter to one order-lifecycle status (pending/approved/rejected/fulfilled/delivered) â€” keeps only entries whose details.status matches"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1000
-            },
-            "description": "Page size (default 200, max 1000)"
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "description": "Skip this many entries (pagination together with limit)"
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Audit log entries",
+            "description": "Adjustments (pending until approved; approval applies the correction)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuditTrailResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockAdjustment"
+                  }
                 }
               }
             }
@@ -3466,49 +3786,70 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           }
-        }
-      }
-    },
-    "/api/cache/stats": {
-      "get": {
+        },
+        "description": "Pending until approved; approval applies the correction. Each row also carries the newest open correction request for that submission (`correction_comment` / `correction_status`), which is how an approver’s reject comment reaches the submitter."
+      },
+      "post": {
         "tags": [
-          "Analytics"
+          "Stock Movements"
         ],
-        "operationId": "getCacheStats",
-        "summary": "In-memory cache statistics (admin only)",
+        "operationId": "createStockAdjustment",
+        "summary": "Create a stock adjustment request (admin only) â€” PENDING until approved",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustmentInput"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
-            "description": "Cache hit rates, entry counts, and top keys",
+          "201": {
+            "description": "Adjustment created (pending approval)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CacheStats"
+                  "$ref": "#/components/schemas/CreatedMessage"
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Product or location not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
     },
-    "/api/products/qr/{code}": {
-      "get": {
+    "/api/stock-adjustments/{id}/approve": {
+      "post": {
         "tags": [
-          "Products"
+          "Stock Movements"
         ],
-        "operationId": "getProductByQr",
-        "summary": "QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)",
-        "description": "The single round-trip behind QR product identification. Accepts the tag payload (INVENTRAK:PROD:<id>), a SKU (PRD-000042 or a custom code), or a bare numeric id (legacy barcode fallback). Returns the product, its QR tag data, a live per-location stock snapshot and open FIFO lots. The QR authorizes NOTHING â€” normal authentication, product status, location, quantity and approval rules all still apply after the scan.",
+        "operationId": "approveStockAdjustment",
+        "summary": "Approve a pending adjustment and apply it to stock (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -3516,23 +3857,76 @@
         ],
         "parameters": [
           {
-            "name": "code",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "maxLength": 120
-            },
-            "description": "Scanned QR content: tag payload, SKU or bare product id. URL-encoded when it contains colons."
+              "type": "integer"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Product identified with live stock and lots",
+            "description": "Adjustment approved and applied",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QrProductLookup"
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Already decided",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/stock-adjustments/{id}/reject": {
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "rejectStockAdjustment",
+        "summary": "Reject a pending adjustment (stock unchanged) (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Adjustment rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
                 }
               }
             }
@@ -3548,21 +3942,84 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "comment": {
+                    "type": "string",
+                    "description": "Optional reason for the rejection. When present it is recorded as a correction request tied to this submission and shown to the submitter in the staff app. Omit it to reject silently, exactly as before."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Rejecting leaves stock untouched. An optional `comment` is recorded as a correction request on the submission and surfaced to the submitter."
+      }
+    },
+    "/api/stock-lots": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "listStockLots",
+        "summary": "List FIFO stock lots",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
           },
-          "409": {
-            "$ref": "#/components/responses/Conflict"
+          {
+            "name": "location_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "expiring_within",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Only return open lots expiring within N days (FEFO early-warning)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stock lots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockLot"
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
-    "/api/inventory/count": {
+    "/api/stock-movement": {
       "post": {
         "tags": [
-          "Inventory"
+          "Stock Movements"
         ],
-        "operationId": "recordInventoryCount",
-        "summary": "Record a stocktake count (staff or admin)",
-        "description": "What a person physically counted on a shelf, plus a snapshot of what the system believed at that moment. The snapshot is the only chance to capture it — once the stock column moves on, the variance the counter found can no longer be computed. Counting is a staff duty; reading the reconciliation is not (it reports money at risk).",
+        "operationId": "createStockMovement",
+        "summary": "Record a stock movement (FIFO-aware)",
         "security": [
           {
             "bearerAuth": []
@@ -3573,18 +4030,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/InventoryCountInput"
+                "$ref": "#/components/schemas/StockMovementInput"
               }
             }
           }
         },
         "responses": {
-          "201": {
-            "description": "Count recorded",
+          "200": {
+            "description": "Movement recorded",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InventoryCountResult"
+                  "$ref": "#/components/schemas/Message"
                 }
               }
             }
@@ -3599,7 +4056,7 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Error",
+            "description": "Product not found or inactive",
             "content": {
               "application/json": {
                 "schema": {
@@ -3611,27 +4068,34 @@
         }
       }
     },
-    "/api/inventory/reconciliation": {
+    "/api/stock-movements": {
       "get": {
         "tags": [
-          "Inventory"
+          "Stock Movements"
         ],
-        "operationId": "getInventoryReconciliation",
-        "summary": "Shelf-vs-system reconciliation: shrinkage and unrecorded sales (admin only)",
-        "description": "Compares the last physical count of each shelf against what the system believes and against the sales the till recorded since. unexplained = system_now - (counted - recorded_sales_since). Positive means the system believes stock that is not on the shelf; negative means more was found than expected. Reports units and money at risk; it deliberately does NOT assert a cause, because theft, breakage and a till error are indistinguishable from the data.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "operationId": "listStockMovements",
+        "summary": "List stock movements",
         "parameters": [
           {
-            "name": "only_variance",
+            "name": "page",
             "in": "query",
             "schema": {
-              "type": "boolean"
-            },
-            "description": "Return only rows that are not balanced"
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "product_id",
@@ -3643,11 +4107,64 @@
         ],
         "responses": {
           "200": {
-            "description": "Reconciliation report",
+            "description": "Movements (plain array, or { data, pagination } when page/limit provided)",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReconciliationReport"
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StockMovement"
+                      }
+                    },
+                    {
+                      "$ref": "#/components/schemas/PaginatedMovements"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stock-transfers": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "listStockTransfers",
+        "summary": "List stock transfer requests (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "approved",
+                "rejected"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transfers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StockTransfer"
+                  }
                 }
               }
             }
@@ -3658,7 +4175,181 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           }
+        },
+        "description": "Each row also carries the newest open correction request for that submission (`correction_comment` / `correction_status`)."
+      },
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "createStockTransfer",
+        "summary": "Create a stock transfer request (admin only) â€” PENDING until approved",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockTransferInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transfer created (pending approval)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedMessage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "Product or location not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
+      }
+    },
+    "/api/stock-transfers/{id}/approve": {
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "approveStockTransfer",
+        "summary": "Approve a pending transfer and move the stock (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transfer approved and applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Already decided or insufficient stock",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/stock-transfers/{id}/reject": {
+      "post": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "rejectStockTransfer",
+        "summary": "Reject a pending transfer (stock unchanged) (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transfer rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "comment": {
+                    "type": "string",
+                    "description": "Optional reason for the rejection. When present it is recorded as a correction request tied to this submission and shown to the submitter in the staff app. Omit it to reject silently, exactly as before."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Rejecting leaves stock untouched. An optional `comment` is recorded as a correction request on the submission and surfaced to the submitter."
       }
     },
     "/api/stocktake": {
@@ -3694,14 +4385,92 @@
         }
       }
     },
-    "/api/inventory/shelf-stocktake/{id}": {
+    "/api/unit-conversions": {
       "get": {
         "tags": [
           "Inventory"
         ],
-        "operationId": "getShelfStocktake",
-        "summary": "One shelf with every line on it, ready to be walked (staff tier)",
-        "description": "Returns the shelf’s due status, its coverage, and per line what the system believes is there and when that line was last counted. Counts a shelf as re-counted only when EVERY line on it is inside stocktake_cycle_days, so the phone and the admin board can never disagree about whether a line is fresh. Computed on read.",
+        "operationId": "listUnitConversions",
+        "summary": "List the unit conversion catalog (admin only)",
+        "description": "Linear rate conversions used by unit conversion management (kg<->g, L<->mL, pcs<->pack, etc.).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unit conversions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UnitConversion"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "upsertUnitConversion",
+        "summary": "Create or update one unit conversion rate (admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnitConversionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Conversion upserted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitConversion"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/unit-conversions/{id}": {
+      "delete": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "deleteUnitConversion",
+        "summary": "Remove a unit conversion (admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -3713,19 +4482,17 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "description": "Location id (the shelf)"
+              "type": "integer"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "The shelf",
+            "description": "Conversion removed",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ShelfStocktake"
+                  "$ref": "#/components/schemas/Message"
                 }
               }
             }
@@ -3737,56 +4504,42 @@
             "$ref": "#/components/responses/Forbidden"
           },
           "404": {
-            "description": "Location not found"
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }
     },
-    "/api/inventory/counts": {
-      "post": {
+    "/api/users": {
+      "get": {
         "tags": [
-          "Inventory"
+          "Users"
         ],
-        "operationId": "createShelfCounts",
-        "summary": "Record a shelf walk in one request (staff tier)",
-        "description": "Records many counts at once for one shelf. The whole batch is validated before anything is written, then written in a single transaction: either every line in the walk is recorded, or none of them are — so a failure can never leave a shelf looking deliberately half-counted. A partial walk is still allowed and legitimate; it simply does not clear the shelf. A duplicate product_id within one batch is refused rather than silently resolved. Returns the shelf’s remaining work so the phone can update its progress without a second round-trip.",
+        "operationId": "listUsers",
+        "summary": "List users (admin only)",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ShelfCountInput"
-              }
-            }
-          }
-        },
         "responses": {
-          "201": {
-            "description": "The walk was recorded",
+          "200": {
+            "description": "Users",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ShelfCountResult"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
                 }
               }
             }
-          },
-          "400": {
-            "description": "Validation failed; details list every offending line"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "description": "Location not found"
           }
         }
       }
@@ -5061,6 +5814,16 @@
           "decided_by": {
             "type": "string",
             "nullable": true
+          },
+          "correction_comment": {
+            "type": "string",
+            "nullable": true,
+            "description": "Newest open correction request for this submission (null when there is none). Projected onto the row so the submitter's app — which already polls this list — shows an approver's reject comment without any extra permission."
+          },
+          "correction_status": {
+            "type": "string",
+            "nullable": true,
+            "description": "Status of that correction request (open until an admin resolves it); null when there is none."
           }
         }
       },
@@ -5156,6 +5919,26 @@
           "decided_by": {
             "type": "string",
             "nullable": true
+          },
+          "created_by_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "User id of the staff member who proposed the transfer (null on legacy rows)."
+          },
+          "created_by": {
+            "type": "string",
+            "nullable": true,
+            "description": "Username of the staff member who proposed the transfer; the staff app's 'My Requests' filters on it so a rejected transfer's correction note reaches the person who asked for the move."
+          },
+          "correction_comment": {
+            "type": "string",
+            "nullable": true,
+            "description": "Newest open correction request for this submission (null when there is none). Projected onto the row so the submitter's app — which already polls this list — shows an approver's reject comment without any extra permission."
+          },
+          "correction_status": {
+            "type": "string",
+            "nullable": true,
+            "description": "Status of that correction request (open until an admin resolves it); null when there is none."
           }
         }
       },
@@ -7246,6 +8029,765 @@
                 "type": "integer"
               }
             }
+          }
+        }
+      },
+      "CorrectionRequestInput": {
+        "type": "object",
+        "required": [
+          "submission_id",
+          "submission_type",
+          "comment"
+        ],
+        "properties": {
+          "submission_id": {
+            "type": "integer",
+            "description": "The admin-facing submission this correction targets (adjustment id or transfer id)."
+          },
+          "submission_type": {
+            "type": "string",
+            "enum": [
+              "stock_adjustment",
+              "stock_transfer"
+            ],
+            "description": "Kind of submission being corrected."
+          },
+          "comment": {
+            "type": "string",
+            "description": "What the approver wants the submitter to fix."
+          }
+        }
+      },
+      "CorrectionRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "submission_id",
+          "submission_type",
+          "comment",
+          "requested_by",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "submission_id": {
+            "type": "integer"
+          },
+          "submission_type": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "requested_by": {
+            "type": "string",
+            "nullable": true,
+            "description": "Username of the admin who recorded the correction request."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "description": "Whether the submitter has addressed it."
+          },
+          "created_at": {
+            "type": "string"
+          }
+        }
+      },
+      "CorrectionRequestResolve": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed"
+            ],
+            "default": "closed"
+          }
+        }
+      },
+      "NotificationsList": {
+        "type": "object",
+        "required": [
+          "rows",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationRecord"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          }
+        }
+      },
+      "NotificationRecord": {
+        "type": "object",
+        "required": [
+          "id",
+          "event",
+          "channel",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "event": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "sms",
+              ""
+            ]
+          },
+          "recipient": {
+            "type": "string",
+            "nullable": true
+          },
+          "subject": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "attempted",
+              "sent",
+              "failed",
+              ""
+            ],
+            "description": "Best-effort delivery status from the notification layer."
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "related_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "related_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          }
+        }
+      },
+      "UnitConversionInput": {
+        "type": "object",
+        "required": [
+          "from_unit",
+          "to_unit",
+          "rate"
+        ],
+        "properties": {
+          "from_unit": {
+            "type": "string",
+            "description": "Source unit (e.g. kg, L, pcs)."
+          },
+          "to_unit": {
+            "type": "string",
+            "description": "Target unit (e.g. g, mL, pack)."
+          },
+          "rate": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "description": "How many to_unit equal one from_unit."
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UnitConversion": {
+        "type": "object",
+        "required": [
+          "id",
+          "from_unit",
+          "to_unit",
+          "rate",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "from_unit": {
+            "type": "string"
+          },
+          "to_unit": {
+            "type": "string"
+          },
+          "rate": {
+            "type": "number"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "BackOrderInput": {
+        "type": "object",
+        "required": [
+          "inquiry_id"
+        ],
+        "properties": {
+          "inquiry_id": {
+            "type": "integer",
+            "description": "Order inquiry this back order is attached to."
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "requested_by_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "fulfilled",
+              "cancelled"
+            ],
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "BackOrder": {
+        "type": "object",
+        "required": [
+          "id",
+          "inquiry_id",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "inquiry_id": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "requested_by_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "fulfilled",
+              "cancelled"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "BackupSnapshot": {
+        "type": "object",
+        "description": "A complete, self-describing snapshot of the database. Taken from one driver and restorable only on that same driver: the row shapes genuinely differ between SQLite and the store-backed backends, so a cross-driver restore is refused rather than silently corrupting data.",
+        "required": [
+          "format",
+          "version",
+          "driver",
+          "created_at",
+          "generated_by",
+          "counts",
+          "tables"
+        ],
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "inventrak-backup"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "description": "Envelope version. A snapshot is only restorable by a build that reads this version."
+          },
+          "driver": {
+            "type": "string",
+            "enum": [
+              "sqlite",
+              "json",
+              "supabase",
+              "firestore"
+            ],
+            "description": "Driver the snapshot was taken from. Restores are refused on a different driver."
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "generated_by": {
+            "type": "string",
+            "nullable": true,
+            "description": "Username of the admin who exported the snapshot (null when unrecorded)."
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Row count per table, so a snapshot can be inspected before it is trusted or restored."
+          },
+          "tables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "description": "Table/dataset rows. Names are driver-defined. A store-level dataset that is one document rather than rows is carried as a single-row array."
+          }
+        }
+      },
+      "RestoreRequest": {
+        "type": "object",
+        "required": [
+          "confirm"
+        ],
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "description": "Must be true. A restore deletes every row in every table before inserting, so an accidental or retried POST has to be refused."
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/BackupSnapshot"
+          },
+          "snapshot_id": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Restore a snapshot already held by the durable store instead of uploading one: \"latest\" for the newest, or an id from GET /api/admin/backups. Supply this OR snapshot, not both. This is the path that survives a wiped container, where the downloaded file is gone. The stored snapshot goes through the same envelope validation as an upload, so a foreign-driver snapshot is refused either way."
+          }
+        }
+      },
+      "RestoreResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "driver",
+          "tables_restored",
+          "rows_restored",
+          "restored",
+          "message"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "driver": {
+            "type": "string",
+            "enum": [
+              "sqlite",
+              "json",
+              "supabase",
+              "firestore"
+            ]
+          },
+          "tables_restored": {
+            "type": "integer"
+          },
+          "rows_restored": {
+            "type": "integer"
+          },
+          "restored": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Rows written per table."
+          },
+          "message": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "upload",
+              "durable-store"
+            ],
+            "description": "Where the restored snapshot came from — an uploaded body or the durable store. Recorded in the audit line too, because \"which copy did we go back to?\" is the first question after a recovery."
+          },
+          "snapshot_id": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Id of the durable-store snapshot that was restored, or null for an upload."
+          }
+        }
+      },
+      "BackupSchedulerStatus": {
+        "type": "object",
+        "description": "Whether the scheduled durable snapshot is live, where it goes, and how the last attempt went. Derived from the Supabase driver config when BACKUP_REMOTE_* is unset, so it reads enabled=true on any Supabase-backed deploy with no new env var. Reports the sink URL and table, never the key.",
+        "required": [
+          "enabled",
+          "derived",
+          "url",
+          "table",
+          "keep",
+          "interval_minutes",
+          "max_bytes",
+          "last_pushed_at",
+          "last_pushed_ago_minutes",
+          "last_error",
+          "pushed"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "A durable store is configured (URL + key), so a snapshot can leave this container."
+          },
+          "derived": {
+            "type": "boolean",
+            "description": "True when the sink was derived from SUPABASE_URL rather than set explicitly via BACKUP_REMOTE_URL"
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "table": {
+            "type": "string"
+          },
+          "keep": {
+            "type": "integer",
+            "description": "How many of the newest snapshots are retained in the durable store (BACKUP_KEEP)"
+          },
+          "interval_minutes": {
+            "type": "integer",
+            "description": "Timer period in minutes (BACKUP_INTERVAL_MINUTES); 0 means the schedule is off"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "description": "Largest snapshot this deployment will push in one row (BACKUP_MAX_BYTES)"
+          },
+          "last_pushed_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "created_at of the last snapshot this process stored; null if this process has not stored one yet"
+          },
+          "last_pushed_ago_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "last_error": {
+            "type": "string",
+            "nullable": true,
+            "description": "Reason the last push failed, or null. A silent backup failure is how a deployment discovers it has no backups on the day it needs one."
+          },
+          "pushed": {
+            "type": "integer",
+            "description": "Snapshots stored by this process since it started"
+          }
+        }
+      },
+      "StoredBackup": {
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "driver",
+          "bytes",
+          "tables",
+          "rows"
+        ],
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "When the snapshot was taken — the timestamp an admin chooses between"
+          },
+          "driver": {
+            "type": "string",
+            "nullable": true,
+            "description": "Driver the snapshot was taken from; a restore is refused on a different driver"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "tables": {
+            "type": "integer"
+          },
+          "rows": {
+            "type": "integer"
+          }
+        }
+      },
+      "LastBackup": {
+        "type": "object",
+        "description": "When the newest snapshot in the durable store was taken and whether that is getting old. Derived from the same listing this response carries, so the headline and the list can never disagree.",
+        "required": [
+          "configured",
+          "table",
+          "interval_minutes",
+          "stale_after_minutes",
+          "last_backup_at",
+          "age_minutes",
+          "stale"
+        ],
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "description": "Whether a durable store is configured at all. When false there is nothing to measure, so stale is null rather than false."
+          },
+          "table": {
+            "type": "string"
+          },
+          "interval_minutes": {
+            "type": "integer",
+            "description": "The configured schedule period (0 = the timer is off)"
+          },
+          "stale_after_minutes": {
+            "type": "integer",
+            "nullable": true,
+            "description": "The age at which a snapshot counts as stale: twice the configured period, floored at twice the hourly default. Null only when there is no store to measure."
+          },
+          "last_backup_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "created_at of the newest snapshot in the store (the one a restore would name). Null when the store holds none."
+          },
+          "age_minutes": {
+            "type": "integer",
+            "nullable": true,
+            "description": "How long ago that snapshot was taken"
+          },
+          "stale": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "True when the newest snapshot is older than stale_after_minutes or the store holds none; null when it cannot be judged (no store, or an unreadable timestamp)."
+          },
+          "snapshot_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Id of the newest snapshot (a restore can name it)"
+          },
+          "driver": {
+            "type": "string",
+            "nullable": true
+          },
+          "rows": {
+            "type": "integer",
+            "nullable": true
+          },
+          "bytes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "this_process_last_pushed_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "Last push made by THIS process (in-memory, so empty after a restart — the durable field above is the record)"
+          },
+          "last_attempt_error": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the most recent push attempt in this process failed, if it did. A failed attempt never clears last_backup_at: the last GOOD backup is still what recovery would use."
+          },
+          "last_attempt_error_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the verdict is what it is (no store, store unreachable, nothing pushed yet, unreadable timestamp)"
+          }
+        }
+      },
+      "BackupStoreStatus": {
+        "type": "object",
+        "required": [
+          "ok",
+          "error",
+          "scheduler",
+          "last_backup",
+          "snapshots"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "False when the durable store could not be read (see error), or when no store is configured at all"
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
+          },
+          "scheduler": {
+            "$ref": "#/components/schemas/BackupSchedulerStatus"
+          },
+          "last_backup": {
+            "$ref": "#/components/schemas/LastBackup"
+          },
+          "snapshots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoredBackup"
+            }
+          }
+        }
+      },
+      "BackupPushResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "source",
+          "created_at",
+          "driver",
+          "bytes",
+          "tables",
+          "rows",
+          "message"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "durable-store"
+            ]
+          },
+          "id": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Id of the stored row, which is the snapshot_id a restore can name later"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "driver": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "tables": {
+            "type": "integer"
+          },
+          "rows": {
+            "type": "integer"
+          },
+          "pruned": {
+            "type": "integer",
+            "description": "Older snapshots deleted by the retention window after this push"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "BackupPushFailure": {
+        "type": "object",
+        "required": [
+          "ok",
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "error": {
+            "type": "string",
+            "description": "Why the durable store could not take the snapshot, naming the env vars that would fix it"
           }
         }
       }

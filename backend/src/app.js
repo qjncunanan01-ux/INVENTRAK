@@ -7,6 +7,7 @@ const crypto = require('crypto');
 
 const { db } = require('./db');
 const { seedDatabase } = require('./seed');
+const { BACKUP_MAX_BODY_BYTES } = require('./config');
 const settings = require('./governance/settings');
 const { audit, AUDIT_LOG_FILE } = require('./audit');
 const cache = require('./cache');
@@ -36,6 +37,11 @@ const settingsRoutes = require('./routes/governance/settings');
 const approvalsRoutes = require('./routes/stock-control/approvals');
 const scanEventsRoutes = require('./routes/stock-control/scan-events');
 const auditRoutes = require('./routes/governance/audit');
+const unitConversionsRoutes = require('./routes/stock-control/unit-conversions');
+const backOrdersRoutes = require('./routes/catalog-orders/back-orders');
+const correctionRequestsRoutes = require('./routes/stock-control/correction-requests');
+const notificationsRoutes = require('./routes/system/notifications');
+const backupRoutes = require('./routes/governance/backup');
 
 const app = express();
 
@@ -50,6 +56,12 @@ app.use(cors({
   },
   credentials: true,
 }));
+// A database restore uploads a whole snapshot, which is an order of magnitude
+// larger than any other request body (and larger than the default limit, so
+// every restore would 413). Registered BEFORE the global parser, which then
+// sees the body already read and skips it. Only this one admin-only path gets
+// the wide limit — everything else stays capped at the 100 KB default.
+app.use('/api/admin/restore', bodyParser.json({ limit: BACKUP_MAX_BODY_BYTES }));
 app.use(bodyParser.json());
 
 // Security headers
@@ -102,6 +114,11 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api', approvalsRoutes);
 app.use('/api', scanEventsRoutes);
 app.use('/api/audit-trail', auditRoutes);
+app.use('/api/unit-conversions', unitConversionsRoutes);
+app.use('/api/back-orders', backOrdersRoutes);
+app.use('/api/correction-requests', correctionRequestsRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/admin', backupRoutes);
 
 // GET /t/:code — public, camera-friendly tag page (the URL printed on QR
 // tags). Read-only product view so a phone's NATIVE camera app opens real

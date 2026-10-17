@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Container, InputAdornment, IconButton, Paper, Snackbar, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Container, InputAdornment, IconButton, Paper, Snackbar, TextField, Typography, useMediaQuery } from '@mui/material';
 import AdminPanelSettingsOutlined from '@mui/icons-material/AdminPanelSettingsOutlined';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -28,6 +28,16 @@ function homeForRole(role) {
 }
 
 export default function LoginPage({ onLogin }) {
+  // The card's entrance is a 600ms opacity + transform fade. `MotionConfig
+  // reducedMotion="user"` in App.jsx skips the transform half but framer-motion
+  // deliberately keeps opacity animations, so with the preference set the card
+  // still painted at a different opacity on every frame — and a screenshot of
+  // it could land mid-fade. Measured: a baseline captured during the fade read
+  // ~5/255 darker than the settled card across the whole login page. Skipping
+  // the entrance entirely is what the preference asks for anyway. Read through
+  // MUI like AnimatedCounter and ShaderGradientBg do, so all three components
+  // agree on what `prefers-reduced-motion` means.
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   usePageTitle('/');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -188,7 +198,7 @@ export default function LoginPage({ onLogin }) {
         }}
       >
         <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 30, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
           style={{ width: '100%' }}

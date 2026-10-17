@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { listOrderInquiries, useSessionUsername } from '../../api';
+import { listBackOrders, listOrderInquiries, useSessionUsername } from '../../api';
 import EmptyState from '../../EmptyState';
 import { useThemeColors } from '../../theme-context';
 
@@ -30,6 +30,12 @@ export default function InquiryHistoryScreen({ navigation }) {
   // instead of an empty list.
   const isLoggedIn = !!useSessionUsername(null);
   const [inquiries, setInquiries] = useState([]);
+  // Back-order status by inquiry id. One list request covers every order on
+  // screen, and the server already scopes it to this customer's own orders —
+  // so "is my order on back order, and why" is an answer the card can show
+  // without a per-order request or any client-side filtering of other people's
+  // data. A failure here must not hide the orders themselves.
+  const [backOrders, setBackOrders] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('all');
@@ -44,6 +50,19 @@ export default function InquiryHistoryScreen({ navigation }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+    // Separate on purpose: back orders are extra context on top of the order
+    // list, so their endpoint failing (or being older than this app) must not
+    // blank the history.
+    try {
+      const rows = await listBackOrders();
+      const byInquiry = {};
+      for (const row of Array.isArray(rows) ? rows : []) {
+        byInquiry[row.inquiry_id] = row;
+      }
+      setBackOrders(byInquiry);
+    } catch {
+      setBackOrders({});
     }
   }, []);
 
@@ -122,6 +141,31 @@ export default function InquiryHistoryScreen({ navigation }) {
       (i.payment_method || '').toLowerCase().includes(q) ||
       productsText.includes(q);
   });
+
+  // Back-order block: WHY the order fell short and when it is promised, which
+  // is the part a customer actually needs. Only shown when a back order exists
+  // — most orders are fulfilled outright, and "no back order" is not news.
+  // The status is reported as-is (open / fulfilled / cancelled): an order that
+  // has since been fulfilled should not keep claiming it is on back order.
+  const renderBackOrder = (backOrder) => {
+    if (!backOrder) return null;
+    const status = String(backOrder.status || 'open').toLowerCase();
+    const open = status === 'open';
+    return (
+      <View style={[styles.backOrder, open ? styles.backOrderOpen : styles.backOrderDone]}>
+        <Text style={[styles.backOrderLabel, open ? styles.backOrderLabelOpen : styles.backOrderLabelDone]}>
+          {open ? '⏳ Back order' : status === 'cancelled' ? '✕ Back order cancelled' : '✅ Back order fulfilled'}
+        </Text>
+        {backOrder.reason ? (
+          <Text style={styles.backOrderText}>{backOrder.reason}</Text>
+        ) : null}
+        {open && backOrder.requested_by_date ? (
+          <Text style={styles.backOrderText}>Requested by: {backOrder.requested_by_date}</Text>
+        ) : null}
+        {backOrder.note ? <Text style={styles.backOrderNote}>{backOrder.note}</Text> : null}
+      </View>
+    );
+  };
 
   // Status timeline (Shopee-style): Placed -> Approved -> Fulfilled -> Delivered.
   const renderTimeline = (item) => {
@@ -251,6 +295,7 @@ export default function InquiryHistoryScreen({ navigation }) {
             <Text style={styles.detail} numberOfLines={2}>
               Products: {renderProducts(item.products)}
             </Text>
+            {renderBackOrder(backOrders[item.id])}
             {renderTimeline(item)}
             <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
           </View>
@@ -280,6 +325,14 @@ export default function InquiryHistoryScreen({ navigation }) {
 
 const createStyles = (colors) => StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: 12, marginBottom: 12, padding: 14 },
+  backOrder: { borderRadius: 10, borderWidth: 1.5, marginTop: 10, padding: 10 },
+  backOrderDone: { backgroundColor: 'rgba(46,125,50,0.08)', borderColor: colors.success },
+  backOrderLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 0.4, textTransform: 'uppercase' },
+  backOrderLabelDone: { color: colors.success },
+  backOrderLabelOpen: { color: colors.warning },
+  backOrderNote: { color: colors.textSecondary, fontSize: 11, marginTop: 4 },
+  backOrderOpen: { backgroundColor: 'rgba(184,134,11,0.10)', borderColor: colors.warning },
+  backOrderText: { color: colors.textPrimary, fontSize: 13, lineHeight: 18, marginTop: 3 },
   cardHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
   container: { backgroundColor: colors.background, flex: 1 },

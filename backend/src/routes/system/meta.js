@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { remoteStatus } = require('../../audit');
+const { status: backupStatus } = require('../../governance/backup-remote');
 const { targetMarginPercent } = require('../../insights/costing');
 
 // GET /api/meta — public build/driver identity (no auth: nothing sensitive).
@@ -36,6 +37,11 @@ router.get('/meta', (req, res) => {
     // driver uses, so this reads true on any Supabase-backed deploy. Exposes
     // the shape (url + table), never the key.
     audit: remoteStatus(),
+    // Is there a scheduled backup, and where does it go? Same derivation rule
+    // as the audit sink above — the durable store is this deployment's own
+    // Supabase project unless BACKUP_REMOTE_* points elsewhere. Exposes the
+    // shape and the last push, never the key.
+    backup: backupStatus(),
     // The margin policy the admin console's margin panel grades against. It
     // lives in an env var (COSTING_TARGET_MARGIN), so hardcoding 30 in the
     // client would quietly disagree with the server the moment someone changes

@@ -1,10 +1,18 @@
 import React, { Suspense } from 'react';
-import { Box } from '@mui/material';
+import { Box, useMediaQuery } from '@mui/material';
 
 /**
  * Animated 3D gradient background using ShaderGradient (react-three-fiber).
  * Replaces the flat HaikeiBackground with a living, moving gradient.
  * Lazy-loaded via React.lazy so three.js only downloads on the login page.
+ *
+ * `prefers-reduced-motion: reduce` skips the shader entirely and paints the
+ * static gradient instead. Not just pause it: a static WebGL frame still depends
+ * on when the scene initialised, so two page loads settle on two different
+ * pictures (measured: ~55% of pixels differ between loads) even though each page
+ * is frozen. A full-viewport animated background is also the textbook case for
+ * the preference, so the no-canvas path is the better one for the user too —
+ * no GPU work, no battery drain, and nothing to drift while they read.
  */
 const ShaderGradientScene = React.lazy(() =>
   import('@shadergradient/react').then((mod) => ({
@@ -54,6 +62,8 @@ function FallbackGradient() {
 }
 
 export default function ShaderGradientBg() {
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+
   return (
     <Box
       sx={{
@@ -64,9 +74,13 @@ export default function ShaderGradientBg() {
         backgroundColor: '#0f3d12',
       }}
     >
-      <Suspense fallback={<FallbackGradient />}>
-        <ShaderGradientScene />
-      </Suspense>
+      {reduceMotion ? (
+        <FallbackGradient />
+      ) : (
+        <Suspense fallback={<FallbackGradient />}>
+          <ShaderGradientScene />
+        </Suspense>
+      )}
     </Box>
   );
 }

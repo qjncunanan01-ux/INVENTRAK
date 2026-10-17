@@ -21,12 +21,24 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
-const { parseDoc, parseRehearsalRows, sourceFile, outFile, repoRoot } = require('../../scripts/build-slides');
+const {
+  parseDoc,
+  parseRehearsalRows,
+  readSource,
+  renderElements,
+  withUnixLineEndings,
+  outFile,
+  repoRoot,
+} = require('../../scripts/build-slides');
 const { buildDeck, PLAN } = require('../../scripts/slides-render');
 
-const md = fs.readFileSync(sourceFile, 'utf8');
+// readSource() rather than a bare readFileSync, so a deleted ALGORITHMS.md fails
+// with "the document the deck is generated from is missing, here is how to get
+// it back" instead of an ENOENT that reads like a broken test runner.
+const md = readSource();
 const doc = parseDoc(md);
 const html = buildDeck(doc, md);
 const slides = doc.deck.slides;
@@ -73,8 +85,11 @@ const chunkFor = (pred) => chunkText.find((t, i) => pred(slides[i], t));
 describe('the deck is a faithful rebuild of ALGORITHMS.md', () => {
   test('the committed deck is byte-identical to a fresh rebuild', () => {
     assert.ok(fs.existsSync(outFile), 'docs/algorithms-deck.html must exist — run `npm run slides`');
+    // Line endings are normalised on both sides: which EOLs a checkout hands
+    // back is a property of the checkout (`core.autocrlf`), not of the deck.
+    // Any difference in the deck's actual content still fails right here.
     assert.strictEqual(
-      fs.readFileSync(outFile, 'utf8'),
+      withUnixLineEndings(fs.readFileSync(outFile, 'utf8')),
       html,
       'the committed deck is stale; run `npm run slides` and commit the result',
     );
@@ -90,6 +105,47 @@ describe('the deck is a faithful rebuild of ALGORITHMS.md', () => {
       !/name="generator" content="[^"]*\d{4}-\d{2}-\d{2}T/.test(html),
       'no build timestamp — it would break byte parity on every run',
     );
+  });
+});
+
+describe('the pipeline does not depend on the checkout that produced it', () => {
+  // WHY: the deck is compared byte for byte and prints a sha256 of the document
+  // in its footer, so the same document read from an LF checkout and from a CRLF
+  // checkout must still be ONE deck. It used to be two — and on CRLF it did not
+  // build at all. The list branch decided a line was a bullet with
+  // `^\s*[-*]\s+` and consumed it with `^\s*[-*]\s+(.*)$`; JS `$` does not match
+  // in front of `\r`, so on a CRLF document the first bullet was recognised,
+  // consumed nothing, and `continue` bounced back to the same index — appending
+  // an empty <ul> until the heap died (~48 s, 4 GB, "FATAL ERROR: Ineffective
+  // mark-compacts near heap limit"). `core.autocrlf=true` is the Windows default
+  // and is also what `git show <commit>^:ALGORITHMS.md > ALGORITHMS.md` produces,
+  // which is exactly how this document comes back, so the red side of that split
+  // is the local machine and the green side is CI.
+  test('a CRLF checkout of the document builds the byte-identical deck', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-slides-'));
+    try {
+      const file = path.join(dir, 'ALGORITHMS.md');
+      fs.writeFileSync(file, md.replace(/\n/g, '\r\n'));
+      assert.ok(fs.readFileSync(file, 'utf8').includes('\r\n'), 'the fixture must really be CRLF');
+      const fromCrlf = readSource(file);
+      assert.strictEqual(buildDeck(parseDoc(fromCrlf), fromCrlf), html);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('CRLF list lines are parsed as lists, not as an unbounded loop', () => {
+    // This exact input is the minimal reproduction: a single bullet line ending
+    // in \r was enough to exhaust a 4 GB heap.
+    const els = renderElements('- one\r\n- two\r\n\r\n1. first\r2. second\r');
+    assert.deepStrictEqual(els.map((e) => e.name), ['ul', 'ol']);
+    assert.deepStrictEqual(els[0].html.match(/<li>[^<]*<\/li>/g), ['<li>one</li>', '<li>two</li>']);
+    assert.deepStrictEqual(els[1].html.match(/<li>[^<]*<\/li>/g), ['<li>first</li>', '<li>second</li>']);
+  });
+
+  test('every line terminator a checkout can produce is normalised', () => {
+    assert.strictEqual(withUnixLineEndings('a\r\nb\rc\n'), 'a\nb\nc\n');
+    assert.ok(!/\r/.test(readSource()), 'the reader must hand the parser a CR-free document');
   });
 });
 

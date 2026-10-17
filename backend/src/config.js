@@ -34,6 +34,18 @@ const LOCKOUT_DURATION_SECONDS = 300;
 /** Max request body size for normal JSON endpoints (bytes). */
 const MAX_BODY_BYTES = 100 * 1024;
 
+/**
+ * Max request body size for the ONE endpoint that legitimately carries a whole
+ * database: POST /api/admin/restore uploads a snapshot, and the seeded demo
+ * data alone is ~350 KB — more than three times the normal limit, which would
+ * reject every restore with a 413. Kept as its own bounded constant (and not a
+ * raised global limit) so the other endpoints stay capped at MAX_BODY_BYTES:
+ * an unbounded body is a memory-exhaustion lever, and only this route is
+ * admin-only AND expected to be large. Raise it via BACKUP_MAX_BODY_BYTES on a
+ * deployment whose snapshot outgrows it.
+ */
+const BACKUP_MAX_BODY_BYTES = Number(process.env.BACKUP_MAX_BODY_BYTES) || 64 * 1024 * 1024;
+
 /** Cache-Control header for read-heavy GET endpoints (products, categories, inventory). */
 const READ_CACHE_TTL = 'public, max-age=300, stale-while-revalidate=60';
 
@@ -67,6 +79,7 @@ module.exports = {
   MAX_LOGIN_ATTEMPTS,
   LOCKOUT_DURATION_SECONDS,
   MAX_BODY_BYTES,
+  BACKUP_MAX_BODY_BYTES,
   READ_CACHE_TTL,
   BULK_PRICES_MAX_ENTRIES,
   MAX_BATCH_LINES,

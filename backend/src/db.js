@@ -66,6 +66,19 @@ if (!adjustmentColumns.some(c => c.name === 'created_by_id')) {
 if (!adjustmentColumns.some(c => c.name === 'created_by')) {
   db.exec('ALTER TABLE stock_adjustments ADD COLUMN created_by TEXT');
 }
+// ...and the same submitter identity on TRANSFERS. A rejected transfer's
+// correction note is only actionable by the person who proposed the move, so
+// the row has to name them; without it every transfer looks identical to the
+// staff app's "Mine" filter. Nullable and additive — transfers created before
+// this existed keep created_by NULL and simply never match "Mine", which is
+// the rule the adjustment rows above already follow.
+const transferColumns = db.prepare('PRAGMA table_info(stock_transfers)').all();
+if (!transferColumns.some(c => c.name === 'created_by_id')) {
+  db.exec('ALTER TABLE stock_transfers ADD COLUMN created_by_id INTEGER');
+}
+if (!transferColumns.some(c => c.name === 'created_by')) {
+  db.exec('ALTER TABLE stock_transfers ADD COLUMN created_by TEXT');
+}
 
 const inquiryColumns = db.prepare('PRAGMA table_info(order_inquiries)').all();
 if (!inquiryColumns.some(c => c.name === 'customer_phone')) {

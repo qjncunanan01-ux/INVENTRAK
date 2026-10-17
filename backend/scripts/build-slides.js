@@ -41,6 +41,51 @@ const repoRoot = path.join(__dirname, '..', '..');
 const sourceFile = path.join(repoRoot, 'ALGORITHMS.md');
 const outFile = path.join(repoRoot, 'docs', 'algorithms-deck.html');
 
+// Read the document the deck is generated FROM.
+//
+// This is a function rather than a bare readFileSync because the missing-source
+// failure has already happened once in this repo: commit 1125564 deleted
+// ALGORITHMS.md as a "duplicate" of INVENTRAK-docs-bundle.md while this script
+// still read it, and `npm run verify` went red with a raw
+// "ENOENT: no such file or directory" — which reads like broken tooling, not
+// like "the source document is gone". The guard should say which file it needs,
+// what that file IS, and where a copy still exists.
+//
+// The fix for that outage is NOT to make the deck self-sourcing. ALGORITHMS.md
+// is authored prose — the rule, why it is that rule, worked examples, and the
+// rehearsal table of what to SAY to a panel. Nothing generates it, and the
+// deck is defined as its projection, so making the deck read the code (or the
+// bundle, which is itself a convenience copy) would invert the dependency and
+// lose the one part of it no source file contains.
+//
+// What the deck DOES own is the document's line endings. `slides:check`
+// compares the committed HTML with a fresh rebuild byte for byte, and the deck
+// prints a sha256 of the document in its footer, so a document that is LF on one
+// machine and CRLF on another is two different decks — the guard would fail for
+// a checkout setting, which tells the operator nothing about the document.
+// Normalising here, at the single point where the document enters the pipeline,
+// is what makes "the committed deck is a byte-identical rebuild" mean the same
+// thing on every platform. (CRLF is not academic: `core.autocrlf=true` is the
+// Windows default, and it is also what `git show 1125564^:ALGORITHMS.md >
+// ALGORITHMS.md` produces, which is exactly how this file comes back.)
+const withUnixLineEndings = (text) => String(text).replace(/\r\n?/g, '\n');
+
+function readSource(file = sourceFile) {
+  if (!fs.existsSync(file)) {
+    throw new Error(
+      [
+        `ALGORITHMS.md is missing (expected at ${file}).`,
+        'It is the document the defense deck is GENERATED from, so the deck cannot be built or verified without it.',
+        'Restore it from history:  git show <commit>^:ALGORITHMS.md > ALGORITHMS.md',
+        '  (list the commits that had it with:  git log --oneline -- ALGORITHMS.md )',
+        'INVENTRAK-docs-bundle.md also carries a copy of it, but that copy is a snapshot that has',
+        'already drifted (its test-file counts predate the current suite), so history is the source.',
+      ].join('\n  '),
+    );
+  }
+  return withUnixLineEndings(fs.readFileSync(file, 'utf8'));
+}
+
 // Level-2 headings that are not numbered algorithms get a stable id so the
 // slide plan can address them by name instead of by position.
 const LEVEL2_IDS = [
@@ -132,13 +177,40 @@ function tableHtml(rows) {
 }
 
 const isRule = (line) => /^\s*(?:---+|\*\*\*+)\s*$/.test(line);
-const isBullet = (line) => /^\s*[-*]\s+/.test(line);
-const isNumbered = (line) => /^\s*\d+[.)]\s+/.test(line);
 const isQuote = (line) => /^\s*>/.test(line);
+
+// A markdown line ends at \n, \r\n or \r. Splitting on all three keeps a
+// stray carriage return out of the element layer entirely, because every
+// pattern below is anchored (`$`) and JS `$` does NOT match in front of \r —
+// which is how one recogniser and one consumer can end up disagreeing about
+// whether a line is a list item.
+const LINES = /\r\n|\n|\r/;
+
+// A list item is matched by ONE pattern that both RECOGNISES it and CAPTURES
+// its text; the two are deliberately not allowed to drift apart. They were two
+// different regexes once — `^\s*[-*]\s+` to decide the line was a bullet,
+// `^\s*[-*]\s+(.*)$` to consume it — and on a CRLF document the detector said
+// "yes" while the consumer said "no". The branch was then entered, consumed
+// nothing, and `continue` returned to the same index: the loop appended an
+// empty <ul> forever, ~48 s to exhaust a 4 GB heap, reported as
+// "FATAL ERROR: Ineffective mark-compacts near heap limit". Sharing the pattern
+// makes entering the branch proof that the branch advances.
+const LIST_ITEMS = [
+  { ordered: false, re: /^(\s*)([-*])\s+(.*)$/ },
+  { ordered: true, re: /^(\s*)(\d+)[.)]\s+(.*)$/ },
+];
+
+function listItem(line) {
+  for (const item of LIST_ITEMS) {
+    const m = item.re.exec(line);
+    if (m) return { ordered: item.ordered, re: item.re, text: m[3] };
+  }
+  return null;
+}
 
 /** markdown chunk -> [{ name, html }]. `name` is how a slide selects a piece. */
 function renderElements(chunk) {
-  const lines = String(chunk).split('\n');
+  const lines = String(chunk).split(LINES);
   const els = [];
   let para = [];
   let i = 0;
@@ -150,8 +222,20 @@ function renderElements(chunk) {
     para = [];
   };
 
+  let previousI = -1;
   while (i < lines.length) {
     const line = lines[i];
+
+    // Every branch must consume at least one line. A branch that consumes none
+    // spins on the same index (see LIST_ITEMS above for how that shipped once),
+    // so refuse to do it rather than fill the heap: the failure lands on the
+    // line that caused it instead of in a V8 heap dump.
+    if (i === previousI) {
+      throw new Error(
+        `slides: stuck at line ${i + 1} of a block — no branch consumed ${JSON.stringify(line.slice(0, 60))}`,
+      );
+    }
+    previousI = i;
 
     if (!line.trim()) {
       flushPara();
@@ -223,23 +307,29 @@ function renderElements(chunk) {
       continue;
     }
 
-    if (isBullet(line) || isNumbered(line)) {
+    const item = listItem(line);
+    if (item) {
       flushPara();
-      const ordered = isNumbered(line);
-      const re = ordered ? /^\s*\d+[.)]\s+(.*)$/ : /^\s*[-*]\s+(.*)$/;
       const items = [];
-      while (
-        i < lines.length &&
-        (re.test(lines[i]) || (items.length && /^\s{2,}\S/.test(lines[i]) && !isRule(lines[i])))
-      ) {
-        const m = re.exec(lines[i]);
-        if (m) items.push(m[1].trim());
-        else items[items.length - 1] += ' ' + lines[i].trim();
-        i++;
+      while (i < lines.length) {
+        const m = item.re.exec(lines[i]);
+        if (m) {
+          items.push(m[3].trim());
+          i++;
+          continue;
+        }
+        // An indented line under an item is a wrapped continuation of it.
+        if (items.length && /^\s{2,}\S/.test(lines[i]) && !isRule(lines[i])) {
+          items[items.length - 1] += ' ' + lines[i].trim();
+          i++;
+          continue;
+        }
+        break;
       }
+      const tag = item.ordered ? 'ol' : 'ul';
       els.push({
-        name: ordered ? 'ol' : 'ul',
-        html: `<${ordered ? 'ol' : 'ul'} class="bul">` + items.map((t) => `<li>${inline(t)}</li>`).join('') + `</${ordered ? 'ol' : 'ul'}>`,
+        name: tag,
+        html: `<${tag} class="bul">` + items.map((t) => `<li>${inline(t)}</li>`).join('') + `</${tag}>`,
       });
       continue;
     }
@@ -263,7 +353,7 @@ const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g
  * level-2 heading.
  */
 function parseDoc(md) {
-  const rawLines = md.split('\n');
+  const rawLines = String(md).split(LINES);
   const doc = { rawLines, lineCount: rawLines.length, sections: [], parts: [] };
   doc.title = (rawLines[0] || '').replace(/^#\s+/, '');
 
@@ -426,6 +516,8 @@ function stripQuotes(s) {
 module.exports = {
   repoRoot,
   sourceFile,
+  readSource,
+  withUnixLineEndings,
   outFile,
   parseDoc,
   parseRehearsalRows,
@@ -443,7 +535,7 @@ module.exports = {
 function main(argv) {
   const check = argv.includes('--check');
   const { buildDeck } = require('./slides-render.js');
-  const md = fs.readFileSync(sourceFile, 'utf8');
+  const md = readSource();
   const doc = parseDoc(md);
   const html = buildDeck(doc, md);
 
@@ -453,7 +545,11 @@ function main(argv) {
       console.error('  Run `npm run slides` to generate it.');
       process.exit(1);
     }
-    const existing = fs.readFileSync(outFile, 'utf8');
+    // Compared with line endings normalised on both sides: the document and the
+    // deck are both plain text in git, so which EOLs a checkout hands back is a
+    // property of the checkout, not of the artifact. A real difference in the
+    // deck's content still fails here.
+    const existing = withUnixLineEndings(fs.readFileSync(outFile, 'utf8'));
     if (existing !== html) {
       const a = existing.split('\n');
       const b = html.split('\n');

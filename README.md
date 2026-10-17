@@ -75,6 +75,7 @@ capstone paper).
 - **Analytics** - Dashboard summary with top products and movement trends
 - **Inventory Alerts** - Automatic low-stock alert creation
 - **Sales Transactions** - Dynamic demand data for optimization calculations
+- **Backups that do not depend on remembering** - The server pushes a full database snapshot to the durable store on a timer (`BACKUP_INTERVAL_MINUTES`, default hourly; newest `BACKUP_KEEP` kept), so a wiped container can be restored from a snapshot an admin never had to export. Both backends, admin-only, audited; the console shows whether the schedule is on, where it writes, when it last succeeded and why it last failed. Setup is one SQL paste (`backend/src/supabase-backup-migration.sql`) because the sink derives itself from the Supabase driver config the app already has
 
 ### Admin Web Dashboard
 Pages live under `frontend-admin/src/pages/`, grouped into the same section
@@ -87,7 +88,7 @@ folders the sidebar shows, and each page keeps its test beside it:
 | `stock-control/` | Till · Stock Movement - FIFO/FEFO lot visualization · Stock Adjustments · Stock Transfers |
 | `catalog-orders/` | Products - Create, edit, soft-delete with confirmation dialogs (+ QR tags) · Scan & Stock (QR) · Order Inquiries - Review/approve/reject/fulfill with confirmation |
 | `insights/` | Optimization - ABC classification table + EOQ/ROP/Safety stock + Turnover ratio · Reports |
-| `governance/` | Approvals · Audit Trail · System Settings |
+| `governance/` | Approvals · Audit Trail · System Settings · Backup & Restore - states when the last durable snapshot was taken and whether it has gone stale |
 | `account/` | Security (MFA) |
 | `auth/` | Login |
 
@@ -210,7 +211,12 @@ Firestore > JSON files).
 ```bash
 # 1. Create the tables (once per Supabase project — SQL Editor):
 #    paste backend/src/supabase-schema.sql and run it
-# 2. Point the backend at it:
+# 2. The optional durable extras (same editor, one paste each):
+#    backend/src/supabase-audit-migration.sql   -> audit_log: the audit trail
+#                                                  survives a redeploy
+#    backend/src/supabase-backup-migration.sql  -> backup_snapshots: scheduled
+#                                                  backups land here (see below)
+# 3. Point the backend at it:
 cd backend
 SUPABASE_URL=https://<project-ref>.supabase.co \
 SUPABASE_KEY=<service-role-key> \
@@ -296,19 +302,43 @@ verification, plus Railway / Cloud Run alternates): **see [`DEPLOY.md`](DEPLOY.m
 
 ### Running Tests
 ```bash
-cd backend  npm test    # 56 suites, 732 tests, across both backends: SQLite,
+cd backend  npm test    # 60 suites, 771 tests, across both backends: SQLite,
             # npm-free, contract parity, OpenAPI conformance, Firestore +
             # Supabase stores, password policy, notifications, driver
             # selection, the SQLite→Firestore migration bridge, password
             # hashing, bidirectional sync, the migration-catalog drift guard,
             # the login lockout suite, security hardening, roles and RBAC,
             # MFA, QR lookup, FIFO/FEFO lots, the staff→admin adjustment loop,
-            # the durable audit trail, costing records, customer records, and
+            # the durable audit trail, backup/restore and the scheduled
+            # snapshot timer, costing records, customer records, and
             # bulk cost-of-goods entry
 
 cd backend  npm run verify   # OpenAPI validation + route audit + generated-client
                             # freshness + the full suite (what CI runs)
 ```
+
+### Admin visual regression
+
+`frontend-admin/e2e/visual-regression.spec.js` compares pixels against
+`e2e/__snapshots__/` for the login page, dashboard, sidebar, products and
+inventory screens. It needs **no backend**: every `/api/` call is replayed from
+`e2e/fixtures/visual-api.json`, and the clock, locale, timezone, fonts
+(self-hosted Inter) and motion are pinned, so two runs are byte-identical and a
+failure means the UI actually changed.
+
+```bash
+cd frontend-admin
+npm run test:visual                # build + compare (what you run locally)
+npx playwright test visual-regression --update-snapshots   # after an intended UI change
+npm run test:visual:record         # refresh the recorded API data
+```
+
+Re-recording is the only step that needs a live backend (`cd backend && npm run
+seed && npm start`). It rewrites the fixture file wholesale, so commit that diff
+with whatever motivated it. The suite is deliberately not a CI gate — the
+baselines were recorded on Windows, and pixel comparisons are platform-specific.
+The spec's file header explains why each determinism pin is there; read it
+before removing one.
 
 ### Spec Tooling (OpenAPI as source of truth)
 
@@ -390,6 +420,20 @@ npm run verify            # All of the above + the full test suite
   the deliberate asymmetry with the bulk *price* sheet, where a blank is junk.
   Includes the round trip that matters: costing a product must not make it
   readable on the unauthenticated catalog.
+- `backend/src/test/recovery-drill.test.js` — **the disaster, rehearsed end to
+  end**, on both local drivers: populate a running server, snapshot it, STOP
+  the process and delete the database (what a redeploy leaves behind), prove
+  the data is really gone, restore from the snapshot file, then read the
+  recovered rows back through the admin console's endpoints and both phone
+  apps'. The markers it asserts — a product, a registered customer and that
+  customer's order — exist **only** in the snapshot: a cold boot re-seeds the
+  demo catalogue and demo logins, so "the admin can still log in" would pass
+  with the restore removed entirely. It spawns real child processes rather
+  than using the in-process harness, because the harness cannot release the
+  SQLite handle and therefore cannot be wiped. On the npm-free JSON driver the
+  snapshot is data-only (accounts live in memory — see
+  [Firebase as the database of it all](#firebase-as-the-database-of-it-all)),
+  which the drill asserts as documented behavior instead of hiding.
 - `frontend-admin/src/cost-sheet.test.js` — **the admin cost sheet parser and
   the margin maths**: 48 cases. The parser half pins that a blank cost cell
   means "leave this product alone" and never "clear it" — the rule that stops a

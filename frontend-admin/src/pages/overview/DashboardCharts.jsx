@@ -23,7 +23,10 @@ const ORDER_STATUS_COLORS = ['#f9a825', '#1f640e', '#d32f2f'];
 // ─── Stock value + stock per location (live point-in-time) ───
 export function InventoryAnalyticsSection({ isExecutive, productValueData, locationStockData }) {
   return (
-    <>
+    // Wrapper (was a bare fragment) so the visual-regression baseline can snap
+    // the whole section by testid instead of guessing a parent from the heading
+    // text — a div in this flow position changes no layout.
+    <Box data-testid="inventory-analytics">
       <SectionLabel>Inventory Analytics</SectionLabel>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
@@ -61,7 +64,7 @@ export function InventoryAnalyticsSection({ isExecutive, productValueData, locat
           </Paper>
         </Grid>
       </Grid>
-    </>
+    </Box>
   );
 }
 

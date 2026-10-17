@@ -419,7 +419,10 @@ export default function DashboardPage({ user, onLogout }) {
 
       {/* ─── Summary Cards ─── */}
       <SectionLabel>Inventory Overview</SectionLabel>
-      <Grid container spacing={2}>
+      {/* data-testid: the visual-regression baseline snaps this row, and the
+          old locator (text → parent → parent) pointed at whatever happened to
+          wrap the heading. */}
+      <Grid container spacing={2} data-testid="overview-kpis">
         {panels.slice(0, 4).map((panel, index) => (
           <Grid item xs={12} sm={6} md={3} key={panel.label}>
             <StatCard panel={panel} loading={loading} onClick={handleCardClick} index={index} />

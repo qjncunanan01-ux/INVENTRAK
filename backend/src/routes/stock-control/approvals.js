@@ -7,6 +7,14 @@ const { validate } = require('../../validation');
 const { applyMovementEffect } = require('../../stock-control/stock-movement-helpers');
 const { audit } = require('../../audit');
 const { isIsoDate } = require('../../validation');
+const { SUBMISSION_TYPE, createCorrectionRequest, openCorrectionJoin } = require('../../stock-control/correction-helpers');
+
+// Both listings project the newest OPEN correction comment onto the submission
+// row. That is what makes an approver's reject comment land on the staff phone
+// WITHOUT widening any permission: the staff app already polls these endpoints,
+// so attaching the instruction here means it appears on the very next tick.
+const ADJUSTMENT_CORRECTION = openCorrectionJoin('a', SUBMISSION_TYPE.ADJUSTMENT);
+const TRANSFER_CORRECTION = openCorrectionJoin('t', SUBMISSION_TYPE.TRANSFER);
 
 function listAdjustments(dbRef, status) {
   const where = status ? ' WHERE a.status = ?' : '';
@@ -14,11 +22,13 @@ function listAdjustments(dbRef, status) {
   return dbRef.prepare(`SELECT a.id, a.product_id, p.name as product_name, a.location_id, l.name as location_name,
     a.new_qty, a.reason, a.expiry_date, a.status, a.created_at, a.decided_at, a.decided_by,
     a.created_by_id, a.created_by,
-    COALESCE(s.quantity, 0) as current_qty
+    COALESCE(s.quantity, 0) as current_qty,
+    ${ADJUSTMENT_CORRECTION.comment}, ${ADJUSTMENT_CORRECTION.status}
    FROM stock_adjustments a
    JOIN products p ON p.id = a.product_id
    JOIN locations l ON l.id = a.location_id
    LEFT JOIN stock s ON s.product_id = a.product_id AND s.location_id = a.location_id
+   ${ADJUSTMENT_CORRECTION.sql}
    ${where}
    ORDER BY a.created_at DESC`).all(...params);
 }
@@ -29,13 +39,38 @@ function listTransfers(dbRef, status) {
   return dbRef.prepare(`SELECT t.id, t.product_id, p.name as product_name,
     t.src_location, s.name as src_location_name,
     t.dst_location, d.name as dst_location_name,
-    t.qty, t.reason, t.status, t.created_at, t.decided_at, t.decided_by
+    t.qty, t.reason, t.status, t.created_at, t.decided_at, t.decided_by,
+    t.created_by_id, t.created_by,
+    ${TRANSFER_CORRECTION.comment}, ${TRANSFER_CORRECTION.status}
    FROM stock_transfers t
    JOIN products p ON p.id = t.product_id
    JOIN locations s ON s.id = t.src_location
    JOIN locations d ON d.id = t.dst_location
+   ${TRANSFER_CORRECTION.sql}
    ${where}
    ORDER BY t.created_at DESC`).all(...params);
+}
+
+// Shared by both reject handlers: an approver's optional comment becomes a
+// correction request tied to the submission. Absent/blank means "no comment",
+// exactly as before this existed — rejecting stays a one-click action.
+function recordRejectComment(req, submissionType, submissionId) {
+  const comment = req.body && req.body.comment;
+  if (!comment || !String(comment).trim()) return null;
+  const { correctionRequest, error } = createCorrectionRequest({
+    submission_id: submissionId,
+    submission_type: submissionType,
+    comment,
+    requested_by: req.user.username,
+  });
+  if (error) return { error };
+  audit('correction_request.created', {
+    userId: req.user.id,
+    correctionId: correctionRequest.id,
+    submissionId: correctionRequest.submission_id,
+    submissionType,
+  });
+  return correctionRequest;
 }
 
 // GET /api/stock-adjustments
@@ -99,7 +134,13 @@ function decideAdjustment(req, res, action) {
 
   db.prepare("UPDATE stock_adjustments SET status = 'rejected', decided_at = ?, decided_by = ? WHERE id = ?").run(now, actor, row.id);
   audit('stock.adjustment.rejected', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
-  res.json({ ok: true, message: 'Adjustment rejected (stock unchanged)' });
+  const correction = recordRejectComment(req, SUBMISSION_TYPE.ADJUSTMENT, row.id);
+  res.json({
+    ok: true,
+    message: correction && !correction.error
+      ? 'Adjustment rejected (stock unchanged); correction request sent to the submitter'
+      : 'Adjustment rejected (stock unchanged)',
+  });
 }
 
 router.post('/stock-adjustments/:id/approve', authenticateToken, adminOnly, (req, res) => decideAdjustment(req, res, 'approve'));
@@ -126,8 +167,11 @@ router.post('/stock-transfers', authenticateToken, staffOrAdmin, validate({
   const dst = db.prepare('SELECT id FROM locations WHERE id = ?').get(dst_location);
   if (!src || !dst) return res.status(404).json({ error: 'Location not found' });
 
-  const info = db.prepare('INSERT INTO stock_transfers (product_id, src_location, dst_location, qty, reason, status) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(product_id, src_location, dst_location, qty, reason || '', 'pending');
+  // Same submitter stamping as a physical count: the correction note on a
+  // rejected transfer has to reach the person who proposed it, and the staff
+  // app's "Mine" filter needs the row to say who that was.
+  const info = db.prepare('INSERT INTO stock_transfers (product_id, src_location, dst_location, qty, reason, status, created_by_id, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(product_id, src_location, dst_location, qty, reason || '', 'pending', req.user.id, req.user.username);
   res.status(201).json({ ok: true, id: info.lastInsertRowid, message: 'Transfer created (pending approval)' });
 });
 
@@ -159,7 +203,13 @@ function decideTransfer(req, res, action) {
   }
 
   db.prepare("UPDATE stock_transfers SET status = 'rejected', decided_at = ?, decided_by = ? WHERE id = ?").run(now, actor, row.id);
-  res.json({ ok: true, message: 'Transfer rejected (stock unchanged)' });
+  const correction = recordRejectComment(req, SUBMISSION_TYPE.TRANSFER, row.id);
+  res.json({
+    ok: true,
+    message: correction && !correction.error
+      ? 'Transfer rejected (stock unchanged); correction request sent to the submitter'
+      : 'Transfer rejected (stock unchanged)',
+  });
 }
 
 router.post('/stock-transfers/:id/approve', authenticateToken, adminOnly, (req, res) => decideTransfer(req, res, 'approve'));

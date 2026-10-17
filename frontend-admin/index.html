@@ -10,7 +10,10 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta http-equiv="X-Frame-Options" content="DENY" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: http: https:; connect-src 'self' http: https:; frame-ancestors 'none'" />
+    <!-- Inter is self-hosted (public/fonts/), so the policy no longer needs
+         the Google Fonts hosts: style-src keeps 'unsafe-inline' for MUI's
+         emotion styles, and font-src is back to same-origin only. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: http: https:; connect-src 'self' http: https:; frame-ancestors 'none'" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>INVENTRAK — Admin Dashboard</title>
     <link rel="canonical" href="https://inventrak-admin.onrender.com/" />

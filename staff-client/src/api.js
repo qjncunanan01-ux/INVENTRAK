@@ -311,6 +311,11 @@ export const getProductByQr = client.getProductByQr;
 // reject are admin-only and are intentionally NOT exposed here.
 export const createStockAdjustment = client.createStockAdjustment;
 export const listStockAdjustments = client.listStockAdjustments;
+// Transfers: staff READ their own, same as a count (approve / reject stay
+// admin-only and are not exposed). Read so the Requests feed can show a
+// rejected transfer's approver note next to a rejected count's — the listing
+// already carries each row's open correction comment.
+export const listStockTransfers = client.listStockTransfers;
 // Audit: every QR/barcode scan lands in the server audit trail.
 export const createScanEvent = client.createScanEvent;
 // Stocktake (staff+): ONE shelf, with every line on it, what the system

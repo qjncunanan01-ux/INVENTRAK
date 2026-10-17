@@ -26,6 +26,38 @@ function logMessage(channel, data) {
   console.log(`[notify] ${channel} :: ${JSON.stringify(data)}`);
 }
 
+// ---- Notification ledger hook ----
+// Both backends register a recorder so every send attempt lands in the admin
+// notification ledger (sent / logged / failed) instead of only in the server
+// log. The hook is optional and MUST never break delivery: a recorder that
+// throws is swallowed and logged, never propagated into the request path.
+let notificationRecorder = null;
+function setNotificationRecorder(fn) {
+  notificationRecorder = typeof fn === 'function' ? fn : null;
+}
+function recordNotification(entry) {
+  if (!notificationRecorder) return;
+  try {
+    notificationRecorder(entry);
+  } catch (err) {
+    console.error(`[notify] ledger recorder error: ${err && err.message}`);
+  }
+}
+
+// A provider that is not configured LOGS instead of sending -- report that as
+// 'logged', not 'sent', so the ledger never claims a delivery that did not
+// happen. A configured provider that returns sent:false is a real 'failed'.
+function emailConfigured() {
+  return Boolean(process.env.SMTP_HOST || process.env.RESEND_API_KEY);
+}
+function smsConfigured() {
+  return Boolean(process.env.SEMAPHORE_API_KEY || (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN));
+}
+function deliveryStatus(result, configured) {
+  if (result && result.sent) return 'sent';
+  return configured ? 'failed' : 'logged';
+}
+
 // Normalize a Philippine mobile number for a specific SMS provider:
 //   Semaphore expects a leading-zero format:  09171234567
 //   Twilio expects E.164 format:             +639171234567
@@ -391,9 +423,37 @@ function notifyInquiryStatus(inquiry, newStatus) {
       ? sendSms({ to: inquiry.customer_phone, message: `INVENTRAK: Your order inquiry is now ${label}.` })
       : Promise.resolve({ sent: false });
 
-  return Promise.all([emailP, smsP]).catch(err => {
-    console.error(`[notify] inquiry notification error: ${err && err.message}`);
-  });
+  return Promise.all([emailP, smsP])
+    .then(([emailRes, smsRes]) => {
+      if (inquiry && inquiry.customer_email) {
+        recordNotification({
+          event: 'inquiry_status',
+          channel: 'email',
+          recipient: inquiry.customer_email,
+          subject: `Your INVENTRAK order inquiry is ${label}`,
+          status: deliveryStatus(emailRes, emailConfigured()),
+          detail: label,
+          related_id: inquiry.id,
+          related_type: 'order_inquiry',
+        });
+      }
+      if (inquiry && inquiry.customer_phone) {
+        recordNotification({
+          event: 'inquiry_status',
+          channel: 'sms',
+          recipient: inquiry.customer_phone,
+          subject: `INVENTRAK order inquiry is now ${label}`,
+          status: deliveryStatus(smsRes, smsConfigured()),
+          detail: label,
+          related_id: inquiry.id,
+          related_type: 'order_inquiry',
+        });
+      }
+      return [emailRes, smsRes];
+    })
+    .catch(err => {
+      console.error(`[notify] inquiry notification error: ${err && err.message}`);
+    });
 }
 
 // Welcome email sent on registration (fire-and-forget).
@@ -408,9 +468,21 @@ function notifyWelcome(email, username) {
       bodyText:
         'Your INVENTRAK account is ready. Browse supplies, send order inquiries, and track their status right from the app.',
     }),
-  }).catch(err => {
-    console.error(`[notify] welcome email error: ${err && err.message}`);
-  });
+  })
+    .then(res => {
+      recordNotification({
+        event: 'welcome',
+        channel: 'email',
+        recipient: email,
+        subject: 'Welcome to INVENTRAK',
+        status: deliveryStatus(res, emailConfigured()),
+        detail: username,
+      });
+      return res;
+    })
+    .catch(err => {
+      console.error(`[notify] welcome email error: ${err && err.message}`);
+    });
 }
 
 // Signup verification code (fire-and-forget): email always, SMS when a phone
@@ -430,9 +502,33 @@ function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 
   const smsP = phone
     ? sendSms({ to: phone, message: `INVENTRAK: Your verification code is ${code}.` })
     : Promise.resolve({ sent: false });
-  return Promise.all([emailP, smsP]).catch(err => {
-    console.error(`[notify] verification notification error: ${err && err.message}`);
-  });
+  return Promise.all([emailP, smsP])
+    .then(([emailRes, smsRes]) => {
+      if (email) {
+        recordNotification({
+          event: 'verification',
+          channel: 'email',
+          recipient: email,
+          subject: 'Your INVENTRAK verification code',
+          status: deliveryStatus(emailRes, emailConfigured()),
+          detail: username,
+        });
+      }
+      if (phone) {
+        recordNotification({
+          event: 'verification',
+          channel: 'sms',
+          recipient: phone,
+          subject: 'INVENTRAK verification code',
+          status: deliveryStatus(smsRes, smsConfigured()),
+          detail: username,
+        });
+      }
+      return [emailRes, smsRes];
+    })
+    .catch(err => {
+      console.error(`[notify] verification notification error: ${err && err.message}`);
+    });
 }
 
 // Password reset code email (fire-and-forget). Sent by the forgot-password
@@ -450,9 +546,21 @@ function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
       bodyText: `Hi ${esc(username)},<br><br>Use this code to reset your INVENTRAK password. It expires in <strong>${ttlMinutes} minutes</strong>. If you didn't request this, you can safely ignore this email.`,
       code,
     }),
-  }).catch(err => {
-    console.error(`[notify] password reset email error: ${err && err.message}`);
-  });
+  })
+    .then(res => {
+      recordNotification({
+        event: 'password_reset',
+        channel: 'email',
+        recipient: email,
+        subject: 'Your INVENTRAK password reset code',
+        status: deliveryStatus(res, emailConfigured()),
+        detail: username,
+      });
+      return res;
+    })
+    .catch(err => {
+      console.error(`[notify] password reset email error: ${err && err.message}`);
+    });
 }
 
 module.exports = {
@@ -464,4 +572,5 @@ module.exports = {
   notifyVerificationCode,
   normalizePhNumber,
   smtpSendMail,
+  setNotificationRecorder,
 };

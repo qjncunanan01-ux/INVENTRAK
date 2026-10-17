@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { clearCurrentUser, clearToken, getCurrentUser, getMe, getToken, logout as apiLogout, setCurrentUser } from './api';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
+import { MotionConfig } from 'framer-motion';
 // Pages are grouped into the same sections the sidebar uses (see
 // pages/layout/AdminLayout.jsx NAV_SECTIONS): overview · inventory ·
 // stock-control · catalog-orders · insights · governance · account, plus
@@ -19,10 +20,14 @@ import StockTransfersPage from './pages/stock-control/StockTransfersPage';
 import ProductsPage from './pages/catalog-orders/ProductsPage';
 import ScanStockPage from './pages/catalog-orders/ScanStockPage';
 import OrderInquiriesPage from './pages/catalog-orders/OrderInquiriesPage';
+import UnitConversionsPage from './pages/catalog-orders/UnitConversionsPage';
+import BackOrdersPage from './pages/catalog-orders/BackOrdersPage';
+import NotificationsPage from './pages/governance/NotificationsPage';
 import OptimizationPage from './pages/insights/OptimizationPage';
 import ReportsPage from './pages/insights/ReportsPage';
 import ApprovalsPage from './pages/governance/ApprovalsPage';
 import AuditTrailPage from './pages/governance/AuditTrailPage';
+import BackupPage from './pages/governance/BackupPage';
 import SettingsPage from './pages/governance/SettingsPage';
 import SecurityPage from './pages/account/SecurityPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -118,11 +123,17 @@ function AppRoutes() {
         <Route path="/stock-transfers" element={<StockTransfersPage onLogout={handleLogout} />} />
         <Route path="/approvals" element={<RequireRole roles={ADMIN_TIER}><ApprovalsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/order-inquiries" element={<RequireRole roles={ADMIN_TIER}><OrderInquiriesPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/back-orders" element={<RequireRole roles={ADMIN_TIER}><BackOrdersPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/unit-conversions" element={<RequireRole roles={ADMIN_TIER}><UnitConversionsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/locations" element={<RequireRole roles={ADMIN_TIER}><LocationsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/optimization" element={<RequireRole roles={ADMIN_TIER}><OptimizationPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/reports" element={<RequireRole roles={ADMIN_TIER}><ReportsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/security" element={<RequireRole roles={ADMIN_TIER}><SecurityPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/audit-trail" element={<RequireRole roles={ADMIN_TIER}><AuditTrailPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/notifications" element={<RequireRole roles={ADMIN_TIER}><NotificationsPage onLogout={handleLogout} /></RequireRole>} />
+        {/* A snapshot is the whole database and a restore overwrites it, so
+            this is admin-tier: it is the largest blast radius in the console. */}
+        <Route path="/backup" element={<RequireRole roles={ADMIN_TIER}><BackupPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/settings" element={<RequireRole roles={MANAGEMENT_TIER}><SettingsPage user={user} onLogout={handleLogout} /></RequireRole>} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
@@ -137,7 +148,16 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppRoutes />
+      {/* reducedMotion="user" makes every framer-motion animation in the app
+          respect prefers-reduced-motion: transform/opacity entrance effects
+          (StatCard, PageTransition, the card wrappers) jump straight to their
+          final state instead of animating. That is the accessible behaviour for
+          a user who asked for it, and it removes the last source of a
+          half-animation frame — a screenshot taken mid-fade is not a stable
+          baseline. One setting at the root beats a guard in each component. */}
+      <MotionConfig reducedMotion="user">
+        <AppRoutes />
+      </MotionConfig>
     </ThemeProvider>
   );
 }

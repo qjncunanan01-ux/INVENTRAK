@@ -10,6 +10,7 @@ const {
   RESET_CODE_TTL_MS,
   VERIFICATION_CODE_TTL_MS,
   MAX_BODY_BYTES,
+  BACKUP_MAX_BODY_BYTES,
   READ_CACHE_TTL,
   BULK_PRICES_MAX_ENTRIES,
   MAX_BATCH_LINES,
@@ -17,7 +18,7 @@ const {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
 } = require('./config');
-const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode } = require('./notify');
+const { notifyInquiryStatus, notifyWelcome, notifyPasswordReset, notifyVerificationCode, setNotificationRecorder } = require('./notify');
 const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = require('./prng');
 const { createLoginLockout } = require('./auth/login-lockout');
 const { classifyFsnCatalog, parseFsnWindow } = require('./insights/fsn');
@@ -30,6 +31,8 @@ const { stripCost, stripCostAll } = require('./catalog-orders/product-visibility
 const { resolveCustomer, summarize } = require('./catalog-orders/customers');
 const { reconcile } = require('./insights/reconciliation');
 const { schedule, shelfDetail } = require('./inventory/stocktake');
+const { buildEnvelope, envelopeError, restoreResult } = require('./governance/backup');
+const backupRemote = require('./governance/backup-remote');
 const {
   generateSecret,
   verifyTOTP,
@@ -214,12 +217,188 @@ let nextCountId = 1;
 function persistCounts() {
   writeJSON(countsFile, inventoryCounts);
 }
+
+// Mirror the in-memory tables that live outside the regular file store for the
+// JSON driver, so they survive restarts and hydrate across deploys on the cloud
+// drivers (same pattern as @lots / @costingRecords / @customers).
+function persistExtended() {
+  if (useFirestore || useSupabase) {
+    writeJSON('@unitConversions', unitConversions);
+    writeJSON('@notificationLog', notificationLog);
+    writeJSON('@backOrders', backOrders);
+    writeJSON('@correctionRequests', correctionRequests);
+  }
+}
+
+// ---------- backup / restore (driver-aware) ----------
+//
+// The npm-free backend's "database" is a set of named datasets held by the
+// active store driver, which is why the snapshot code lives here: only this
+// module knows how each dataset is laid out. The envelope, the validation and
+// the response shape are shared with the SQLite backend
+// (governance/backup.js), so an admin sees the same feature either way.
+//
+// Two kinds of dataset:
+//   • row sets (the base documents + the '@' cloud datasets) — carried as
+//     arrays of rows, exactly like a table.
+//   • DOCUMENT datasets (inventory.json is { locations, items }) — carried as
+//     a ONE-ROW array so `tables` stays uniformly a map of row arrays instead
+//     of growing a second, differently-shaped section.
+const BACKUP_DOCUMENT_FILES = {
+  products: productsFile,
+  inventory: inventoryFile,
+  stock_movements: movementsFile,
+  order_inquiries: orderFile,
+  stock_adjustments: adjustmentsFile,
+  stock_transfers: transfersFile,
+};
+// Datasets that only ever live in the cloud store (and in memory).
+const BACKUP_CLOUD_DATASETS = [
+  'users',
+  'sales_transactions',
+  'inventory_alerts',
+  'stock_lots',
+  'costing_records',
+  'unit_conversions',
+  'notification_records',
+  'back_orders',
+  'correction_requests',
+  'customers',
+];
+
+function backupDriverName() {
+  if (useFirestore) return 'firestore';
+  if (useSupabase) return 'supabase';
+  return 'json';
+}
+
+function cloudBacked() {
+  return useFirestore || useSupabase;
+}
+
+function asRowArray(value) {
+  if (Array.isArray(value)) return value;
+  return value == null ? [] : [value];
+}
+
+function backupDatasets() {
+  const tables = {};
+  for (const [name, file] of Object.entries(BACKUP_DOCUMENT_FILES)) {
+    tables[name] = asRowArray(readJSON(file));
+  }
+  if (cloudBacked()) {
+    tables.users = users;
+    tables.sales_transactions = salesTransactions;
+    tables.inventory_alerts = alerts;
+    tables.stock_lots = stockLots;
+    tables.costing_records = costingRecords;
+    tables.unit_conversions = unitConversions;
+    tables.notification_records = notificationLog;
+    tables.back_orders = backOrders;
+    tables.correction_requests = correctionRequests;
+    tables.customers = customers;
+  }
+  return tables;
+}
+
+function nextIdAfter(rows) {
+  return Math.max(0, ...rows.map(r => Number(r && r.id) || 0)) + 1;
+}
+
+/**
+ * Replace every dataset from a snapshot. Unknown datasets are refused (a typo
+ * must not be read as "delete nothing"), and the snapshot must be complete for
+ * the running mode, so a partial upload cannot silently leave half the old
+ * data in place.
+ * Returns { restored } or { error }.
+ */
+function restoreBackupDatasets(tables) {
+  const allowed = new Set([...Object.keys(BACKUP_DOCUMENT_FILES), ...BACKUP_CLOUD_DATASETS]);
+  const unknown = Object.keys(tables).filter(name => !allowed.has(name));
+  if (unknown.length) return { error: `unknown dataset(s) for this backend: ${unknown.join(', ')}` };
+
+  const required = Object.keys(BACKUP_DOCUMENT_FILES).concat(cloudBacked() ? BACKUP_CLOUD_DATASETS : []);
+  const missing = required.filter(name => !Object.prototype.hasOwnProperty.call(tables, name));
+  if (missing.length) return { error: `snapshot is missing dataset(s): ${missing.join(', ')}` };
+
+  for (const [name, rows] of Object.entries(tables)) {
+    if (!Array.isArray(rows)) return { error: `snapshot dataset "${name}" is not an array of rows` };
+  }
+
+  const restored = {};
+  for (const [name, file] of Object.entries(BACKUP_DOCUMENT_FILES)) {
+    const rows = tables[name];
+    // The inventory document round-trips through its single-row wrapper.
+    const value = name === 'inventory' ? rows[0] || null : rows;
+    writeJSON(file, value);
+    restored[name] = rows.length;
+  }
+
+  if (cloudBacked()) {
+    users = tables.users;
+    nextUserId = nextIdAfter(users);
+    salesTransactions = tables.sales_transactions;
+    nextSaleId = nextIdAfter(salesTransactions);
+    alerts = tables.inventory_alerts;
+    nextAlertId = nextIdAfter(alerts);
+    stockLots = tables.stock_lots;
+    nextLotId = nextIdAfter(stockLots);
+    costingRecords = tables.costing_records;
+    unitConversions = tables.unit_conversions;
+    nextConversionId = nextIdAfter(unitConversions);
+    notificationLog = tables.notification_records;
+    nextNotificationId = nextIdAfter(notificationLog);
+    backOrders = tables.back_orders;
+    nextBackOrderId = nextIdAfter(backOrders);
+    correctionRequests = tables.correction_requests;
+    nextCorrectionId = nextIdAfter(correctionRequests);
+    customers = tables.customers;
+    nextCustomerId = nextIdAfter(customers);
+    writeJSON('@users', users);
+    writeJSON('@sales', salesTransactions);
+    writeJSON('@alerts', alerts);
+    persistExtended();
+    persistLots();
+  }
+
+  return { restored };
+}
+
 let alerts = [];
 let nextAlertId = 1;
 // Costing snapshots: one immutable row per order inquiry, mirroring the
 // costing_records table in the SQLite backend. Hydrated from the cloud store
 // like @lots so the economics of past orders survive a redeploy.
 let costingRecords = [];
+
+// Unit conversion catalog: the small table behind unit conversion management.
+// Only linear rate conversions are supported (from_unit -> to_unit at rate),
+// which is enough for the common packaging conversions (kg<->g, L<->mL,
+// pcs<->pack, etc.). Identity rows are forbidden because they make every
+// conversion silently a no-op.
+let unitConversions = [];
+let nextConversionId = 1;
+
+// Notification ledger: the dedicated notification records the checklist asked
+// for. Every fire-and-forget notification the system attempts is recorded here
+// so admins have a sent/delivered/failed view instead of hunting through logs.
+let notificationLog = [];
+let nextNotificationId = 1;
+
+// Back-order ledger: one row per order inquiry that could not be fully
+// fulfilled. A back order is conceptually an inquiry-level status, but it also
+// carries the reason and the requested-by date so the staff and customer apps
+// can treat "back ordered" as a real workflow, not just a label.
+let backOrders = [];
+let nextBackOrderId = 1;
+
+// Approval correction ledger: the missing piece behind "approver comments and
+// correction requests". When an admin rejects a submission, the comment is
+// stored here and linked to the submission so staff can see exactly what to
+// fix before resubmitting.
+let correctionRequests = [];
+let nextCorrectionId = 1;
+
 // Customer Records: the business entity behind orders and sales, distinct from
 // `users` (which are accounts). Kept in memory and persisted to '@customers'
 // under a cloud driver, exactly like @lots and @costingRecords.
@@ -234,6 +413,9 @@ function persistCustomers() {
 // here because bootstrap() derives alerts before the helper block below runs.
 let criticalCache = { at: 0, map: new Map() };
 
+// Helper: persist every ledger that lives outside the ordinary file bucket.
+// split out so the new ledgers do not need their own free-form persist function
+// in each mutation site.
 // verificationCodes: HMAC-SHA256 hash -> { user_id, expires_at }
 let verificationCodes = new Map();
 
@@ -420,6 +602,22 @@ function bootstrap() {
     if (Array.isArray(persistedCosting)) {
       costingRecords = persistedCosting;
     }
+    const persistedConversions = readJSON('@unitConversions');
+    if (Array.isArray(persistedConversions)) {
+      unitConversions = persistedConversions;
+    }
+    const persistedNotifications = readJSON('@notificationLog');
+    if (Array.isArray(persistedNotifications)) {
+      notificationLog = persistedNotifications;
+    }
+    const persistedBackOrders = readJSON('@backOrders');
+    if (Array.isArray(persistedBackOrders)) {
+      backOrders = persistedBackOrders;
+    }
+    const persistedCorrections = readJSON('@correctionRequests');
+    if (Array.isArray(persistedCorrections)) {
+      correctionRequests = persistedCorrections;
+    }
     // Customer Records hydrate the same way — one row per real person must
     // survive a redeploy, or customer history silently resets.
     const persistedCustomers = readJSON('@customers');
@@ -500,6 +698,7 @@ function bootstrap() {
     writeJSON('@users', users);
     writeJSON('@sales', salesTransactions);
     writeJSON('@alerts', alerts);
+    persistExtended();
   }
 }
 if (!useFirestore && !useSupabase) bootstrap();
@@ -587,6 +786,15 @@ function isParamPath(url, prefix, segments) {
     parts.slice(0, segments - 1).join('/') === prefix &&
     /^\d+$/.test(parts[parts.length - 1])
   );
+}
+
+// Numeric id from the final path segment of a URL matched by isParamPath
+// (e.g. '/api/notifications/12' -> 12). Returns NaN when the final segment is
+// not numeric, so callers can reject it rather than silently treating it as 0.
+function lastParamInt(url) {
+  const parts = url.split('?')[0].split('/').filter(Boolean);
+  const last = parts[parts.length - 1];
+  return Number(last);
 }
 
 // Dynamic demand: actual sales volume, mirroring the SQLite backend's
@@ -853,6 +1061,171 @@ function refreshLowStockAlerts() {
 // expiring inside the window raises 'expiring_soon', a past-date lot raises
 // 'expired'. threshold carries the DAYS REMAINING (negative once past).
 const EXPIRY_WARNING_DAYS = 30;
+
+// ---------- unit conversion catalog ----------
+
+function normalizeUnit(u) {
+  if (u == null) return '';
+  return String(u).trim().toLowerCase();
+}
+
+function upsertUnitConversion({ from_unit, to_unit, rate, note }) {
+  from_unit = normalizeUnit(from_unit);
+  to_unit = normalizeUnit(to_unit);
+  if (!from_unit || !to_unit) return { error: 'from_unit and to_unit are required' };
+  if (from_unit === to_unit) return { error: 'conversion cannot be an identity' };
+  const rateNum = Number(rate);
+  if (!Number.isFinite(rateNum) || rateNum <= 0) return { error: 'rate must be a positive number' };
+  const idx = unitConversions.findIndex((c) => c.from_unit === from_unit && c.to_unit === to_unit);
+  const row = {
+    id: idx >= 0 ? unitConversions[idx].id : nextConversionId++,
+    from_unit,
+    to_unit,
+    rate: rateNum,
+    note: note == null ? null : String(note || '').trim(),
+    created_by: null,
+    created_at: idx >= 0 ? unitConversions[idx].created_at : new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  if (idx >= 0) unitConversions[idx] = row;
+  else unitConversions.push(row);
+  persistExtended();
+  return { conversion: row };
+}
+
+function listUnitConversions() {
+  return unitConversions.map((c) => ({ ...c }));
+}
+
+function removeUnitConversion(id) {
+  const idx = unitConversions.findIndex((c) => Number(c.id) === Number(id));
+  if (idx < 0) return { notFound: true };
+  const removed = unitConversions.splice(idx, 1)[0];
+  persistExtended();
+  return { removed };
+}
+
+// Convert a quantity from one unit into another using the catalog. When there
+// is no matching conversion row, returns null rather than guessing.
+function convertUnit(fromUnit, toUnit, value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
+  if (normalizeUnit(fromUnit) === normalizeUnit(toUnit)) return value;
+  const row = unitConversions.find(
+    (c) => c.from_unit === normalizeUnit(fromUnit) && c.to_unit === normalizeUnit(toUnit)
+  );
+  if (!row) return null;
+  return row.rate * value;
+}
+
+// ---------- notification ledger ----------
+
+function recordNotification({ event, channel, recipient, subject, status, detail, related_id, related_type }) {
+  const row = {
+    id: nextNotificationId++,
+    event: String(event || '').trim(),
+    channel: String(channel || '').trim(),
+    recipient: recipient == null ? null : String(recipient || '').trim(),
+    subject: subject == null ? null : String(subject || '').trim(),
+    status: status == null ? 'attempted' : String(status).trim(),
+    detail: detail == null ? null : String(detail || '').trim(),
+    related_id: related_id == null ? null : Number(related_id) || null,
+    related_type: related_type == null ? null : String(related_type || '').trim(),
+    created_at: new Date().toISOString(),
+  };
+  notificationLog.push(row);
+  persistExtended();
+  return row;
+}
+
+// Register the ledger as the notify layer's recorder so every message the
+// system attempts lands here (sent/logged/failed) for the admin notifications
+// view -- without this the ledger would exist but stay permanently empty.
+setNotificationRecorder(recordNotification);
+
+function listNotifications({ limit = 200, offset = 0, event, channel, status } = {}) {
+  let rows = notificationLog.slice();
+  rows.reverse();
+  if (event) rows = rows.filter((r) => r.event === event);
+  if (channel) rows = rows.filter((r) => r.channel === channel);
+  if (status) rows = rows.filter((r) => r.status === status);
+  const total = rows.length;
+  rows = rows.slice(offset, offset + limit);
+  rows.reverse();
+  return { rows, total, limit, offset };
+}
+
+// ---------- back orders ----------
+
+function upsertBackOrder({ inquiry_id, reason, requested_by_date, status, note }) {
+  const existing = backOrders.find((b) => Number(b.inquiry_id) === Number(inquiry_id));
+  const row = {
+    id: existing ? existing.id : nextBackOrderId++,
+    inquiry_id: Number(inquiry_id),
+    reason: reason == null ? existing?.reason ?? null : String(reason || '').trim(),
+    requested_by_date: requested_by_date == null ? existing?.requested_by_date ?? null : String(requested_by_date || '').trim(),
+    status: String(status || existing?.status || 'open').trim(),
+    note: note == null ? existing?.note ?? null : String(note || '').trim(),
+    updated_at: new Date().toISOString(),
+    created_at: existing ? existing.created_at : new Date().toISOString(),
+  };
+  if (existing) { Object.assign(existing, row); }
+  else { backOrders.push(row); }
+  persistExtended();
+  return { backOrder: row };
+}
+
+function listBackOrders() {
+  return backOrders.map((b) => ({ ...b }));
+}
+
+function getBackOrderForInquiry(inquiryId) {
+  return backOrders.find((b) => Number(b.inquiry_id) === Number(inquiryId)) || null;
+}
+
+// ---------- correction requests ----------
+
+function createCorrectionRequest({ submission_id, submission_type, comment, requested_by }) {
+  if (submission_id == null || submission_id === '') return { error: 'submission_id is required' };
+  if (!comment || !String(comment).trim()) return { error: 'comment is required' };
+  const row = {
+    id: nextCorrectionId++,
+    submission_id: Number(submission_id),
+    submission_type: String(submission_type || '').trim(),
+    comment: String(comment).trim(),
+    requested_by: requested_by == null ? null : String(requested_by || '').trim(),
+    status: 'open',
+    created_at: new Date().toISOString(),
+  };
+  correctionRequests.push(row);
+  persistExtended();
+  return { correctionRequest: row };
+}
+
+function listCorrectionRequests({ submission_id, status } = {}) {
+  let rows = correctionRequests.slice();
+  if (submission_id != null && submission_id !== '') rows = rows.filter((r) => Number(r.submission_id) === Number(submission_id));
+  if (status) rows = rows.filter((r) => r.status === status);
+  return rows.map((r) => ({ ...r }));
+}
+
+// The newest OPEN correction for one submission — the projection the
+// adjustment/transfer listings carry so an approver's reject comment reaches
+// the staff app that already polls those endpoints.
+function openCorrectionFor(submissionId, submissionType) {
+  const matches = correctionRequests.filter(
+    (c) => c.status === 'open' && c.submission_type === submissionType && Number(c.submission_id) === Number(submissionId)
+  );
+  return matches.length ? matches[matches.length - 1] : null;
+}
+
+function resolveCorrectionRequest(id, status) {
+  const row = correctionRequests.find((r) => Number(r.id) === Number(id));
+  if (!row) return { notFound: true };
+  row.status = String(status || 'closed').trim();
+  row.updated_at = new Date().toISOString();
+  persistExtended();
+  return { correctionRequest: row };
+}
 
 function refreshExpiryAlerts(now = new Date()) {
   const today = new Date(now.getTime());
@@ -1207,6 +1580,9 @@ const server = http.createServer((req, res) => {
       // Mirrors routes/meta.js: whether the audit trail is durable. See the
       // matching comment there — shape only, never the key.
       audit: require('./audit').remoteStatus(),
+      // Mirrors routes/meta.js: is there a scheduled backup, where does it go,
+      // and when did one last land? Shape only, never the key.
+      backup: backupRemote.status(),
       // Mirrors routes/meta.js: the margin policy the admin margin panel
       // grades against, so the client never hardcodes a number the server can
       // be told to change.
@@ -3323,6 +3699,10 @@ const server = http.createServer((req, res) => {
       decided_at: a.decided_at === undefined || a.decided_at === '' ? null : a.decided_at,
       decided_by: a.decided_by === undefined || a.decided_by === '' ? null : a.decided_by,
       current_qty: currentQty,
+      // Newest open correction request for this submission (null when none), so
+      // a rejected request shows the approver's instruction on the phone.
+      correction_comment: (openCorrectionFor(a.id, 'stock_adjustment') || {}).comment ?? null,
+      correction_status: (openCorrectionFor(a.id, 'stock_adjustment') || {}).status ?? null,
     };
   }
 
@@ -3342,26 +3722,49 @@ const server = http.createServer((req, res) => {
       reason: t.reason || '',
       status: t.status || 'pending',
       created_at: t.created_at,
+      created_by_id: t.created_by_id === undefined || t.created_by_id === '' ? null : t.created_by_id,
+      created_by: t.created_by === undefined || t.created_by === '' ? null : t.created_by,
       decided_at: t.decided_at === undefined || t.decided_at === '' ? null : t.decided_at,
       decided_by: t.decided_by === undefined || t.decided_by === '' ? null : t.decided_by,
+      correction_comment: (openCorrectionFor(t.id, 'stock_transfer') || {}).comment ?? null,
+      correction_status: (openCorrectionFor(t.id, 'stock_transfer') || {}).status ?? null,
     };
   }
 
   function loadRows(kind, status) {
-    const raw = readJSON(kind === 'adjustment' ? adjustmentsFile : transfersFile) || [];
+    const raw = readJSON(kind === 'adjustment' ? adjustmentsFile : kind === 'transfer' ? transfersFile : kind === 'order' ? orderFile : null) || [];
     const inv = getInventory();
     const products = readJSON(productsFile) || [];
-    let rows = raw.map(r => (kind === 'adjustment' ? adjustmentRow(r, inv, products) : transferRow(r, inv, products)));
+    let rows = raw.map(r => (kind === 'adjustment' ? adjustmentRow(r, inv, products) : kind === 'transfer' ? transferRow(r, inv, products) : r));
     if (status) rows = rows.filter(r => r.status === status);
     return rows;
   }
+
+// End of loadRows helpers
 
   const pathPart = url.split('?')[0];
 
   if (req.method === 'GET' && pathPart === '/api/stock-adjustments') {
     return requireAuth(req, res, STAFF_TIER, (req, res) => {
       const parsed = new URL(url, 'http://localhost');
-      return sendJson(res, 200, loadRows('adjustment', parsed.searchParams.get('status')));
+      const rows = loadRows('adjustment');
+      const status = parsed.searchParams.get('status');
+      let filtered = rows;
+      if (status) {
+        const statusMatch = status.toLowerCase();
+        filtered = filtered.filter(r => String(r.status).toLowerCase() === statusMatch);
+      }
+      return sendJson(res, 200, filtered);
+    });
+  }
+
+  // ================= BACK ORDER BY INQUIRY =================
+  if (req.method === 'GET' && /^\/api\/order-inquiries\/\d+\/back-order$/.test(url.split('?')[0])) {
+    return requireAuth(req, res, false, (req, res) => {
+      const id = Number(url.split('/')[3]);
+      const row = getBackOrderForInquiry(id);
+      if (!row) return sendJson(res, 404, { error: 'No back order for that inquiry' });
+      return sendJson(res, 200, row);
     });
   }
 
@@ -3437,6 +3840,10 @@ const server = http.createServer((req, res) => {
     /^\/api\/stock-adjustments\/\d+\/(approve|reject)$/.test(pathPart)
   ) {
     return requireAuth(req, res, true, (req, res) => {
+      // The body carries the approver's OPTIONAL reject comment; an empty body
+      // parses to {} (parseBody) so approve/reject stay one-click calls.
+      return parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
       const id = Number(pathPart.split('/')[3]);
       const action = pathPart.split('/')[4];
       const rows = readJSON(adjustmentsFile) || [];
@@ -3509,7 +3916,29 @@ const server = http.createServer((req, res) => {
       row.decided_by = actor;
       writeJSON(adjustmentsFile, rows);
       audit('stock.adjustment.rejected', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
+      const comment = obj && obj.comment;
+      if (comment && String(comment).trim()) {
+        const created = createCorrectionRequest({
+          submission_id: row.id,
+          submission_type: 'stock_adjustment',
+          comment,
+          requested_by: actor,
+        });
+        if (created.correctionRequest) {
+          audit('correction_request.created', {
+            userId: req.user.id,
+            correctionId: created.correctionRequest.id,
+            submissionId: created.correctionRequest.submission_id,
+            submissionType: 'stock_adjustment',
+          });
+          return sendJson(res, 200, {
+            ok: true,
+            message: 'Adjustment rejected (stock unchanged); correction request sent to the submitter',
+          });
+        }
+      }
       return sendJson(res, 200, { ok: true, message: 'Adjustment rejected (stock unchanged)' });
+    });
     });
   }
 
@@ -3563,6 +3992,11 @@ const server = http.createServer((req, res) => {
           reason: obj.reason || '',
           status: 'pending',
           created_at: new Date().toISOString(),
+          // Submitter identity travels with the transfer for the same reason it
+          // does on a physical count: a rejected transfer's correction note has
+          // to reach the person who proposed it, and "Mine" needs a name.
+          created_by_id: req.user.id,
+          created_by: req.user.username,
           decided_at: null,
           decided_by: null,
         };
@@ -3580,6 +4014,10 @@ const server = http.createServer((req, res) => {
     /^\/api\/stock-transfers\/\d+\/(approve|reject)$/.test(pathPart)
   ) {
     return requireAuth(req, res, true, (req, res) => {
+      // The body carries the approver's OPTIONAL reject comment; an empty body
+      // parses to {} (parseBody) so approve/reject stay one-click calls.
+      return parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
       const id = Number(pathPart.split('/')[3]);
       const action = pathPart.split('/')[4];
       const rows = readJSON(transfersFile) || [];
@@ -3648,7 +4086,29 @@ const server = http.createServer((req, res) => {
       row.decided_at = now;
       row.decided_by = actor;
       writeJSON(transfersFile, rows);
+      const comment = obj && obj.comment;
+      if (comment && String(comment).trim()) {
+        const created = createCorrectionRequest({
+          submission_id: row.id,
+          submission_type: 'stock_transfer',
+          comment,
+          requested_by: actor,
+        });
+        if (created.correctionRequest) {
+          audit('correction_request.created', {
+            userId: req.user.id,
+            correctionId: created.correctionRequest.id,
+            submissionId: created.correctionRequest.submission_id,
+            submissionType: 'stock_transfer',
+          });
+          return sendJson(res, 200, {
+            ok: true,
+            message: 'Transfer rejected (stock unchanged); correction request sent to the submitter',
+          });
+        }
+      }
       return sendJson(res, 200, { ok: true, message: 'Transfer rejected (stock unchanged)' });
+    });
     });
   }
 
@@ -3659,6 +4119,158 @@ const server = http.createServer((req, res) => {
         adjustments: loadRows('adjustment', 'pending'),
         transfers: loadRows('transfer', 'pending'),
       });
+    });
+  }
+
+  // ================= UNIT CONVERSION (admin) =================
+  if (req.method === 'POST' && url.split('?')[0] === '/api/unit-conversions') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const result = upsertUnitConversion({ from_unit: obj.from_unit, to_unit: obj.to_unit, rate: obj.rate, note: obj.note });
+        if (result.error) return sendJson(res, 400, { error: result.error });
+        audit('unit_conversion.upserted', { userId: req.user.id, conversionId: result.conversion.id });
+        return sendJson(res, 200, result.conversion);
+      });
+    });
+  }
+  if (req.method === 'GET' && url.split('?')[0] === '/api/unit-conversions') {
+    return requireAuth(req, res, true, (req, res) => sendJson(res, 200, listUnitConversions()));
+  }
+  if (req.method === 'DELETE' && isParamPath(url, 'api/unit-conversions', 3)) {
+    return requireAuth(req, res, true, (req, res) => {
+      const result = removeUnitConversion(lastParamInt(url));
+      if (result.notFound) return sendJson(res, 404, { error: 'Conversion not found' });
+      audit('unit_conversion.deleted', { userId: req.user.id, conversionId: result.removed.id });
+      return sendJson(res, 200, { ok: true });
+    });
+  }
+
+  // ================= NOTIFICATION LEDGER (admin) =================
+  if (req.method === 'GET' && url.split('?')[0] === '/api/notifications') {
+    return requireAuth(req, res, true, (req, res) => {
+      const params = new URL(url, 'http://localhost').searchParams;
+      const limit = Math.min(200, Math.max(1, Number.parseInt(params.get('limit'), 10) || 200));
+      const offset = Math.max(0, Number.parseInt(params.get('offset'), 10) || 0);
+      const event = params.get('event') || undefined;
+      const channel = params.get('channel') || undefined;
+      const status = params.get('status') || undefined;
+      return sendJson(res, 200, listNotifications({ limit, offset, event, channel, status }));
+    });
+  }
+  if (req.method === 'GET' && isParamPath(url, 'api/notifications', 3)) {
+    return requireAuth(req, res, true, (req, res) => {
+      const row = notificationLog.find((r) => Number(r.id) === lastParamInt(url));
+      if (!row) return sendJson(res, 404, { error: 'Notification record not found' });
+      return sendJson(res, 200, row);
+    });
+  }
+
+  // ================= BACK ORDERS (admin writes; read = own or admin) ======
+  // Authorization mirrors the SQLite backend and the order-inquiry routes: a
+  // back order carries the reason a customer's order fell short, so a
+  // non-admin may only see their OWN inquiry's (404 unknown, 403 not yours),
+  // and recording one is admin-only back-office workflow.
+  function backOrderRefusal(inquiryId, user) {
+    if (ADMIN_TIER.includes(user.role)) return null;
+    const inquiries = readJSON(orderFile) || [];
+    const inquiry = inquiries.find(i => Number(i.id) === Number(inquiryId));
+    if (!inquiry) return { status: 404, error: 'Order inquiry not found' };
+    const owner = users.find(u => Number(u.id) === Number(user.id));
+    const mine =
+      Number(inquiry.user_id) === Number(user.id) ||
+      (owner && String(inquiry.customer_email || '').toLowerCase() === String(owner.email || '').toLowerCase());
+    return mine ? null : { status: 403, error: 'Not your inquiry' };
+  }
+
+  if (req.method === 'GET' && url.split('?')[0] === '/api/back-orders') {
+    return requireAuth(req, res, false, (req, res) => {
+      if (ADMIN_TIER.includes(req.user.role)) return sendJson(res, 200, listBackOrders());
+      const inquiries = readJSON(orderFile) || [];
+      const mine = new Set(
+        inquiries
+          .filter(
+            i =>
+              Number(i.user_id) === Number(req.user.id) ||
+              (req.user.email && String(i.customer_email || '').toLowerCase() === String(req.user.email).toLowerCase())
+          )
+          .map(i => Number(i.id))
+      );
+      return sendJson(res, 200, listBackOrders().filter(b => mine.has(Number(b.inquiry_id))));
+    });
+  }
+  if (req.method === 'GET' && isParamPath(url, 'api/back-orders', 3)) {
+    return requireAuth(req, res, false, (req, res) => {
+      const refusal = backOrderRefusal(lastParamInt(url), req.user);
+      if (refusal) return sendJson(res, refusal.status, { error: refusal.error });
+      const row = getBackOrderForInquiry(lastParamInt(url));
+      if (!row) return sendJson(res, 404, { error: 'Back order not found' });
+      return sendJson(res, 200, row);
+    });
+  }
+  if (req.method === 'POST' && url.split('?')[0] === '/api/back-orders') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const result = upsertBackOrder({ inquiry_id: obj.inquiry_id, reason: obj.reason, requested_by_date: obj.requested_by_date, status: obj.status, note: obj.note });
+        if (!result.backOrder) return sendJson(res, 400, { error: 'inquiry_id is required' });
+        if (ADMIN_TIER.includes(req.user.role)) {
+          audit('back_order.upserted', { userId: req.user.id, inquiryId: result.backOrder.inquiry_id, backOrderId: result.backOrder.id });
+        }
+        return sendJson(res, 200, result.backOrder);
+      });
+    });
+  }
+  if (req.method === 'GET' && /^\/api\/order-inquiries\/\d+\/back-order$/.test(url.split('?')[0])) {
+    return requireAuth(req, res, false, (req, res) => {
+      const id = Number(url.split('/')[3]);
+      const row = getBackOrderForInquiry(id);
+      if (!row) return sendJson(res, 404, { error: 'No back order for that inquiry' });
+      return sendJson(res, 200, row);
+    });
+  }
+
+  // ================= CORRECTION REQUESTS (admin) =================
+  // These back the approver comments and correction requests feature.
+  // POST /api/correction-requests             — record a reject comment / correction request
+  // GET  /api/correction-requests             — list correction requests
+  // GET  /api/correction-requests/:id         — single correction request
+  // POST /api/correction-requests/:id/resolve — mark as addressed
+  if (req.method === 'POST' && url.split('?')[0] === '/api/correction-requests') {
+    return requireAuth(req, res, true, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const result = createCorrectionRequest({ submission_id: obj.submission_id, submission_type: obj.submission_type, comment: obj.comment, requested_by: req.user.username });
+        if (result.error) return sendJson(res, 400, { error: result.error });
+        audit('correction_request.created', { userId: req.user.id, correctionId: result.correctionRequest.id, submissionId: result.correctionRequest.submission_id });
+        return sendJson(res, 200, result.correctionRequest);
+      });
+    });
+  }
+  if (req.method === 'GET' && url.split('?')[0] === '/api/correction-requests') {
+    return requireAuth(req, res, true, (req, res) => {
+      const params = new URL(url, 'http://localhost').searchParams;
+      const submission_id = params.get('submission_id') || undefined;
+      const status = params.get('status') || undefined;
+      return sendJson(res, 200, listCorrectionRequests({ submission_id, status }));
+    });
+  }
+  if (req.method === 'GET' && isParamPath(url, 'api/correction-requests', 3)) {
+    return requireAuth(req, res, true, (req, res) => {
+      const row = correctionRequests.find((r) => Number(r.id) === lastParamInt(url));
+      if (!row) return sendJson(res, 404, { error: 'Correction request not found' });
+      return sendJson(res, 200, row);
+    });
+  }
+  if (req.method === 'POST' && /^\/api\/correction-requests\/\d+\/resolve$/.test(url.split('?')[0])) {
+    return requireAuth(req, res, true, (req, res) => {
+      const id = Number(url.split('/')[3]);
+      const params = new URL(url, 'http://localhost').searchParams;
+      const status = params.get('status') || 'closed';
+      const result = resolveCorrectionRequest(id, status);
+      if (result.notFound) return sendJson(res, 404, { error: 'Correction request not found' });
+      audit('correction_request.resolved', { userId: req.user.id, correctionId: id, status });
+      return sendJson(res, 200, result.correctionRequest);
     });
   }
 
@@ -4688,6 +5300,138 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  // ================= DATABASE BACKUP / RECOVERY (admin) =================
+  // The same two endpoints the SQLite backend serves, with the same envelope,
+  // the same validation and the same response shape; only the dataset set and
+  // the driver name differ. Admin-tier: a snapshot is the whole database.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/admin/backup') {
+    return requireAuth(req, res, true, (req, res) => {
+      const snapshot = buildEnvelope({
+        driver: backupDriverName(),
+        tables: backupDatasets(),
+        generatedBy: req.user.username,
+      });
+      audit('backup.exported', {
+        userId: req.user.id,
+        username: req.user.username,
+        tables: Object.keys(snapshot.tables).length,
+      });
+      return sendJson(res, 200, snapshot);
+    });
+  }
+  // Take a snapshot NOW and put it in the durable store — the manual half of
+  // the schedule, so a freshly configured deployment can be verified on the
+  // spot instead of waiting an hour for the first timer tick. Additive: a push
+  // is a new row, never an overwrite of the copy an admin relies on.
+  if (req.method === 'POST' && url.split('?')[0] === '/api/admin/backup') {
+    return requireAuth(req, res, true, async (req, res) => {
+      try {
+        const result = await backupRemote.pushSnapshot(
+          buildEnvelope({ driver: backupDriverName(), tables: backupDatasets(), generatedBy: req.user.username }),
+          { trigger: 'manual' },
+        );
+        if (!result.ok) {
+          // Mirrors the Express backend: 503 because the request was fine, this
+          // server just has no durable store that can take the snapshot.
+          return sendJson(res, 503, { ok: false, error: result.reason });
+        }
+        audit('backup.pushed_manual', {
+          userId: req.user.id,
+          username: req.user.username,
+          id: result.id,
+          bytes: result.bytes,
+          rows: result.rows,
+        });
+        return sendJson(res, 200, {
+          ok: true,
+          source: 'durable-store',
+          ...result,
+          message: `Snapshot stored (${result.bytes} bytes, ${result.rows} rows)`,
+        });
+      } catch (err) {
+        return sendJson(res, 500, { ok: false, error: err.message });
+      }
+    });
+  }
+
+  // What the durable store holds right now (mirrors the Express backend).
+  // Reports state — “schedule off” and “store unreachable” are things an operator
+  // needs to read, not errors a status page should swallow.
+  if (req.method === 'GET' && url.split('?')[0] === '/api/admin/backups') {
+    return requireAuth(req, res, true, async (req, res) => {
+      try {
+        const listed = await backupRemote.listSnapshots(20);
+        return sendJson(res, 200, {
+          ok: listed.ok,
+          error: listed.ok ? null : listed.reason,
+          scheduler: backupRemote.status(),
+          // Mirrors the Express route: the newest snapshot in the store, with
+          // its age and whether that age is a problem (see
+          // governance/backup-remote.js summarizeLastBackup).
+          last_backup: backupRemote.summarizeLastBackup(listed),
+          snapshots: listed.snapshots || [],
+        });
+      } catch (err) {
+        return sendJson(res, 500, { ok: false, error: err.message, snapshots: [] });
+      }
+    });
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/admin/restore') {
+    return requireAuth(req, res, true, (req, res) => {
+      // A snapshot is far bigger than the normal body cap, so this one route
+      // gets the backup limit (mirrors the Express body-parser mount).
+      return parseBodyWithLimit(req, BACKUP_MAX_BODY_BYTES, async (err, obj) => {
+        if (err) return bodyError(res, err);
+        const body = obj || {};
+        if (body.confirm !== true) {
+          return sendJson(res, 400, { error: 'confirm: true is required to restore a backup' });
+        }
+
+        // Two sources, one code path: an uploaded snapshot, or one already in
+        // the durable store (which is the only source left after the container
+        // — and with it the downloaded file — is gone). Both go through the
+        // same envelopeError() guard, so a foreign-driver snapshot is refused
+        // however it arrives.
+        let payload = body.snapshot;
+        let source = 'upload';
+        let snapshotId = null;
+        if (!payload && body.snapshot_id !== undefined && body.snapshot_id !== null) {
+          const fetched = await backupRemote.fetchSnapshot(body.snapshot_id);
+          if (!fetched.ok) return sendJson(res, 400, { error: fetched.reason });
+          payload = fetched.envelope;
+          source = 'durable-store';
+          snapshotId = fetched.id;
+        }
+        if (!payload) {
+          return sendJson(res, 400, {
+            error:
+              'body must carry `snapshot` (an uploaded snapshot) or `snapshot_id` ("latest" or a snapshot id from GET /api/admin/backups)',
+          });
+        }
+
+        const reason = envelopeError(payload, backupDriverName());
+        if (reason) return sendJson(res, 400, { error: reason });
+        const result = restoreBackupDatasets(payload.tables);
+        if (result.error) return sendJson(res, 400, { error: result.error });
+        audit('backup.restored', {
+          userId: req.user.id,
+          username: req.user.username,
+          tables: Object.keys(result.restored).length,
+          rows: Object.values(result.restored).reduce((sum, n) => sum + n, 0),
+          snapshotAt: payload.created_at || null,
+          source,
+          snapshotId,
+        });
+        return sendJson(res, 200, {
+          ...restoreResult({ driver: backupDriverName(), restored: result.restored }),
+          source,
+          snapshot_id: snapshotId,
+        });
+      });
+    });
+  }
+
   // GET /api/stocktake — the recount board. Admin-tier, and computed on read for
   // the same reason as the SQLite route: a timer that sleeps with the free tier
   // is not a schedule. The same pass refreshes the stale_count flags, so this
@@ -4812,6 +5556,19 @@ async function start(port) {
   } catch {
     /* the audit trail must never block boot */
   }
+  // Scheduled snapshots into the durable store (see governance/backup-remote.js).
+  // Started here, in the entrypoint, and not by createServer(): a test that
+  // boots the app must not leave a timer behind. The first push is one full
+  // interval away on purpose — a container that has just booted may have
+  // re-seeded itself from the packaged demo data, and that must never become
+  // the newest snapshot an admin restores.
+  backupRemote.startScheduler(() =>
+    buildEnvelope({ driver: backupDriverName(), tables: backupDatasets(), generatedBy: 'schedule' }),
+  );
+  // The timer is unref'd, so it never delays a shutdown; stopping it anyway
+  // keeps a clean exit clean.
+  process.on('SIGTERM', () => backupRemote.stopScheduler());
+  process.on('SIGINT', () => backupRemote.stopScheduler());
   return createServer(port);
 }
 
@@ -4856,4 +5613,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { createServer, start, resolveDriver, firestoreConfigured };
+module.exports = { createServer, start, resolveDriver, firestoreConfigured, recordNotification };

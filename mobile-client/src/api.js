@@ -373,6 +373,11 @@ export const listLocations = client.listLocations;
 export const listStockMovements = client.listStockMovements;
 export const listStockLots = client.listStockLots;
 export const listOrderInquiries = client.listOrderInquiries;
+// Back-order status for the customer's own orders (Back-Order Management).
+// The server scopes the list to the caller's OWN inquiries, so the app can map
+// it over its order cards in one request without ever seeing another
+// customer's shortfall. Read-only here: only admins may record a back order.
+export const listBackOrders = client.listBackOrders;
 export const createOrderInquiry = client.createOrderInquiry;
 export const updateInquiryPayment = client.updateInquiryPayment;
 // QR product identification (staff/admin Scan & Count): the scanned tag
