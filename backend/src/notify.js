@@ -392,7 +392,16 @@ async function sendSms({ to, message }) {
 
 const { summarizeProducts } = require('./catalog-orders/product-lines');
 
-const STATUS_LABELS = { approved: 'APPROVED', rejected: 'REJECTED', fulfilled: 'FULFILLED', delivered: 'DELIVERED' };
+const STATUS_LABELS = {
+  approved: 'APPROVED',
+  rejected: 'REJECTED',
+  fulfilled: 'FULFILLED',
+  delivered: 'DELIVERED',
+  // Customer-initiated (POST /api/order-inquiries/:id/cancel). Without this the
+  // customer would be told their inquiry is now "cancelled" in lowercase, which
+  // reads as a raw status leak next to the other uppercase labels.
+  cancelled: 'CANCELLED',
+};
 
 // The stored products value is a JSON string of line objects (e.g.
 // '[{"name":"Widget","qty":2}]') or, for legacy rows, plain strings.

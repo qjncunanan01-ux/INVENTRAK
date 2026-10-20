@@ -164,9 +164,11 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createOrderInquiry: (body) => request('POST', '/api/order-inquiries', { body }),
   // PUT /api/order-inquiries/{id} — Update inquiry status (pending -> approved -> fulfilled / rejected)
   updateOrderInquiry: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}', { params: { id }, body }),
+  // POST /api/order-inquiries/{id}/cancel — Cancel an inquiry (customer-initiated)
+  cancelOrderInquiry: ({ id }, body) => request('POST', '/api/order-inquiries/{id}/cancel', { params: { id }, body }),
   // GET /api/order-inquiries/{id}/costing — Get the immutable costing snapshot frozen when the inquiry was submitted
   getInquiryCosting: ({ id }) => request('GET', '/api/order-inquiries/{id}/costing', { params: { id } }),
-  // PUT /api/order-inquiries/{id}/payment — Mark an inquiry as paid/unpaid/failed after the GCash step
+  // PUT /api/order-inquiries/{id}/payment — Submit GCash payment proof, complete a demo card payment, or verify payment as an admin
   updateInquiryPayment: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}/payment', { params: { id }, body }),
   // GET /api/products — List products (optionally paginated, searched, filtered)
   listProducts: (params) => request('GET', '/api/products', { query: params }),

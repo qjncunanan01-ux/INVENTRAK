@@ -34,7 +34,7 @@ export default function RecommendationScreen({ navigation }) {
   const [stockMap, setStockMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { addItem } = useCart();
+  const { items: cartItems, addItem } = useCart();
   // Ordering a bundle adds to the cart — member-only, gated for guests.
   const bundleGate = useLoginGate(navigation, {
     title: 'Log in to order a bundle',
@@ -148,6 +148,16 @@ export default function RecommendationScreen({ navigation }) {
               onPressItem={(item) => navigation.push('Products', { focusId: item.id })}
               onAdd={(item) =>
                 quickAddGate.requireLogin(() => {
+                  const available = stockMap[Number(item.id)];
+                  const inCart = cartItems.find((entry) => Number(entry.product.id) === Number(item.id))?.qty || 0;
+                  if (!Number.isFinite(Number(available))) {
+                    showToast('Stock is still loading. Refresh and try again.');
+                    return;
+                  }
+                  if (available < inCart + 1) {
+                    showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
+                    return;
+                  }
                   // Snapshot the day's deal price so the cart matches the card.
                   const d = dealPricing(item);
                   addItem(item, 1, d ? d.deal : undefined, d ? d.original : undefined);

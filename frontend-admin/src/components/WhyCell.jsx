@@ -42,7 +42,7 @@ export default function WhyCell({ label = 'Why?', lines = [], result, align = 'l
           color: 'text.secondary',
           borderBottom: '1px dotted',
           borderColor: 'divider',
-          '&:hover': { color: colors.brandPrimary },
+          '&:hover': { color: colors.brandPrimaryDark },
         }}
       >
         <HelpOutlineIcon fontSize="inherit" aria-hidden />
@@ -63,7 +63,7 @@ export default function WhyCell({ label = 'Why?', lines = [], result, align = 'l
           <li key={line}>{line}</li>
         ))}
         {result && (
-          <li style={{ color: colors.brandPrimary, fontWeight: 700 }}>{result}</li>
+          <li style={{ color: colors.brandPrimaryDark, fontWeight: 700 }}>{result}</li>
         )}
       </Box>
     </Box>

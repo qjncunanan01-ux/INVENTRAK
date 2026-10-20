@@ -107,8 +107,22 @@ async function buildPaymentStep({ id, amount, description, email, paymentMethod 
     return null; // COD / other: no payment step.
   }
 
+  // The project has no card gateway configured. Make the requested card flow
+  // usable in a demo with a clearly marked reference, without collecting card
+  // details or pretending that a real charge took place.
+  if (paymentMethod === 'card') {
+    const suffix = crypto.randomBytes(4).toString('hex').toUpperCase();
+    return {
+      payment_method: 'card',
+      payment_status: 'unpaid',
+      payment_reference: `CARD-DEMO-${String(id || '0').padStart(4, '0')}-${suffix}`,
+      payment_url: null,
+      payment_qr: null,
+      payment_provider: 'demo',
+    };
+  }
+
   const reference = makeReference(id);
-  const provider = 'gcash'; // GCash is the headline method; card routes the same UI.
 
   let session = null;
   try {

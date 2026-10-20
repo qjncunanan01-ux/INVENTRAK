@@ -26,6 +26,17 @@ const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./inven
 const { buildPaymentStep } = require('./payments');
 const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./catalog-orders/qr-codes');
 const { normalizeLines } = require('./catalog-orders/product-lines');
+const { planOrderFulfillment } = require('./catalog-orders/order-fulfillment');
+const { ORDER_TERMS_VERSION } = require('./catalog-orders/order-terms');
+// Lifecycle RULES are shared with the SQLite backend — see the module header.
+// Storage differs; who may move an inquiry where does not.
+const {
+  normalizeFulfillment,
+  normalizeReason,
+  appendStatusEvent,
+  checkStatusChange,
+  checkCancellation,
+} = require('./catalog-orders/inquiry-lifecycle');
 const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry, targetMarginPercent } = require('./insights/costing');
 const { stripCost, stripCostAll } = require('./catalog-orders/product-visibility');
 const { resolveCustomer, summarize } = require('./catalog-orders/customers');
@@ -4419,6 +4430,15 @@ const server = http.createServer((req, res) => {
         // JSON status-timeline string (null when the row predates tracking).
         user_id: o.user_id === undefined || o.user_id === null || o.user_id === '' ? null : Number(o.user_id),
         status_history: o.status_history === undefined || o.status_history === '' ? null : o.status_history,
+        // Order lifecycle (SQLite parity): rows created before these fields
+        // existed read back as a pickup with no reason, which is the truth for
+        // them — the column default is 'pickup' on SQLite.
+        fulfillment_method:
+          o.fulfillment_method === undefined || o.fulfillment_method === '' ? 'pickup' : o.fulfillment_method,
+        rejection_reason: o.rejection_reason === undefined || o.rejection_reason === '' ? null : o.rejection_reason,
+        cancelled_at: o.cancelled_at === undefined || o.cancelled_at === '' ? null : o.cancelled_at,
+        cancellation_reason:
+          o.cancellation_reason === undefined || o.cancellation_reason === '' ? null : o.cancellation_reason,
       }));
       // Per-account scoping: admins see every inquiry; customers only their own
       // (user_id match, with a legacy fallback to the account's email so orders
@@ -4471,32 +4491,185 @@ const server = http.createServer((req, res) => {
         const orders = readJSON(orderFile) || [];
         const order = orders.find(o => o.id === id);
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
-        if (!['pending', 'approved', 'rejected', 'fulfilled', 'delivered'].includes(obj.status)) {
-          return sendJson(res, 400, {
-            error: 'Invalid status. Must be one of: pending, approved, rejected, fulfilled, delivered',
-          });
-        }
         const updatedStatus = obj.status || order.status;
+        // Shared lifecycle rules (catalog-orders/inquiry-lifecycle): which
+        // statuses are assignable here, which transitions are legal, and the
+        // mandatory rejection reason.
+        const refusal = checkStatusChange({ from: order.status, to: updatedStatus });
+        if (refusal) return sendJson(res, refusal.status, { error: refusal.error });
+        const mustCommitStock = ['fulfilled', 'delivered'].includes(updatedStatus) && !order.inventory_committed_at;
+        let fulfillmentPlan = null;
+        let fulfillmentLocationName = null;
+        const locationId = Number(obj.location_id);
+        if (mustCommitStock) {
+          if (['gcash', 'card'].includes(order.payment_method) && order.payment_status !== 'paid') {
+            return sendJson(res, 409, { error: 'Payment must be verified before this inquiry can be fulfilled' });
+          }
+          const inventory = getInventory();
+          fulfillmentLocationName = inventory.locations[locationId - 1];
+          if (!Number.isInteger(locationId) || locationId < 1 || !fulfillmentLocationName) {
+            return sendJson(res, 400, { error: 'Choose a valid stock location before fulfilling this order' });
+          }
+          let lines = [];
+          try { lines = JSON.parse(order.products || '[]'); } catch {}
+          const catalog = readJSON(productsFile) || [];
+          fulfillmentPlan = planOrderFulfillment(lines, locationId, {
+            findProduct: (line) => {
+              const byId = Number(line.id);
+              if (Number.isInteger(byId) && byId > 0) {
+                const p = catalog[byId - 1];
+                return p && isProductActive(p) ? { id: byId, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
+              }
+              const name = String(line.name || '').trim().toLowerCase();
+              const index = catalog.findIndex((p) => isProductActive(p) && String(p['Product Name'] || p.name || '').trim().toLowerCase() === name);
+              const p = index >= 0 ? catalog[index] : null;
+              return p ? { id: index + 1, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
+            },
+            getAvailable: (productId, locId) => {
+              const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(productId));
+              return item ? Number(item.locations[fulfillmentLocationName]) || 0 : 0;
+            },
+          });
+          if (fulfillmentPlan.error) {
+            return sendJson(res, fulfillmentPlan.product_id ? 409 : 400, {
+              error: fulfillmentPlan.error,
+              ...(fulfillmentPlan.product_id ? { available: fulfillmentPlan.available, requested: fulfillmentPlan.requested, product_id: fulfillmentPlan.product_id } : {}),
+            });
+          }
+        }
+        let rejectionReason = order.rejection_reason || null;
+        if (updatedStatus === 'rejected') {
+          const reason = normalizeReason(obj.rejection_reason ?? obj.reason, {
+            required: true,
+            field: 'rejection_reason',
+          });
+          if (reason.error) {
+            return sendJson(res, 400, { error: 'Validation failed', details: [reason.error] });
+          }
+          rejectionReason = reason.value;
+        }
         // Progress timeline (Shopee-style): append the new status with a
         // timestamp; seed the 'placed' event from created_at when the row
         // predates status tracking so the mobile card never shows a gap.
-        let history = [];
-        try {
-          const parsed = JSON.parse(order.status_history || '[]');
-          if (Array.isArray(parsed)) history = parsed;
-        } catch {}
-        if (history.length === 0) {
-          history.push({ status: order.status, at: order.created_at });
-        }
-        if (updatedStatus !== (history[history.length - 1] || {}).status) {
-          history.push({ status: updatedStatus, at: new Date().toISOString() });
+        const { history } = appendStatusEvent(order.status_history, {
+          status: updatedStatus,
+          at: new Date().toISOString(),
+          by: req.user.id,
+          reason: updatedStatus === 'rejected' ? rejectionReason : null,
+          created_at: order.created_at,
+          current_status: order.status,
+        });
+        if (mustCommitStock) {
+          const inventory = getInventory();
+          const movements = readJSON(movementsFile) || [];
+          const now = new Date().toISOString();
+          for (const line of fulfillmentPlan.plan) {
+            const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(line.product_id));
+            const qty = Number(line.qty);
+            const unitPrice = Number(line.unit_price) || 0;
+            salesTransactions.push({
+              id: nextSaleId++,
+              product_id: line.product_id,
+              qty,
+              unit_price: unitPrice,
+              total_amount: qty * unitPrice,
+              transaction_date: now,
+              customer_name: order.customer_name || 'customer',
+              customer_id: order.customer_id || null,
+              order_inquiry_id: order.id,
+            });
+            if (item) {
+              item.locations[fulfillmentLocationName] = (Number(item.locations[fulfillmentLocationName]) || 0) - qty;
+              item.total = Object.values(item.locations).reduce((sum, value) => sum + (Number(value) || 0), 0);
+              consumeLots(line.product_id, locationId, qty);
+              upsertLowStockAlert(line.product_id, locationId, item.locations[fulfillmentLocationName]);
+            }
+            movements.push({
+              id: movements.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1,
+              product_id: line.product_id,
+              qty,
+              type: 'stock-out',
+              src_location: locationId,
+              dst_location: null,
+              notes: `Customer order inquiry #${order.id} fulfilled`,
+              created_at: now,
+              user: req.user.username || 'admin',
+            });
+          }
+          writeJSON(inventoryFile, inventory);
+          writeJSON(movementsFile, movements);
+          if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
+          order.fulfillment_location_id = locationId;
+          order.inventory_committed_at = now;
         }
         order.status = updatedStatus;
         order.status_history = JSON.stringify(history);
+        order.rejection_reason = rejectionReason;
         writeJSON(orderFile, orders);
         cache.invalidate('inventory');
-        if (order.status !== 'pending') notifyInquiryStatus(order, order.status);
-        return sendJson(res, 200, { ok: true, message: `Inquiry ${order.status}` });
+        if (updatedStatus !== 'pending') notifyInquiryStatus(order, updatedStatus);
+        return sendJson(res, 200, { ok: true, message: `Inquiry ${updatedStatus}` });
+      });
+    });
+  }
+
+  // Customer-initiated cancellation (SQLite parity). Same rules, same order of
+  // checks, same response shape: authenticate, authorize (own inquiry or admin
+  // tier), then the shared lifecycle guard.
+  if (req.method === 'POST' && /^\/api\/order-inquiries\/\d+\/cancel$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, false, (req, res) => {
+      return parseBody(req, (err, obj) => {
+        if (err) return bodyError(res, err);
+        const orders = readJSON(orderFile) || [];
+        const order = orders.find(o => o.id === id);
+        if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+        if (!ADMIN_TIER.includes(req.user.role)) {
+          const owner = users.find(u => u.id === req.user.id);
+          const mine =
+            Number(order.user_id) === Number(req.user.id) ||
+            (owner &&
+              String(order.customer_email || '').toLowerCase() === String(owner.email || '').toLowerCase());
+          if (!mine) return sendJson(res, 403, { error: 'Not your inquiry' });
+        }
+        const verdict = checkCancellation({ from: order.status });
+        if (verdict && verdict.alreadyCancelled) {
+          return sendJson(res, 200, {
+            ok: true,
+            message: 'Inquiry cancelled',
+            cancelled_at: order.cancelled_at || null,
+            cancellation_reason: order.cancellation_reason || null,
+          });
+        }
+        if (verdict) return sendJson(res, verdict.status, { error: verdict.error });
+        const reason = normalizeReason(obj.cancellation_reason ?? obj.reason, {
+          field: 'cancellation_reason',
+        });
+        if (reason.error) {
+          return sendJson(res, 400, { error: 'Validation failed', details: [reason.error] });
+        }
+        const now = new Date().toISOString();
+        const { history } = appendStatusEvent(order.status_history, {
+          status: 'cancelled',
+          at: now,
+          by: req.user.id,
+          reason: reason.value,
+          created_at: order.created_at,
+          current_status: order.status,
+        });
+        order.status = 'cancelled';
+        order.status_history = JSON.stringify(history);
+        order.cancelled_at = now;
+        order.cancellation_reason = reason.value;
+        writeJSON(orderFile, orders);
+        cache.invalidate('inventory');
+        notifyInquiryStatus(order, 'cancelled');
+        return sendJson(res, 200, {
+          ok: true,
+          message: 'Inquiry cancelled',
+          cancelled_at: now,
+          cancellation_reason: reason.value,
+        });
       });
     });
   }
@@ -4512,17 +4685,37 @@ const server = http.createServer((req, res) => {
       }
       // Sanitize user input to prevent XSS in stored data
       obj.customer_name = sanitizeObject(obj.customer_name);
+      obj.customer_email = String(obj.customer_email).trim().toLowerCase();
+      if (!isValidEmail(obj.customer_email)) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['customer_email must be a valid email address'] });
+      }
+      if (obj.customer_phone && !isValidPhone(String(obj.customer_phone).trim())) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['customer_phone must be a valid phone number'] });
+      }
       if (obj.delivery_address) obj.delivery_address = sanitizeObject(obj.delivery_address);
       if (obj.notes) obj.notes = sanitizeObject(obj.notes);
+      if (obj.notes != null && String(obj.notes).length > 1000) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['notes must be at most 1000 characters'] });
+      }
+      if (obj.terms_accepted !== true) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['You must accept the ordering terms before submitting'] });
+      }
+      if (obj.terms_version !== ORDER_TERMS_VERSION) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['terms_version is missing or out of date; review the current ordering terms'] });
+      }
       // Validate quantities in line items (must be positive integers, max 10000)
       if (Array.isArray(obj.products)) {
         for (const item of obj.products) {
-          const qty = Number(item.quantity || item.qty);
-          if (qty < 0)
-            return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not be negative'] });
+          if (typeof item === 'string') continue; // Legacy line format, normalized below.
+          const qty = Number(item && (item.quantity ?? item.qty));
+          if (!Number.isInteger(qty) || qty < 1)
+            return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must be a positive whole number'] });
           if (qty > 10000)
             return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not exceed 10000'] });
         }
+      }
+      if (Array.isArray(obj.products) && obj.products.length > 500) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['an order may not contain more than 500 product lines'] });
       }
       // Checkout fields (optional but validated when present) — mirrors the
       // SQLite backend: delivery_address <= 500 chars, payment_method enum.
@@ -4538,6 +4731,15 @@ const server = http.createServer((req, res) => {
           error: 'Validation failed',
           details: ['payment_method must be one of cod, gcash, card, other'],
         });
+      }
+      // Fulfilment preference (SQLite parity): 'courier' without an address is
+      // an order with nowhere to go, so it is refused at the door.
+      const fulfillment = normalizeFulfillment({
+        fulfillment_method: obj.fulfillment_method,
+        delivery_address: obj.delivery_address,
+      });
+      if (fulfillment.error) {
+        return sendJson(res, 400, { error: 'Validation failed', details: [fulfillment.error] });
       }
       const orders = readJSON(orderFile) || [];
       // Optional auth: the app sends the customer's token at checkout, so the
@@ -4556,6 +4758,28 @@ const server = http.createServer((req, res) => {
       // always matches what the customer was charged (SQLite parity).
       const { lines, total } = normalizeLines(obj.products);
       const storedCost = total !== null ? total : obj.estimated_cost || 0;
+      const requestedByProduct = new Map();
+      for (const line of lines) {
+        if (line.id == null) continue;
+        if (!Number.isInteger(line.id) || line.id < 1) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['product id must be a positive integer'] });
+        }
+        requestedByProduct.set(line.id, (requestedByProduct.get(line.id) || 0) + line.qty);
+        if (requestedByProduct.get(line.id) > 10000) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['quantity per product must not exceed 10000 per inquiry'] });
+        }
+      }
+      const catalog = readJSON(productsFile) || [];
+      const inventoryForOrder = getInventory();
+      for (const [productId, requested] of requestedByProduct) {
+        const p = catalog[productId - 1];
+        if (!p || !isProductActive(p)) return sendJson(res, 409, { error: `Product ${productId} is unavailable` });
+        const item = inventoryForOrder.items.find((i) => i.product && Number(i.product.id) === productId);
+        const available = item ? Number(item.total) || 0 : 0;
+        if (available < requested) {
+          return sendJson(res, 409, { error: `Not enough stock for ${p['Product Name'] || p.name}`, product_id: productId, available, requested });
+        }
+      }
       // Resolve the Customer Record BEFORE building the row so the inquiry can
       // carry its customer_id (SQLite parity — see backend/src/customers.js).
       // Guarded: an order must never fail over customer bookkeeping.
@@ -4587,9 +4811,12 @@ const server = http.createServer((req, res) => {
         estimated_cost: storedCost,
         notes: obj.notes || '',
         delivery_address: obj.delivery_address || null,
+        fulfillment_method: fulfillment.method,
         payment_method: obj.payment_method || 'cod',
         payment_status: 'unpaid',
         payment_reference: null,
+        payment_customer_reference: null,
+        payment_updated_at: null,
         payment_url: null,
         payment_qr: null,
         payment_provider: null,
@@ -4597,6 +4824,8 @@ const server = http.createServer((req, res) => {
         customer_id: customerId,
         status_history: JSON.stringify([{ status: 'pending', at: now }]),
         status: 'pending',
+        terms_version: obj.terms_accepted === true ? ORDER_TERMS_VERSION : null,
+        terms_accepted_at: obj.terms_accepted === true ? now : null,
         created_at: now,
       };
       // Freeze the economics now, while the catalog still reflects what the
@@ -4633,10 +4862,12 @@ const server = http.createServer((req, res) => {
           payment_url: payment.payment_url,
           payment_qr: payment.payment_qr,
           payment_provider: payment.payment_provider,
+          payment_updated_at: now,
         });
       }
       orders.unshift(newOrder);
       writeJSON(orderFile, orders);
+      void notifyInquiryStatus(newOrder, 'pending');
       return sendJson(res, 201, {
         ok: true,
         message: 'Inquiry submitted',
@@ -4649,6 +4880,7 @@ const server = http.createServer((req, res) => {
                 payment_reference: payment.payment_reference,
                 payment_url: payment.payment_url,
                 payment_qr: payment.payment_qr,
+                payment_provider: payment.payment_provider,
               },
             }
           : {}),
@@ -4678,29 +4910,63 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  // Mark an inquiry as paid (customer confirms after the GCash step).
-  // Matches the SQLite backend: customers may only mark their own inquiry.
+  // Payment proof is submitted by the customer; only admins verify GCash.
+  // The card path is an explicit demo transaction and never collects card data.
   if (req.method === 'PUT' && /^\/api\/order-inquiries\/\d+\/payment$/.test(url.split('?')[0])) {
     const id = Number(url.split('?')[0].split('/')[3]);
     return requireAuth(req, res, false, (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
-        if (!['paid', 'unpaid', 'failed'].includes(obj.payment_status)) {
-          return sendJson(res, 400, { error: 'payment_status must be one of paid, unpaid, failed' });
-        }
         const orders = readJSON(orderFile) || [];
         const order = orders.find(o => o.id === id);
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
-        if (!ADMIN_TIER.includes(req.user.role)) {
+        const isAdmin = ADMIN_TIER.includes(req.user.role);
+        const now = new Date().toISOString();
+        if (isAdmin) {
+          if (!['paid', 'unpaid', 'failed'].includes(obj.payment_status)) {
+            return sendJson(res, 400, { error: 'payment_status must be one of paid, unpaid, failed' });
+          }
+          order.payment_status = obj.payment_status;
+          order.payment_updated_at = now;
+          writeJSON(orderFile, orders);
+          audit('inquiry.payment_verified', { userId: req.user.id, inquiryId: id, payment_status: obj.payment_status });
+          return sendJson(res, 200, { ok: true, payment_status: obj.payment_status, payment_updated_at: now });
+        }
+        {
           const owner = users.find(u => u.id === req.user.id);
           const myEmail = ((owner && owner.email) || '').toLowerCase();
           const mine =
             Number(order.user_id) === Number(req.user.id) || (order.customer_email || '').toLowerCase() === myEmail;
           if (!mine) return sendJson(res, 403, { error: 'Not your inquiry' });
         }
-        order.payment_status = obj.payment_status;
+
+        if (order.payment_method === 'card' && order.payment_provider === 'demo' && obj.demo_card_confirmed === true) {
+          if (order.payment_status !== 'paid') {
+            order.payment_status = 'paid';
+            order.payment_customer_reference = order.payment_reference;
+            order.payment_updated_at = now;
+            writeJSON(orderFile, orders);
+            audit('inquiry.payment_demo_completed', { userId: req.user.id, inquiryId: id, payment_reference: order.payment_reference });
+          }
+          return sendJson(res, 200, { ok: true, payment_status: 'paid', payment_reference: order.payment_reference, payment_updated_at: order.payment_updated_at || now });
+        }
+
+        if (order.payment_method !== 'gcash') {
+          return sendJson(res, 400, { error: 'Only GCash receipt references can be submitted for verification' });
+        }
+        const customerReference = String(obj.customer_reference || '').trim();
+        if (customerReference.length < 5 || customerReference.length > 100 || !/^[A-Za-z0-9\- ]+$/.test(customerReference)) {
+          return sendJson(res, 400, { error: 'Enter a valid GCash receipt reference (5–100 letters, numbers, spaces, or dashes)' });
+        }
+        if (!['unpaid', 'pending_verification'].includes(order.payment_status)) {
+          return sendJson(res, 409, { error: `This payment is already ${order.payment_status}` });
+        }
+        order.payment_status = 'pending_verification';
+        order.payment_customer_reference = sanitizeObject(customerReference);
+        order.payment_updated_at = now;
         writeJSON(orderFile, orders);
-        return sendJson(res, 200, { ok: true, payment_status: obj.payment_status });
+        audit('inquiry.payment_submitted', { userId: req.user.id, inquiryId: id });
+        return sendJson(res, 200, { ok: true, payment_status: 'pending_verification', payment_updated_at: now });
       });
     });
   }

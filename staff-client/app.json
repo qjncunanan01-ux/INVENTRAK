@@ -6,10 +6,10 @@
     "version": "1.5.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#eef7e1",
+    "backgroundColor": "#F8FAF5",
     "icon": "./assets/icon.png",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/sylver-symbol.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,7 +18,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",
-          "image": "./assets/splash.png",
+          "image": "./assets/sylver-symbol.png",
           "imageWidth": 280,
           "resizeMode": "contain"
         }

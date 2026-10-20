@@ -67,10 +67,13 @@ describe('AdminLayout responsive sidebar', () => {
 
     fireEvent.click(screen.getByLabelText('Collapse sidebar'));
 
-    // Visible labels hidden, INV mark shown, aria-labels on icon buttons
+    // Visible labels hidden, aria-labels on icon buttons.
     expect(screen.queryByText('Products')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Products')).toBeInTheDocument();
-    expect(screen.getByLabelText('INVENTRAK')).toHaveTextContent('INV');
+    // The rail shows the official Sylver symbol instead of the old "INV" text;
+    // it is still announced as INVENTRAK, which is what the label asserted.
+    expect(screen.getByLabelText('INVENTRAK')).toHaveAttribute('role', 'img');
+    expect(screen.getByLabelText('INVENTRAK').querySelector('img')).not.toBeNull();
     expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument();
     expect(localStorage.getItem('inventrak.sidebar.collapsed')).toBe('1');
 

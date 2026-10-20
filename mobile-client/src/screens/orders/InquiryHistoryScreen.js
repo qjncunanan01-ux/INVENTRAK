@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { listBackOrders, listOrderInquiries, useSessionUsername } from '../../api';
+import { cancelOrderInquiry, listBackOrders, listOrderInquiries, useSessionUsername } from '../../api';
+import Dialog from '../../Dialog';
 import EmptyState from '../../EmptyState';
 import { useThemeColors } from '../../theme-context';
 
@@ -21,7 +22,15 @@ const STATUS_TABS = [
   { key: 'fulfilled', label: 'Fulfilled' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
+  { key: 'cancelled', label: 'Cancelled' },
 ];
+
+// Mirrors the server rule (catalog-orders/inquiry-lifecycle): only a pending or
+// approved inquiry can still be cancelled. The button is hidden elsewhere, and
+// the server refuses it anyway — this is affordance, not the guard.
+const CANCELLABLE = ['pending', 'approved'];
+
+const FULFILLMENT_LABELS = { pickup: 'Pickup at store', courier: 'Courier delivery' };
 
 export default function InquiryHistoryScreen({ navigation }) {
   const { colors } = useThemeColors();
@@ -40,6 +49,11 @@ export default function InquiryHistoryScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState('all');
   const [search, setSearch] = useState('');
+  // Cancellation flow: the card asks once, through the shared cross-platform
+  // Dialog (Alert.alert is a no-op on RN-web), then reloads the list.
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelNote, setCancelNote] = useState('');
 
   const fetchData = useCallback(async() => {
     try {
@@ -66,6 +80,28 @@ export default function InquiryHistoryScreen({ navigation }) {
     }
   }, []);
 
+  // Cancelling goes through the lifecycle endpoint, never through a status PUT
+  // (a customer has no business writing arbitrary statuses). Defined AFTER
+  // fetchData because it reloads the list afterwards.
+  const doCancel = useCallback(async(cancellationReason) => {
+    if (!cancelTarget) return;
+    setCancelBusy(true);
+    try {
+      await cancelOrderInquiry({ id: cancelTarget.id }, {
+        ...(cancellationReason ? { cancellation_reason: cancellationReason } : {}),
+      });
+      setCancelTarget(null);
+      setCancelNote('');
+      await fetchData();
+    } catch (err) {
+      // Shown in the dialog body so the customer sees WHY it was refused (e.g.
+      // the order was already fulfilled) instead of the dialog closing.
+      setCancelNote(err && err.message ? err.message : 'Could not cancel this inquiry.');
+    } finally {
+      setCancelBusy(false);
+    }
+  }, [cancelTarget, fetchData]);
+
   // Fetch while logged in — and REFETCH every time the tab gains focus, so a
   // freshly placed order (e.g. "View my orders" right after checkout) shows up
   // immediately instead of a stale list until pull-to-refresh. Also covers the
@@ -87,12 +123,13 @@ export default function InquiryHistoryScreen({ navigation }) {
     case 'fulfilled': return colors.success;
     case 'delivered': return colors.success;
     case 'rejected': return colors.error;
+    case 'cancelled': return colors.textSecondary;
     default: return colors.warning;
     }
   };
 
   const counts = useMemo(() => {
-    const c = { all: inquiries.length, pending: 0, approved: 0, fulfilled: 0, delivered: 0, rejected: 0 };
+    const c = { all: inquiries.length, pending: 0, approved: 0, fulfilled: 0, delivered: 0, rejected: 0, cancelled: 0 };
     inquiries.forEach((i) => { if (c[i.status] !== undefined) c[i.status] += 1; });
     return c;
   }, [inquiries]);
@@ -285,19 +322,55 @@ export default function InquiryHistoryScreen({ navigation }) {
               Cost: P{Number(item.estimated_cost).toFixed(2)} ·{' '}
               Payment: {(item.payment_method || 'cod').toUpperCase()}
               {item.payment_status === 'paid' ? ' · ✅ PAID' : ''}
+              {item.payment_status === 'pending_verification' ? ' · ⌛ Payment submitted for review' : ''}
               {item.payment_status === 'unpaid' && item.payment_method === 'gcash' ? ' · ⏳ Unpaid' : ''}
+              {item.payment_customer_reference ? ` · GCash ref ${item.payment_customer_reference}` : ''}
+            </Text>
+            {/* Fulfilment preference + where it goes (Part 11). */}
+            <Text style={styles.detail}>
+              {item.fulfillment_method === 'courier' ? '🚚' : '🏬'}{' '}
+              {FULFILLMENT_LABELS[item.fulfillment_method] || FULFILLMENT_LABELS.pickup}
             </Text>
             {item.delivery_address ? (
               <Text style={styles.detail} numberOfLines={2}>
                 📍 {item.delivery_address}
               </Text>
             ) : null}
+            {/* Why it was rejected / cancelled — never a bare status chip. */}
+            {item.status === 'rejected' && item.rejection_reason ? (
+              <View style={styles.reasonBox}>
+                <Text style={styles.reasonLabel}>Rejected</Text>
+                <Text style={styles.reasonText}>{item.rejection_reason}</Text>
+              </View>
+            ) : null}
+            {item.status === 'cancelled' ? (
+              <View style={styles.reasonBox}>
+                <Text style={styles.reasonLabel}>Cancelled by you</Text>
+                <Text style={styles.reasonText}>
+                  {item.cancelled_at ? new Date(item.cancelled_at).toLocaleString() : '—'}
+                  {item.cancellation_reason ? ` · ${item.cancellation_reason}` : ''}
+                </Text>
+              </View>
+            ) : null}
             <Text style={styles.detail} numberOfLines={2}>
               Products: {renderProducts(item.products)}
             </Text>
             {renderBackOrder(backOrders[item.id])}
             {renderTimeline(item)}
-            <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
+              {CANCELLABLE.includes(item.status) ? (
+                <TouchableOpacity
+                  onPress={() => { setCancelNote(''); setCancelTarget(item); }}
+                  style={styles.cancelBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cancel inquiry ${item.id}`}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel inquiry</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
         )}
         ListEmptyComponent={
@@ -319,12 +392,45 @@ export default function InquiryHistoryScreen({ navigation }) {
       >
         <Text style={styles.newInquiryText}>+ New Order Inquiry</Text>
       </TouchableOpacity>
+
+      {/* Cancellation confirmation. Cross-platform Dialog (not Alert.alert,
+          which is a no-op on RN-web). The reason is optional here because the
+          business has not asked for a mandatory one; whatever the customer
+          types is stored with the cancellation. */}
+      <Dialog
+        visible={!!cancelTarget}
+        glyph="✕"
+        title="Cancel this inquiry?"
+        body={
+          cancelNote
+            ? cancelNote
+            : `Inquiry #${cancelTarget ? cancelTarget.id : ''} will be cancelled and the store notified. This cannot be undone — you would need to submit a new inquiry.`
+        }
+        confirmLabel={cancelBusy ? 'Cancelling…' : 'Yes, cancel it'}
+        cancelLabel="Keep it"
+        confirmDanger
+        onConfirm={() => { if (!cancelBusy) doCancel(''); }}
+        onCancel={() => { setCancelTarget(null); setCancelNote(''); }}
+      />
     </View>
   );
 }
 
 const createStyles = (colors) => StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: 12, marginBottom: 12, padding: 14 },
+  cardFooter: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  cancelBtn: { borderColor: colors.error, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
+  cancelBtnText: { color: colors.error, fontSize: 12, fontWeight: '700' },
+  reasonBox: {
+    backgroundColor: colors.background,
+    borderColor: 'rgba(0,0,0,0.06)',
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 8,
+    padding: 10,
+  },
+  reasonLabel: { color: colors.textPrimary, fontSize: 11, fontWeight: '800', letterSpacing: 0.6, marginBottom: 2, textTransform: 'uppercase' },
+  reasonText: { color: colors.textSecondary, fontSize: 12, lineHeight: 17 },
   backOrder: { borderRadius: 10, borderWidth: 1.5, marginTop: 10, padding: 10 },
   backOrderDone: { backgroundColor: 'rgba(46,125,50,0.08)', borderColor: colors.success },
   backOrderLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 0.4, textTransform: 'uppercase' },

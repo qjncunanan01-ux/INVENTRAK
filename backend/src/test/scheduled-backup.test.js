@@ -261,7 +261,18 @@ describe('scheduled snapshots reach the durable store', () => {
     assert.equal(remote.stopScheduler(), true);
     const settled = store.rows.length;
     await new Promise((r) => setTimeout(r, 80));
-    assert.equal(store.rows.length, settled, 'no pushes after stop()');
+    // stopScheduler() clears the interval, so no NEW tick begins — but a push
+    // that was already in flight when stop() was called still finishes (that is
+    // deliberate: a shutdown must not throw away a snapshot it had started).
+    // One extra row is therefore legitimate; an interval that is still ticking
+    // would add several in this window (25ms period, 80ms wait). The bound is
+    // what separates "stopped with one write in flight" from "still running",
+    // and asserting exactly 0 made this test fail under a loaded full-suite run.
+    const after = store.rows.length;
+    assert.ok(
+      after - settled <= 1,
+      `at most one in-flight push may land after stop() (saw ${after - settled} new pushes)`,
+    );
 
     const lines = auditLines().filter((l) => l.event === 'backup.pushed' && l.trigger === 'schedule');
     assert.ok(lines.length >= 1, 'every scheduled push is on the audit trail');

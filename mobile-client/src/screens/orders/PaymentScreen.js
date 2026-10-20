@@ -5,6 +5,7 @@ import {
   Linking,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -12,16 +13,16 @@ import { updateInquiryPayment } from '../../api';
 import { useThemeColors } from '../../theme-context';
 import Dialog from '../../Dialog';
 
-// GCash payment step (reviewer requirement): after placing a GCash/card order,
-// the customer lands here to actually pay — a QR to scan in the GCash app (or
-// an open payment link when a PayMongo checkout session exists), then confirm
-// with "I've paid" which marks the inquiry paid for the admin dashboard.
+// GCash receipt references are reviewed by an admin. Card is a labelled demo
+// transaction only; no card data is collected and no charge is made.
 export default function PaymentScreen({ route, navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { inquiryId, payment } = route.params || {};
+  const liveGateway = payment && payment.payment_provider === 'paymongo';
   const [busy, setBusy] = useState(false);
-  const [paid, setPaid] = useState(false);
+  const [paymentResult, setPaymentResult] = useState(null);
+  const [customerReference, setCustomerReference] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [showError, setShowError] = useState(false);
 
@@ -45,11 +46,16 @@ export default function PaymentScreen({ route, navigation }) {
     }
   };
 
-  const confirmPaid = async() => {
+  const submitPayment = async() => {
     setBusy(true);
     try {
-      await updateInquiryPayment({ id: inquiryId }, { payment_status: 'paid' });
-      setPaid(true);
+      const response = await updateInquiryPayment(
+        { id: inquiryId },
+        payment.payment_method === 'card'
+          ? { demo_card_confirmed: true }
+          : { customer_reference: customerReference.trim() },
+      );
+      setPaymentResult(response.payment_status);
     } catch (err) {
       setErrorMsg(err.message || 'Could not confirm payment. Please try again.');
       setShowError(true);
@@ -58,13 +64,15 @@ export default function PaymentScreen({ route, navigation }) {
     }
   };
 
-  if (paid) {
+  if (paymentResult) {
     return (
       <View style={styles.center}>
-        <Text style={styles.bigGlyph}>✓</Text>
-        <Text style={styles.title}>Payment confirmed</Text>
+        <Text style={styles.bigGlyph}>{paymentResult === 'paid' ? '✓' : '⌛'}</Text>
+        <Text style={styles.title}>{paymentResult === 'paid' ? 'Demo transaction complete' : 'Payment sent for review'}</Text>
         <Text style={styles.subtitle}>
-          Your order is now marked as paid. The store will review it shortly.
+          {paymentResult === 'paid'
+            ? 'This was a simulated card transaction. No card was charged. The store will review your order.'
+            : 'The store will verify your GCash receipt reference. The order will stay unpaid until the store confirms it.'}
         </Text>
         {/* Clear next step instead of a dead-end confirmation: the paid state
             must lead somewhere (Alert.alert would be invisible on web). */}
@@ -81,35 +89,71 @@ export default function PaymentScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Pay via {String(payment.payment_method || 'gcash').toUpperCase()}</Text>
+      <Text style={styles.title}>{payment.payment_method === 'card' ? 'Demo card transaction' : 'Pay via GCash'}</Text>
       <Text style={styles.subtitle}>
-        Scan the QR with your GCash app (or open the payment link) to complete payment for this order.
+        {payment.payment_method === 'card'
+          ? 'This demo creates a transaction record only. Do not enter card details; no real card is charged.'
+          : liveGateway
+            ? 'Pay using the secure checkout link or QR, then enter the receipt reference from your GCash confirmation. The store verifies it.'
+            : 'No live GCash gateway is configured. Contact Sylver for its current GCash payment details, then enter the receipt reference from your transfer. The store verifies it.'}
       </Text>
 
-      <View style={styles.qrCard}>
-        {payment.payment_qr ? (
-          <Image source={{ uri: payment.payment_qr }} style={styles.qr} resizeMode="contain" />
-        ) : (
-          <ActivityIndicator size="large" color={colors.brandPrimary} />
-        )}
-      </View>
+      {payment.payment_method === 'card' ? (
+        <View style={styles.demoCard}>
+          <Text style={styles.demoCardGlyph}>💳</Text>
+          <Text style={styles.demoCardTitle}>No card details required</Text>
+          <Text style={styles.demoCardBody}>The button below completes a clearly labelled demo transaction.</Text>
+        </View>
+      ) : liveGateway ? (
+        <View style={styles.qrCard}>
+          {payment.payment_qr ? (
+            <Image source={{ uri: payment.payment_qr }} style={styles.qr} resizeMode="contain" />
+          ) : (
+            <ActivityIndicator size="large" color={colors.brandPrimary} />
+          )}
+        </View>
+      ) : (
+        <View style={styles.demoCard}>
+          <Text style={styles.demoCardGlyph}>₱</Text>
+          <Text style={styles.demoCardTitle}>Manual GCash verification</Text>
+          <Text style={styles.demoCardBody}>This demo does not receive money. Confirm the store's payment details directly before transferring.</Text>
+        </View>
+      )}
 
       <View style={styles.refCard}>
-        <Text style={styles.refLabel}>Payment reference</Text>
+        <Text style={styles.refLabel}>Order payment reference</Text>
         <Text style={styles.refCode}>{payment.payment_reference || '—'}</Text>
-        <Text style={styles.refHint}>Mention this reference when paying.</Text>
+        <Text style={styles.refHint}>{payment.payment_method === 'card' ? 'Demo transaction ID' : 'Use this reference if requested by the payment provider.'}</Text>
       </View>
 
-      {payment.payment_url ? (
+      {payment.payment_method === 'gcash' ? (
+        <TextInput
+          style={styles.referenceInput}
+          value={customerReference}
+          onChangeText={setCustomerReference}
+          placeholder="GCash receipt reference number"
+          autoCapitalize="characters"
+          maxLength={100}
+          accessibilityLabel="GCash receipt reference number"
+        />
+      ) : null}
+
+      {payment.payment_method === 'gcash' && payment.payment_url ? (
         <TouchableOpacity style={[styles.btn, styles.btnLink]} onPress={openLink}>
           <Text style={styles.btnLinkText}>Open payment link ↗</Text>
         </TouchableOpacity>
       ) : null}
 
-      <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={confirmPaid} disabled={busy}>
-        <Text style={styles.btnPrimaryText}>{busy ? 'Confirming...' : 'I\'ve paid — confirm'}</Text>
+      <TouchableOpacity
+        style={[styles.btn, styles.btnPrimary, payment.payment_method === 'gcash' && !customerReference.trim() && styles.btnDisabled]}
+        onPress={submitPayment}
+        disabled={busy || (payment.payment_method === 'gcash' && !customerReference.trim())}
+      >
+        <Text style={styles.btnPrimaryText}>
+          {busy ? 'Submitting...' : payment.payment_method === 'card' ? 'Complete demo transaction' : 'Submit receipt reference'}
+        </Text>
       </TouchableOpacity>
-      <Text style={styles.hint}>In demo mode no real charge is made — tap confirm to continue.</Text>
+      {payment.payment_method === 'gcash' ? <Text style={styles.hint}>Payment remains unverified until the store checks your receipt reference.</Text> : null}
 
       {/* Payment error dialog (cross-platform) */}
       <Dialog
@@ -131,11 +175,17 @@ const createStyles = (colors) => StyleSheet.create({
   btnLink: { borderColor: colors.info, borderWidth: 1.5 },
   btnLinkText: { color: colors.info, fontSize: 15, fontWeight: '700' },
   btnPrimary: { backgroundColor: colors.brandPrimary },
+  btnDisabled: { opacity: 0.45 },
   btnPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: 24 },
   container: { backgroundColor: colors.background, flex: 1, padding: 20 },
+  demoCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, marginBottom: 16, padding: 24 },
+  demoCardGlyph: { fontSize: 36, marginBottom: 8 },
+  demoCardTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: '800' },
+  demoCardBody: { color: colors.textSecondary, fontSize: 13, lineHeight: 18, marginTop: 6, textAlign: 'center' },
   hint: { color: colors.textSecondary, fontSize: 12, marginTop: 4, textAlign: 'center' },
   qr: { borderRadius: 8, height: 220, width: 220 },
+  referenceInput: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 10, borderWidth: 1, color: colors.textPrimary, marginBottom: 12, padding: 14 },
   qrCard: {
     alignSelf: 'center',
     backgroundColor: '#fff',

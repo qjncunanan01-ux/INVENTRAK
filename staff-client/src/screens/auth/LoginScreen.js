@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -20,6 +21,7 @@ const STAFF_TIER_ONLY = ['staff'];
 const APP_VERSION =
   (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.5.0';
 import { useThemeColors } from '../../theme-context';
+import { company } from '../../theme';
 
 // Staff sign-in — this app is EXCLUSIVELY for Inventory Staff. The login
 // sends portal: 'staff', which the SERVER enforces (403 staff_app_exclusive
@@ -90,13 +92,22 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.brand}>
+        {/* Official Sylver mark. The placeholder glyph that used to live here
+            was a stand-in; the supplied artwork is opaque white, so it sits on
+            a white chip rather than being recoloured or cropped. */}
         <View style={styles.logoBox}>
-          <Text style={styles.logoGlyph}>▦</Text>
+          <Image
+            source={company.symbol}
+            style={styles.logoMark}
+            resizeMode="contain"
+            accessibilityLabel="Sylver Restaurant and Coffee Supplies logo"
+          />
         </View>
         <Text style={styles.title}>INVENTRAK Staff</Text>
         <Text style={styles.subtitle}>
           QR scanning · physical counts · adjustment requests
         </Text>
+        <Text style={styles.tagline}>{company.tagline}</Text>
       </View>
 
       <View style={styles.card}>
@@ -154,17 +165,30 @@ const createStyles = (colors) =>
     wrap: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', padding: 24 },
     brand: { alignItems: 'center', marginBottom: 28 },
     logoBox: {
-      width: 64,
-      height: 64,
-      borderRadius: 16,
-      backgroundColor: colors.brandPrimary,
+      width: 72,
+      height: 72,
+      borderRadius: 18,
+      // White, not brandPrimary: the supplied mark ships on opaque white and
+      // would look pasted-on over green.
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
+      padding: 8,
       marginBottom: 12,
     },
-    logoGlyph: { color: '#fff', fontSize: 30, fontWeight: '900' },
+    logoMark: { height: '100%', width: '100%' },
     title: { fontSize: 24, fontWeight: '800', color: colors.textPrimary },
     subtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+    tagline: {
+      color: colors.brandBrownDark,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 1.2,
+      marginTop: 6,
+      textAlign: 'center',
+    },
     card: { backgroundColor: colors.surface, borderRadius: 16, padding: 18 },
     label: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginBottom: 6 },
     input: {

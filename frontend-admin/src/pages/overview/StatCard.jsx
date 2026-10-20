@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import AnimatedCounter from '../../components/AnimatedCounter';
 import LiquidGlassCard from '../../components/LiquidGlassCard';
 import { MONEY_MASK } from '../../components/Money';
+import { colors } from '../../theme';
 
 // Reusable stat card with Motion Primitives-style animation. Extracted from
 // DashboardPage: it is purely presentational (panel + flags in, click out).
@@ -37,7 +38,7 @@ export default function StatCard({ panel, loading, onClick, index = 0, masked = 
               transition: 'box-shadow 0.2s ease-in-out',
               backdropFilter: 'blur(8px)',
               '&:focus-visible': {
-                outline: '2px solid #1f640e',
+                outline: `2px solid ${colors.brandPrimaryDark}`,
                 outlineOffset: '2px',
               },
             }}

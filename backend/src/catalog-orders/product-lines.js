@@ -32,11 +32,11 @@ function parseLegacyString(entry) {
 function normalizeLine(entry, index) {
   if (entry && typeof entry === 'object') {
     const name = String(entry.name || entry.product_name || 'Item').trim() || `Item ${index + 1}`;
-    const qty = Math.max(1, Math.floor(Number(entry.qty) || 1));
+    const qty = Math.max(1, Math.floor(Number(entry.qty ?? entry.quantity) || 1));
     const unitPrice = Number(entry.price) > 0 ? Number(entry.price) : null;
     const originalPrice = Number(entry.original_price) > 0 ? Number(entry.original_price) : null;
     return {
-      id: entry.id !== undefined && entry.id !== null ? entry.id : null,
+      id: entry.id !== undefined && entry.id !== null ? Number(entry.id) : null,
       name,
       qty,
       unit_price: unitPrice,

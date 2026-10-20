@@ -27,7 +27,7 @@ export default function NotFoundPage() {
           sx={{
             fontSize: { xs: '4rem', md: '6rem' },
             fontWeight: 900,
-            color: colors.brandPrimary,
+            color: colors.brandPrimaryDark,
             lineHeight: 1,
             mb: 1,
           }}
@@ -48,7 +48,8 @@ export default function NotFoundPage() {
           size="large"
           sx={{
             backgroundColor: colors.brandPrimary,
-            '&:hover': { backgroundColor: '#19570c' },
+            color: colors.textPrimary,
+            '&:hover': { backgroundColor: '#72A82D' },
           }}
         >
           Back to Dashboard

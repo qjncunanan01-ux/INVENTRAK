@@ -26,7 +26,7 @@ import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { getCurrentUser, getMeta } from '../../api';
 import { ADMIN_TIER, STAFF_TIER, MANAGEMENT_TIER, roleMeta } from '../../roles';
-import { brandSidebar, colors } from '../../theme';
+import { brandSidebar, colors, company } from '../../theme';
 import Breadcrumbs from '../../components/Breadcrumbs';
 import LiquidGlassCard from '../../components/LiquidGlassCard';
 
@@ -143,18 +143,87 @@ function NavContent({ collapsed = false, onNavigate, uiBuild, apiBuild }) {
 
   return (
     <>
+      {/* Brand block: the official Sylver mark, the software name, and the
+          company tagline. The mark ships on opaque white, so it sits in a white
+          chip — that reads as a deliberate badge on the green rail instead of a
+          pasted-on square. Collapsed rail keeps the chip so the brand is still
+          identifiable at 72px wide. */}
       <Box sx={{ px: collapsed ? 0 : 2, textAlign: collapsed ? 'center' : 'left' }}>
         {collapsed ? (
-          <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: 1 }} aria-label="INVENTRAK">
-            INV
-          </Typography>
+          <Box
+            // The rail has no room for the wordmark, so the mark itself is the
+            // brand: labelled INVENTRAK, which is what a screen reader needs
+            // where the old "INV" text used to be.
+            role="img"
+            aria-label="INVENTRAK"
+            title={company.name}
+            sx={{
+              width: 40,
+              height: 40,
+              mx: 'auto',
+              mb: 1,
+              p: 0.4,
+              borderRadius: 2,
+              backgroundColor: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Box
+              component="img"
+              src={company.symbol}
+              alt=""
+              sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          </Box>
         ) : (
           <>
-            <Typography variant="h5" sx={{ mb: 1, letterSpacing: 0.5, fontWeight: 800 }}>
-              INVENTRAK
-            </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.88 }}>
-              Inventory admin portal
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 0.5 }}>
+              <Box
+                sx={{
+                  width: 42,
+                  height: 42,
+                  p: 0.4,
+                  borderRadius: 2,
+                  backgroundColor: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Box
+                  component="img"
+                  src={company.symbol}
+                  alt={`${company.name} logo`}
+                  sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h6" sx={{ letterSpacing: 0.5, fontWeight: 800, lineHeight: 1.1 }}>
+                  INVENTRAK
+                </Typography>
+                <Typography variant="caption" sx={{ opacity: 0.82, letterSpacing: 0.3 }}>
+                  Inventory admin portal
+                </Typography>
+              </Box>
+            </Box>
+            <Typography
+              variant="caption"
+              component="p"
+              sx={{
+                mt: 0.75,
+                mb: 1.5,
+                fontSize: '0.56rem',
+                letterSpacing: 0.7,
+                // One line: the tagline broke mid-phrase at the sidebar width
+                // and read as two unrelated fragments.
+                whiteSpace: 'nowrap',
+                opacity: 0.72,
+              }}
+            >
+              {company.tagline}
             </Typography>
           </>
         )}

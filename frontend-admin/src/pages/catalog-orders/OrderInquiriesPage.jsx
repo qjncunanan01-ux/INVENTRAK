@@ -11,6 +11,9 @@ const STATUS_COLORS = {
   fulfilled: 'success',
   delivered: 'success',
   rejected: 'error',
+  // Customer-initiated cancellation — a neutral state, not a failure: the
+  // customer changed their mind. Red would read as "the business rejected it".
+  cancelled: 'default',
 };
 
 const STATUS_FILTERS = [
@@ -20,7 +23,12 @@ const STATUS_FILTERS = [
   { key: 'fulfilled', label: 'Fulfilled' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
+  { key: 'cancelled', label: 'Cancelled' },
 ];
+
+// How the customer asked to receive the order. A preference only — nothing in
+// this system books a courier.
+const FULFILLMENT_LABELS = { pickup: 'PICKUP', courier: 'COURIER' };
 
 // Parse an order's stored products JSON into an array of line items.
 // Handles the structured lines ({ name, qty, price, original_price, ... })
@@ -76,7 +84,7 @@ function renderLineItems(lines) {
             <Chip label={`-${Math.round(savings)}%`} size="small" sx={{ height: 18, backgroundColor: '#ffe3dd', color: '#e23744', fontWeight: 800, fontSize: '0.65rem' }} />
           </>
         ) : price !== null ? (
-          <Typography variant="body2" component="span" sx={{ color: colors.brandPrimary, fontWeight: 600 }}>
+          <Typography variant="body2" component="span" sx={{ color: colors.brandPrimaryDark, fontWeight: 600 }}>
             P{price}
           </Typography>
         ) : null}
@@ -126,6 +134,19 @@ function StatusTimeline({ history, currentStatus }) {
       </Box>
     );
   }
+  // A cancellation ends the ladder as well — the steps to the left are what
+  // actually happened, and the last one is the stop. Neutral ink, because the
+  // customer choosing to cancel is not a failure the business has to fix.
+  if (currentStatus === 'cancelled') {
+    const cancelledAt = (history[history.length - 1] || {}).at;
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+          Cancelled{cancelledAt ? ` · ${new Date(cancelledAt).toLocaleString()}` : ''}
+        </Typography>
+      </Box>
+    );
+  }
   const reached = new Set((history || []).map((h) => h.status));
   const at = (key) => ((history || []).find((h) => h.status === key) || {}).at;
   return (
@@ -162,9 +183,12 @@ function StatusTimeline({ history, currentStatus }) {
 export default function OrderInquiriesPage({ onLogout }) {
   usePageTitle('/order-inquiries');
   const [orders, setOrders] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '' });
+  // `reason` is the rejection reason. It is REQUIRED for a rejection (the
+  // backend refuses a bare one) and ignored for every other action.
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', location_id: '' });
   const [details, setDetails] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -177,27 +201,55 @@ export default function OrderInquiriesPage({ onLogout }) {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadOrders(); }, []);
+  useEffect(() => {
+    loadOrders();
+    apiGet('/api/locations').then((r) => setLocations(Array.isArray(r) ? r : r.data || [])).catch(() => setLocations([]));
+  }, []);
 
   const handleConfirmAction = (orderId, status) => {
-    setConfirmDialog({ open: true, id: orderId, status });
+    setConfirmDialog({ open: true, id: orderId, status, reason: '', location_id: '' });
   };
 
+  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', location_id: '' });
+
+  // A rejection is only meaningful with a reason the customer can act on, so
+  // the Confirm button stays disabled until one is typed. The backend enforces
+  // the same rule — this is the affordance, not the guard.
+  const isRejection = confirmDialog.status === 'rejected';
+  const reasonMissing = isRejection && !confirmDialog.reason.trim();
+  const needsStockLocation = ['fulfilled', 'delivered'].includes(confirmDialog.status);
+  const locationMissing = needsStockLocation && !Number(confirmDialog.location_id);
+
   const executeAction = async() => {
+    if (reasonMissing) return;
     try {
-      await apiPut(`/api/order-inquiries/${confirmDialog.id}`, { status: confirmDialog.status });
+      await apiPut(`/api/order-inquiries/${confirmDialog.id}`, {
+        status: confirmDialog.status,
+        ...(isRejection ? { rejection_reason: confirmDialog.reason.trim() } : {}),
+        ...(needsStockLocation ? { location_id: Number(confirmDialog.location_id) } : {}),
+      });
       setSnackbar({ open: true, message: `Order marked ${confirmDialog.status}`, severity: 'success' });
       loadOrders();
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     } finally {
-      setConfirmDialog({ open: false, id: null, status: '' });
+      closeConfirm();
     }
   };
 
   // Pending count drives an urgency chip in the header: work waiting in the
   // queue, at a glance.
   const pendingCount = (Array.isArray(orders) ? orders : []).filter(o => o.status === 'pending').length;
+
+  const verifyPayment = async(orderId) => {
+    try {
+      await apiPut(`/api/order-inquiries/${orderId}/payment`, { payment_status: 'paid' });
+      setSnackbar({ open: true, message: 'Payment verified', severity: 'success' });
+      loadOrders();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    }
+  };
 
   // Status dropdown filter (combined with the search bar): 'All statuses'
   // shows everything; a specific status narrows first, then the text search
@@ -241,6 +293,9 @@ export default function OrderInquiriesPage({ onLogout }) {
     }
     if (order.status === 'delivered') {
       return <Chip label="✓ Delivered" color="success" size="small" variant="outlined" />;
+    }
+    if (order.status === 'cancelled') {
+      return <Chip label="Cancelled by customer" size="small" variant="outlined" />;
     }
     return <Chip label="Rejected" color="error" size="small" variant="outlined" />;
   };
@@ -321,17 +376,41 @@ export default function OrderInquiriesPage({ onLogout }) {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        {/* Fulfilment first: it decides whether the address below matters. */}
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={FULFILLMENT_LABELS[order.fulfillment_method] || FULFILLMENT_LABELS.pickup}
+                          color={order.fulfillment_method === 'courier' ? 'info' : 'default'}
+                        />
                         <Chip size="small" label={(order.payment_method || 'cod').toUpperCase()} color={order.payment_method === 'gcash' ? 'info' : 'default'} />
                         {order.payment_status === 'paid' && <Chip size="small" label="PAID" color="success" />}
+                        {order.payment_status === 'pending_verification' && <Chip size="small" label="VERIFY GCash" color="warning" />}
                         {order.payment_status === 'unpaid' && order.payment_method !== 'cod' && <Chip size="small" label="UNPAID" variant="outlined" />}
                       </Box>
                       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                         {order.delivery_address || '—'}
-                        {order.payment_reference ? ` · ${order.payment_reference}` : ''}
+                        {order.payment_reference ? ` · Order ref ${order.payment_reference}` : ''}
+                        {order.payment_customer_reference ? ` · Receipt ref ${order.payment_customer_reference}` : ''}
                       </Typography>
+                      {order.payment_status === 'pending_verification' && (
+                        <Button size="small" color="success" onClick={() => verifyPayment(order.id)} sx={{ mt: 0.5 }}>Verify payment</Button>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Chip label={order.status} color={STATUS_COLORS[order.status] || 'default'} size="small" />
+                      {/* A rejected order carries the reason the admin gave —
+                          never just the red chip. Same for a cancellation. */}
+                      {order.status === 'rejected' && order.rejection_reason && (
+                        <Typography variant="caption" display="block" sx={{ mt: 0.5, maxWidth: 220, color: 'error.main' }}>
+                          {order.rejection_reason}
+                        </Typography>
+                      )}
+                      {order.status === 'cancelled' && (
+                        <Typography variant="caption" display="block" sx={{ mt: 0.5, maxWidth: 220, color: 'text.secondary' }}>
+                          {order.cancellation_reason || 'No reason given'}
+                        </Typography>
+                      )}
                       {/* Compact progress dots so the timeline is visible at a
                           glance without opening Details (see StatusTimeline). */}
                       <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
@@ -352,16 +431,51 @@ export default function OrderInquiriesPage({ onLogout }) {
         </TableContainer>
       </Paper>
 
-      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, id: null, status: '' })}>
+      <Dialog open={confirmDialog.open} onClose={closeConfirm} maxWidth="sm" fullWidth>
         <DialogTitle>Confirm action: mark this inquiry as "{confirmDialog.status}"?</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ mb: isRejection ? 2 : 0 }}>
             The customer will be notified by email{/* (and SMS when a phone was provided) */} of the status change.
           </Typography>
+          {isRejection && (
+            <TextField
+              fullWidth
+              required
+              multiline
+              minRows={2}
+              label="Why is this inquiry being rejected?"
+              helperText="Required — the customer sees this. e.g. &quot;Out of stock until next week&quot;."
+              value={confirmDialog.reason}
+              onChange={(e) => setConfirmDialog((d) => ({ ...d, reason: e.target.value }))}
+              inputProps={{ maxLength: 500 }}
+              error={confirmDialog.reason.length > 500}
+              autoFocus
+            />
+          )}
+          {needsStockLocation && (
+            <FormControl fullWidth required size="small" sx={{ mt: 2 }}>
+              <InputLabel id="fulfillment-location-label">Stock location</InputLabel>
+              <Select
+                labelId="fulfillment-location-label"
+                value={confirmDialog.location_id}
+                label="Stock location"
+                onChange={(e) => setConfirmDialog((d) => ({ ...d, location_id: e.target.value }))}
+              >
+                {locations.map((location) => (
+                  <MenuItem key={location.id} value={location.id}>{location.name}</MenuItem>
+                ))}
+              </Select>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                Stock and the sales ledger update together when fulfillment is confirmed.
+              </Typography>
+            </FormControl>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDialog({ open: false, id: null, status: '' })}>Cancel</Button>
-          <Button onClick={executeAction} variant="contained" color="primary">Confirm</Button>
+          <Button onClick={closeConfirm}>Cancel</Button>
+          <Button onClick={executeAction} variant="contained" color="primary" disabled={reasonMissing || locationMissing}>
+            Confirm
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -378,12 +492,38 @@ export default function OrderInquiriesPage({ onLogout }) {
               </Box>
               <Typography variant="subtitle2">Cost</Typography>
               <Typography variant="body2" mb={1}>P{details.estimated_cost} ({details.payment_method?.toUpperCase()} · {details.payment_status || 'unpaid'})</Typography>
+              <Typography variant="subtitle2">Fulfilment</Typography>
+              <Typography variant="body2" mb={1}>
+                {FULFILLMENT_LABELS[details.fulfillment_method] || FULFILLMENT_LABELS.pickup}
+                {details.fulfillment_method === 'courier' ? ` · ${details.delivery_address || 'no address'}` : ' · customer collects'}
+              </Typography>
               <Typography variant="subtitle2">Delivery address</Typography>
               <Typography variant="body2" mb={1}>{details.delivery_address || '—'}</Typography>
+              {details.status === 'rejected' && (
+                <>
+                  <Typography variant="subtitle2">Rejection reason</Typography>
+                  <Typography variant="body2" mb={1} color="error.main">{details.rejection_reason || '—'}</Typography>
+                </>
+              )}
+              {details.status === 'cancelled' && (
+                <>
+                  <Typography variant="subtitle2">Cancelled by the customer</Typography>
+                  <Typography variant="body2" mb={1}>
+                    {details.cancelled_at ? new Date(details.cancelled_at).toLocaleString() : '—'}
+                    {details.cancellation_reason ? ` · ${details.cancellation_reason}` : ''}
+                  </Typography>
+                </>
+              )}
               {details.payment_reference && (
                 <>
-                  <Typography variant="subtitle2">Payment reference</Typography>
+                  <Typography variant="subtitle2">Order payment reference</Typography>
                   <Typography variant="body2" mb={1}>{details.payment_reference}</Typography>
+                </>
+              )}
+              {details.payment_customer_reference && (
+                <>
+                  <Typography variant="subtitle2">Customer GCash receipt reference</Typography>
+                  <Typography variant="body2" mb={1}>{details.payment_customer_reference}</Typography>
                 </>
               )}
               <Typography variant="subtitle2">Status timeline</Typography>

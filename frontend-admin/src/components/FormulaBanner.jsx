@@ -32,11 +32,11 @@ export default function FormulaBanner({ title, items, note, dense = false }) {
         backgroundColor: 'rgba(31, 100, 14, 0.05)',
       }}
     >
-      <FunctionsOutlined sx={{ color: colors.brandPrimary, fontSize: 20, mt: '2px' }} aria-hidden />
+      <FunctionsOutlined sx={{ color: colors.brandPrimaryDark, fontSize: 20, mt: '2px' }} aria-hidden />
       <Box>
         <Typography
           variant="overline"
-          sx={{ display: 'block', lineHeight: 1.4, color: colors.brandPrimary, fontWeight: 700 }}
+          sx={{ display: 'block', lineHeight: 1.4, color: colors.brandPrimaryDark, fontWeight: 700 }}
         >
           {title || 'Formula'}
         </Typography>

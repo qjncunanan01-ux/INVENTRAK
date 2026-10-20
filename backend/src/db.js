@@ -210,9 +210,47 @@ if (!productColumns.some(c => c.name === 'cost')) {
 if (!inquiryColumns.some(c => c.name === 'customer_id')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN customer_id INTEGER');
 }
+
+// Order lifecycle: fulfilment preference, rejection reason and the cancellation
+// record. Additive and nullable (fulfillment_method carries a default), so
+// existing inquiries keep working and read back as 'pickup' with no reason —
+// which is the truth for rows created before these fields existed.
+if (!inquiryColumns.some(c => c.name === 'fulfillment_method')) {
+  db.exec("ALTER TABLE order_inquiries ADD COLUMN fulfillment_method TEXT DEFAULT 'pickup'");
+}
+if (!inquiryColumns.some(c => c.name === 'rejection_reason')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN rejection_reason TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'cancelled_at')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN cancelled_at TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'cancellation_reason')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN cancellation_reason TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'payment_customer_reference')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_customer_reference TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'payment_updated_at')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_updated_at TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'terms_version')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN terms_version TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'terms_accepted_at')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN terms_accepted_at TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'fulfillment_location_id')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN fulfillment_location_id INTEGER');
+}
+if (!inquiryColumns.some(c => c.name === 'inventory_committed_at')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN inventory_committed_at TEXT');
+}
 const salesColumns = db.prepare('PRAGMA table_info(sales_transactions)').all();
 if (!salesColumns.some(c => c.name === 'customer_id')) {
   db.exec('ALTER TABLE sales_transactions ADD COLUMN customer_id INTEGER');
+}
+if (!salesColumns.some(c => c.name === 'order_inquiry_id')) {
+  db.exec('ALTER TABLE sales_transactions ADD COLUMN order_inquiry_id INTEGER');
 }
 
 module.exports = { db };

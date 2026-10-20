@@ -7,7 +7,7 @@ import {
   Pie, PieChart,
   ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis,
 } from 'recharts';
-import { colors } from '../../theme';
+import { brand, colors } from '../../theme';
 import FormulaBanner from '../../components/FormulaBanner';
 import { SectionLabel, NoData } from './DashboardSection';
 
@@ -15,10 +15,15 @@ import { SectionLabel, NoData } from './DashboardSection';
 // receives already-derived chart data + the role flags, and owns only its own
 // range selectors (passed in so the page keeps the state).
 
-const CHART_COLORS = ['#1f640e', '#a8d22b', '#f9a825', '#1565c0', '#d32f2f', '#c8e6c9'];
-const FAST_COLOR = '#1f640e';
-const SLOW_COLOR = '#f9a825';
-const ORDER_STATUS_COLORS = ['#f9a825', '#1f640e', '#d32f2f'];
+// Series colours come from the Sylver palette (see theme.js) so the charts, the
+// cards and the buttons can never drift apart. Green-brown-amber first: those
+// are the three the brand actually uses, then info/error for semantic series.
+const CHART_COLORS = [brand.greenDark, brand.brown, colors.warning, colors.info, colors.error, brand.green];
+const FAST_COLOR = brand.greenDark;
+const SLOW_COLOR = colors.warning;
+// Pending / approved / rejected — amber, green, red, exactly as the status
+// chips read everywhere else in the console.
+const ORDER_STATUS_COLORS = [colors.warning, brand.greenDark, colors.error];
 
 // ─── Stock value + stock per location (live point-in-time) ───
 export function InventoryAnalyticsSection({ isExecutive, productValueData, locationStockData }) {

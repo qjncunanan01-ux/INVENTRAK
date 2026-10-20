@@ -23,6 +23,7 @@ Start here depending on what you need to know:
 | **[CAPSTONE-PROGRESS.md](CAPSTONE-PROGRESS.md)** | Delivery status per workstream, including what is intentionally unfinished. |
 | **[APK-INSTALL.md](APK-INSTALL.md)** | Building and installing the Android APKs without Expo Go. |
 | **[docs/agent-skills/](docs/agent-skills/README.md)** | Vetted agent instruction sets vendored in from four upstream projects (MIT / Apache-2.0, attribution preserved), with a record of what was rejected and why. |
+| **[docs/branding.md](docs/branding.md)** | The official Sylver palette and logo assets: the design tokens each app exports, the fill-vs-ink contrast rule, where every logo is placed, and why the artwork is never made transparent. |
 
 ## Architecture
 

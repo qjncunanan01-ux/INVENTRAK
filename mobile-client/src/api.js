@@ -379,6 +379,11 @@ export const listOrderInquiries = client.listOrderInquiries;
 // customer's shortfall. Read-only here: only admins may record a back order.
 export const listBackOrders = client.listBackOrders;
 export const createOrderInquiry = client.createOrderInquiry;
+// Customer-initiated cancellation (pending/approved only; the server decides
+// and refuses with 409 otherwise). Safe under this module's retry wrapper: a
+// repeated cancel is idempotent on the server and returns the ORIGINAL
+// timestamp and reason rather than rewriting them.
+export const cancelOrderInquiry = client.cancelOrderInquiry;
 export const updateInquiryPayment = client.updateInquiryPayment;
 // QR product identification (staff/admin Scan & Count): the scanned tag
 // payload / SKU / bare id resolves to one product with live per-location

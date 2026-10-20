@@ -77,7 +77,13 @@ export function CartProvider({ children }) {
   // `originalPrice` snapshots the pre-discount catalog price for deal items,
   // so the order record can show the discount applied (deal vs original).
   const addItem = useCallback((product, qty = 1, price, originalPrice) => {
-    const q = Math.max(1, Math.floor(Number(qty) || 1));
+    // Deep links, stale catalog rows, or an expired recommendation can resolve
+    // without a product. Treat that as a failed add instead of dereferencing
+    // an absent row and crashing the customer app.
+    if (!product || product.id == null || !Number.isFinite(Number(product.id))) return false;
+    const requested = Math.floor(Number(qty) || 1);
+    if (requested > 10000) return false;
+    const q = Math.max(1, requested);
     const unit = Number(price) > 0 ? Number(price) : Number(product.price) || 0;
     const original = Number(originalPrice) > 0 ? Number(originalPrice) : null;
     setItems((prev) => {
@@ -91,6 +97,7 @@ export function CartProvider({ children }) {
       }
       return [...prev, { product, qty: q, price: unit, original_price: original }];
     });
+    return true;
   }, []);
 
   // Sets an exact quantity; 0 removes the line (stepper minus at qty 1).

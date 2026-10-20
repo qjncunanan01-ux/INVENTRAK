@@ -101,7 +101,7 @@ export default function LocationsPage({ onLogout }) {
               startIcon={<QrCode2Icon />}
               onClick={() => setShowQr(true)}
               disabled={locList.length === 0}
-              sx={{ color: colors.brandPrimary, borderColor: colors.brandPrimary }}
+              sx={{ color: colors.brandPrimaryDark, borderColor: colors.brandPrimaryDark }}
             >
               QR tags
             </Button>
@@ -110,7 +110,7 @@ export default function LocationsPage({ onLogout }) {
               startIcon={<PrintIcon />}
               onClick={() => setShowSheet(true)}
               disabled={locList.length === 0}
-              sx={{ color: colors.brandPrimary, borderColor: colors.brandPrimary }}
+              sx={{ color: colors.brandPrimaryDark, borderColor: colors.brandPrimaryDark }}
             >
               Print tag sheet
             </Button>

@@ -64,6 +64,14 @@ const CATEGORY_BLURBS = {
 const DEFAULT_BLURB =
   'A cafe & restaurant essential from Sylver — consistent quality, food-service sizing, and dependable supply for daily operations.';
 
+// Keep packaging size visible in titles without repeating it when the catalog
+// name already includes the pack size.
+export function productTitle(product) {
+  const name = String(product && product.name || 'Item').trim();
+  const size = String(product && product.size || '').trim();
+  return size && !name.toLowerCase().includes(size.toLowerCase()) ? `${name} (${size})` : name;
+}
+
 export function describeProduct(product) {
   if (!product) return '';
   const desc = (product.description || '').trim();

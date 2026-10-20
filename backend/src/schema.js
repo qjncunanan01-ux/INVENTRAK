@@ -87,9 +87,15 @@ CREATE TABLE IF NOT EXISTS order_inquiries (
   estimated_cost REAL,
   notes TEXT,
   delivery_address TEXT,
+  -- Fulfilment preference chosen at checkout: 'pickup' or 'courier'. A
+  -- PREFERENCE, not a courier booking — selecting 'courier' additionally
+  -- requires delivery_address (enforced by catalog-orders/inquiry-lifecycle).
+  fulfillment_method TEXT DEFAULT 'pickup',
   payment_method TEXT DEFAULT 'cod',
   payment_status TEXT DEFAULT 'unpaid',
   payment_reference TEXT,
+  payment_customer_reference TEXT,
+  payment_updated_at TEXT,
   payment_url TEXT,
   payment_qr TEXT,
   payment_provider TEXT,
@@ -100,6 +106,17 @@ CREATE TABLE IF NOT EXISTS order_inquiries (
   customer_id INTEGER,
   status_history TEXT,
   status TEXT DEFAULT 'pending',
+  -- Rejection: a reason is REQUIRED when status becomes 'rejected', so the
+  -- customer is told why instead of seeing a bare red chip.
+  rejection_reason TEXT,
+  -- Cancellation (customer-initiated): who/when/why, kept even though the
+  -- status itself is 'cancelled'.
+  cancelled_at TEXT,
+  cancellation_reason TEXT,
+  terms_version TEXT,
+  terms_accepted_at TEXT,
+  fulfillment_location_id INTEGER,
+  inventory_committed_at TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -114,6 +131,7 @@ CREATE TABLE IF NOT EXISTS sales_transactions (
   -- Links the sale to a Customer Record. NULL on seeded/historical rows, which
   -- carry only a free-text name (backfill with scripts/backfill-customers.js).
   customer_id INTEGER,
+  order_inquiry_id INTEGER,
   FOREIGN KEY(product_id) REFERENCES products(id)
 );
 

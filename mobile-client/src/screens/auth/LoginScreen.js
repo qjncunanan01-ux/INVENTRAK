@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Button, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Button, Image, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -9,6 +9,7 @@ import { API_BASE_URL, login, setSessionDetails, setSessionUsername, setToken } 
 import BackButton from '../../BackButton';
 import { useThemeColors } from '../../theme-context';
 import AnimatedEntry from '../../AnimatedEntry';
+import { company } from '../../theme';
 
 // Demo accounts the quick-fill buttons populate (matches the seeded accounts
 // on both backends). Customer is the buyer demo; Staff is the on-phone
@@ -218,8 +219,19 @@ export default function LoginScreen({ navigation }) {
         {/* Top-left back pill — escaping the login screen is one obvious tap
           (the old bottom link was easy to miss). */}
         <BackButton navigation={navigation} label="Back to store" />
+        {/* Official Sylver mark. The supplied artwork is opaque white, so it
+            sits on a white chip rather than being recoloured or cropped. */}
+        <View style={styles.logoCard}>
+          <Image
+            source={company.symbol}
+            style={styles.logoMark}
+            resizeMode="contain"
+            accessibilityLabel="Sylver Restaurant and Coffee Supplies logo"
+          />
+        </View>
         <Text style={styles.title}>INVENTRAK</Text>
         <Text style={styles.subtitle}>Customer Portal</Text>
+        <Text style={styles.tagline}>{company.tagline}</Text>
         <TextInput
           style={styles.input}
           value={username}
@@ -304,8 +316,23 @@ export default function LoginScreen({ navigation }) {
 
 const createStyles = (colors) => StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 24 },
+  // White chip behind the mark: the artwork ships on an opaque white field, so
+  // this keeps the square edge intentional instead of looking pasted on.
+  logoCard: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    height: 92,
+    justifyContent: 'center',
+    marginBottom: 14,
+    padding: 10,
+    width: 92,
+  },
+  logoMark: { height: '100%', width: '100%' },
   title: { color: '#fff', fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
-  subtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 16, marginBottom: 8, textAlign: 'center' },
+  subtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 16, marginBottom: 2, textAlign: 'center' },
+  tagline: { color: 'rgba(255,255,255,0.8)', fontSize: 11, letterSpacing: 1.4, marginBottom: 14, textAlign: 'center' },
   input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, fontSize: 16, marginBottom: 16, padding: 14 },
   demoRow: {
     flexDirection: 'row',

@@ -10,18 +10,21 @@ import {
   View,
 } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { imageUrl, listAllProducts } from '../../api';
+import { getInventory, imageUrl, listAllProducts } from '../../api';
 import BackButton from '../../BackButton';
 import { useCart } from '../../cart-context';
 import { useLoginGate } from '../../login-gate';
 import { useThemeColors } from '../../theme-context';
+import { showToast } from '../../toast';
+import { productTitle } from '../../product-enrichment';
 
 export default function SearchScreen({ navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { addItem } = useCart();
+  const { items: cartItems, addItem } = useCart();
   const { requireLogin, gateModal } = useLoginGate(navigation);
   const [products, setProducts] = useState([]);
+  const [stockById, setStockById] = useState({});
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const inputRef = useRef(null);
@@ -36,8 +39,17 @@ export default function SearchScreen({ navigation }) {
     try {
       // Page past the 100-row clamp so searching finds ANY of the 192
       // products, not just the first page.
-      const items = await listAllProducts();
+      const [items, inventoryResponse] = await Promise.all([
+        listAllProducts(),
+        getInventory().catch(() => null),
+      ]);
       setProducts(items);
+      const inventory = inventoryResponse && inventoryResponse.data ? inventoryResponse.data : inventoryResponse;
+      const stock = {};
+      (inventory && inventory.items || []).forEach((row) => {
+        if (row && row.product && row.product.id != null) stock[Number(row.product.id)] = Number(row.total) || 0;
+      });
+      setStockById(stock);
     } catch (err) {
       // Keep the screen usable with no data
     } finally {
@@ -107,14 +119,21 @@ export default function SearchScreen({ navigation }) {
                 {/* Quick-add (+), Shopee-style: adds without leaving results.
                     Guests get the login gate instead. */}
                 <TouchableOpacity
-                  style={styles.quickAdd}
-                  onPress={() => requireLogin(() => addItem(item, 1))}
+                  style={[styles.quickAdd, stockById[Number(item.id)] === 0 && styles.quickAddDisabled]}
+                  disabled={stockById[Number(item.id)] === 0}
+                  onPress={() => requireLogin(() => {
+                    const available = stockById[Number(item.id)];
+                    const inCart = cartItems.find((entry) => Number(entry.product.id) === Number(item.id))?.qty || 0;
+                    if (!Number.isFinite(Number(available))) return showToast('Stock is still loading. Refresh and try again.');
+                    if (available < inCart + 1) return showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
+                    addItem(item, 1);
+                  })}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
                   <Text style={styles.quickAddText}>+</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
+              <Text style={styles.cardName} numberOfLines={2}>{productTitle(item)}</Text>
               <Text style={styles.cardMeta} numberOfLines={1}>{item.category}</Text>
               <Text style={styles.cardPrice}>P{item.price}</Text>
             </TouchableOpacity>
@@ -191,6 +210,7 @@ const createStyles = (colors) => StyleSheet.create({
     width: 28,
   },
   quickAddText: { color: '#fff', fontSize: 20, fontWeight: '800', lineHeight: 24 },
+  quickAddDisabled: { opacity: 0.4 },
   empty: { color: colors.textSecondary, marginTop: 32, textAlign: 'center' },
   hintWrap: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24 },
   hintGlyph: { marginBottom: 12 },

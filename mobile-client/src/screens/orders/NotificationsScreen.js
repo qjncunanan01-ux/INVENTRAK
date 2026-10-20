@@ -14,10 +14,13 @@ import { listOrderInquiries, useSessionUsername } from '../../api';
 import EmptyState from '../../EmptyState';
 import { useThemeColors } from '../../theme-context';
 
-const LABELS = { pending: 'Placed', approved: 'Approved', fulfilled: 'Fulfilled', delivered: 'Delivered', rejected: 'Rejected' };
+const LABELS = {
+  pending: 'Placed', approved: 'Approved', fulfilled: 'Fulfilled', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled',
+  payment_pending_verification: 'Payment submitted for verification', payment_paid: 'Payment verified',
+};
 // Status -> vector icon (MaterialCommunityIcons), same family as the rest of
 // the app's iconography.
-const GLYPHS = { pending: 'clock-outline', approved: 'check-circle-outline', fulfilled: 'package-variant-closed', delivered: 'home-outline', rejected: 'close-circle-outline' };
+const GLYPHS = { pending: 'clock-outline', approved: 'check-circle-outline', fulfilled: 'package-variant-closed', delivered: 'home-outline', rejected: 'close-circle-outline', cancelled: 'close-circle-outline', payment_pending_verification: 'cash-clock', payment_paid: 'cash-check' };
 
 // Notification Module (reviewer requirement): an in-app feed of order status
 // updates, mirroring the email/SMS status notifications the backend already
@@ -64,10 +67,7 @@ export default function NotificationsScreen({ navigation }) {
         if (Array.isArray(parsed)) history = parsed;
       } catch (_) {}
       if (history.length === 0) history = [{ status: o.status, at: o.created_at }];
-      // Skip the initial 'placed' event (not a notification) unless it's all
-      // there is (then it IS the update the customer should see).
-      const shown = history.length > 1 ? history.slice(1) : history;
-      shown.forEach((e) => {
+      history.forEach((e) => {
         events.push({
           key: `${o.id}-${e.at}`,
           orderId: o.id,
@@ -77,6 +77,18 @@ export default function NotificationsScreen({ navigation }) {
           cost: o.estimated_cost,
         });
       });
+      if (o.payment_status === 'pending_verification' || o.payment_status === 'paid') {
+        const status = o.payment_status === 'paid' ? 'payment_paid' : 'payment_pending_verification';
+        events.push({
+          key: `${o.id}-${status}-${o.payment_updated_at || o.created_at}`,
+          orderId: o.id,
+          status,
+          at: o.payment_updated_at || o.created_at,
+          name: o.customer_name,
+          cost: o.estimated_cost,
+          reference: o.payment_customer_reference,
+        });
+      }
     });
     return events.sort((a, b) => String(b.at).localeCompare(String(a.at)));
   }, [inquiries]);
@@ -144,7 +156,7 @@ export default function NotificationsScreen({ navigation }) {
                 Order #{item.orderId} is {LABELS[item.status] || item.status}
               </Text>
               <Text style={styles.cardMeta}>
-                {item.name} · P{Number(item.cost || 0).toFixed(2)}
+                {item.name} · P{Number(item.cost || 0).toFixed(2)}{item.reference ? ` · Ref ${item.reference}` : ''}
               </Text>
             </View>
             <Text style={styles.time}>{item.at ? new Date(item.at).toLocaleDateString() : ''}</Text>

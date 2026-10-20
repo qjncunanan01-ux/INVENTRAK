@@ -24,6 +24,7 @@ import {
   describeProduct,
   moqOf,
   productRating,
+  productTitle,
   similarProducts,
   stockStatus,
 } from '../../product-enrichment';
@@ -94,11 +95,26 @@ export default function ProductScreen({ route, navigation }) {
   // Scroll the PDP back to the top whenever the open product changes (a
   // cross-sell tap would otherwise keep the old scroll offset mid-detail).
   const scrollRef = useRef(null);
-  const { addItem } = useCart();
+  const { items: cartItems, addItem } = useCart();
   // Guests cannot add to cart — every add affordance routes through this gate.
   const { requireLogin, gateModal } = useLoginGate(navigation);
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const tryAddItem = (product, price, originalPrice) => {
+    const available = stockMap[Number(product && product.id)];
+    if (!Number.isFinite(Number(available))) {
+      showToast('Stock is still loading. Refresh and try again.');
+      return false;
+    }
+    const currentQty = cartItems.find((entry) => Number(entry.product.id) === Number(product.id))?.qty || 0;
+    if (available < currentQty + 1) {
+      showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
+      return false;
+    }
+    addItem(product, 1, price, originalPrice);
+    return true;
+  };
 
   const fetchProducts = useCallback(async() => {
     try {
@@ -268,7 +284,7 @@ export default function ProductScreen({ route, navigation }) {
             {selected.image ? (
               <Image source={{ uri: imageUrl(selected.image) }} style={styles.detailImage} resizeMode="contain" />
             ) : null}
-            <Text style={styles.detailTitle}>{selected.name}</Text>
+            <Text style={styles.detailTitle}>{productTitle(selected)}</Text>
             <View style={styles.ratingRow}>
               <Text style={styles.ratingStars}>{stars}</Text>
               <Text style={styles.ratingText}>{rating.rating} ({rating.reviews} reviews)</Text>
@@ -292,7 +308,7 @@ export default function ProductScreen({ route, navigation }) {
                 fake sale is honored end-to-end, not just shown. */}
 
             <View style={styles.sellerRow}>
-              <Text style={styles.sellerText}>✔ Sold & shipped by Sylver Restaurant & Cafe Supplier</Text>
+              <Text style={styles.sellerText}>✔ Sold & shipped by Sylver Restaurant and Coffee Supplies</Text>
             </View>
 
             <Text style={styles.detailDesc}>{blurb}</Text>
@@ -367,7 +383,7 @@ export default function ProductScreen({ route, navigation }) {
                         {item.image ? (
                           <Image source={{ uri: imageUrl(item.image) }} style={styles.simImage} resizeMode="contain" />
                         ) : null}
-                        <Text style={styles.simName} numberOfLines={2}>{item.name}</Text>
+                        <Text style={styles.simName} numberOfLines={2}>{productTitle(item)}</Text>
                         {simDeal ? (
                           <DealPrice deal={simDeal} styles={styles} />
                         ) : (
@@ -377,7 +393,7 @@ export default function ProductScreen({ route, navigation }) {
                           style={styles.simAdd}
                           onPress={() =>
                             requireLogin(() => {
-                              addItem(item, 1, simDeal ? simDeal.deal : undefined, simDeal ? simDeal.original : undefined);
+                              if (!tryAddItem(item, simDeal ? simDeal.deal : undefined, simDeal ? simDeal.original : undefined)) return;
                               showToast('Added to cart', {
                                 actionLabel: 'View',
                                 onAction: () => navigation.navigate('CartTab'),
@@ -402,7 +418,7 @@ export default function ProductScreen({ route, navigation }) {
             style={styles.addCartBtn}
             onPress={() =>
               requireLogin(() => {
-                addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
+                if (!tryAddItem(selected, deal ? deal.deal : undefined, deal ? deal.original : undefined)) return;
                 setAddedToCart(selected);
               })
             }
@@ -415,7 +431,7 @@ export default function ProductScreen({ route, navigation }) {
             style={styles.stickyBtn}
             onPress={() =>
               requireLogin(() => {
-                addItem(selected, 1, deal ? deal.deal : undefined, deal ? deal.original : undefined);
+                if (!tryAddItem(selected, deal ? deal.deal : undefined, deal ? deal.original : undefined)) return;
                 navigation.navigate('OrdersTab', {
                   screen: 'OrderInquiry',
                   params: { preselectId: selected.id },
@@ -443,7 +459,7 @@ export default function ProductScreen({ route, navigation }) {
               <View style={styles.addedCard}>
                 <Text style={styles.addedGlyph}>🛒</Text>
                 <Text style={styles.addedTitle}>Added to cart</Text>
-                <Text style={styles.addedName} numberOfLines={2}>{addedToCart.name}</Text>
+                <Text style={styles.addedName} numberOfLines={2}>{productTitle(addedToCart)}</Text>
                 {/* The confirmation shows the same price the customer saw: the
                     deal price when this item is a flash pick, else the plain
                     catalog price — so the checkout path matches the carousel. */}
@@ -591,7 +607,7 @@ export default function ProductScreen({ route, navigation }) {
                     style={styles.quickAdd}
                     onPress={() =>
                       requireLogin(() => {
-                        addItem(item, 1, cardDeal ? cardDeal.deal : undefined, cardDeal ? cardDeal.original : undefined);
+                        if (!tryAddItem(item, cardDeal ? cardDeal.deal : undefined, cardDeal ? cardDeal.original : undefined)) return;
                         showToast('Added to cart', {
                           actionLabel: 'View',
                           onAction: () => navigation.navigate('CartTab'),
@@ -604,7 +620,7 @@ export default function ProductScreen({ route, navigation }) {
                   >
                     <Text style={styles.quickAddText}>+</Text>
                   </TouchableOpacity>
-                  <Text style={styles.cardName} numberOfLines={2}>{item.name}</Text>
+              <Text style={styles.cardName} numberOfLines={2}>{productTitle(item)}</Text>
                 </View>
                 <Text style={styles.cardMeta} numberOfLines={1}>{item.category}</Text>
                 {/* Today's picks show the flash deal price right on the card, so

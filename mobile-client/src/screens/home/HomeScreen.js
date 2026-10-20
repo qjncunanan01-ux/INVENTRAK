@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getInventory, getOptimizationAbc, listAllProducts, useSessionUsername} from '../../api';
 import { useCart } from '../../cart-context';
@@ -9,6 +9,7 @@ import FlashCarousel from '../../FlashCarousel';
 import { showToast } from '../../toast';
 import FlashSaleHeader from '../../FlashSaleHeader';
 import { useThemeColors } from '../../theme-context';
+import { company } from '../../theme';
 import { categoryIcon } from '../../category-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import PressableScale from '../../PressableScale';
@@ -83,7 +84,7 @@ export default function HomeScreen({ route, navigation }) {
   // the session once a customer logs in.
   const sessionUser = useSessionUsername(route.params?.username || null);
   const isLoggedIn = !!sessionUser;
-  const { addItem } = useCart();
+  const { items: cartItems, addItem } = useCart();
   // Featured-card quick-add is member-only (guests get the login gate).
   const { requireLogin, gateModal } = useLoginGate(navigation);
   const [featured, setFeatured] = useState([]);
@@ -130,7 +131,19 @@ export default function HomeScreen({ route, navigation }) {
         {/* Haikei-style gradient header with wave bottom */}
         <WaveHeader height={180}>
           <View style={styles.topRow}>
-            <Text style={styles.brand}>INVENTRAK</Text>
+            {/* The partner company's mark sits beside the software name: Sylver
+                is the business, INVENTRAK is the system. */}
+            <View style={styles.brandRow}>
+              <View style={styles.brandMarkChip}>
+                <Image
+                  source={company.symbol}
+                  style={styles.brandMark}
+                  resizeMode="contain"
+                  accessibilityLabel="Sylver logo"
+                />
+              </View>
+              <Text style={styles.brand}>INVENTRAK</Text>
+            </View>
 
             <TouchableOpacity
               style={styles.userStatus}
@@ -323,6 +336,16 @@ export default function HomeScreen({ route, navigation }) {
               }
               onAdd={(item) =>
                 requireLogin(() => {
+                  const available = stockMap[Number(item.id)];
+                  const inCart = cartItems.find((entry) => Number(entry.product.id) === Number(item.id))?.qty || 0;
+                  if (!Number.isFinite(Number(available))) {
+                    showToast('Stock is still loading. Refresh and try again.');
+                    return;
+                  }
+                  if (available < inCart + 1) {
+                    showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
+                    return;
+                  }
                   const d = dealPricing(item);
 
                   addItem(
@@ -473,6 +496,19 @@ const createStyles = (colors) => StyleSheet.create({
     marginBottom: 14,
   },
 
+  brandRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  // White chip: the supplied mark is opaque white, so a plain square logo on
+  // the green header would read as a pasted-on block.
+  brandMarkChip: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 9,
+    height: 28,
+    justifyContent: 'center',
+    padding: 3,
+    width: 28,
+  },
+  brandMark: { height: '100%', width: '100%' },
   brand: {
     color: '#fff',
     fontSize: 18,

@@ -11,10 +11,14 @@ export const ADMIN_TIER = ['admin', 'super_admin', 'owner'];
 export const MANAGEMENT_TIER = ['super_admin', 'owner'];
 export const STAFF_TIER = ['staff', ...ADMIN_TIER];
 
+import { brand } from './theme';
+
 // Label + chip colour per role, used by the top-bar badge, the login quick-fill
 // buttons and the demo credential hints so all three can never drift apart.
 export const ROLE_META = {
-  owner: { label: 'OWNER', color: '#1f640e', blurb: 'full oversight + access decisions' },
+  // Sylver palette: the owner chip takes the brand green (dark shade — white
+  // text sits on it), keeping role chips on-brand instead of ad-hoc hexes.
+  owner: { label: 'OWNER', color: brand.greenDark, blurb: 'full oversight + access decisions' },
   super_admin: { label: 'SUPER ADMIN', color: '#1565c0', blurb: 'accounts, roles & permissions' },
   admin: { label: 'ADMIN', color: '#2e7d32', blurb: 'products, stock, approvals & reports' },
   staff: { label: 'STAFF', color: '#e66a0d', blurb: 'counts, scanning & requests' },

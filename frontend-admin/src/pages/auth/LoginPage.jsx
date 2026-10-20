@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { API_BASE_URL, mfaVerify, setToken } from '../../api';
 import ShaderGradientBg from '../../components/ShaderGradientBg';
 import { ADMIN_TIER, roleMeta } from '../../roles';
-import { brandSidebar, colors } from '../../theme';
+import { brandSidebar, colors, company } from '../../theme';
 import usePageTitle from '../../hooks/usePageTitle';
 
 // Demo accounts the quick-fill grid populates — the three WEB PORTAL roles
@@ -203,7 +203,28 @@ export default function LoginPage({ onLogin }) {
           transition={{ duration: 0.6, ease: 'easeOut' }}
           style={{ width: '100%' }}
         >
-          <Paper sx={{ width: '100%', p: { xs: 3, md: 5 }, borderRadius: 4, boxShadow: '0 30px 90px rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', backgroundColor: 'rgba(255, 255, 255, 0.95)' }}>
+          <Paper sx={{ width: '100%', p: { xs: 3, md: 5 }, borderRadius: 4, boxShadow: '0 30px 90px rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', backgroundColor: colors.surface }}>
+            {/* OFFICIAL SYLVER IDENTITY. The partner business and the software
+                are labelled separately on purpose: Sylver supplies the brand
+                (logo + tagline), INVENTRAK is the system being signed into.
+                The supplied artwork is opaque white, so it is placed on the
+                white card as-is — never recoloured, cropped or stretched. */}
+            <Box sx={{ mb: 2.5, textAlign: 'center' }}>
+              <Box
+                component="img"
+                src={company.logo}
+                alt={`${company.name} logo`}
+                sx={{ display: 'block', width: { xs: 136, md: 156 }, height: 'auto', mx: 'auto' }}
+              />
+              <Typography
+                variant="caption"
+                component="p"
+                sx={{ mt: 0.5, mb: 0, fontWeight: 700, letterSpacing: 1.3, color: colors.brandSecondaryDark }}
+              >
+                {company.tagline}
+              </Typography>
+            </Box>
+
             <Box sx={{ mb: 3, p: 3, borderRadius: 3, backgroundColor: brandSidebar, color: '#fff' }}>
               <Typography variant="h5" component="div" gutterBottom>
             INVENTRAK Admin
@@ -249,6 +270,10 @@ export default function LoginPage({ onLogin }) {
                         alignItems: 'flex-start',
                         gap: 0.25,
                         backgroundColor: meta.color,
+                        // White text on purpose: these tiles are painted with a
+                        // DARK role colour, while the theme's contained-primary
+                        // text colour is tuned for the light Sylver lime.
+                        color: '#fff',
                         '&:hover': { backgroundColor: meta.color, filter: 'brightness(0.92)' },
                         textTransform: 'none',
                       }}
@@ -344,7 +369,10 @@ export default function LoginPage({ onLogin }) {
                   </Typography>
                 )}
                 <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                  <Button fullWidth variant="contained" color="secondary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large" sx={{ mt: 2 }}>
+                  {/* The sign-in action is the primary action, so it takes the
+                      Sylver green (dark text — see the contrast note in
+                      theme.js). It used to be the old lime-yellow secondary. */}
+                  <Button fullWidth variant="contained" color="primary" onClick={handleSubmit} disabled={loading || lockoutLeft > 0} size="large" sx={{ mt: 2, fontWeight: 700 }}>
                     {loading
                       ? 'Signing in…'
                       : lockoutLeft > 0

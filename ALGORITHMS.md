@@ -812,7 +812,7 @@ cd backend
 npm run verify      # 771/771 across 60 suites
 ```
 
-Every test file in `src/test/` is listed in the `npm test` script — 60 files,
+Every test file in `src/test/` is listed in the `npm test` script — 62 files,
 all run. (Three of them had been left off the list, so 106 real tests were
 being skipped without anyone noticing.)
 

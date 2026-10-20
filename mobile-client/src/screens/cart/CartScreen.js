@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { imageUrl, useSessionUsername } from '../../api';
+import { getInventory, imageUrl, useSessionUsername } from '../../api';
 import { useCart } from '../../cart-context';
 import { useThemeColors } from '../../theme-context';
 import Dialog from '../../Dialog';
+import { productTitle } from '../../product-enrichment';
+import { showToast } from '../../toast';
 
 // Shopping cart screen (Shopee/Lazada pattern): line items with steppers,
 // swipe-free remove, live subtotal, and a single "Proceed to Checkout" CTA.
@@ -14,6 +16,21 @@ export default function CartScreen({ navigation }) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const isLoggedIn = !!useSessionUsername(null);
   const { items, subtotal, itemCount, count, hydrated, setQty, removeItem, clear } = useCart();
+  const [stockById, setStockById] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    getInventory().then((response) => {
+      if (cancelled) return;
+      const inventory = response && response.data ? response.data : response;
+      const stock = {};
+      (inventory && inventory.items || []).forEach((row) => {
+        if (row && row.product && row.product.id != null) stock[Number(row.product.id)] = Number(row.total) || 0;
+      });
+      setStockById(stock);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const goCheckout = () => {
     navigation.navigate('OrdersTab', { screen: 'OrderInquiry' });
@@ -94,8 +111,13 @@ export default function CartScreen({ navigation }) {
               <View style={[styles.thumb, styles.thumbPlaceholder]} />
             )}
             <View style={styles.info}>
-              <Text style={styles.name} numberOfLines={2}>{item.product.name}</Text>
+              <Text style={styles.name} numberOfLines={2}>{productTitle(item.product)}</Text>
               <Text style={styles.meta} numberOfLines={1}>{item.product.category}</Text>
+              {stockById[Number(item.product.id)] !== undefined && (
+                <Text style={[styles.meta, item.qty > stockById[Number(item.product.id)] && styles.stockWarning]}>
+                  {stockById[Number(item.product.id)]} available
+                </Text>
+              )}
               <Text style={styles.price}>P{(Number(item.price) > 0 ? item.price : item.product.price)} each</Text>
             </View>
             <View style={styles.rightCol}>
@@ -111,8 +133,14 @@ export default function CartScreen({ navigation }) {
                 </TouchableOpacity>
                 <Text style={styles.qty}>{item.qty}</Text>
                 <TouchableOpacity
-                  style={styles.stepBtn}
-                  onPress={() => setQty(item.product.id, item.qty + 1)}
+                  style={[styles.stepBtn, item.qty >= (stockById[Number(item.product.id)] ?? 0) && styles.stepBtnDisabled]}
+                  disabled={item.qty >= (stockById[Number(item.product.id)] ?? 0)}
+                  onPress={() => {
+                    const available = stockById[Number(item.product.id)];
+                    if (available === undefined) return showToast('Stock is still loading. Refresh before adding more.');
+                    if (item.qty >= available) return showToast(`Only ${available} unit(s) are available.`);
+                    setQty(item.product.id, item.qty + 1);
+                  }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityLabel="Increase quantity"
                   accessibilityRole="button"
@@ -217,6 +245,7 @@ const createStyles = (colors) => StyleSheet.create({
   info: { flex: 1, marginLeft: 12, marginRight: 8 },
   name: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   meta: { color: colors.textSecondary, fontSize: 12, marginTop: 3 },
+  stockWarning: { color: colors.error, fontWeight: '700' },
   price: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
   rightCol: { alignItems: 'flex-end', justifyContent: 'space-between' },
   stepper: {
@@ -228,6 +257,7 @@ const createStyles = (colors) => StyleSheet.create({
     flexDirection: 'row',
   },
   stepBtn: { paddingHorizontal: 10, paddingVertical: 6 },
+  stepBtnDisabled: { opacity: 0.35 },
   stepText: { color: colors.brandPrimary, fontSize: 16, fontWeight: '700' },
   qty: { color: colors.textPrimary, fontSize: 14, fontWeight: '700', minWidth: 28, textAlign: 'center' },
   lineTotal: { color: colors.brandPrimary, fontSize: 14, fontWeight: '800', marginTop: 6 },
