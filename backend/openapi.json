@@ -7244,7 +7244,8 @@
           "qty",
           "unit_price",
           "total_amount",
-          "transaction_date"
+          "transaction_date",
+          "order_inquiry_id"
         ],
         "properties": {
           "id": {
@@ -7272,6 +7273,11 @@
             "type": "integer",
             "nullable": true,
             "description": "Links to the Customer Record this sale belongs to. Null on seeded/historical rows, which carry only a free-text name."
+          },
+          "order_inquiry_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "The order inquiry that generated this sale when inventory was fulfilled. Null for counter sales and historical rows."
           },
           "product_name": {
             "type": "string"

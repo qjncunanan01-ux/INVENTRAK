@@ -4435,6 +4435,12 @@ const server = http.createServer((req, res) => {
         // them — the column default is 'pickup' on SQLite.
         fulfillment_method:
           o.fulfillment_method === undefined || o.fulfillment_method === '' ? 'pickup' : o.fulfillment_method,
+        fulfillment_location_id:
+          o.fulfillment_location_id === undefined || o.fulfillment_location_id === null || o.fulfillment_location_id === ''
+            ? null
+            : Number(o.fulfillment_location_id),
+        inventory_committed_at:
+          o.inventory_committed_at === undefined || o.inventory_committed_at === '' ? null : o.inventory_committed_at,
         rejection_reason: o.rejection_reason === undefined || o.rejection_reason === '' ? null : o.rejection_reason,
         cancelled_at: o.cancelled_at === undefined || o.cancelled_at === '' ? null : o.cancelled_at,
         cancellation_reason:
@@ -5339,6 +5345,7 @@ const server = http.createServer((req, res) => {
       const products = readJSON(productsFile) || [];
       const enriched = salesTransactions.map(s => ({
         ...s,
+        order_inquiry_id: s.order_inquiry_id ?? null,
         product_name:
           (products[s.product_id - 1] &&
             (products[s.product_id - 1]['Product Name'] || products[s.product_id - 1].name)) ||

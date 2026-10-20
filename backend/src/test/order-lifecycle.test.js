@@ -7,6 +7,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call, shapeOf } = require('./harness');
+const { ORDER_TERMS_VERSION } = require('../catalog-orders/order-terms');
 
 const SIDES = [
   ['sqlite', sqlite],
@@ -54,6 +55,18 @@ async function readInquiry(side, id, { tokenKey = 'admin' } = {}) {
   const rows = Array.isArray(res.json) ? res.json : res.json.data;
   return rows.find((o) => Number(o.id) === Number(id));
 }
+
+test('terms: submissions require acceptance of the current ordering terms', async () => {
+  for (const [label, side] of SIDES) {
+    const declined = await place(side, { terms_accepted: false });
+    assert.strictEqual(declined.status, 400, `${label}: declined terms are refused`);
+    assert.match(JSON.stringify(declined.json.details || []), /accept the ordering terms/i);
+
+    const stale = await place(side, { terms_version: `${ORDER_TERMS_VERSION}-old` });
+    assert.strictEqual(stale.status, 400, `${label}: an outdated terms version is refused`);
+    assert.match(JSON.stringify(stale.json.details || []), /terms_version.*out of date/i);
+  }
+});
 
 test('fulfilment: pickup is the recorded default on both backends', async () => {
   for (const [label, side] of SIDES) {
@@ -234,13 +247,15 @@ test('cancellation: an approved inquiry can still be cancelled', async () => {
 
 test('cancellation: a fulfilled inquiry cannot be cancelled', async () => {
   for (const [label, side] of SIDES) {
-    const placed = await place(side);
+    const placed = await place(side, {
+      products: [{ id: 23, name: 'Essse Cafe Selezione Speciale Coffee Beans 1kg', qty: 1, price: 10 }],
+    });
     const id = placed.json.id;
     for (const status of ['approved', 'fulfilled']) {
       const moved = await call(side.url, `/api/order-inquiries/${id}`, {
         method: 'PUT',
         token: side.token.admin,
-        body: { status },
+        body: { status, ...(status === 'fulfilled' ? { location_id: 1 } : {}) },
       });
       assert.strictEqual(moved.status, 200, `${label}: moved to ${status}`);
     }

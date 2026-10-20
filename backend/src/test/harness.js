@@ -37,6 +37,7 @@ fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'stock_movements.json
 const { app, seedDatabase } = require('../app');
 const { db } = require('../db');
 const { createServer } = require('../server_npmfree');
+const { ORDER_TERMS_VERSION } = require('../catalog-orders/order-terms');
 
 // `token.<role>` is populated for every seeded demo account so suites can
 // exercise the four-role RBAC split (see backend/src/roles.js).
@@ -107,10 +108,18 @@ function teardown() {
 async function call(url, pathname, { method = 'GET', token, body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
+  // Most route tests model a shopper who accepted the terms displayed at
+  // checkout. Preserve explicit fields so acceptance and stale-version cases
+  // can test the rejection path.
+  const isOrderSubmission = method === 'POST' && pathname.split('?')[0] === '/api/order-inquiries';
+  const requestBody =
+    isOrderSubmission && body && typeof body === 'object' && !Array.isArray(body)
+      ? { terms_accepted: true, terms_version: ORDER_TERMS_VERSION, ...body }
+      : body;
   const res = await fetch(`${url}${pathname}`, {
     method,
     headers,
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(requestBody !== undefined ? { body: JSON.stringify(requestBody) } : {}),
   });
   const text = await res.text();
   let json = null;

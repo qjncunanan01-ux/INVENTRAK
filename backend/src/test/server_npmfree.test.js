@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { ORDER_TERMS_VERSION } = require('../catalog-orders/order-terms');
 
 // Isolate from the repo JSON data BEFORE loading the server module: it reads
 // process.env.INVENTRAK_DATA_DIR at require time. Replaces the old
@@ -139,6 +140,8 @@ test('POST /api/order-inquiries stores inquiry', async () => {
       customer_email: 'test@example.com',
       products: ['Widget x2'],
       estimated_cost: 200,
+      terms_accepted: true,
+      terms_version: ORDER_TERMS_VERSION,
     }),
   });
   assert.strictEqual(status, 201);

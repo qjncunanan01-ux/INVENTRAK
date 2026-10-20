@@ -41,6 +41,7 @@ const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const { ORDER_TERMS_VERSION } = require('../catalog-orders/order-terms');
 
 const BACKEND_ROOT = path.join(__dirname, '..', '..');
 
@@ -216,6 +217,8 @@ async function runDrill(driver) {
         customer_email: `${account.username}@example.com`,
         notes: marker,
         products: [{ product_id: product.json.id, quantity: 2 }],
+        terms_accepted: true,
+        terms_version: ORDER_TERMS_VERSION,
       },
     });
     assert.equal(inquiry.status, 201, `${driver.name}: marker inquiry submitted (${inquiry.text.slice(0, 200)})`);

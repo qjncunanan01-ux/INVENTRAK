@@ -163,10 +163,11 @@ describe('costing snapshot on order submission (both backends)', () => {
   // Create a costed product, order it, then reprice/re-cost it and prove the
   // stored snapshot does not move.
   async function seedCostedOrder(side) {
+    const productName = `Costing Widget ${Date.now()} ${Math.floor(Math.random() * 100000)}`;
     const made = await call(side.url, '/api/products', {
       method: 'POST',
       token: side.token.admin,
-      body: { name: `Costing Widget ${Date.now()}`, category: 'Test', price: 100, cost: 60 },
+      body: { name: productName, category: 'Test', price: 100, cost: 60 },
     });
     assert.strictEqual(made.status, 201, `product created on ${side.url}`);
     const productId = made.json.id;
@@ -176,7 +177,9 @@ describe('costing snapshot on order submission (both backends)', () => {
       body: {
         customer_name: 'Costing Tester',
         customer_email: 'costing@test.local',
-        products: [{ id: productId, name: `Costing Widget ${productId}`, qty: 2, price: 100 }],
+        // This integration test isolates costing from the separate stock
+        // availability rule. Name-only lines are the supported legacy shape.
+        products: [{ name: productName, qty: 2, price: 100 }],
       },
     });
     assert.strictEqual(ordered.status, 201, `order submitted on ${side.url}`);
@@ -246,18 +249,20 @@ describe('costing snapshot on order submission (both backends)', () => {
 
   test('an order of uncosted products records basis=none instead of a fake number', async () => {
     for (const side of [sqlite, npmfree]) {
+      const productName = `Uncosted Widget ${Date.now()} ${Math.floor(Math.random() * 100000)}`;
       const made = await call(side.url, '/api/products', {
         method: 'POST',
         token: side.token.admin,
-        body: { name: `Uncosted Widget ${Date.now()}`, category: 'Test', price: 75 },
+        body: { name: productName, category: 'Test', price: 75 },
       });
-      const productId = made.json.id;
       const ordered = await call(side.url, '/api/order-inquiries', {
         method: 'POST',
         body: {
           customer_name: 'Uncosted Tester',
           customer_email: 'uncosted@test.local',
-          products: [{ id: productId, name: `Uncosted Widget ${productId}`, qty: 3, price: 75 }],
+          // Keep this as a legacy name-only line so the test does not need to
+          // seed inventory merely to exercise the no-cost snapshot behavior.
+          products: [{ name: productName, qty: 3, price: 75 }],
         },
       });
       const res = await call(side.url, `/api/order-inquiries/${ordered.json.id}/costing`, { token: side.token.admin });

@@ -2602,7 +2602,8 @@
                 "approved",
                 "rejected",
                 "fulfilled",
-                "delivered"
+                "delivered",
+                "cancelled"
               ]
             }
           }
@@ -2707,8 +2708,19 @@
                       "fulfilled",
                       "delivered"
                     ]
+                  },
+                  "rejection_reason": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "Required when status is rejected; ignored otherwise. Stored on the inquiry and in the status timeline."
+                  },
+                  "location_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Required when marking an inquiry fulfilled or delivered. Stock is deducted from this location and recorded as a sale."
                   }
-                }
+                },
+                "description": "Admin-only status change. Illegal transitions are refused with 409, and rejecting an inquiry without a reason is refused with 400. Cancellation is NOT available here — use POST /api/order-inquiries/{id}/cancel so the actor, time and reason are recorded."
               }
             }
           }
@@ -2735,6 +2747,78 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/order-inquiries/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "cancelOrderInquiry",
+        "summary": "Cancel an inquiry (customer-initiated)",
+        "description": "The customer cancelling their own inquiry, or an admin cancelling on their behalf. Only a pending or approved inquiry can be cancelled (409 otherwise); repeating the request is idempotent and returns the original timestamp and reason. Stock is deducted only when the order is fulfilled.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cancellation_reason": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "Optional reason, stored with the cancellation and shown to the business."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Inquiry cancelled (or already cancelled — idempotent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderCancellation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -2791,7 +2875,7 @@
           "Order Inquiries"
         ],
         "operationId": "updateInquiryPayment",
-        "summary": "Mark an inquiry as paid/unpaid/failed after the GCash step",
+        "summary": "Submit GCash payment proof, complete a demo card payment, or verify payment as an admin",
         "security": [
           {
             "bearerAuth": []
@@ -6220,7 +6304,9 @@
         "type": "object",
         "required": [
           "customer_name",
-          "customer_email"
+          "customer_email",
+          "terms_accepted",
+          "terms_version"
         ],
         "properties": {
           "customer_name": {
@@ -6236,10 +6322,34 @@
             "maxLength": 20,
             "description": "Mobile number for SMS status updates (optional)"
           },
+          "terms_accepted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "The customer must explicitly accept the current order and cancellation terms before submitting."
+          },
+          "terms_version": {
+            "type": "string",
+            "maxLength": 40,
+            "enum": [
+              "2026-10-21-v1"
+            ],
+            "description": "Must match the current terms version shown at checkout."
+          },
           "delivery_address": {
             "type": "string",
             "maxLength": 500,
             "description": "Delivery address collected at checkout (optional)"
+          },
+          "fulfillment_method": {
+            "type": "string",
+            "enum": [
+              "pickup",
+              "courier"
+            ],
+            "default": "pickup",
+            "description": "How the customer wants to receive the order. A PREFERENCE, not a courier booking — nothing here calls a courier API or promises a delivery window. Courier requires delivery_address."
           },
           "payment_method": {
             "type": "string",
@@ -6440,6 +6550,15 @@
             "type": "string",
             "nullable": true
           },
+          "fulfillment_method": {
+            "type": "string",
+            "enum": [
+              "pickup",
+              "courier"
+            ],
+            "default": "pickup",
+            "description": "Fulfilment preference chosen at submission (pickup or courier delivery)."
+          },
           "payment_method": {
             "type": "string",
             "enum": [
@@ -6454,6 +6573,7 @@
             "type": "string",
             "enum": [
               "unpaid",
+              "pending_verification",
               "paid",
               "failed"
             ],
@@ -6464,6 +6584,36 @@
             "type": "string",
             "nullable": true,
             "description": "GCash-style payment reference code"
+          },
+          "payment_customer_reference": {
+            "type": "string",
+            "nullable": true,
+            "description": "Receipt reference submitted by the customer for GCash verification."
+          },
+          "payment_updated_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "Last time the payment status or customer receipt reference changed."
+          },
+          "terms_version": {
+            "type": "string",
+            "nullable": true,
+            "description": "Terms version acknowledged when this inquiry was submitted."
+          },
+          "terms_accepted_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "Time the customer acknowledged the ordering terms."
+          },
+          "fulfillment_location_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Stock location used when the order was fulfilled."
+          },
+          "inventory_committed_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "Time inventory and the sales ledger were updated for this order."
           },
           "payment_url": {
             "type": "string",
@@ -6497,8 +6647,24 @@
               "approved",
               "rejected",
               "fulfilled",
-              "delivered"
+              "delivered",
+              "cancelled"
             ]
+          },
+          "rejection_reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Why the inquiry was rejected. Required (and stored) whenever status is rejected, so the customer is told the reason rather than seeing a bare status."
+          },
+          "cancelled_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO timestamp of the customer-initiated cancellation."
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional reason the customer gave when cancelling."
           },
           "created_at": {
             "type": "string"
@@ -6587,8 +6753,7 @@
             "required": [
               "payment_method",
               "payment_status",
-              "payment_reference",
-              "payment_qr"
+              "payment_reference"
             ],
             "properties": {
               "payment_method": {
@@ -6605,7 +6770,12 @@
                 "nullable": true
               },
               "payment_qr": {
-                "type": "string"
+                "type": "string",
+                "nullable": true
+              },
+              "payment_provider": {
+                "type": "string",
+                "nullable": true
               }
             }
           }
@@ -6613,9 +6783,6 @@
       },
       "PaymentUpdate": {
         "type": "object",
-        "required": [
-          "payment_status"
-        ],
         "properties": {
           "payment_status": {
             "type": "string",
@@ -6624,6 +6791,16 @@
               "unpaid",
               "failed"
             ]
+          },
+          "customer_reference": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 100,
+            "description": "GCash receipt reference submitted by the customer. It moves the payment to pending_verification; it does not mark it paid."
+          },
+          "demo_card_confirmed": {
+            "type": "boolean",
+            "description": "Completes the explicit demo card transaction. No charge or card data is collected."
           }
         }
       },
@@ -7067,7 +7244,8 @@
           "qty",
           "unit_price",
           "total_amount",
-          "transaction_date"
+          "transaction_date",
+          "order_inquiry_id"
         ],
         "properties": {
           "id": {
@@ -7095,6 +7273,11 @@
             "type": "integer",
             "nullable": true,
             "description": "Links to the Customer Record this sale belongs to. Null on seeded/historical rows, which carry only a free-text name."
+          },
+          "order_inquiry_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "The order inquiry that generated this sale when inventory was fulfilled. Null for counter sales and historical rows."
           },
           "product_name": {
             "type": "string"
@@ -8788,6 +8971,30 @@
           "error": {
             "type": "string",
             "description": "Why the durable store could not take the snapshot, naming the env vars that would fix it"
+          }
+        }
+      },
+      "OrderCancellation": {
+        "type": "object",
+        "required": [
+          "ok",
+          "message",
+          "cancelled_at"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "cancelled_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "nullable": true
           }
         }
       }

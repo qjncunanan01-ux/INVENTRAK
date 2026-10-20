@@ -12,7 +12,7 @@
 //   3. admin        — admins see every inquiry
 //   4. tamper       — a customer cannot mark another account's order paid
 //                     (payment 403) nor change its status (admin-only 403),
-//                     but CAN mark their own order paid (200)
+//                     but CAN submit their own GCash receipt for verification.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
@@ -37,7 +37,7 @@ async function registerAccount(side, tag) {
 }
 
 // Place an inquiry; `token` present stamps user_id, absent = legacy guest row.
-async function placeInquiry(side, { token, email, name }) {
+async function placeInquiry(side, { token, email, name, paymentMethod = 'cod' }) {
   const res = await call(side.url, '/api/order-inquiries', {
     method: 'POST',
     token: token || undefined,
@@ -47,7 +47,7 @@ async function placeInquiry(side, { token, email, name }) {
       customer_phone: '09171234567',
       products: ['Widget x1'],
       estimated_cost: 100,
-      payment_method: 'cod',
+      payment_method: paymentMethod,
     },
   });
   assert.strictEqual(res.status, 201, 'inquiry created');
@@ -171,22 +171,23 @@ for (const side of [sqlite, npmfree]) {
   test(`${label}: customer cannot tamper with another account's order`, async () => {
     const alice = await registerAccount(side, 'tamper_a');
     const bob = await registerAccount(side, 'tamper_b');
-    const aliceOrder = await placeInquiry(side, { token: alice.token, email: alice.email, name: 'Alice3' });
-    const bobOrder = await placeInquiry(side, { token: bob.token, email: bob.email, name: 'Bob3' });
+    const aliceOrder = await placeInquiry(side, { token: alice.token, email: alice.email, name: 'Alice3', paymentMethod: 'gcash' });
+    const bobOrder = await placeInquiry(side, { token: bob.token, email: bob.email, name: 'Bob3', paymentMethod: 'gcash' });
 
-    // Alice marks HER OWN order paid → 200 (the checkout flow depends on this).
+    // Alice submits HER OWN receipt reference → pending verification.
     const ownPay = await call(side.url, `/api/order-inquiries/${aliceOrder}/payment`, {
       method: 'PUT',
       token: alice.token,
-      body: { payment_status: 'paid' },
+      body: { customer_reference: 'GCASH-ALICE-12345' },
     });
-    assert.strictEqual(ownPay.status, 200, `${label}: customer can pay their own order`);
+    assert.strictEqual(ownPay.status, 200, `${label}: customer can submit their own receipt`);
+    assert.strictEqual(ownPay.json.payment_status, 'pending_verification');
 
-    // Alice marks BOB's order paid → 403.
+    // Alice submits a reference for BOB's order → 403 before processing it.
     const crossPay = await call(side.url, `/api/order-inquiries/${bobOrder}/payment`, {
       method: 'PUT',
       token: alice.token,
-      body: { payment_status: 'paid' },
+      body: { customer_reference: 'GCASH-ALICE-12345' },
     });
     assert.strictEqual(crossPay.status, 403, `${label}: customer cannot pay another account's order`);
 

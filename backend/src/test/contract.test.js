@@ -1119,7 +1119,7 @@ test('contract: COD checkout returns no payment step', async () => {
   assert.strictEqual(res.b.json.payment, undefined);
 });
 
-test('contract: mark own inquiry paid identically', async () => {
+test('contract: customer submits GCash receipt and admin verifies payment identically', async () => {
   const created = await both('create for payment', '/api/order-inquiries', {
     method: 'POST',
     auth: 'customer',
@@ -1134,53 +1134,59 @@ test('contract: mark own inquiry paid identically', async () => {
   const idA = created.a.json.id;
   const idB = created.b.json.id;
 
-  // Each side marks its OWN inquiry paid (ids may differ between servers).
-  const res = await both('PUT payment paid', `/api/order-inquiries/${idA}/payment`, {
-    method: 'PUT',
-    auth: 'customer',
-    body: { payment_status: 'paid' },
-  });
-  assert.strictEqual(res.a.json.payment_status, 'paid');
-  const resB = await call(npmfree.url, `/api/order-inquiries/${idB}/payment`, {
-    method: 'PUT',
-    token: npmfree.token.customer,
-    body: { payment_status: 'paid' },
-  });
-  assert.strictEqual(resB.status, 200);
-  assert.strictEqual(resB.json.payment_status, 'paid');
+  for (const [side, id] of [[sqlite, idA], [npmfree, idB]]) {
+    const receipt = await call(side.url, `/api/order-inquiries/${id}/payment`, {
+      method: 'PUT',
+      token: side.token.customer,
+      body: { customer_reference: 'GCASH-12345' },
+    });
+    assert.strictEqual(receipt.status, 200);
+    assert.strictEqual(receipt.json.payment_status, 'pending_verification');
 
-  // Invalid payment_status -> identical 400 on both.
-  await both('PUT payment invalid', `/api/order-inquiries/${idA}/payment`, {
-    method: 'PUT',
-    auth: 'customer',
-    body: { payment_status: 'confirmed' },
-  });
+    const selfConfirmed = await call(side.url, `/api/order-inquiries/${id}/payment`, {
+      method: 'PUT',
+      token: side.token.customer,
+      body: { payment_status: 'paid' },
+    });
+    assert.strictEqual(selfConfirmed.status, 400, 'customers cannot mark their own payment paid');
+
+    const verified = await call(side.url, `/api/order-inquiries/${id}/payment`, {
+      method: 'PUT',
+      token: side.token.admin,
+      body: { payment_status: 'paid' },
+    });
+    assert.strictEqual(verified.status, 200);
+    assert.strictEqual(verified.json.payment_status, 'paid');
+  }
 });
 
 test('contract: delivered status accepted identically', async () => {
-  const created = await both('create for delivered', '/api/order-inquiries', {
-    method: 'POST',
-    body: { customer_name: 'Del Test', customer_email: 'del@test.com', products: ['x1'] },
-  });
-  const idA = created.a.json.id;
-  const idB = created.b.json.id;
-  await both('PUT delivered', `/api/order-inquiries/${idA}`, {
-    method: 'PUT',
-    auth: 'admin',
-    body: { status: 'delivered' },
-  });
-  const resB = await call(npmfree.url, `/api/order-inquiries/${idB}`, {
-    method: 'PUT',
-    token: npmfree.token.admin,
-    body: { status: 'delivered' },
-  });
-  assert.strictEqual(resB.status, 200);
-  // Invalid status still 400s identically.
-  await both('PUT invalid status', `/api/order-inquiries/${idA}`, {
-    method: 'PUT',
-    auth: 'admin',
-    body: { status: 'shipped' },
-  });
+  for (const side of [sqlite, npmfree]) {
+    const created = await call(side.url, '/api/order-inquiries', {
+      method: 'POST',
+      token: side.token.customer,
+      body: {
+        customer_name: 'Del Test',
+        customer_email: 'del@test.com',
+        products: [{ id: 23, name: 'Essse Cafe Selezione Speciale Coffee Beans 1kg', qty: 1, price: 10 }],
+      },
+    });
+    assert.strictEqual(created.status, 201);
+    const id = created.json.id;
+    const delivered = await call(side.url, `/api/order-inquiries/${id}`, {
+      method: 'PUT',
+      token: side.token.admin,
+      body: { status: 'delivered', location_id: 1 },
+    });
+    assert.strictEqual(delivered.status, 200, 'delivery records stock movement at a location');
+
+    const invalid = await call(side.url, `/api/order-inquiries/${id}`, {
+      method: 'PUT',
+      token: side.token.admin,
+      body: { status: 'shipped' },
+    });
+    assert.strictEqual(invalid.status, 400);
+  }
 });
 
 // ===== QR scan-event logging (parity) =====

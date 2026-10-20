@@ -12,6 +12,7 @@ const Ajv = require('ajv');
 const addFormats = require('ajv-formats');
 const spec = require('../../openapi.json');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
+const { ORDER_TERMS_VERSION } = require('../catalog-orders/order-terms');
 
 // ---- Schema preparation ---------------------------------------------------
 // OpenAPI 3.0 uses `nullable: true` (not part of JSON Schema draft-07) and
@@ -431,6 +432,8 @@ test('openapi: order inquiries lifecycle', async () => {
     products: ['Widget x2'],
     estimated_cost: 120,
     notes: 'openapi test',
+    terms_accepted: true,
+    terms_version: ORDER_TERMS_VERSION,
   };
   // Placed with the customer token so the order is stamped to its owner
   // (per-account history scoping keeps the owner's list populated).

@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { ORDER_TERMS_VERSION } = require('../catalog-orders/order-terms');
 
 // Isolate from the repo database BEFORE loading the backend modules: the db
 // module reads process.env.INVENTRAK_DB_PATH at require time. This suite used
@@ -355,6 +356,8 @@ test('POST /api/order-inquiries stores inquiry and GET returns it', async () => 
     products: ['Test Widget x2'],
     estimated_cost: 200,
     notes: 'Please contact me',
+    terms_accepted: true,
+    terms_version: ORDER_TERMS_VERSION,
   };
 
   const postResponse = await request('/api/order-inquiries', {
