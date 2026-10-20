@@ -47,7 +47,7 @@ const ShaderGradientScene = React.lazy(() =>
 
 /**
  * Fallback gradient shown while the WebGL shader loads.
- * Matches the same INVENTRAK green palette.
+ * Matches the same Sylver green palette.
  */
 function FallbackGradient() {
   return (

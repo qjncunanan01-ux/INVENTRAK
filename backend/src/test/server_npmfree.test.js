@@ -222,7 +222,7 @@ test('GET /api/docs serves Swagger UI and openapi.json', async () => {
   assert.strictEqual(docs.status, 200);
   const spec = await request('/api/openapi.json');
   assert.strictEqual(spec.status, 200);
-  assert.strictEqual(spec.body.info.title, 'INVENTRAK Inventory Management API');
+  assert.strictEqual(spec.body.info.title, "Sylver's Inventory Management API");
 });
 
 test('GET /api/optimization returns bulk metrics', async () => {

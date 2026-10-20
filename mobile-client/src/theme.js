@@ -31,13 +31,12 @@ export const brand = {
   info: '#1565C0',
 };
 
-// The partner business INVENTRAK was built for — shown on the login screen and
-// the home header. INVENTRAK stays the SOFTWARE name; Sylver is the company.
+// Sylver's is the product brand shown on the login screen and home header.
 export const company = {
   name: 'Sylver Restaurant and Coffee Supplies',
   brand: 'SYLVER',
   tagline: 'YOUR PARTNER IN EVERY CREATION',
-  software: 'INVENTRAK',
+  software: "Sylver's",
   // Supplied artwork is opaque white; it is only ever placed on a white/cream
   // surface, never recoloured or cropped.
   logo: require('../assets/sylver-logo.png'),

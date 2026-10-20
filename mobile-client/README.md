@@ -1,4 +1,4 @@
-# INVENTRAK Mobile App
+# Sylver's Mobile App
 
 Customer + staff mobile module. **React Native 0.86 on Expo SDK 57** with
 React Navigation 7, Reanimated, and the Lazada/Shopee-style catalog UI.

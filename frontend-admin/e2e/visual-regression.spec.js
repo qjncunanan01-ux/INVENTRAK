@@ -206,7 +206,7 @@ async function gotoLogin(page) {
   await page.goto('/');
   await page.evaluate(() => sessionStorage.clear());
   await page.goto('/');
-  await expect(page.getByText('INVENTRAK Admin')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Sylver's Admin")).toBeVisible({ timeout: 15_000 });
 }
 
 async function loginAsOwner(page) {

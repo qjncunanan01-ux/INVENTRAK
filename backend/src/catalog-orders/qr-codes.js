@@ -24,7 +24,7 @@
 const PRODUCT_QR_PREFIX = 'INVENTRAK:PROD:';
 
 // Camera-friendly tag URL. Plain-text payloads like INVENTRAK:PROD:1 scan fine
-// inside the INVENTRAK apps, but a phone's NATIVE camera app cannot act on
+// inside the Sylver apps, but a phone's NATIVE camera app cannot act on
 // them (iOS shows "No usable data found" — a top demo-day failure). Printing
 // tags as URLs to the public tag page makes every phone camera open a working
 // product page, while the app scanners unwrap the URL to the same id.
@@ -119,7 +119,7 @@ async function handleTagPageLookup(req, res, sendJson, ctx) {
   const parsed = parseProductQrIdentifier(raw);
 
   if (parsed.kind === 'unknown') {
-    return { status: 400, body: { error: 'Validation failed', details: ['Invalid QR code. Please scan a valid INVENTRAK QR code.'] } };
+    return { status: 400, body: { error: 'Validation failed', details: ['Please scan a supported Sylver product or location tag.'] } };
   }
   const products = Array.isArray(ctx.products) ? ctx.products : [];
   const product = products.find(p => {
@@ -128,7 +128,7 @@ async function handleTagPageLookup(req, res, sendJson, ctx) {
     return sku && String(sku).toUpperCase() === parsed.value;
   });
   if (!product) {
-    return { status: 404, body: { error: 'Not found', details: ['QR code is not registered in INVENTRAK.'] } };
+    return { status: 404, body: { error: 'Not found', details: ['QR code is not registered in Sylver inventory.'] } };
   }
   const status = product.status === undefined || product.status === null || product.status === '' ? 'active' : product.status;
   if (status !== 'active') {
@@ -183,7 +183,7 @@ async function handleQrProductLookup(req, res, sendJson, ctx) {
   if (parsed.kind === 'unknown') {
     return sendJson(res, 400, {
       error: 'Validation failed',
-      details: ['Invalid QR code. Please scan a valid INVENTRAK QR code.'],
+      details: ['Please scan a supported Sylver product or location tag.'],
     });
   }
 
@@ -197,7 +197,7 @@ async function handleQrProductLookup(req, res, sendJson, ctx) {
   if (!product) {
     return sendJson(res, 404, {
       error: 'Not found',
-      details: ['QR code is not registered in INVENTRAK.'],
+      details: ['QR code is not registered in Sylver inventory.'],
     });
   }
 
@@ -231,13 +231,13 @@ async function handleQrProductLookup(req, res, sendJson, ctx) {
 // (images + inline styles) while staying frame-ancestors 'none'.
 function renderTagPageHtml(result) {
   const esc = (s) => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const shell = (inner) => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>INVENTRAK</title></head><body style="font-family:system-ui,-apple-system,sans-serif;background:#eef7e1;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box"><div style="max-width:420px;width:100%;background:#fff;border-radius:18px;padding:26px;box-shadow:0 8px 30px rgba(0,0,0,0.08);text-align:center">${inner}</div></body></html>`;
+  const shell = (inner) => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sylver's</title></head><body style="font-family:system-ui,-apple-system,sans-serif;background:#eef7e1;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box"><div style="max-width:420px;width:100%;background:#fff;border-radius:18px;padding:26px;box-shadow:0 8px 30px rgba(0,0,0,0.08);text-align:center">${inner}</div></body></html>`;
 
   if (!result || result.status !== 200) {
     const msg = result && result.body && Array.isArray(result.body.details) && result.body.details[0] ? result.body.details[0] : 'Tag not found.';
     return shell(
       `<div style="font-size:36px;line-height:1">▦</div>` +
-      `<h1 style="font-size:19px;margin:10px 0 2px;color:#1a1a1a">INVENTRAK</h1>` +
+      `<h1 style="font-size:19px;margin:10px 0 2px;color:#1a1a1a">Sylver's</h1>` +
       `<p style="color:#555;font-size:14px;line-height:1.5;margin:14px 0 0">${esc(msg)}</p>`,
     );
   }
@@ -256,7 +256,7 @@ function renderTagPageHtml(result) {
     price +
     `<div style="display:inline-block;margin-top:12px;padding:5px 14px;border-radius:999px;font-size:12.5px;font-weight:700;color:#fff;background:${statusColor}">${statusLabel} · ${esc(st.total)} on hand</div>` +
     desc +
-    `<div style="margin-top:20px;padding-top:14px;border-top:1px dashed #ddd;color:#999;font-size:11px;line-height:1.6">Scanned from an INVENTRAK product tag (SKU ${esc(result.body.qr.sku)})<br>Staff tools live in the INVENTRAK apps.</div>`,
+    `<div style="margin-top:20px;padding-top:14px;border-top:1px dashed #ddd;color:#999;font-size:11px;line-height:1.6">Scanned from a Sylver product tag (SKU ${esc(result.body.qr.sku)})<br>Staff tools live in the Sylver's apps.</div>`,
   );
 }
 

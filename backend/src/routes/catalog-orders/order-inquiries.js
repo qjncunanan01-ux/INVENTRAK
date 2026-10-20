@@ -396,7 +396,7 @@ router.post('/', validate({
   }
 
   let payment = null;
-  try { payment = await buildPaymentStep({ id: inquiryId, amount: storedCost, description: `INVENTRAK order ${inquiryId} — ${customer_name}`, email: customer_email, paymentMethod: payment_method || 'cod' }); } catch (err) { console.error('[payments] buildPaymentStep failed:', err && err.message); }
+  try { payment = await buildPaymentStep({ id: inquiryId, amount: storedCost, description: `Sylver's order ${inquiryId} — ${customer_name}`, email: customer_email, paymentMethod: payment_method || 'cod' }); } catch (err) { console.error('[payments] buildPaymentStep failed:', err && err.message); }
   if (payment) {
     db.prepare('UPDATE order_inquiries SET payment_method = ?, payment_status = ?, payment_reference = ?, payment_url = ?, payment_qr = ?, payment_provider = ?, payment_updated_at = ? WHERE id = ?')
       .run(payment.payment_method, payment.payment_status, payment.payment_reference, payment.payment_url, payment.payment_qr, payment.payment_provider, now, inquiryId);

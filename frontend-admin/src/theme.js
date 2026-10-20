@@ -30,14 +30,13 @@ export const brand = {
   info: '#1565C0',
 };
 
-// The partner business INVENTRAK was built for. Kept beside the palette because
-// both are branding and both are rendered by the login page and the sidebar.
-// INVENTRAK stays the SOFTWARE name — the company is Sylver, the product is not.
+// Sylver's is the product brand. The company logo and full company name remain
+// beside it because the login page and sidebar display both identities.
 export const company = {
   name: 'Sylver Restaurant and Coffee Supplies',
   brand: 'SYLVER',
   tagline: 'YOUR PARTNER IN EVERY CREATION',
-  software: 'INVENTRAK',
+  software: "Sylver's",
   // Public assets (frontend-admin/public/). The supplied artwork is opaque
   // white, so it is always placed on a white/cream surface — never recoloured
   // or cropped, which would damage the official mark.

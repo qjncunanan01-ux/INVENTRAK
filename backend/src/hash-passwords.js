@@ -77,7 +77,7 @@ async function main() {
   try {
     const table = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").get();
     if (!table) {
-      console.error(`users table not found in ${dbPath} — is this an INVENTRAK database?`);
+      console.error(`users table not found in ${dbPath} — is this a Sylver inventory database?`);
       process.exit(1);
     }
     if (dryRun) {

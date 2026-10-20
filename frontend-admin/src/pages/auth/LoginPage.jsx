@@ -124,7 +124,7 @@ export default function LoginPage({ onLogin }) {
       if (!data.user || !ADMIN_TIER.includes(data.user.role)) {
         setError(
           data.user && data.user.role === 'staff'
-            ? 'Inventory Staff accounts are mobile-only — scan QR tags and submit counts from the INVENTRAK mobile app instead.'
+            ? "Inventory Staff accounts are mobile-only — scan QR tags and submit counts from Sylver's mobile app instead."
             : 'This account does not have web admin access.',
         );
         return;
@@ -204,9 +204,8 @@ export default function LoginPage({ onLogin }) {
           style={{ width: '100%' }}
         >
           <Paper sx={{ width: '100%', p: { xs: 3, md: 5 }, borderRadius: 4, boxShadow: '0 30px 90px rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', backgroundColor: colors.surface }}>
-            {/* OFFICIAL SYLVER IDENTITY. The partner business and the software
-                are labelled separately on purpose: Sylver supplies the brand
-                (logo + tagline), INVENTRAK is the system being signed into.
+            {/* OFFICIAL SYLVER IDENTITY. The company logo and the Sylver's
+                product name are both shown on the sign-in card.
                 The supplied artwork is opaque white, so it is placed on the
                 white card as-is — never recoloured, cropped or stretched. */}
             <Box sx={{ mb: 2.5, textAlign: 'center' }}>
@@ -227,7 +226,7 @@ export default function LoginPage({ onLogin }) {
 
             <Box sx={{ mb: 3, p: 3, borderRadius: 3, backgroundColor: brandSidebar, color: '#fff' }}>
               <Typography variant="h5" component="div" gutterBottom>
-            INVENTRAK Admin
+            {company.software} Admin
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>
             Secure inventory controls and analytics.
@@ -296,7 +295,7 @@ export default function LoginPage({ onLogin }) {
               {showDemo ? 'Hide demo credentials' : 'Show demo credentials'} — one tap fills the account, then press Login.
             </Typography>
             <Typography variant="caption" sx={{ display: 'block', mb: 3, color: colors.textSecondary }}>
-          📱 Inventory Staff: sign in from the INVENTRAK mobile app to scan QR tags and submit counts — this portal is desktop-only.
+          📱 Inventory Staff: sign in from Sylver's mobile app to scan QR tags and submit counts — this portal is desktop-only.
             </Typography>
 
             {error ? <Alert severity="error" sx={{ mb: 2 }} aria-live="polite">{error}</Alert> : null}

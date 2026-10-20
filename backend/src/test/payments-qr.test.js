@@ -25,7 +25,7 @@ test('gcash demo fallback: QR is a local data URL containing the payload', async
 });
 
 test('qrImageUrl always returns a data URL (and works for arbitrary payloads)', async() => {
-  const url = await qrImageUrl('INVENTRAK PAYMENT\nAmount: PHP 1.00\nRef: X');
+  const url = await qrImageUrl("SYLVER'S PAYMENT\nAmount: PHP 1.00\nRef: X");
   assert.ok(url.startsWith('data:image/png;base64,'));
 });
 

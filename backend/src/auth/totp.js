@@ -100,7 +100,7 @@ function verifyTOTP(secret, code, window = 1, nowMs = Date.now()) {
 }
 
 // otpauth:// URI — scan this QR (or paste into an authenticator app).
-function otpauthUrl(secret, account, issuer = 'INVENTRAK') {
+function otpauthUrl(secret, account, issuer = "Sylver's") {
   const label = `${issuer}:${account}`;
   return (
     `otpauth://totp/${encodeURIComponent(label)}` +

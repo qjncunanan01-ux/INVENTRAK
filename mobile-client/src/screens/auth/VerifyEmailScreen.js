@@ -14,6 +14,7 @@ import {
 import { resendVerification, setSessionDetails, verifyEmail } from '../../api';
 import BackButton from '../../BackButton';
 import { useThemeColors } from '../../theme-context';
+import { company } from '../../theme';
 
 // Shown right after signup (and from the Account tab / login for unverified
 // accounts): the 6-digit code sent to the customer's email (and phone, when
@@ -43,7 +44,7 @@ export default function VerifyEmailScreen({ route, navigation }) {
     try {
       await verifyEmail({ code: code.trim() });
       setSessionDetails({ email, verified: true });
-      Alert.alert('Verified 🎉', 'Your account has been verified. Welcome to INVENTRAK!', [
+      Alert.alert('Verified 🎉', `Your account has been verified. Welcome to ${company.software}!`, [
         { text: 'Continue', onPress: () => navigation.goBack() },
       ]);
     } catch (err) {

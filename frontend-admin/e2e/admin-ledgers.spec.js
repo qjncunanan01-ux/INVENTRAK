@@ -30,7 +30,7 @@ async function loginAsAdmin(page) {
   await page.goto('/');
   await page.evaluate(() => sessionStorage.clear());
   await page.goto('/');
-  await page.waitForSelector('text=INVENTRAK Admin', { timeout: 15_000 });
+  await page.waitForSelector("text=Sylver's Admin", { timeout: 15_000 });
   await page.getByRole('button', { name: /fill admin/i }).click();
   await page.getByRole('button', { name: /login/i }).click();
   await page.waitForURL('**/', { timeout: 15_000 });
@@ -144,7 +144,7 @@ test.describe('Admin ledgers', () => {
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify({ hello: 'world' })),
     });
-    await expect(page.getByText(/not an INVENTRAK snapshot/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/not a Sylver inventory backup/i)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('button', { name: /restore now/i })).toHaveCount(0);
   });
 });

@@ -320,7 +320,7 @@ async function pushSnapshot(envelope, { trigger = 'manual' } = {}) {
     };
   }
   if (!envelope || typeof envelope !== 'object' || envelope.format !== FORMAT || envelope.version !== VERSION) {
-    return { ok: false, reason: 'refusing to push: the envelope is not a current inventrak-backup snapshot' };
+    return { ok: false, reason: 'refusing to push: the envelope is not a current Sylver backup in the inventrak-backup format' };
   }
   const bytes = byteSize(envelope);
   if (bytes > cfg.maxBytes) {

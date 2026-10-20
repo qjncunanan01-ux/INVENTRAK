@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "INVENTRAK",
+    "name": "Sylver's",
     "slug": "inventrak-mobile",
     "scheme": "inventrak",
     "version": "1.3.0",
@@ -30,7 +30,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow INVENTRAK to use your camera to scan product labels.",
+          "cameraPermission": "Allow Sylver's to use your camera to scan product labels.",
           "recordAudioAndroid": false
         }
       ],

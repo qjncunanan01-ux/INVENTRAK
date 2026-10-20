@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "INVENTRAK Inventory Management API",
-    "description": "Backend API for the INVENTRAK inventory management system. Both the SQLite (Express) backend and the npm-free fallback expose this identical contract. Live docs: GET /api/docs",
+    "title": "Sylver's Inventory Management API",
+    "description": "Backend API for Sylver's inventory management system. Both the SQLite (Express) backend and the npm-free fallback expose this identical contract. Live docs: GET /api/docs",
     "version": "1.0.0"
   },
   "servers": [

@@ -6,7 +6,7 @@ async function loginAsAdmin(page) {
   await page.goto('/');
   await page.evaluate(() => sessionStorage.clear());
   await page.goto('/');
-  await page.waitForSelector('text=INVENTRAK Admin', { timeout: 10_000 });
+  await page.waitForSelector("text=Sylver's Admin", { timeout: 10_000 });
   await page.getByRole('button', { name: /owner/i }).click();
   await page.getByRole('button', { name: /login/i }).click();
   await page.waitForURL('**/', { timeout: 10_000 });
@@ -178,7 +178,7 @@ test.describe('Navigation & Role-Based Access', () => {
     await logoutBtn.click();
 
     // Should return to login page
-    await page.waitForSelector('text=INVENTRAK Admin', { timeout: 10_000 });
+    await page.waitForSelector("text=Sylver's Admin", { timeout: 10_000 });
     await expect(page.getByRole('button', { name: /login/i })).toBeVisible();
 
     // Session should be cleared

@@ -103,7 +103,7 @@ export default function LoginScreen() {
             accessibilityLabel="Sylver Restaurant and Coffee Supplies logo"
           />
         </View>
-        <Text style={styles.title}>INVENTRAK Staff</Text>
+        <Text style={styles.title}>{company.software} Staff</Text>
         <Text style={styles.subtitle}>
           QR scanning · physical counts · adjustment requests
         </Text>
@@ -151,7 +151,7 @@ export default function LoginScreen() {
 
       <Text style={styles.footer}>
         Staff-exclusive: accounts are created by the owner on the web admin.
-        Admin/owner accounts sign in there, not here; customers use the INVENTRAK app.
+        Admin/owner accounts sign in there, not here; customers use the Sylver's app.
       </Text>
 
       {/* Build marker: instantly answers "which build is this phone running?". */}

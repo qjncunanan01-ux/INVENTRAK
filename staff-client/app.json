@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "INVENTRAK Staff",
+    "name": "Sylver's Staff",
     "slug": "inventrak-staff",
     "scheme": "inventrak-staff",
     "version": "1.5.0",
@@ -26,7 +26,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow INVENTRAK Staff to use your camera to scan QR tags, barcodes, and product labels.",
+          "cameraPermission": "Allow Sylver's Staff to use your camera to scan QR tags, barcodes, and product labels.",
           "recordAudioAndroid": false
         }
       ],

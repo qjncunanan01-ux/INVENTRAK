@@ -1,6 +1,6 @@
-# INVENTRAK Admin Web
+# Sylver's Admin Web
 
-Owner/staff dashboard for INVENTRAK: inventory, products, approvals, Scan &
+Owner/staff dashboard for Sylver's: inventory, products, approvals, Scan &
 Stock (QR scanner), reports, and user management. Built with **Vite + React 18 +
 MUI 5 + Recharts + React Router 7**.
 

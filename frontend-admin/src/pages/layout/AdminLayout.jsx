@@ -152,10 +152,10 @@ function NavContent({ collapsed = false, onNavigate, uiBuild, apiBuild }) {
         {collapsed ? (
           <Box
             // The rail has no room for the wordmark, so the mark itself is the
-            // brand: labelled INVENTRAK, which is what a screen reader needs
+            // brand: labelled with the Sylver's product name for screen readers
             // where the old "INV" text used to be.
             role="img"
-            aria-label="INVENTRAK"
+            aria-label={company.software}
             title={company.name}
             sx={{
               width: 40,
@@ -202,7 +202,7 @@ function NavContent({ collapsed = false, onNavigate, uiBuild, apiBuild }) {
               </Box>
               <Box sx={{ minWidth: 0 }}>
                 <Typography variant="h6" sx={{ letterSpacing: 0.5, fontWeight: 800, lineHeight: 1.1 }}>
-                  INVENTRAK
+                  {company.software}
                 </Typography>
                 <Typography variant="caption" sx={{ opacity: 0.82, letterSpacing: 0.3 }}>
                   Inventory admin portal

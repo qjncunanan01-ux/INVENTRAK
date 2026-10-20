@@ -208,10 +208,10 @@ export default function QrScanScreen({ navigation }) {
     } catch (err) {
       const status = err && err.status;
       if (status === 400) {
-        Alert.alert('Invalid QR code', 'Invalid QR code. Please scan a valid INVENTRAK QR code.');
+        Alert.alert('Invalid QR code', 'Please scan a supported Sylver product or location tag.');
         setLast({ type: 'unknown', raw: parsed.raw.slice(0, 120) });
       } else if (status === 404) {
-        Alert.alert('Not registered', 'QR code is not registered in INVENTRAK.');
+        Alert.alert('Not registered', 'QR code is not registered in Sylver inventory.');
         setLast({ type: 'unknown', raw: parsed.raw.slice(0, 120) });
       } else if (status === 409) {
         Alert.alert('Inactive product', 'This product is currently inactive.');
@@ -268,7 +268,7 @@ export default function QrScanScreen({ navigation }) {
       createScanEvent({ payload: parsed.raw.slice(0, 300), kind: 'unknown', target_id: null }).catch(() => {});
       lockRef.current = true;
       setLast({ type: 'unknown', raw: raw.slice(0, 120) });
-      Alert.alert('QR code not recognized', 'Invalid QR code. Please scan a valid INVENTRAK QR code.');
+      Alert.alert('QR code not recognized', 'Please scan a supported Sylver product or location tag.');
       setTimeout(() => { lockRef.current = false; }, RESCAN_COOLDOWN_MS);
       return;
     }
@@ -321,7 +321,7 @@ export default function QrScanScreen({ navigation }) {
       setLast({ type: 'unknown', raw: String(data || '').slice(0, 120) });
       Alert.alert(
         'QR code not recognized',
-        'Invalid QR code. Please scan a valid INVENTRAK QR code.',
+        'Please scan a supported Sylver product or location tag.',
       );
       setTimeout(() => { lockRef.current = false; }, RESCAN_COOLDOWN_MS);
       return;
@@ -438,7 +438,7 @@ export default function QrScanScreen({ navigation }) {
         </TouchableOpacity>
         {last && last.type === 'unknown' ? (
           <Text style={styles.unknownNote} numberOfLines={2}>
-            Last scan: “{last.raw}” — not an INVENTRAK tag
+            Last scan: “{last.raw}” — not a supported Sylver tag
           </Text>
         ) : null}
       </View>
@@ -536,8 +536,8 @@ function ManualEntrySheet({ visible, code, onChangeCode, onClose, onSubmit, colo
         <View style={styles.sheetCard}>
           <Text style={styles.sheetTitle}>Enter Code Manually</Text>
           <Text style={styles.sheetSub}>
-            Type the code printed under a tag — the tag URL (e.g. https://…/t/12),
-            INVENTRAK:PROD:12, or a location tag. It resolves exactly like a scan.
+            Type the code printed under a Sylver tag — the tag URL (e.g. https://…/t/12),
+            the current tag format INVENTRAK:PROD:12, or a location tag. It resolves like a scan.
           </Text>
           <TextInput
             ref={inputRef}

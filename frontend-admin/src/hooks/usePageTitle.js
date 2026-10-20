@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
+import { company } from '../theme';
 
-const SITE_NAME = 'INVENTRAK';
+const SITE_NAME = company.software;
 const DEFAULT_TITLE = `${SITE_NAME} — Admin Dashboard`;
 
 // Route-specific title map: keeps page titles unique and descriptive for SEO
-// and browser tab clarity. Each title follows the pattern "Page — INVENTRAK".
+// and browser tab clarity. Each title follows the pattern "Page — Sylver's".
 const ROUTE_TITLES = {
   '/': 'Dashboard',
   '/products': 'Products',
@@ -30,7 +31,7 @@ const ROUTE_TITLES = {
 
 /**
  * Sets a unique document title for the current route.
- * Called in each page component: usePageTitle('Products') → "Products — INVENTRAK"
+ * Called in each page component: usePageTitle('Products') → "Products — Sylver's"
  * Also updates the og:title meta tag for social sharing.
  */
 export default function usePageTitle(pageKey) {

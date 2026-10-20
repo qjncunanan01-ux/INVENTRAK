@@ -171,7 +171,7 @@ export default function LocationsPage({ onLogout }) {
       </Dialog>
 
       {/* QR location tags — printable tags for Showroom / Stockroom 1 /
-          Stockroom 2. Each encodes INVENTRAK:LOC:<id>:<name> so the mobile
+          Stockroom 2. Each encodes INVENTRAK:LOC:<id>:<name> so Sylver's mobile
           staff scanner opens that storage area's stock view on scan. */}
       <Dialog open={showQr} onClose={() => setShowQr(false)} maxWidth="md" fullWidth>
         <DialogTitle>Location QR tags</DialogTitle>

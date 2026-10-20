@@ -1,4 +1,4 @@
-// INVENTRAK Staff — API facade.
+// Sylver's Staff — API facade.
 //
 // The generated module (api.generated.js, copied from the OpenAPI contract)
 // is the source of truth for request shapes; this file keeps only what the

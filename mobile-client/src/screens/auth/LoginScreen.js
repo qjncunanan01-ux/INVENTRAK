@@ -229,7 +229,7 @@ export default function LoginScreen({ navigation }) {
             accessibilityLabel="Sylver Restaurant and Coffee Supplies logo"
           />
         </View>
-        <Text style={styles.title}>INVENTRAK</Text>
+        <Text style={styles.title}>{company.software}</Text>
         <Text style={styles.subtitle}>Customer Portal</Text>
         <Text style={styles.tagline}>{company.tagline}</Text>
         <TextInput

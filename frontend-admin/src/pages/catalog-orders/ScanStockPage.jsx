@@ -281,8 +281,8 @@ export default function ScanStockPage({ onLogout }) {
       setConfirmErr('');
     } catch (err) {
       const status = err && err.status;
-      if (status === 400) setError('Invalid QR code. Please scan a valid INVENTRAK QR code.');
-      else if (status === 404) setError('QR code is not registered in INVENTRAK.');
+      if (status === 400) setError('Invalid QR code. Please scan a supported Sylver product or location tag.');
+      else if (status === 404) setError('QR code is not registered in Sylver inventory.');
       else if (status === 409) setError('This product is currently inactive.');
       else if (status === 401 || status === 403) setError('You are not authorized to perform this inventory action.');
       else setError('Unable to retrieve product information. Please check your connection.');
@@ -493,7 +493,7 @@ export default function ScanStockPage({ onLogout }) {
           <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', maxWidth: 520 }}>
             <TextField
               size="small"
-              label="Tag payload (e.g. INVENTRAK:PROD:1)"
+              label="Current tag payload (e.g. INVENTRAK:PROD:1)"
               value={pasteValue}
               onChange={(e) => setPasteValue(e.target.value)}
               onKeyDown={(e) => {

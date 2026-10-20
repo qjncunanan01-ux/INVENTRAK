@@ -153,7 +153,7 @@ app.get('/t/:code', async (req, res) => {
 // Swagger/OpenAPI
 const openapiFile = path.join(__dirname, '..', 'openapi.json');
 const swaggerUiHtml = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8" /><title>INVENTRAK API Docs</title>
+<html lang="en"><head><meta charset="UTF-8" /><title>Sylver's API Docs</title>
 <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" /></head>
 <body style="margin:0"><div id="swagger-ui"></div>
 <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>

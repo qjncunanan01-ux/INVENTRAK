@@ -14,6 +14,7 @@ import {
 import { register, setSessionDetails, setSessionUsername, setToken } from '../../api';
 import BackButton from '../../BackButton';
 import { useThemeColors } from '../../theme-context';
+import { company } from '../../theme';
 
 // Mirrors the backend policy exactly (backend/src/password-policy.js): the
 // server is the source of truth, this is just a friendlier pre-check.
@@ -120,7 +121,7 @@ export default function SignupScreen({ navigation }) {
       <BackButton navigation={navigation} label="Back" />
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join INVENTRAK to start ordering supplies.</Text>
+        <Text style={styles.subtitle}>Join {company.software} to start ordering supplies.</Text>
 
         <Text style={styles.label}>Username</Text>
         <TextInput
@@ -200,9 +201,9 @@ export default function SignupScreen({ navigation }) {
           <View style={styles.consentTextWrap}>
             <Text style={styles.consentTitle}>Data Privacy Act (RA 10173) Consent</Text>
             <Text style={styles.consentBody}>
-              I agree to INVENTRAK collecting and processing my name, email address, and mobile
+              I agree that Sylver's may collect and process my name, email address, and mobile
               number for the purposes of account verification, order inquiries, and status
-              updates by email and SMS. INVENTRAK will never sell or share my personal data,
+              updates by email and SMS. Sylver's will never sell or share my personal data,
               and I can request its deletion at any time.
             </Text>
           </View>

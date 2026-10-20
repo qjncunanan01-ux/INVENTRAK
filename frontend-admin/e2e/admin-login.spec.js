@@ -7,12 +7,12 @@ test.describe('Admin Login Flow', () => {
     await page.goto('/');
     await page.evaluate(() => sessionStorage.clear());
     await page.goto('/');
-    await page.waitForSelector('text=INVENTRAK Admin', { timeout: 10_000 });
+    await page.waitForSelector("text=Sylver's Admin", { timeout: 10_000 });
   });
 
   test('login page renders with correct structure', async ({ page }) => {
     // Page title (MUI h5 renders as div, not heading)
-    await expect(page.getByText('INVENTRAK Admin')).toBeVisible();
+    await expect(page.getByText("Sylver's Admin")).toBeVisible();
     await expect(page.getByText('Secure inventory controls and analytics.')).toBeVisible();
 
     // Demo quick-fill buttons — one per role that may sign in HERE. Staff is
@@ -27,7 +27,7 @@ test.describe('Admin Login Flow', () => {
 
     // …and the page points staff at the app they do sign in from.
     await expect(
-      page.getByText(/Inventory Staff: sign in from the INVENTRAK mobile app/i),
+      page.getByText(/Inventory Staff: sign in from the Sylver's mobile app/i),
     ).toBeVisible();
 
     // Credentials hidden by default
@@ -72,7 +72,7 @@ test.describe('Admin Login Flow', () => {
     // account with 403 portal_mobile_only — an error, never a session. Staff
     // must not reach the dashboard (a money surface) from here at all.
     await expect(page.getByRole('alert')).toContainText(/mobile-only/i, { timeout: 10_000 });
-    await expect(page.getByText('INVENTRAK Admin')).toBeVisible();
+    await expect(page.getByText("Sylver's Admin")).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem('inventrak_token'))).toBeFalsy();
 
     // The staff EXPERIENCE still exists for a token the mobile app issued —
@@ -189,7 +189,7 @@ test.describe('Admin Login Flow', () => {
 
     // Navigate back — should show login page
     await page.goto('/');
-    await page.waitForSelector('text=INVENTRAK Admin', { timeout: 10_000 });
+    await page.waitForSelector("text=Sylver's Admin", { timeout: 10_000 });
     await expect(page.getByRole('button', { name: /login/i })).toBeVisible();
   });
 });
@@ -199,7 +199,7 @@ test.describe('Login Accessibility', () => {
     await page.goto('/');
     await page.evaluate(() => sessionStorage.clear());
     await page.goto('/');
-    await page.waitForSelector('text=INVENTRAK Admin', { timeout: 10_000 });
+    await page.waitForSelector("text=Sylver's Admin", { timeout: 10_000 });
 
     // Username field has a label
     const username = page.getByLabel('Username');
@@ -218,7 +218,7 @@ test.describe('Login Accessibility', () => {
     await page.goto('/');
     await page.evaluate(() => sessionStorage.clear());
     await page.goto('/');
-    await page.waitForSelector('text=INVENTRAK Admin', { timeout: 10_000 });
+    await page.waitForSelector("text=Sylver's Admin", { timeout: 10_000 });
 
     // Trigger validation error
     await page.getByRole('button', { name: /login/i }).click();

@@ -1,4 +1,4 @@
-# Render Blueprint — one-click deploy for INVENTRAK.
+# Render Blueprint — one-click deploy for Sylver's inventory apps.
 #
 # CURRENT schema: services use `runtime: <type>` and `rootDir` (the old
 # `env:` / `rootDirectory` field names are rejected by today's validator).
@@ -60,17 +60,17 @@ services:
       # - key: SMTP_PASS
       #   value: xxxx xxxx xxxx xxxx
       # - key: EMAIL_FROM
-      #   value: "INVENTRAK <you@gmail.com>"
+      #   value: "Sylver's <you@gmail.com>"
       #   ...or Resend (owner-inbox-only until a domain is verified):
       # - key: RESEND_API_KEY
       #   value: re_xxx
       # - key: EMAIL_FROM
-      #   value: "INVENTRAK <onboarding@resend.dev>"
+      #   value: "Sylver's <onboarding@resend.dev>"
       # SMS (Semaphore):
       # - key: SEMAPHORE_API_KEY
       #   value: xxx
       # - key: SEMAPHORE_SENDER_NAME
-      #   value: INVENTRAK
+      #   value: Sylver's
 
   # ---------- Admin dashboard (static site) ----------
   - type: web

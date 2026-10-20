@@ -26,7 +26,7 @@ function makeReference(id) {
 
 // QR payload the customer would scan in the GCash app: amount + reference.
 function qrPayload(amount, reference) {
-  return `INVENTRAK PAYMENT\nAmount: PHP ${Number(amount || 0).toFixed(2)}\nRef: ${reference}`;
+  return `SYLVER'S PAYMENT\nAmount: PHP ${Number(amount || 0).toFixed(2)}\nRef: ${reference}`;
 }
 
 // QR image as a data URL, generated locally with the `qrcode` package. The
@@ -50,8 +50,8 @@ async function createPayMongoSession({ amount, description, reference, email }) 
       attributes: {
         amount: Math.round(Number(amount || 0) * 100),
         currency: 'PHP',
-        description: String(description || 'INVENTRAK order').slice(0, 190),
-        statement_descriptor: 'INVENTRAK',
+        description: String(description || "Sylver's order").slice(0, 190),
+        statement_descriptor: 'SYLVER',
         reference_number: reference,
         payment_method_types: ['gcash'],
         ...(email ? { send_email_receipt: true, customer: { email } } : {}),

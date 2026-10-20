@@ -79,7 +79,7 @@ describe('portal gate: the web admin is admin-tier only', () => {
       ok: false,
       status: 403,
       json: async() => ({
-        error: 'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
+        error: "Inventory Staff accounts are mobile-only. Use Sylver's mobile app to scan QR tags and submit counts.",
         code: 'portal_mobile_only',
       }),
     });

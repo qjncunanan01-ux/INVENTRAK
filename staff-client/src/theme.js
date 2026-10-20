@@ -1,7 +1,7 @@
 // OFFICIAL SYLVER PALETTE — the SAME palette as the customer app and the web
 // admin (one brand across the whole system): Sylver leaf green, coffee-bean
 // brown, cream background, dark green-gray text. This app is staff-exclusive,
-// so the palette carries no separate accent — it is INVENTRAK, full stop. The
+// so the palette carries no separate accent — it is Sylver's throughout. The
 // extra semantic keys (pending/approved/rejected) drive the My Requests badges.
 //
 // CONTRAST NOTE: `brandPrimary` carries white text (headers, buttons) and is
@@ -25,13 +25,12 @@ export const brand = {
   info: '#1565C0',
 };
 
-// The partner business INVENTRAK was built for — shown on the login screen.
-// INVENTRAK stays the SOFTWARE name; Sylver is the company.
+// Sylver's is the product brand shown on the staff login screen.
 export const company = {
   name: 'Sylver Restaurant and Coffee Supplies',
   brand: 'SYLVER',
   tagline: 'YOUR PARTNER IN EVERY CREATION',
-  software: 'INVENTRAK',
+  software: "Sylver's",
   // Supplied artwork is opaque white; it is only ever placed on a white/cream
   // surface, never recoloured or cropped.
   logo: require('../assets/sylver-logo.png'),

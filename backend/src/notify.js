@@ -102,14 +102,14 @@ function htmlBody({ title, bodyText, code }) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif">
 <div style="max-width:520px;margin:0 auto;padding:24px">
   <div style="background:#166534;border-radius:14px 14px 0 0;padding:22px;text-align:center">
-    <div style="color:#ffffff;font-size:20px;font-weight:800">🌾 INVENTRAK</div>
+    <div style="color:#ffffff;font-size:20px;font-weight:800">🌾 Sylver's</div>
     <div style="color:#bbf7d0;font-size:12px;margin-top:2px">Inventory &amp; Order Management</div>
   </div>
   <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 14px 14px;padding:26px">
     <h2 style="margin:0 0 14px;color:#0f172a;font-size:18px">${esc(title)}</h2>
     <div style="color:#334155;font-size:14px;line-height:1.65">${bodyText}</div>
     ${codeHtml}
-    <p style="color:#94a3b8;font-size:12px;margin-top:22px;line-height:1.5">— INVENTRAK<br>If you didn't request this, you can safely ignore this email.</p>
+    <p style="color:#94a3b8;font-size:12px;margin-top:22px;line-height:1.5">— Sylver's<br>If you didn't request this, you can safely ignore this email.</p>
   </div>
 </div></body></html>`;
 }
@@ -286,7 +286,7 @@ async function sendEmail({ to, subject, text, html }) {
         secure,
         user: process.env.SMTP_USER || '',
         pass: process.env.SMTP_PASS || '',
-        from: process.env.EMAIL_FROM || `INVENTRAK <inventrak@${process.env.SMTP_HOST}>`,
+        from: process.env.EMAIL_FROM || `Sylver's <sylvers@${process.env.SMTP_HOST}>`,
         to: recipient,
         subject,
         text: text || '',
@@ -308,7 +308,7 @@ async function sendEmail({ to, subject, text, html }) {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || 'INVENTRAK <onboarding@resend.dev>',
+        from: process.env.EMAIL_FROM || "Sylver's <onboarding@resend.dev>",
         to: recipients,
         subject,
         text: text || '',
@@ -416,7 +416,7 @@ function notifyInquiryStatus(inquiry, newStatus) {
   const label = STATUS_LABELS[newStatus] || newStatus;
   const name = (inquiry && inquiry.customer_name) || 'there';
   const items = productSummary(inquiry && inquiry.products);
-  const text = `Hi ${name},\n\nYour order inquiry (${items}) is now ${label}.\n\n— INVENTRAK`;
+  const text = `Hi ${name},\n\nYour order inquiry (${items}) is now ${label}.\n\n— Sylver's`;
   const html = htmlBody({
     title: `Your order inquiry is ${label}`,
     bodyText: `Hi ${esc(name)},<br><br>Your order inquiry <strong>(${esc(items)})</strong> is now <strong>${esc(label)}</strong>.`,
@@ -424,12 +424,12 @@ function notifyInquiryStatus(inquiry, newStatus) {
 
   const emailP =
     inquiry && inquiry.customer_email
-      ? sendEmail({ to: inquiry.customer_email, subject: `Your INVENTRAK order inquiry is ${label}`, text, html })
+      ? sendEmail({ to: inquiry.customer_email, subject: `Your Sylver's order inquiry is ${label}`, text, html })
       : Promise.resolve({ sent: false });
 
   const smsP =
     inquiry && inquiry.customer_phone
-      ? sendSms({ to: inquiry.customer_phone, message: `INVENTRAK: Your order inquiry is now ${label}.` })
+      ? sendSms({ to: inquiry.customer_phone, message: `Sylver's: Your order inquiry is now ${label}.` })
       : Promise.resolve({ sent: false });
 
   return Promise.all([emailP, smsP])
@@ -439,7 +439,7 @@ function notifyInquiryStatus(inquiry, newStatus) {
           event: 'inquiry_status',
           channel: 'email',
           recipient: inquiry.customer_email,
-          subject: `Your INVENTRAK order inquiry is ${label}`,
+          subject: `Your Sylver's order inquiry is ${label}`,
           status: deliveryStatus(emailRes, emailConfigured()),
           detail: label,
           related_id: inquiry.id,
@@ -451,7 +451,7 @@ function notifyInquiryStatus(inquiry, newStatus) {
           event: 'inquiry_status',
           channel: 'sms',
           recipient: inquiry.customer_phone,
-          subject: `INVENTRAK order inquiry is now ${label}`,
+          subject: `Sylver's order inquiry is now ${label}`,
           status: deliveryStatus(smsRes, smsConfigured()),
           detail: label,
           related_id: inquiry.id,
@@ -470,12 +470,12 @@ function notifyWelcome(email, username) {
   if (!email) return Promise.resolve({ sent: false });
   return sendEmail({
     to: email,
-    subject: 'Welcome to INVENTRAK',
-    text: `Hi ${username},\n\nYour INVENTRAK account is ready. Browse supplies, send order inquiries, and track their status.\n\n— INVENTRAK`,
+    subject: "Welcome to Sylver's",
+    text: `Hi ${username},\n\nYour Sylver's account is ready. Browse supplies, send order inquiries, and track their status.\n\n— Sylver's`,
     html: htmlBody({
       title: `Welcome, ${esc(username)}!`,
       bodyText:
-        'Your INVENTRAK account is ready. Browse supplies, send order inquiries, and track their status right from the app.',
+        "Your Sylver's account is ready. Browse supplies, send order inquiries, and track their status right from the app.",
     }),
   })
     .then(res => {
@@ -483,7 +483,7 @@ function notifyWelcome(email, username) {
         event: 'welcome',
         channel: 'email',
         recipient: email,
-        subject: 'Welcome to INVENTRAK',
+        subject: "Welcome to Sylver's",
         status: deliveryStatus(res, emailConfigured()),
         detail: username,
       });
@@ -499,17 +499,17 @@ function notifyWelcome(email, username) {
 // the code is single-use and expires after ttlMinutes. The welcome email is
 // sent only AFTER the account is verified.
 function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 }) {
-  const text = `Hi ${username},\n\nYour INVENTRAK verification code is:\n\n  ${code}\n\nEnter it in the app to verify your account. It expires in ${ttlMinutes} minutes.\n\n— INVENTRAK`;
+  const text = `Hi ${username},\n\nYour Sylver's verification code is:\n\n  ${code}\n\nEnter it in the app to verify your account. It expires in ${ttlMinutes} minutes.\n\n— Sylver's`;
   const html = htmlBody({
     title: 'Verify your account',
     bodyText: `Hi ${esc(username)},<br><br>Enter this code in the app to verify your account. It expires in <strong>${ttlMinutes} minutes</strong>.`,
     code,
   });
   const emailP = email
-    ? sendEmail({ to: email, subject: 'Your INVENTRAK verification code', text, html })
+    ? sendEmail({ to: email, subject: "Your Sylver's verification code", text, html })
     : Promise.resolve({ sent: false });
   const smsP = phone
-    ? sendSms({ to: phone, message: `INVENTRAK: Your verification code is ${code}.` })
+    ? sendSms({ to: phone, message: `Sylver's: Your verification code is ${code}.` })
     : Promise.resolve({ sent: false });
   return Promise.all([emailP, smsP])
     .then(([emailRes, smsRes]) => {
@@ -518,7 +518,7 @@ function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 
           event: 'verification',
           channel: 'email',
           recipient: email,
-          subject: 'Your INVENTRAK verification code',
+          subject: "Your Sylver's verification code",
           status: deliveryStatus(emailRes, emailConfigured()),
           detail: username,
         });
@@ -528,7 +528,7 @@ function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 
           event: 'verification',
           channel: 'sms',
           recipient: phone,
-          subject: 'INVENTRAK verification code',
+          subject: "Sylver's verification code",
           status: deliveryStatus(smsRes, smsConfigured()),
           detail: username,
         });
@@ -548,11 +548,11 @@ function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
   if (!email) return Promise.resolve({ sent: false });
   return sendEmail({
     to: email,
-    subject: 'Your INVENTRAK password reset code',
-    text: `Hi ${username},\n\nUse this code to reset your INVENTRAK password:\n\n  ${code}\n\nIt expires in ${ttlMinutes} minutes. If you didn't request this, you can safely ignore this email.\n\n— INVENTRAK`,
+    subject: "Your Sylver's password reset code",
+    text: `Hi ${username},\n\nUse this code to reset your Sylver's password:\n\n  ${code}\n\nIt expires in ${ttlMinutes} minutes. If you didn't request this, you can safely ignore this email.\n\n— Sylver's`,
     html: htmlBody({
       title: 'Reset your password',
-      bodyText: `Hi ${esc(username)},<br><br>Use this code to reset your INVENTRAK password. It expires in <strong>${ttlMinutes} minutes</strong>. If you didn't request this, you can safely ignore this email.`,
+      bodyText: `Hi ${esc(username)},<br><br>Use this code to reset your Sylver's password. It expires in <strong>${ttlMinutes} minutes</strong>. If you didn't request this, you can safely ignore this email.`,
       code,
     }),
   })
@@ -561,7 +561,7 @@ function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
         event: 'password_reset',
         channel: 'email',
         recipient: email,
-        subject: 'Your INVENTRAK password reset code',
+        subject: "Your Sylver's password reset code",
         status: deliveryStatus(res, emailConfigured()),
         detail: username,
       });

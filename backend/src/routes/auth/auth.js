@@ -278,7 +278,7 @@ router.post('/login', validate({ username: { required: true }, password: { requi
   if (req.body.portal === 'admin' && !canAccessAdminPortal(user.role)) {
     audit('auth.login.portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
     return res.status(403).json({
-      error: 'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
+      error: "Inventory Staff accounts are mobile-only. Use Sylver's mobile app to scan QR tags and submit counts.",
       code: 'portal_mobile_only',
     });
   }

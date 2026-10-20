@@ -433,7 +433,7 @@ export default function BackupPage({ onLogout }) {
 
         {fileName && !summary ? (
           <Alert severity="error" sx={{ mt: 2 }}>
-            That file is not an INVENTRAK snapshot — it has no <code>tables</code> object.
+            That file is not a Sylver inventory backup — it has no <code>tables</code> object.
           </Alert>
         ) : null}
 

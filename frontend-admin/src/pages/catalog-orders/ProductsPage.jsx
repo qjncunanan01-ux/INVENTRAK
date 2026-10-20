@@ -87,14 +87,14 @@ export default function ProductsPage({ onLogout }) {
   const [showSheet, setShowSheet] = useState(false);
   const [scanValue, setScanValue] = useState('');
 
-  // Scan-to-stock: decode a pasted/scanned INVENTRAK payload and jump to the
+  // Scan-to-stock: decode a pasted/scanned product tag payload and jump to the
   // matching screen. A product tag opens Scan & Stock pre-loaded with that
   // product; a location tag opens the inventory view filtered to that area.
   const handleScanSubmit = () => {
     const raw = scanValue.trim();
     const parsed = parseQrPayload(raw);
     if (!parsed) {
-      setSnackbar({ open: true, message: 'Not an INVENTRAK QR tag — expected INVENTRAK:PROD:<id> or INVENTRAK:LOC:<id>:<name>.', severity: 'warning' });
+      setSnackbar({ open: true, message: "Not a supported Sylver tag. Current printed tags use INVENTRAK:PROD:<id> or INVENTRAK:LOC:<id>:<name>.", severity: 'warning' });
       return;
     }
     setScanValue('');

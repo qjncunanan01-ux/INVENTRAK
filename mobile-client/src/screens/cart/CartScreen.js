@@ -6,6 +6,7 @@ import { useThemeColors } from '../../theme-context';
 import Dialog from '../../Dialog';
 import { productTitle } from '../../product-enrichment';
 import { showToast } from '../../toast';
+import { company } from '../../theme';
 
 // Shopping cart screen (Shopee/Lazada pattern): line items with steppers,
 // swipe-free remove, live subtotal, and a single "Proceed to Checkout" CTA.
@@ -75,7 +76,7 @@ export default function CartScreen({ navigation }) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.brand}>INVENTRAK</Text>
+          <Text style={styles.brand}>{company.software}</Text>
           <Text style={styles.headerTitle}>🛒 Cart</Text>
         </View>
         <View style={styles.emptyWrap}>
@@ -95,7 +96,7 @@ export default function CartScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.brand}>INVENTRAK</Text>
+        <Text style={styles.brand}>{company.software}</Text>
         <Text style={styles.headerTitle}>🛒 Cart ({count})</Text>
       </View>
 

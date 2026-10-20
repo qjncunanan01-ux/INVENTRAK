@@ -1,10 +1,10 @@
-# INVENTRAK — Admin Dashboard
+# Sylver's — Admin Dashboard
 
-> Inventory tracking and management system for Sylver Restaurant and Cafe Supplier.
+> Inventory tracking and management system for Sylver Restaurant and Coffee Supplies.
 > Built with React + Vite, backed by Supabase/SQLite/Firestore.
 
 ## What is this?
-INVENTRAK is an internal admin dashboard for managing inventory, products,
+Sylver's is an internal admin dashboard for managing inventory, products,
 stock movements, order inquiries, and analytics for a restaurant/cafe supplier.
 
 ## Key features
@@ -28,4 +28,4 @@ Base URL: https://inventrak-api.onrender.com
 - Customer: mobile app only (cannot access admin)
 
 ## Built by
-INVENTRAK Development Team — Capstone Project
+Sylver's Development Team — Capstone Project

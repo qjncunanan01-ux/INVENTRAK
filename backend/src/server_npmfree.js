@@ -1506,7 +1506,7 @@ const swaggerUiHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>INVENTRAK API Docs</title>
+  <title>Sylver's API Docs</title>
   <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
 </head>
 <body style="margin:0">
@@ -1835,7 +1835,7 @@ const server = http.createServer((req, res) => {
         audit('auth.login.portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
         return sendJson(res, 403, {
           error:
-            'Inventory Staff accounts are mobile-only. Use the INVENTRAK mobile app to scan QR tags and submit counts.',
+            "Inventory Staff accounts are mobile-only. Use Sylver's mobile app to scan QR tags and submit counts.",
           code: 'portal_mobile_only',
         });
       }
@@ -4853,7 +4853,7 @@ const server = http.createServer((req, res) => {
         payment = await buildPaymentStep({
           id,
           amount: storedCost,
-          description: `INVENTRAK order ${id} — ${obj.customer_name}`,
+          description: `Sylver's order ${id} — ${obj.customer_name}`,
           email: obj.customer_email,
           paymentMethod: obj.payment_method || 'cod',
         });

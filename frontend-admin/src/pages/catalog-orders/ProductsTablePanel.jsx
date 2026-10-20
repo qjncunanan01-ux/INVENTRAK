@@ -65,7 +65,7 @@ export default function ProductsTablePanel({
             />
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            {/* Scan-to-stock: paste (or type) an INVENTRAK QR payload and jump
+            {/* Scan-to-stock: paste (or type) a supported QR payload and jump
                 straight to that product's stock view. Accepts exactly what the
                 phone's scanner emits, so an admin can verify a tag on the
                 spot. */}
@@ -76,7 +76,7 @@ export default function ProductsTablePanel({
               onChange={e => onScanValue(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') onScanSubmit(); }}
               sx={{ minWidth: 240, backgroundColor: colors.surface }}
-              helperText="e.g. INVENTRAK:PROD:12 or a location tag"
+              helperText="Current printed tag example: INVENTRAK:PROD:12 or a location tag"
             />
             <Button size="small" variant="outlined" onClick={onScanSubmit} disabled={!scanValue.trim()}>
               Go
@@ -259,7 +259,7 @@ export default function ProductsTablePanel({
               </Typography>
               <Typography variant="body2" color="text.secondary" display="block" sx={{ mt: 1 }}>
                 Any phone camera can scan this tag — it opens the public product
-                page. The INVENTRAK apps resolve it to the product's stock view.
+                page. Sylver's apps resolve it to the product's stock view.
                 Old plain-payload tags (INVENTRAK:PROD:id) still scan in the
                 apps; reprint to get camera-friendly tags.
               </Typography>

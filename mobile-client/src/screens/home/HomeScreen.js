@@ -131,8 +131,7 @@ export default function HomeScreen({ route, navigation }) {
         {/* Haikei-style gradient header with wave bottom */}
         <WaveHeader height={180}>
           <View style={styles.topRow}>
-            {/* The partner company's mark sits beside the software name: Sylver
-                is the business, INVENTRAK is the system. */}
+            {/* The Sylver symbol sits beside the product name. */}
             <View style={styles.brandRow}>
               <View style={styles.brandMarkChip}>
                 <Image
@@ -142,7 +141,7 @@ export default function HomeScreen({ route, navigation }) {
                   accessibilityLabel="Sylver logo"
                 />
               </View>
-              <Text style={styles.brand}>INVENTRAK</Text>
+              <Text style={styles.brand}>{company.software}</Text>
             </View>
 
             <TouchableOpacity

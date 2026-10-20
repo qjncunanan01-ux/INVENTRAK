@@ -3,7 +3,7 @@ import App from './App';
 
 test('renders the login screen when logged out', () => {
   render(<App />);
-  expect(screen.getByText(/INVENTRAK Admin/i)).toBeInTheDocument();
+  expect(screen.getByText(/Sylver's Admin/i)).toBeInTheDocument();
   expect(screen.getByLabelText(/Username/i)).toBeInTheDocument();
   // The password field's label — not the "Show password" toggle's aria-label
   // (which also contains the word "Password").
