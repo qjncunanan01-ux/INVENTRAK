@@ -16,6 +16,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.." # mobile-client/
 
+# The local release APK is intended for customer testing against the deployed
+# service. Keep an explicit override available for staging, but never let a
+# release build silently fall back to the Android-emulator-only host.
+: "${EXPO_PUBLIC_API_URL:=https://inventrak-api.onrender.com}"
+export EXPO_PUBLIC_API_URL
+echo "== release API: $EXPO_PUBLIC_API_URL =="
+
 JKS_DIR=".keystore"
 JKS="$JKS_DIR/inventrak-release.jks"
 CREDS="$JKS_DIR/credentials.env"
@@ -55,7 +62,7 @@ if [ ! -f android/local.properties ]; then
 fi
 echo "== gradle assembleRelease (10-40 min on first run) =="
 cd android
-ORG_GRADLE_JVM="-Xmx4g -XX:MaxMetaspaceSize=1g" ./gradlew.bat assembleRelease --no-daemon
+ORG_GRADLE_JVM="-Xmx4g -XX:MaxMetaspaceSize=1g" ./gradlew.bat assembleRelease --no-daemon --max-workers=2
 
 # 4) Publish the APK to the project root.
 cp app/build/outputs/apk/release/app-release.apk ../INVENTRAK-production.apk

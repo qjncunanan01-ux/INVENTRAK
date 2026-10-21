@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
+  AppState,
   ActivityIndicator,
   FlatList,
   RefreshControl,
@@ -48,9 +50,30 @@ export default function NotificationsScreen({ navigation }) {
     }
   }, []);
 
-  useEffect(() => {
-    if (isLoggedIn) fetchData();
-  }, [isLoggedIn, fetchData]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!isLoggedIn) return undefined;
+      let inFlight = false;
+      const refresh = async() => {
+        if (inFlight || AppState.currentState !== 'active') return;
+        inFlight = true;
+        try {
+          await fetchData();
+        } finally {
+          inFlight = false;
+        }
+      };
+      refresh();
+      const timer = setInterval(refresh, 10000);
+      const appStateSubscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') refresh();
+      });
+      return () => {
+        clearInterval(timer);
+        appStateSubscription.remove();
+      };
+    }, [isLoggedIn, fetchData]),
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

@@ -13,6 +13,12 @@ bash scripts/local-release-build.sh
 #   ~10 min afterwards)
 ```
 
+The customer release script defaults `EXPO_PUBLIC_API_URL` to
+`https://inventrak-api.onrender.com`, so an installed APK talks to the same
+backend as the deployed mobile website and admin console. Set
+`EXPO_PUBLIC_API_URL` before running the script only when building against a
+different environment.
+
 **Signing caveat:** the local keystore differs from EAS's, so Android refuses
 to install a local APK **over** an EAS-installed app: uninstall the old
 customer app once (Settings → Apps → INVENTRAK → Uninstall, or long-press the
@@ -45,7 +51,7 @@ when its next rebuild is needed after Oct 1, prefer EAS to keep one key.)
 BT="$LOCALAPPDATA/Android/Sdk/build-tools/36.1.0"
 "$BT/apksigner.bat" verify --print-certs INVENTRAK-production.apk | head -4
 "$BT/aapt.exe" dump badging INVENTRAK-production.apk | grep -E '^package|application-label:'
-# expect: com.inventrak.mobile, versionName matching app.json, INVENTRAK
+# expect: com.inventrak.mobile, versionName matching app.json, Sylver's
 ```
 
 ## Staff app

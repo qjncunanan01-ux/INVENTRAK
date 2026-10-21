@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
+  AppState,
   ActivityIndicator,
   FlatList,
   RefreshControl,
@@ -108,7 +109,26 @@ export default function InquiryHistoryScreen({ navigation }) {
   // guest gate login path (the screen stays mounted across login).
   useFocusEffect(
     useCallback(() => {
-      if (isLoggedIn) fetchData();
+      if (!isLoggedIn) return undefined;
+      let inFlight = false;
+      const refresh = async() => {
+        if (inFlight || AppState.currentState !== 'active') return;
+        inFlight = true;
+        try {
+          await fetchData();
+        } finally {
+          inFlight = false;
+        }
+      };
+      refresh();
+      const timer = setInterval(refresh, 10000);
+      const appStateSubscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') refresh();
+      });
+      return () => {
+        clearInterval(timer);
+        appStateSubscription.remove();
+      };
     }, [isLoggedIn, fetchData]),
   );
 

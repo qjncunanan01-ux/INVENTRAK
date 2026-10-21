@@ -1,5 +1,5 @@
 import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Paper, Select, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet, apiPut } from '../../api';
 import { colors } from '../../theme';
 import usePageTitle from '../../hooks/usePageTitle';
@@ -192,19 +192,34 @@ export default function OrderInquiriesPage({ onLogout }) {
   const [details, setDetails] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const ordersRequestInFlight = useRef(false);
 
-  const loadOrders = () => {
-    setLoading(true);
+  const loadOrders = useCallback((silent = false) => {
+    if (ordersRequestInFlight.current) return;
+    ordersRequestInFlight.current = true;
+    if (!silent) setLoading(true);
     apiGet('/api/order-inquiries')
       .then(r => setOrders(r.data || r))
       .catch(() => {})
-      .finally(() => setLoading(false));
-  };
+      .finally(() => {
+        ordersRequestInFlight.current = false;
+        if (!silent) setLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
     loadOrders();
     apiGet('/api/locations').then((r) => setLocations(Array.isArray(r) ? r : r.data || [])).catch(() => setLocations([]));
-  }, []);
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') loadOrders(true);
+    };
+    const timer = window.setInterval(refreshIfVisible, 10000);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [loadOrders]);
 
   const handleConfirmAction = (orderId, status) => {
     setConfirmDialog({ open: true, id: orderId, status, reason: '', location_id: '' });
