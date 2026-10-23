@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../../db');
 const { authenticateToken } = require('../../auth-core');
-const { adminOnly } = require('../../middleware');
+const { managementOnly } = require('../../middleware');
 const { audit, AUDIT_LOG_FILE } = require('../../audit');
 const fs = require('fs');
 
 // GET /api/audit-trail
-router.get('/', authenticateToken, adminOnly, (req, res) => {
+router.get('/', authenticateToken, managementOnly, (req, res) => {
   try {
     const auditFile = AUDIT_LOG_FILE;
     const parseLimit = (raw, fallback) => { const n = Number.parseInt(raw, 10); return Number.isFinite(n) && n > 0 ? Math.min(n, 1000) : fallback; };

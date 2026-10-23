@@ -1,11 +1,12 @@
 // Four-role RBAC (see backend/src/roles.js): owner, super_admin, admin, staff.
 //
 // The role spec splits the admin portal into:
-//   owner / super_admin / admin  → the whole portal including money surfaces
+//   owner / super_admin / admin  → day-to-day operations
+//   owner / super_admin          → reports, audit, backup and system settings
 //   staff                        → daily inventory work only, NEVER sales,
 //                                  prices, customers, orders, reports or
 //                                  business analytics
-//   super_admin / owner only     → account, role and permission management
+//   super_admin / owner only     → privileged account, role and permission changes
 //
 // Runs against BOTH backends through the shared harness so the split can never
 // drift between the SQLite backend and the npm-free fallback.
@@ -45,14 +46,14 @@ test('every seeded role can log in and reports its role', async () => {
   }
 });
 
-test('the admin tier (admin, super_admin, owner) can read every money surface', async () => {
+test('the admin tier keeps daily operations while reports require management', async () => {
   for (const role of ADMIN_TIER) {
     const auth = TOKEN_KEY[role];
     const summary = await both(`${role} analytics summary`, '/api/analytics/summary', { auth });
     assert.strictEqual(summary.a.status, 200, `${role} analytics summary`);
 
     const reports = await both(`${role} reports`, '/api/reports?days=14', { auth });
-    assert.strictEqual(reports.a.status, 200, `${role} reports`);
+    assert.strictEqual(reports.a.status, role === 'admin' ? 403 : 200, `${role} reports access`);
 
     const users = await both(`${role} users`, '/api/users', { auth });
     assert.strictEqual(users.a.status, 200, `${role} users`);
@@ -214,6 +215,9 @@ test('role changes are audited', async () => {
   });
   assert.strictEqual(promote.a.status, 200);
 
+  const adminTrail = await both('admin audit trail', '/api/audit-trail?limit=50', { auth: 'admin' });
+  assert.strictEqual(adminTrail.a.status, 403, 'admin cannot read the complete audit trail');
+
   const trail = await both('audit trail', '/api/audit-trail?limit=50', { auth: 'owner' });
   assert.strictEqual(trail.a.status, 200);
   const logs = trail.a.json.data || trail.a.json;
@@ -300,11 +304,12 @@ test('a recorded scan shows up in the audit trail', async () => {
 });
 
 test('management tier is required for the health integrity report', async () => {
-  // Integrity is admin-tier (it exposes operational detail, not accounts).
-  for (const role of ADMIN_TIER) {
+  for (const role of ['super_admin', 'owner']) {
     const res = await both(`${role} integrity`, '/api/health/integrity', { auth: TOKEN_KEY[role] });
     assert.strictEqual(res.a.status, 200, `${role} may read integrity`);
   }
+  const admin = await both('admin integrity', '/api/health/integrity', { auth: 'admin' });
+  assert.strictEqual(admin.a.status, 403, 'admin cannot read management integrity details');
   const staff = await both('staff integrity', '/api/health/integrity', { auth: 'staff' });
   assert.strictEqual(staff.a.status, 403);
   const customer = await both('customer integrity', '/api/health/integrity', { auth: 'customer' });

@@ -50,13 +50,13 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
     apiGet, apiPost, apiPut, apiDelete,
   // POST /api/admin/promote — Promote a customer account to admin (admin only) â€” the public register endpoint hardcodes role 'customer', so this is the only way to create admins. Takes effect on the user's NEXT login (the token embeds the role at sign-in)
   promoteUser: (body) => request('POST', '/api/admin/promote', { body }),
-  // GET /api/admin/backup — Export a full database snapshot (admin only)
+  // GET /api/admin/backup — Export a full database snapshot (Owner or Super Admin only)
   exportBackup: (_) => request('GET', '/api/admin/backup', {  }),
-  // POST /api/admin/backup — Take a snapshot now and store it in the durable store (admin only)
+  // POST /api/admin/backup — Take a snapshot now and store it in the durable store (Owner or Super Admin only)
   pushBackup: (_) => request('POST', '/api/admin/backup', {  }),
-  // GET /api/admin/backups — Snapshots held by the durable store, newest first (admin only)
+  // GET /api/admin/backups — Snapshots held by the durable store, newest first (Owner or Super Admin only)
   listStoredBackups: (_) => request('GET', '/api/admin/backups', {  }),
-  // POST /api/admin/restore — Restore the database from a snapshot (admin only)
+  // POST /api/admin/restore — Restore the database from a snapshot (Owner or Super Admin only)
   restoreBackup: (body) => request('POST', '/api/admin/restore', { body }),
   // GET /api/alerts — List low-stock alerts (admin only)
   listAlerts: (_) => request('GET', '/api/alerts', {  }),
@@ -68,7 +68,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getAnalyticsSummary: (_) => request('GET', '/api/analytics/summary', {  }),
   // GET /api/approvals — Pending stock adjustments and transfers in one approval queue (admin only)
   getApprovals: (_) => request('GET', '/api/approvals', {  }),
-  // GET /api/audit-trail — Security audit log entries (admin only) â€” newest first
+  // GET /api/audit-trail — Security audit log entries (Owner or Super Admin only) â€” newest first
   listAuditTrail: (params) => request('GET', '/api/audit-trail', { query: params }),
   // POST /api/auth/forgot-password — Request a password reset code (emailed to the account, if the email exists)
   forgotPassword: (body) => request('POST', '/api/auth/forgot-password', { body }),
@@ -108,7 +108,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   upsertBackOrder: (body) => request('POST', '/api/back-orders', { body }),
   // GET /api/back-orders/{id} — Get a back order by inquiry id
   getBackOrder: ({ id }) => request('GET', '/api/back-orders/{id}', { params: { id } }),
-  // GET /api/cache/stats — In-memory cache statistics (admin only)
+  // GET /api/cache/stats — In-memory cache statistics (Owner or Super Admin only)
   getCacheStats: (_) => request('GET', '/api/cache/stats', {  }),
   // GET /api/correction-requests — List correction requests (admin only)
   listCorrectionRequests: (params) => request('GET', '/api/correction-requests', { query: params }),
@@ -126,7 +126,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   updateCustomer: ({ id }, body) => request('PUT', '/api/customers/{id}', { params: { id }, body }),
   // GET /api/health — Public liveness probe â€” returns 200 with service status and active driver
   getHealth: (_) => request('GET', '/api/health', {  }),
-  // GET /api/health/integrity — Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)
+  // GET /api/health/integrity — Audit data integrity (Owner or Super Admin only)
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
   // GET /api/inventory — Get inventory levels per location
   getInventory: (params) => request('GET', '/api/inventory', { query: params }),
@@ -150,19 +150,19 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listNotifications: (params) => request('GET', '/api/notifications', { query: params }),
   // GET /api/notifications/{id} — Single notification record (admin only)
   getNotification: ({ id }) => request('GET', '/api/notifications/{id}', { params: { id } }),
-  // GET /api/optimization — Bulk optimization metrics for all products
+  // GET /api/optimization — Bulk optimization metrics for all products (Owner or Super Admin only)
   getOptimizationBulk: (_) => request('GET', '/api/optimization', {  }),
-  // GET /api/optimization/{productId} — EOQ, ROP, safety stock, and turnover for one product
+  // GET /api/optimization/{productId} — EOQ, ROP, safety stock, and turnover for one product (Owner or Super Admin only)
   getOptimization: ({ productId }) => request('GET', '/api/optimization/{productId}', { params: { productId } }),
-  // GET /api/optimization/abc — ABC classification of products
+  // GET /api/optimization/abc — ABC classification of products (Owner or Super Admin only)
   getOptimizationAbc: (_) => request('GET', '/api/optimization/abc', {  }),
-  // GET /api/optimization/fsn — FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency
+  // GET /api/optimization/fsn — FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency (Owner or Super Admin only)
   getOptimizationFsn: (params) => request('GET', '/api/optimization/fsn', { query: params }),
   // GET /api/order-inquiries — List order inquiries
   listOrderInquiries: (params) => request('GET', '/api/order-inquiries', { query: params }),
   // POST /api/order-inquiries — Submit an order inquiry
   createOrderInquiry: (body) => request('POST', '/api/order-inquiries', { body }),
-  // PUT /api/order-inquiries/{id} — Update inquiry status (pending -> approved -> fulfilled / rejected)
+  // PUT /api/order-inquiries/{id} — Update inquiry status under the active production or Sylver demo lifecycle
   updateOrderInquiry: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}', { params: { id }, body }),
   // POST /api/order-inquiries/{id}/cancel — Cancel an inquiry (customer-initiated)
   cancelOrderInquiry: ({ id }, body) => request('POST', '/api/order-inquiries/{id}/cancel', { params: { id }, body }),
@@ -190,7 +190,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listProductCosts: (_) => request('GET', '/api/products/costs', {  }),
   // GET /api/products/qr/{code} — QR product lookup: resolve a scanned tag payload / SKU / bare id to a product (staff or admin)
   getProductByQr: ({ code }) => request('GET', '/api/products/qr/{code}', { params: { code } }),
-  // GET /api/reports — Printable management report: daily sales, stock by location, order status, low stock, movers (admin only)
+  // GET /api/reports — Printable management report: daily sales, stock by location, order status, low stock and movers (Owner or Super Admin only)
   getReports: (params) => request('GET', '/api/reports', { query: params }),
   // GET /api/sales — List sales transactions (admin only)
   listSales: (params) => request('GET', '/api/sales', { query: params }),
@@ -198,7 +198,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createSale: (body) => request('POST', '/api/sales', { body }),
   // POST /api/scan-events — Record a QR / barcode scan into the audit trail (staff or admin)
   createScanEvent: (body) => request('POST', '/api/scan-events', { body }),
-  // GET /api/settings — Get runtime system settings (admin tier â€” read-only)
+  // GET /api/settings — Get runtime system settings (Owner or Super Admin only)
   getSettings: (_) => request('GET', '/api/settings', {  }),
   // PUT /api/settings — Update runtime system settings (Owner / Super Admin only)
   updateSettings: (body) => request('PUT', '/api/settings', { body }),
@@ -234,6 +234,20 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   deleteUnitConversion: ({ id }) => request('DELETE', '/api/unit-conversions/{id}', { params: { id } }),
   // GET /api/users — List users (admin only)
   listUsers: (_) => request('GET', '/api/users', {  }),
+  // GET /api/order-inquiries/policy — Get active order terms and demo policy
+  getOrderInquiryPolicy: (_) => request('GET', '/api/order-inquiries/policy', {  }),
+  // GET /api/order-inquiries/{id}/payment-proof — Read a payment receipt image
+  getInquiryPaymentProof: ({ id }, params) => request('GET', '/api/order-inquiries/{id}/payment-proof', { params: { id }, query: params }),
+  // POST /api/order-inquiries/{id}/change-request — Request an order change (Sylver demo only)
+  createInquiryChangeRequest: ({ id }, body) => request('POST', '/api/order-inquiries/{id}/change-request', { params: { id }, body }),
+  // PUT /api/order-inquiries/{id}/change-request — Record a staff decision on a change request (Sylver demo only)
+  reviewInquiryChangeRequest: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}/change-request', { params: { id }, body }),
+  // POST /api/order-inquiries/{id}/return-requests — Report an item issue within 24 hours of delivery (Sylver demo only)
+  createInquiryReturnRequest: ({ id }, body) => request('POST', '/api/order-inquiries/{id}/return-requests', { params: { id }, body }),
+  // GET /api/order-inquiries/{id}/return-proof — Read a return photo
+  getInquiryReturnProof: ({ id }, params) => request('GET', '/api/order-inquiries/{id}/return-proof', { params: { id }, query: params }),
+  // PUT /api/order-inquiries/{id}/return-requests/{requestId} — Review a return and record a demo refund decision (Sylver demo only)
+  reviewInquiryReturnRequest: ({ id, requestId }, body) => request('PUT', '/api/order-inquiries/{id}/return-requests/{requestId}', { params: { id, requestId }, body }),
   };
 }
 

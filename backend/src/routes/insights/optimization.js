@@ -2,9 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../../db');
 const { authenticateToken } = require('../../auth-core');
-const { adminOnly } = require('../../middleware');
+const { managementOnly } = require('../../middleware');
 const { classifyFsnCatalog, parseFsnWindow } = require('../../insights/fsn');
 const settings = require('../../governance/settings');
+
+// Optimization uses sales history and product prices to produce business
+// insights, so all endpoints require an Owner or Super Admin session.
+router.use(authenticateToken, managementOnly);
 
 // GET /api/optimization/fsn
 router.get('/fsn', (req, res) => {

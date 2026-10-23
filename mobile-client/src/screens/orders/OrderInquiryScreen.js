@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Button, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { createOrderInquiry, getInventory, getMe, imageUrl, listAllProducts, useSessionUsername } from '../../api';
+import { apiGet, createOrderInquiry, getInventory, getMe, imageUrl, listAllProducts, useSessionUsername } from '../../api';
 import { useCart } from '../../cart-context';
 import { useThemeColors } from '../../theme-context';
 import Dialog, { MODAL_ANIMATION } from '../../Dialog';
@@ -15,10 +15,15 @@ const FULFILLMENT_METHODS = [
   { id: 'courier', label: 'Courier', hint: 'Deliver to my address' },
 ];
 
-const PAYMENT_METHODS = [
+const COMPANY_DEMO = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true';
+const PAYMENT_METHODS = COMPANY_DEMO ? [
+  { id: 'cash', label: 'Cash at pickup', hint: 'Pay when you collect' },
+  { id: 'gcash', label: 'GCash', hint: 'Staff verifies receipt' },
+  { id: 'bank_transfer', label: 'Bank transfer', hint: 'Staff verifies proof' },
+  { id: 'card', label: 'Card (demo only)', hint: 'Simulated · no charge' },
+] : [
   { id: 'cod', label: 'COD', hint: 'Cash on delivery' },
   { id: 'gcash', label: 'GCash', hint: 'Pay via GCash' },
-  { id: 'card', label: 'Card', hint: 'Credit / debit card' },
 ];
 
 export default function OrderInquiryScreen({ route, navigation }) {
@@ -29,7 +34,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
   // adjusts quantities, adds more supplies, or removes lines before placing.
   const preselectId = route.params?.preselectId;
   const bundleIds = route.params?.bundleIds;
-  const { items, subtotal, itemCount, addItem, setQty, removeItem, clear } = useCart();
+  const { items, itemCount, addItem, setQty, removeItem, clear, hydrated } = useCart();
 
   // Guests can fill the whole form, but must log in / create an account to
   // actually submit — the account is only required at the point of buying.
@@ -42,7 +47,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
   // Pickup is the default: it is the one option that needs no address, so a
   // customer who does not think about it still ends up with a complete order.
   const [fulfillment, setFulfillment] = useState('pickup');
-  const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [paymentMethod, setPaymentMethod] = useState(COMPANY_DEMO ? 'cash' : 'cod');
+  const [creditEligible, setCreditEligible] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -60,6 +66,47 @@ export default function OrderInquiryScreen({ route, navigation }) {
   const [catalog, setCatalog] = useState([]);
   const [stockById, setStockById] = useState({});
   const [stockLoaded, setStockLoaded] = useState(false);
+  const [touched, setTouched] = useState({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  useEffect(() => {
+    if (!COMPANY_DEMO || !isLoggedIn) {
+      setCreditEligible(false);
+      setPaymentMethod((current) => current === 'credit' ? 'cash' : current);
+      return undefined;
+    }
+    let active = true;
+    apiGet('/api/order-inquiries/policy')
+      .then((policy) => { if (active) setCreditEligible(policy.credit_eligible === true); })
+      .catch(() => { if (active) setCreditEligible(false); });
+    return () => { active = false; };
+  }, [isLoggedIn, sessionUser]);
+
+  const paymentMethods = useMemo(() => (
+    creditEligible
+      ? [...PAYMENT_METHODS, { id: 'credit', label: 'Existing credit terms', hint: 'Staff approval required' }]
+      : PAYMENT_METHODS
+  ), [creditEligible]);
+
+  const fieldErrors = useMemo(() => {
+    const errors = {};
+    const name = customerName.trim();
+    const email = customerEmail.trim();
+    const phone = customerPhone.trim();
+    const address = deliveryAddress.trim();
+    if (!name) errors.customerName = 'Enter your name.';
+    else if (name.length < 2 || name.length > 100) errors.customerName = 'Name must be 2–100 characters.';
+    if (!email) errors.customerEmail = 'Enter your email address.';
+    else if (email.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.customerEmail = 'Enter a valid email address (up to 100 characters).';
+    if (phone && !/^\+?[0-9()\-\s]{7,20}$/.test(phone)) errors.customerPhone = 'Enter a valid phone number, or leave it blank.';
+    if (fulfillment === 'courier' && !address) errors.deliveryAddress = 'Enter the address for courier delivery.';
+    else if (fulfillment === 'courier' && address.length > 500) errors.deliveryAddress = 'Address must be 500 characters or fewer.';
+    if (notes.length > 1000) errors.notes = 'Notes must be 1,000 characters or fewer.';
+    return errors;
+  }, [customerName, customerEmail, customerPhone, deliveryAddress, fulfillment, notes]);
+
+  const showFieldError = (field) => submitAttempted || touched[field];
+  const markTouched = (field) => setTouched((previous) => ({ ...previous, [field]: true }));
 
   // The catalog is fetched ONLY to resolve deep-link ids (a product detail
   // page or the recommendation bundle) into cart entries — not rendered.
@@ -101,7 +148,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
   useEffect(() => {
     // Adding to the cart is member-only: a guest who lands here via a stale
     // deep-link must NOT get items added to a basket they can't keep.
-    if (!isLoggedIn || catalog.length === 0 || !stockLoaded) return;
+    if (!isLoggedIn || !hydrated || catalog.length === 0 || !stockLoaded) return;
     const key = bundleIds ? 'bundle:' + bundleIds.join(',') : preselectId ? 'single:' + preselectId : null;
     if (!key || prefilledRef.current === key) return;
     prefilledRef.current = key;
@@ -118,7 +165,10 @@ export default function OrderInquiryScreen({ route, navigation }) {
         showToast(`${p.name} is out of stock and was not added`);
         return;
       }
-      addItem(p, 1);
+      if (!addItem(p, 1, undefined, undefined, stock)) {
+        showToast('Stock changed or the cart has reached its order limit. Refresh and try again.');
+        return;
+      }
       cartIdsRef.current.add(Number(p.id));
     };
     if (bundleIds) {
@@ -126,7 +176,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
     } else if (preselectId) {
       addOnce(catalog.find((c) => Number(c.id) === Number(preselectId)));
     }
-  }, [preselectId, bundleIds, catalog, isLoggedIn, stockById, stockLoaded]);
+  }, [preselectId, bundleIds, catalog, isLoggedIn, hydrated, stockById, stockLoaded, addItem]);
 
   // Logged-in customers get their account details prefilled (name, email and
   // the mobile number from their profile) — no re-typing at checkout. Keyed on
@@ -149,7 +199,9 @@ export default function OrderInquiryScreen({ route, navigation }) {
     () => items.map((i) => {
       // Unit price: the deal snapshot when added as a flash pick, else the
       // catalog price — so the checkout total matches what the customer saw.
-      const price = Number(i.price) > 0 ? Number(i.price) : Number(i.product.price) || 0;
+      const price = COMPANY_DEMO
+        ? Number(i.product.price) || 0
+        : Number(i.price) > 0 ? Number(i.price) : Number(i.product.price) || 0;
       // Pre-discount price for deal items (snapshotted at add-to-cart), so the
       // order record carries the discount applied. Omitted for non-deals.
       const original = Number(i.original_price) > 0 ? Number(i.original_price) : null;
@@ -159,6 +211,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
         qty: i.qty,
         price,
         original_price: original !== null && original > price ? original : null,
+        category: i.product.category || '',
         // Line total (what the customer is charged for this line).
         subtotal: Math.round(price * i.qty * 100) / 100,
       };
@@ -166,27 +219,18 @@ export default function OrderInquiryScreen({ route, navigation }) {
     [items],
   );
 
-  const estimatedCost = subtotal;
+  const checkoutSubtotal = selectedItems.reduce((sum, item) => sum + item.subtotal, 0);
+  const eligibleSubtotal = COMPANY_DEMO
+    ? selectedItems.reduce((sum, item) => (/syrup|sauce/i.test(item.category) ? sum + item.subtotal : sum), 0)
+    : 0;
+  const bulkDiscount = COMPANY_DEMO && eligibleSubtotal >= 5000 ? Math.round(eligibleSubtotal * 0.03 * 100) / 100 : 0;
+  const estimatedCost = Math.round((checkoutSubtotal - bulkDiscount) * 100) / 100;
 
   const submit = async() => {
+    setSubmitAttempted(true);
     // Checkout gate: buying requires an account (browsing does not).
     if (!isLoggedIn) {
       setShowAuthGate(true);
-      return;
-    }
-    if (!customerName.trim()) {
-      setErrorMsg('Please enter your name');
-      setShowError(true);
-      return;
-    }
-    if (customerName.trim().length < 2 || customerName.trim().length > 100) {
-      setErrorMsg('Name must be between 2 and 100 characters');
-      setShowError(true);
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
-      setErrorMsg('Enter a valid email address');
-      setShowError(true);
       return;
     }
     if (selectedItems.length === 0) {
@@ -194,26 +238,16 @@ export default function OrderInquiryScreen({ route, navigation }) {
       setShowError(true);
       return;
     }
-    // Only a courier order needs an address. Pickup collects at the store, so
-    // demanding one there would block a valid order (and the backend agrees —
-    // it refuses courier-without-address, not pickup-without-address).
-    if (fulfillment === 'courier' && !deliveryAddress.trim()) {
-      setErrorMsg('Please enter the delivery address for courier delivery');
-      setShowError(true);
-      return;
-    }
-    if (fulfillment === 'courier' && deliveryAddress.trim().length > 500) {
-      setErrorMsg('Delivery address must be 500 characters or fewer');
-      setShowError(true);
-      return;
-    }
-    if (notes.length > 1000) {
-      setErrorMsg('Notes must be 1000 characters or fewer');
+    const invalidField = ['customerName', 'customerEmail', 'customerPhone', 'deliveryAddress', 'notes']
+      .find((field) => fieldErrors[field]);
+    if (invalidField) {
+      setErrorMsg(fieldErrors[invalidField]);
       setShowError(true);
       return;
     }
     if (!termsAccepted) {
-      setErrorMsg('Please review and accept the ordering terms before placing your order');
+      setTouched((previous) => ({ ...previous, terms: true }));
+      setErrorMsg('Please review and accept the ordering terms before placing your order.');
       setShowError(true);
       return;
     }
@@ -268,7 +302,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
       // payment reference + QR (and a PayMongo checkout URL when configured).
       // Lead the customer there to actually pay, Shopee-style.
       const payment = created && created.payment;
-      if (payment && ['card', 'gcash'].includes(payment.payment_method)) {
+      const useImmediatePaymentStep = payment && !COMPANY_DEMO && payment.payment_method === 'gcash';
+      if (useImmediatePaymentStep) {
         navigation.navigate('Payment', {
           inquiryId: created.id,
           payment: {
@@ -277,6 +312,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
             payment_url: payment.payment_url,
             payment_qr: payment.payment_qr,
             payment_provider: payment.payment_provider,
+            amount_due: payment.amount_due || created.estimated_cost || estimatedCost,
           },
         });
         return;
@@ -315,9 +351,39 @@ export default function OrderInquiryScreen({ route, navigation }) {
       ) : null}
 
       <Text style={styles.sectionTitle}>1 · Contact details</Text>
-      <TextInput style={styles.input} placeholder="Customer name" value={customerName} onChangeText={setCustomerName} />
-      <TextInput style={styles.input} placeholder="Email" value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" autoCapitalize="none" />
-      <TextInput style={styles.input} placeholder="Phone (for SMS updates, optional)" value={customerPhone} onChangeText={(v) => setCustomerPhone(v.replace(/[^0-9+]/g, ''))} keyboardType="phone-pad" />
+      <TextInput
+        style={[styles.input, showFieldError('customerName') && fieldErrors.customerName && styles.inputInvalid]}
+        placeholder="Customer name"
+        value={customerName}
+        onChangeText={setCustomerName}
+        onBlur={() => markTouched('customerName')}
+        maxLength={100}
+        accessibilityLabel="Customer name"
+      />
+      {showFieldError('customerName') && fieldErrors.customerName ? <Text style={styles.fieldError}>{fieldErrors.customerName}</Text> : null}
+      <TextInput
+        style={[styles.input, showFieldError('customerEmail') && fieldErrors.customerEmail && styles.inputInvalid]}
+        placeholder="Email"
+        value={customerEmail}
+        onChangeText={setCustomerEmail}
+        onBlur={() => markTouched('customerEmail')}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        maxLength={100}
+        accessibilityLabel="Email address"
+      />
+      {showFieldError('customerEmail') && fieldErrors.customerEmail ? <Text style={styles.fieldError}>{fieldErrors.customerEmail}</Text> : null}
+      <TextInput
+        style={[styles.input, showFieldError('customerPhone') && fieldErrors.customerPhone && styles.inputInvalid]}
+        placeholder="Phone (for SMS updates, optional)"
+        value={customerPhone}
+        onChangeText={(value) => setCustomerPhone(value.replace(/[^0-9+]/g, '').slice(0, 20))}
+        onBlur={() => markTouched('customerPhone')}
+        keyboardType="phone-pad"
+        maxLength={20}
+        accessibilityLabel="Phone number, optional"
+      />
+      {showFieldError('customerPhone') && fieldErrors.customerPhone ? <Text style={styles.fieldError}>{fieldErrors.customerPhone}</Text> : null}
 
       <Text style={styles.sectionTitle}>2 · How would you like to receive it?</Text>
       <View style={styles.paymentRow}>
@@ -327,7 +393,10 @@ export default function OrderInquiryScreen({ route, navigation }) {
             <TouchableOpacity
               key={m.id}
               style={[styles.paymentChip, active && styles.paymentChipActive]}
-              onPress={() => setFulfillment(m.id)}
+              onPress={() => {
+                setFulfillment(m.id);
+                if (COMPANY_DEMO && m.id === 'courier' && ['cash', 'credit', 'card'].includes(paymentMethod)) setPaymentMethod('gcash');
+              }}
               activeOpacity={0.7}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}
@@ -344,26 +413,31 @@ export default function OrderInquiryScreen({ route, navigation }) {
         <View style={styles.fulfillmentNote}>
           <Text style={styles.fulfillmentNoteTitle}>Pickup at the Sylver store</Text>
           <Text style={styles.fulfillmentNoteBody}>
-            Your branch will contact you with the pickup schedule once the
-            order is confirmed. Bring the inquiry reference from your orders
-            screen when you collect.
+            {COMPANY_DEMO
+              ? 'Sylver Restaurant & Café Supplier OPC · 23-B Mohawk Street, Concepcion Uno, Marikina City · Monday–Saturday, 8:00 AM–5:00 PM. Bring your order reference.'
+              : 'Your branch will contact you with the pickup schedule once the order is confirmed. Bring the inquiry reference from your orders screen when you collect.'}
           </Text>
         </View>
       ) : (
         <>
           <Text style={styles.sectionTitle}>2b · Delivery address</Text>
           <TextInput
-            style={[styles.input, styles.addressInput]}
+            style={[styles.input, styles.addressInput, showFieldError('deliveryAddress') && fieldErrors.deliveryAddress && styles.inputInvalid]}
             placeholder="House no., street, barangay, city, province"
             value={deliveryAddress}
             onChangeText={setDeliveryAddress}
+            onBlur={() => markTouched('deliveryAddress')}
             multiline
+            maxLength={500}
+            accessibilityLabel="Courier delivery address"
           />
+          {showFieldError('deliveryAddress') && fieldErrors.deliveryAddress ? <Text style={styles.fieldError}>{fieldErrors.deliveryAddress}</Text> : null}
           <View style={styles.fulfillmentNote}>
             <Text style={styles.fulfillmentNoteTitle}>Courier delivery</Text>
             <Text style={styles.fulfillmentNoteBody}>
-              Delivery is arranged by the store; the schedule and any delivery
-              charge are confirmed with you before dispatch.
+              {COMPANY_DEMO
+                ? 'Service areas: Marikina, Antipolo/Rizal, Pasig, selected Quezon City areas, and other Metro Manila areas by arrangement. Sylver confirms the fee and schedule before payment.'
+                : 'Delivery is arranged by the store; the schedule and any delivery charge are confirmed with you before dispatch.'}
             </Text>
           </View>
         </>
@@ -371,7 +445,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
 
       <Text style={styles.sectionTitle}>3 · Payment method</Text>
       <View style={styles.paymentRow}>
-        {PAYMENT_METHODS.map((m) => {
+        {paymentMethods.filter((method) => fulfillment !== 'courier' || !['credit', 'card'].includes(method.id)).map((m) => {
           const active = paymentMethod === m.id;
           return (
             <TouchableOpacity
@@ -417,6 +491,11 @@ export default function OrderInquiryScreen({ route, navigation }) {
             <View style={styles.cartInfo}>
               <Text style={styles.cartName} numberOfLines={2}>{item.name}</Text>
               <Text style={styles.cartPrice}>P{item.price} each</Text>
+              <Text style={styles.cartAvailability}>
+                {stockById[Number(item.id)] === undefined
+                  ? 'Availability will be confirmed when submitted.'
+                  : `${stockById[Number(item.id)]} available`}
+              </Text>
               <View style={styles.stepper}>
                 <TouchableOpacity
                   style={styles.stepBtn}
@@ -427,7 +506,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
                 </TouchableOpacity>
                 <Text style={styles.qtyText}>{item.qty}</Text>
                 <TouchableOpacity
-                  style={styles.stepBtn}
+                  style={[styles.stepBtn, (stockById[Number(item.id)] === undefined || item.qty >= stockById[Number(item.id)] || (!COMPANY_DEMO && item.qty >= 10000)) && styles.stepBtnDisabled]}
+                  disabled={stockById[Number(item.id)] === undefined || item.qty >= stockById[Number(item.id)] || (!COMPANY_DEMO && item.qty >= 10000)}
                   onPress={() => setQty(item.id, item.qty + 1)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -456,21 +536,38 @@ export default function OrderInquiryScreen({ route, navigation }) {
       ) : null}
 
       <Text style={styles.estimate}>Estimated total: P{estimatedCost.toFixed(2)}</Text>
-      <TextInput style={styles.input} placeholder="Notes (optional)" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
+      {bulkDiscount > 0 ? <Text style={styles.termsText}>Bulk discount: −P{bulkDiscount.toFixed(2)} on syrup and sauce items</Text> : null}
+      {COMPANY_DEMO ? <Text style={styles.termsText}>Final delivery fee and schedule are confirmed by staff before payment.</Text> : null}
+      <TextInput
+        style={[styles.input, showFieldError('notes') && fieldErrors.notes && styles.inputInvalid]}
+        placeholder="Notes (optional)"
+        value={notes}
+        onChangeText={setNotes}
+        onBlur={() => markTouched('notes')}
+        multiline
+        numberOfLines={3}
+        maxLength={1000}
+        accessibilityLabel="Order notes, optional"
+      />
+      {showFieldError('notes') && fieldErrors.notes ? <Text style={styles.fieldError}>{fieldErrors.notes}</Text> : null}
       <View style={styles.termsCard}>
-        <Text style={styles.termsTitle}>Ordering and cancellation terms</Text>
+        <Text style={styles.termsTitle}>Order rules and terms (demo)</Text>
         {ORDER_TERMS.map((term, index) => (
           <Text key={`term-${index}`} style={styles.termsText}>• {term}</Text>
         ))}
         <TouchableOpacity
           style={styles.termsCheckRow}
-          onPress={() => setTermsAccepted((accepted) => !accepted)}
+          onPress={() => {
+            markTouched('terms');
+            setTermsAccepted((accepted) => !accepted);
+          }}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: termsAccepted }}
         >
           <Text style={styles.termsCheck}>{termsAccepted ? '☑' : '☐'}</Text>
           <Text style={styles.termsCheckText}>I have read and agree to these terms.</Text>
         </TouchableOpacity>
+        {showFieldError('terms') && !termsAccepted ? <Text style={styles.fieldError}>Accept the terms to submit your inquiry.</Text> : null}
       </View>
       <Button
         title={submitting ? 'Placing order...' : 'Place Order'}
@@ -572,6 +669,7 @@ const createStyles = (colors) => StyleSheet.create({
   cartInfo: { flex: 1, marginRight: 8 },
   cartName: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
   cartPrice: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  cartAvailability: { color: colors.textSecondary, fontSize: 11, marginTop: 3 },
   cartRight: { alignItems: 'flex-end' },
   cartRow: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, flexDirection: 'row', marginBottom: 10, padding: 12 },
   cartThumb: { backgroundColor: colors.background, borderRadius: 8, height: 52, marginRight: 12, width: 52 },
@@ -592,6 +690,8 @@ const createStyles = (colors) => StyleSheet.create({
   },
   guestBannerText: { color: '#7a5c00', fontSize: 13, lineHeight: 19 },
   input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, fontSize: 15, marginBottom: 12, padding: 12 },
+  inputInvalid: { borderColor: colors.error, borderWidth: 1 },
+  fieldError: { color: colors.error, fontSize: 12, lineHeight: 16, marginBottom: 10, marginTop: -8 },
   lineTotal: { color: colors.brandPrimary, fontSize: 14, fontWeight: '800' },
   message: { color: colors.success, marginTop: 16, textAlign: 'center' },
   modalBackdrop: {
@@ -656,6 +756,7 @@ const createStyles = (colors) => StyleSheet.create({
   removeText: { color: colors.error, fontSize: 12, marginTop: 6 },
   sectionTitle: { color: colors.textSecondary, fontSize: 16, fontWeight: '600', marginVertical: 12 },
   stepBtn: { paddingHorizontal: 10, paddingVertical: 4 },
+  stepBtnDisabled: { opacity: 0.35 },
   stepText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
   stepper: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: colors.background, borderColor: 'rgba(0,0,0,0.1)', borderRadius: 8, borderWidth: 1, flexDirection: 'row', marginTop: 8 },
   title: { color: colors.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: 16 },

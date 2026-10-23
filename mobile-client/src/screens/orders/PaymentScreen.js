@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { updateInquiryPayment } from '../../api';
 import { useThemeColors } from '../../theme-context';
 import Dialog from '../../Dialog';
@@ -20,9 +22,14 @@ export default function PaymentScreen({ route, navigation }) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { inquiryId, payment } = route.params || {};
   const liveGateway = payment && payment.payment_provider === 'paymongo';
+  const sylverDemo = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true';
   const [busy, setBusy] = useState(false);
   const [paymentResult, setPaymentResult] = useState(null);
   const [customerReference, setCustomerReference] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState(String(payment?.amount_due || ''));
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [proofData, setProofData] = useState('');
+  const [referenceTouched, setReferenceTouched] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showError, setShowError] = useState(false);
 
@@ -47,13 +54,25 @@ export default function PaymentScreen({ route, navigation }) {
   };
 
   const submitPayment = async() => {
+    const isManualSylverPayment = sylverDemo && ['gcash', 'bank_transfer'].includes(payment.payment_method);
+    if ((payment.payment_method === 'gcash' || isManualSylverPayment) && !/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim())) {
+      setReferenceTouched(true);
+      return;
+    }
+    if (isManualSylverPayment && (!Number.isFinite(Number(paymentAmount)) || Number(paymentAmount) <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) || !proofData)) {
+      setErrorMsg('Enter the amount and payment date, then attach a receipt image.');
+      setShowError(true);
+      return;
+    }
     setBusy(true);
     try {
       const response = await updateInquiryPayment(
         { id: inquiryId },
         payment.payment_method === 'card'
           ? { demo_card_confirmed: true }
-          : { customer_reference: customerReference.trim() },
+          : isManualSylverPayment
+            ? { customer_reference: customerReference.trim(), amount: Number(paymentAmount), payment_date: paymentDate, proof_data: proofData }
+            : { customer_reference: customerReference.trim() },
       );
       setPaymentResult(response.payment_status);
     } catch (err) {
@@ -61,6 +80,31 @@ export default function PaymentScreen({ route, navigation }) {
       setShowError(true);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const chooseReceipt = async() => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      const compressed = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 1200 } }],
+        { compress: 0.62, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      if (!compressed.base64 || compressed.base64.length > 870000) {
+        setErrorMsg('Choose a smaller receipt image (maximum 650 KB after compression).');
+        setShowError(true);
+        return;
+      }
+      setProofData(`data:image/jpeg;base64,${compressed.base64}`);
+    } catch {
+      setErrorMsg('Could not read that receipt image. Try another image.');
+      setShowError(true);
     }
   };
 
@@ -89,7 +133,7 @@ export default function PaymentScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{payment.payment_method === 'card' ? 'Demo card transaction' : 'Pay via GCash'}</Text>
+      <Text style={styles.title}>{payment.payment_method === 'card' ? 'Demo card transaction' : payment.payment_method === 'bank_transfer' ? 'Bank transfer receipt' : payment.payment_method === 'gcash' ? 'Pay via GCash' : 'Order payment'}</Text>
       <Text style={styles.subtitle}>
         {payment.payment_method === 'card'
           ? 'This demo creates a transaction record only. Do not enter card details; no real card is charged.'
@@ -126,16 +170,32 @@ export default function PaymentScreen({ route, navigation }) {
         <Text style={styles.refHint}>{payment.payment_method === 'card' ? 'Demo transaction ID' : 'Use this reference if requested by the payment provider.'}</Text>
       </View>
 
-      {payment.payment_method === 'gcash' ? (
+      {payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer') ? (
         <TextInput
           style={styles.referenceInput}
           value={customerReference}
           onChangeText={setCustomerReference}
-          placeholder="GCash receipt reference number"
+          onBlur={() => setReferenceTouched(true)}
+          placeholder={payment.payment_method === 'gcash' ? 'GCash receipt reference number' : 'Bank transfer reference number'}
           autoCapitalize="characters"
           maxLength={100}
           accessibilityLabel="GCash receipt reference number"
         />
+      ) : null}
+      {(payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && referenceTouched && !/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) ? (
+        <Text style={styles.referenceError}>Enter the receipt reference shown by GCash (5–100 letters, numbers, spaces, or dashes).</Text>
+      ) : null}
+
+      {sylverDemo && ['gcash', 'bank_transfer'].includes(payment.payment_method) ? (
+        <>
+          <TextInput style={styles.referenceInput} value={paymentAmount} onChangeText={setPaymentAmount} keyboardType="decimal-pad" placeholder="Amount paid (PHP)" accessibilityLabel="Payment amount in PHP" />
+          <TextInput style={styles.referenceInput} value={paymentDate} onChangeText={setPaymentDate} placeholder="Payment date (YYYY-MM-DD)" accessibilityLabel="Payment date" />
+          <TouchableOpacity style={[styles.btn, styles.btnLink]} onPress={chooseReceipt}>
+            <Text style={styles.btnLinkText}>{proofData ? 'Receipt image attached ✓' : 'Attach payment receipt image'}</Text>
+          </TouchableOpacity>
+          {proofData ? <Image source={{ uri: proofData }} style={{ width: 140, height: 140, alignSelf: 'center', marginBottom: 12, borderRadius: 8 }} resizeMode="contain" /> : null}
+          <Text style={styles.hint}>Demo only: do not transfer real money. Staff manually review the reference, amount, date and receipt.</Text>
+        </>
       ) : null}
 
       {payment.payment_method === 'gcash' && payment.payment_url ? (
@@ -145,15 +205,15 @@ export default function PaymentScreen({ route, navigation }) {
       ) : null}
 
       <TouchableOpacity
-        style={[styles.btn, styles.btnPrimary, payment.payment_method === 'gcash' && !customerReference.trim() && styles.btnDisabled]}
+        style={[styles.btn, styles.btnPrimary, (payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && !/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) && styles.btnDisabled]}
         onPress={submitPayment}
-        disabled={busy || (payment.payment_method === 'gcash' && !customerReference.trim())}
+        disabled={busy || ((payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && (!/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) || (sylverDemo && !proofData)))}
       >
         <Text style={styles.btnPrimaryText}>
-          {busy ? 'Submitting...' : payment.payment_method === 'card' ? 'Complete demo transaction' : 'Submit receipt reference'}
+          {busy ? 'Submitting...' : payment.payment_method === 'card' ? 'Complete demo transaction' : sylverDemo ? 'Submit payment for review' : 'Submit receipt reference'}
         </Text>
       </TouchableOpacity>
-      {payment.payment_method === 'gcash' ? <Text style={styles.hint}>Payment remains unverified until the store checks your receipt reference.</Text> : null}
+      {payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer') ? <Text style={styles.hint}>Payment remains unverified until the store checks your receipt.</Text> : null}
 
       {/* Payment error dialog (cross-platform) */}
       <Dialog
@@ -199,6 +259,7 @@ const createStyles = (colors) => StyleSheet.create({
   refCode: { color: colors.textPrimary, fontSize: 20, fontWeight: '800', letterSpacing: 1, marginVertical: 4 },
   refHint: { color: colors.textSecondary, fontSize: 12 },
   refLabel: { color: colors.textSecondary, fontSize: 12 },
+  referenceError: { color: colors.error, fontSize: 12, lineHeight: 17, marginBottom: 10, marginTop: -6 },
   subtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginBottom: 20, textAlign: 'center' },
   title: { color: colors.textPrimary, fontSize: 22, fontWeight: '700', marginBottom: 6, textAlign: 'center' },
 });

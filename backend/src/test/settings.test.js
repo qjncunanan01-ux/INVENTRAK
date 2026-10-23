@@ -1,7 +1,7 @@
 // System Settings (/api/settings) — the runtime-config endpoints.
 //
 // Contract asserted on BOTH backends (SQLite + npm-free):
-//   • GET is admin-tier readable; PUT is Owner/Super-Admin only.
+//   • GET and PUT are Owner/Super-Admin only.
 //   • Staff and customers are refused on both (403).
 //   • Validation: unknown shapes/bad values → 400 with details; values are
 //     clamped to the documented ranges.
@@ -46,11 +46,11 @@ test('settings: GET returns defaults and shapes match across backends', async ()
   assert.strictEqual(a.json.session_token_hours, 24);
 });
 
-test('settings: RBAC — admin reads, admin cannot write, owner writes, staff/customer refused', async () => {
+test('settings: RBAC — management reads and writes; admin, staff and customer are refused', async () => {
   for (const side of [sqlite, npmfree]) {
-    // Admin-tier read: OK.
+    // Admin cannot view or change system-wide runtime configuration.
     const adminGet = await call(side.url, '/api/settings', { token: side.token.admin });
-    assert.strictEqual(adminGet.status, 200, 'admin can READ settings');
+    assert.strictEqual(adminGet.status, 403, 'admin cannot READ settings');
 
     // Admin writes: refused (management only).
     const adminPut = await call(side.url, '/api/settings', {
@@ -67,6 +67,8 @@ test('settings: RBAC — admin reads, admin cannot write, owner writes, staff/cu
       body: { fsn_window_days: 30 },
     });
     assert.strictEqual(superPut.status, 200, 'super admin can write');
+    const ownerGet = await call(side.url, '/api/settings', { token: side.token.owner });
+    assert.strictEqual(ownerGet.status, 200, 'owner can READ settings');
 
     // Staff and customers: refused outright on both verbs.
     const staffGet = await call(side.url, '/api/settings', { token: side.token.staff });
@@ -124,7 +126,7 @@ test('settings: fsn_window_days LIVE-affects the FSN endpoint default', async ()
 
     // FSN without ?window= must now measure over 7 days (fast classifications
     // become impossible beyond the window length — assert the window echoed).
-    const fsn = await call(side.url, '/api/optimization/fsn', { token: side.token.admin });
+    const fsn = await call(side.url, '/api/optimization/fsn', { token: side.token.owner });
     assert.strictEqual(fsn.status, 200);
     const rows = Array.isArray(fsn.json) ? fsn.json : fsn.json.data || fsn.json.items || [];
     if (Array.isArray(rows) && rows.length > 0 && rows[0].windowDays !== undefined) {

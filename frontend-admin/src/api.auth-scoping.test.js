@@ -94,15 +94,15 @@ describe('admin API auth scoping (real generated client)', () => {
     expect(calls[0].headers.Authorization).toBe('Bearer admin-token-scan');
   });
 
-  test('Reports (apiGet /api/reports?days=N) carries the admin token', async() => {
+  test('Reports (apiGet /api/reports?days=N) carries the management token', async() => {
     const calls = captureFetch();
-    const client = makeClient(() => 'admin-token-reports');
+    const client = makeClient(() => 'owner-token-reports');
     // ReportsPage calls apiGet(`/api/reports?days=${d}`) through the helper.
     await client.apiGet('/api/reports?days=14');
 
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe(`${BASE}/api/reports?days=14`);
-    expect(calls[0].headers.Authorization).toBe('Bearer admin-token-reports');
+    expect(calls[0].headers.Authorization).toBe('Bearer owner-token-reports');
   });
 
   test('every admin-only read is authenticated: users, sales, alerts, approvals, exports', async() => {

@@ -114,4 +114,36 @@ function applyMovementEffect({ product_id, qty, type, srcId, dstId, now, expiryD
   return { manifest, lowStockAlert };
 }
 
-module.exports = { applyMovementEffect, consumeStockLots, groupManifestByExpiry, resolveLocation };
+// Return a confirmed order reservation without losing the batch trace that was
+// consumed when it was reserved. Older reservations without a manifest are
+// restored as an untracked lot, matching the existing legacy-stock behavior.
+function restoreStockReservation({ product_id, qty, locationId, manifest = [], now = new Date().toISOString() }) {
+  db.prepare('INSERT OR IGNORE INTO stock (product_id, location_id, quantity) VALUES (?, ?, 0)').run(product_id, locationId);
+  db.prepare('UPDATE stock SET quantity = quantity + ? WHERE product_id = ? AND location_id = ?').run(qty, product_id, locationId);
+  if (manifest.length) {
+    for (const entry of manifest) {
+      const existing = entry.lot_id == null ? null : db.prepare('SELECT id FROM stock_lots WHERE id = ? AND product_id = ? AND location_id = ?').get(entry.lot_id, product_id, locationId);
+      if (existing) {
+        db.prepare('UPDATE stock_lots SET qty = qty + ? WHERE id = ?').run(entry.qty, existing.id);
+      } else {
+        db.prepare('INSERT INTO stock_lots (product_id, location_id, qty, received_at, expiry_date) VALUES (?, ?, ?, ?, ?)')
+          .run(product_id, locationId, entry.qty, entry.received_at || now, entry.expiry_date || null);
+      }
+    }
+  } else {
+    db.prepare('INSERT INTO stock_lots (product_id, location_id, qty, received_at, expiry_date) VALUES (?, ?, ?, ?, NULL)')
+      .run(product_id, locationId, qty, now);
+  }
+  const threshold = criticalLevelOf(product_id);
+  const updated = db.prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?').get(product_id, locationId);
+  if (updated) {
+    const alert = db.prepare('SELECT id FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = ? AND status = ?').get(product_id, locationId, 'low_stock', 'active');
+    if (alert && updated.quantity >= threshold) {
+      db.prepare("UPDATE inventory_alerts SET status = 'resolved', resolved_at = datetime('now'), current_qty = ? WHERE id = ?").run(updated.quantity, alert.id);
+    } else if (alert) {
+      db.prepare('UPDATE inventory_alerts SET current_qty = ? WHERE id = ?').run(updated.quantity, alert.id);
+    }
+  }
+}
+
+module.exports = { applyMovementEffect, consumeStockLots, groupManifestByExpiry, resolveLocation, restoreStockReservation };

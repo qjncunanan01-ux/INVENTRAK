@@ -543,6 +543,7 @@ describe('Analytics & Reports', () => {
   for (const side of [sqlite, npmfree]) {
     describe(side.label || 'backend', () => {
       let adminToken;
+      let ownerToken;
 
       before(async () => {
         const res = await call(side.url, '/api/auth/login', {
@@ -550,6 +551,11 @@ describe('Analytics & Reports', () => {
           body: { username: 'admin', password: 'admin123' },
         });
         adminToken = res.json.token;
+        const owner = await call(side.url, '/api/auth/login', {
+          method: 'POST',
+          body: { username: 'owner', password: 'owner123' },
+        });
+        ownerToken = owner.json.token;
       });
 
       it('GET /api/analytics/summary returns dashboard metrics', async () => {
@@ -565,7 +571,7 @@ describe('Analytics & Reports', () => {
 
       it('GET /api/optimization returns ABC analysis', async () => {
         const res = await call(side.url, '/api/optimization', {
-          token: adminToken,
+          token: ownerToken,
         });
         assert.equal(res.status, 200);
         assert.ok(Array.isArray(res.json));

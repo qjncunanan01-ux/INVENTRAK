@@ -22,6 +22,8 @@ import StockAvailabilityScreen from './screens/catalog/StockAvailabilityScreen';
 import PaymentScreen from './screens/orders/PaymentScreen';
 import NotificationsScreen from './screens/orders/NotificationsScreen';
 import CartScreen from './screens/cart/CartScreen';
+import DemoPolicyScreen from './screens/account/DemoPolicyScreen';
+import { DEMO_POLICY_PREVIEW_ENABLED } from './demo-features';
 import { CartProvider, useCart } from './cart-context';
 import { setSessionDetails, setSessionUsername, setToken, useSessionUsername, wakeBackend } from './api';
 import { Toaster } from './toast';
@@ -199,6 +201,13 @@ function AppShell() {
           <AuthStack.Screen name="Signup" component={SignupScreen} options={{ headerShown: false }} />
           <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
           <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} options={{ headerShown: false }} />
+          {DEMO_POLICY_PREVIEW_ENABLED ? (
+            <AuthStack.Screen
+              name="DemoPolicies"
+              component={DemoPolicyScreen}
+              options={{ title: 'Demo Policy Preview' }}
+            />
+          ) : null}
           <AuthStack.Screen
             name="Main"
             component={MainTabsNavigator}

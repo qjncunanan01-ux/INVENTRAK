@@ -27,6 +27,16 @@ const DEFAULT_FULFILLMENT = 'pickup';
 // same way, instead of being one more value an admin can type.
 const ASSIGNABLE_STATUSES = ['pending', 'approved', 'rejected', 'fulfilled', 'delivered'];
 
+const COMPANY_DEMO_TRANSITIONS = {
+  pending: ['approved', 'rejected'],
+  approved: ['preparing', 'rejected'],
+  preparing: ['fulfilled', 'rejected'],
+  fulfilled: ['delivered'],
+  rejected: [],
+  delivered: [],
+  cancelled: [],
+};
+
 // Legal forward moves. Everything absent from a row is refused.
 //   pending   -> approved / rejected / fulfilled / delivered
 //   approved  -> fulfilled / delivered / rejected
@@ -117,8 +127,10 @@ function appendStatusEvent(historyJson, { status, at, by = null, reason = null, 
 
 // The guard both PUT handlers call. Returns null when the change is allowed, or
 // { status, error } describing the refusal.
-function checkStatusChange({ from, to }) {
-  if (!ASSIGNABLE_STATUSES.includes(to)) {
+function checkStatusChange({ from, to, companyDemo = false }) {
+  const assignable = companyDemo ? [...ASSIGNABLE_STATUSES, 'preparing'] : ASSIGNABLE_STATUSES;
+  const transitions = companyDemo ? COMPANY_DEMO_TRANSITIONS : TRANSITIONS;
+  if (!assignable.includes(to)) {
     return {
       status: 400,
       error: `Invalid status. Must be one of: ${ASSIGNABLE_STATUSES.join(', ')}`,
@@ -126,7 +138,7 @@ function checkStatusChange({ from, to }) {
   }
   if (!from) return null; // legacy row with no status: first move is free
   if (from === to) return null; // idempotent repeat
-  const allowed = TRANSITIONS[from];
+  const allowed = transitions[from];
   if (!allowed) {
     return { status: 400, error: `Unknown current status: ${from}` };
   }
@@ -140,11 +152,14 @@ function checkStatusChange({ from, to }) {
 }
 
 // Cancellation guard for the customer-facing endpoint.
-function checkCancellation({ from }) {
+function checkCancellation({ from, fulfillment_method, companyDemo = false }) {
   if (from === 'cancelled') {
     return { status: 200, alreadyCancelled: true, error: null };
   }
-  if (!CANCELLABLE_FROM.includes(from)) {
+  const cancellable = companyDemo
+    ? ['pending', 'approved', 'preparing', ...(fulfillment_method === 'pickup' ? ['fulfilled'] : [])]
+    : CANCELLABLE_FROM;
+  if (!cancellable.includes(from)) {
     return {
       status: 409,
       error: `Only a pending or approved inquiry can be cancelled — this one is ${from}`,

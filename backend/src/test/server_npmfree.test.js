@@ -23,6 +23,7 @@ const { createServer } = require('../server_npmfree');
 let server;
 let baseUrl;
 let adminToken;
+let ownerToken;
 
 before(async () => {
   server = createServer(0);
@@ -35,6 +36,12 @@ before(async () => {
   });
   const loginBody = await loginRes.json();
   adminToken = loginBody.token;
+  const ownerLogin = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'owner', password: 'owner123' }),
+  });
+  ownerToken = (await ownerLogin.json()).token;
 });
 
 after(() => {
@@ -51,6 +58,13 @@ async function request(path, options = {}) {
 
 async function authRequest(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, ...options.headers };
+  const res = await fetch(`${baseUrl}${path}`, { ...options, headers });
+  const body = await res.json().catch(() => null);
+  return { status: res.status, body };
+}
+
+async function managementRequest(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${ownerToken}`, ...options.headers };
   const res = await fetch(`${baseUrl}${path}`, { ...options, headers });
   const body = await res.json().catch(() => null);
   return { status: res.status, body };
@@ -119,13 +133,13 @@ test('GET /api/stock-lots returns lot data', async () => {
 });
 
 test('GET /api/optimization/abc returns classifications', async () => {
-  const { status, body } = await request('/api/optimization/abc');
+  const { status, body } = await managementRequest('/api/optimization/abc');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
 test('GET /api/optimization/1 returns EOQ data', async () => {
-  const { status, body } = await request('/api/optimization/1');
+  const { status, body } = await managementRequest('/api/optimization/1');
   assert.strictEqual(status, 200);
   assert.ok(body.EOQ);
   assert.ok(body.ROP);
@@ -226,7 +240,7 @@ test('GET /api/docs serves Swagger UI and openapi.json', async () => {
 });
 
 test('GET /api/optimization returns bulk metrics', async () => {
-  const { status, body } = await request('/api/optimization');
+  const { status, body } = await managementRequest('/api/optimization');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });

@@ -112,7 +112,10 @@ export default function ProductScreen({ route, navigation }) {
       showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
       return false;
     }
-    addItem(product, 1, price, originalPrice);
+    if (!addItem(product, 1, price, originalPrice, available)) {
+      showToast('The cart is loading or has reached its order limit. Please try again.');
+      return false;
+    }
     return true;
   };
 
@@ -620,7 +623,7 @@ export default function ProductScreen({ route, navigation }) {
                   >
                     <Text style={styles.quickAddText}>+</Text>
                   </TouchableOpacity>
-              <Text style={styles.cardName} numberOfLines={2}>{productTitle(item)}</Text>
+                  <Text style={styles.cardName} numberOfLines={2}>{productTitle(item)}</Text>
                 </View>
                 <Text style={styles.cardMeta} numberOfLines={1}>{item.category}</Text>
                 {/* Today's picks show the flash deal price right on the card, so

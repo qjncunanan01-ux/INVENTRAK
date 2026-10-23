@@ -107,7 +107,8 @@ function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Money + business analytics: admin tier only (staff land on /inventory). */}
+        {/* Dashboard: daily operations for Admin; additional executive metrics
+            are already hidden there unless the role is Owner/Super Admin. */}
         <Route path="/" element={<RequireRole roles={ADMIN_TIER}><DashboardPage user={user} onLogout={handleLogout} /></RequireRole>} />
         <Route path="/products" element={<RequireRole roles={ADMIN_TIER}><ProductsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/inventory" element={<InventoryPage onLogout={handleLogout} />} />
@@ -126,14 +127,13 @@ function AppRoutes() {
         <Route path="/back-orders" element={<RequireRole roles={ADMIN_TIER}><BackOrdersPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/unit-conversions" element={<RequireRole roles={ADMIN_TIER}><UnitConversionsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/locations" element={<RequireRole roles={ADMIN_TIER}><LocationsPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="/optimization" element={<RequireRole roles={ADMIN_TIER}><OptimizationPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="/reports" element={<RequireRole roles={ADMIN_TIER}><ReportsPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/optimization" element={<RequireRole roles={MANAGEMENT_TIER}><OptimizationPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/reports" element={<RequireRole roles={MANAGEMENT_TIER}><ReportsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/security" element={<RequireRole roles={ADMIN_TIER}><SecurityPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="/audit-trail" element={<RequireRole roles={ADMIN_TIER}><AuditTrailPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/audit-trail" element={<RequireRole roles={MANAGEMENT_TIER}><AuditTrailPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/notifications" element={<RequireRole roles={ADMIN_TIER}><NotificationsPage onLogout={handleLogout} /></RequireRole>} />
-        {/* A snapshot is the whole database and a restore overwrites it, so
-            this is admin-tier: it is the largest blast radius in the console. */}
-        <Route path="/backup" element={<RequireRole roles={ADMIN_TIER}><BackupPage onLogout={handleLogout} /></RequireRole>} />
+        {/* Backups contain full database copies and restore overwrites data. */}
+        <Route path="/backup" element={<RequireRole roles={MANAGEMENT_TIER}><BackupPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/settings" element={<RequireRole roles={MANAGEMENT_TIER}><SettingsPage user={user} onLogout={handleLogout} /></RequireRole>} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

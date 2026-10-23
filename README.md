@@ -76,7 +76,7 @@ capstone paper).
 - **Analytics** - Dashboard summary with top products and movement trends
 - **Inventory Alerts** - Automatic low-stock alert creation
 - **Sales Transactions** - Dynamic demand data for optimization calculations
-- **Backups that do not depend on remembering** - The server pushes a full database snapshot to the durable store on a timer (`BACKUP_INTERVAL_MINUTES`, default hourly; newest `BACKUP_KEEP` kept), so a wiped container can be restored from a snapshot an admin never had to export. Both backends, admin-only, audited; the console shows whether the schedule is on, where it writes, when it last succeeded and why it last failed. Setup is one SQL paste (`backend/src/supabase-backup-migration.sql`) because the sink derives itself from the Supabase driver config the app already has
+- **Backups that do not depend on remembering** - The server pushes a full database snapshot to the durable store on a timer (`BACKUP_INTERVAL_MINUTES`, default hourly; newest `BACKUP_KEEP` kept), so a wiped container can be restored from a snapshot an Owner or Super Admin never had to export. Both backends restrict backup and restore tools to those management roles and audit each action; the console shows whether the schedule is on, where it writes, when it last succeeded and why it last failed. Setup is one SQL paste (`backend/src/supabase-backup-migration.sql`) because the sink derives itself from the Supabase driver config the app already has
 
 ### Admin Web Dashboard
 Pages live under `frontend-admin/src/pages/`, grouped into the same section
@@ -145,11 +145,19 @@ provider means no cost and no setup, and nothing ever blocks the API:
 # Email (https://resend.com — free tier)
 export RESEND_API_KEY="re_..."                    # + optional EMAIL_FROM
 
-# SMS — Semaphore (Philippine gateway, https://semaphore.co) or Twilio
+# SMS — PhilSMS (Philippine gateway, https://philsms.com; free trial credits)
+export PHILSMS_API_TOKEN="..."
+export PHILSMS_SENDER_ID="SYLVERS"              # registered sender ID, max 11 chars
+# or Semaphore (prepaid credits) / Twilio
 export SEMAPHORE_API_KEY="..."                   # + optional SEMAPHORE_SENDER_NAME
 # or
 export TWILIO_ACCOUNT_SID="..." TWILIO_AUTH_TOKEN="..." TWILIO_FROM="+1..."
 ```
+
+PhilSMS offers 5 trial SMS credits for testing; continued sending requires paid
+credits. The backend prefers PhilSMS when `PHILSMS_API_TOKEN` is configured, then
+Semaphore, then Twilio. Keep provider tokens in the backend environment (for
+Render, the `inventrak-api` service), never in a client app or the repository.
 
 To receive SMS, the customer adds a **phone number** on the order-inquiry form
 (optional field — email-only works without it). The message text is composed

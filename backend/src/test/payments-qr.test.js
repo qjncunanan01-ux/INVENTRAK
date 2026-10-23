@@ -5,9 +5,16 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const { buildPaymentStep, qrImageUrl, qrPayload } = require('../payments');
+const { SYLVER_POLICY_DEMO } = require('../catalog-orders/company-policy');
 
 test('COD produces no payment step', async() => {
   const step = await buildPaymentStep({ id: 1, amount: 100, paymentMethod: 'cod' });
+  assert.strictEqual(step, null);
+});
+
+test('an unconfigured production card option never gets a fake payment step', async() => {
+  if (SYLVER_POLICY_DEMO) return;
+  const step = await buildPaymentStep({ id: 1, amount: 100, paymentMethod: 'card' });
   assert.strictEqual(step, null);
 });
 

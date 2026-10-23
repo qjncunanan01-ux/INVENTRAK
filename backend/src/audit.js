@@ -8,7 +8,7 @@
 //
 // PERSISTENCE (Render-safe): Render's filesystem is ephemeral — every deploy
 // wiped the audit file, so the trail restarted empty and scan/log events
-// seemed to vanish. The admin /api/audit-trail endpoint reads ONLY this file
+// seemed to vanish. The management /api/audit-trail endpoint reads ONLY this file
 // (synchronously), so the file must always exist. The fix keeps the file as
 // the primary store and adds an optional durable remote sink:
 //
@@ -39,10 +39,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-// The audit file is the PRIMARY store — the admin /api/audit-trail endpoint
+// The audit file is the PRIMARY store — the management /api/audit-trail endpoint
 // reads it back, so it must always exist, not only when an operator remembers
 // to set an env var (that was the bug: on Render nothing set AUDIT_LOG_FILE,
-// so no file was ever written and the admin page showed an empty trail).
+// so no file was ever written and the management page showed an empty trail).
 // Default: alongside the database/data files (INVENTRAK_DATA_DIR when set,
 // so isolated/test instances keep their trail in their own data dir).
 // Override with AUDIT_LOG_FILE.

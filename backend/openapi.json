@@ -116,7 +116,7 @@
           "Admin"
         ],
         "operationId": "exportBackup",
-        "summary": "Export a full database snapshot (admin only)",
+        "summary": "Export a full database snapshot (Owner or Super Admin only)",
         "description": "A copy of the entire durable database — every table it holds — as one JSON document. This is the record that survives a redeploy: the backend container filesystem is wiped on deploy, so an off-container snapshot is the only recovery path. Exported and restores are both audited. The snapshot contains password hashes: it is a backup, not a report, and it must be stored accordingly.",
         "security": [
           {
@@ -147,7 +147,7 @@
           "Admin"
         ],
         "operationId": "pushBackup",
-        "summary": "Take a snapshot now and store it in the durable store (admin only)",
+        "summary": "Take a snapshot now and store it in the durable store (Owner or Super Admin only)",
         "description": "The on-demand half of the scheduled backup: the same snapshot the timer takes (BACKUP_INTERVAL_MINUTES, default hourly), pushed immediately. Additive by construction — a push is a NEW row in the durable store, so it can never overwrite the copy an admin is relying on. Answers 503 with a reason when this server has no durable store to push to (SUPABASE_URL/SUPABASE_KEY or BACKUP_REMOTE_URL/BACKUP_REMOTE_KEY unset, store unreachable, or the snapshot is larger than BACKUP_MAX_BYTES).",
         "security": [
           {
@@ -190,7 +190,7 @@
           "Admin"
         ],
         "operationId": "listStoredBackups",
-        "summary": "Snapshots held by the durable store, newest first (admin only)",
+        "summary": "Snapshots held by the durable store, newest first (Owner or Super Admin only)",
         "description": "What a restore can start from, so recovery does not depend on a file that was downloaded before the container went away. Reports rather than throws: \"the schedule is off\" and \"the store is unreachable\" are states an operator needs to read (ok=false plus a reason), not errors to hide. Returns metadata only — the snapshot bodies are not shipped by a listing — and never the store key.",
         "security": [
           {
@@ -223,7 +223,7 @@
           "Admin"
         ],
         "operationId": "restoreBackup",
-        "summary": "Restore the database from a snapshot (admin only)",
+        "summary": "Restore the database from a snapshot (Owner or Super Admin only)",
         "description": "Replaces the database contents with the supplied snapshot. Requires `confirm: true`, and the snapshot must come from the same driver this server runs. SQLite restores run inside a single transaction: a snapshot with dangling references is rejected and the live database is left untouched.",
         "security": [
           {
@@ -484,7 +484,7 @@
           "Users"
         ],
         "operationId": "listAuditTrail",
-        "summary": "Security audit log entries (admin only) â€” newest first",
+        "summary": "Security audit log entries (Owner or Super Admin only) â€” newest first",
         "security": [
           {
             "bearerAuth": []
@@ -1330,7 +1330,7 @@
           "Analytics"
         ],
         "operationId": "getCacheStats",
-        "summary": "In-memory cache statistics (admin only)",
+        "summary": "In-memory cache statistics (Owner or Super Admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -1812,7 +1812,8 @@
           "Health"
         ],
         "operationId": "getIntegrity",
-        "summary": "Audit data integrity (duplicate stock rows, negative stock, FIFO lot drift, orphaned movements)",
+        "summary": "Audit data integrity (Owner or Super Admin only)",
+        "description": "Checks for duplicate stock rows, negative stock, FIFO lot drift and orphaned movements.",
         "security": [
           {
             "bearerAuth": []
@@ -2451,7 +2452,12 @@
           "Optimization"
         ],
         "operationId": "getOptimizationBulk",
-        "summary": "Bulk optimization metrics for all products",
+        "summary": "Bulk optimization metrics for all products (Owner or Super Admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Bulk metrics",
@@ -2475,7 +2481,12 @@
           "Optimization"
         ],
         "operationId": "getOptimization",
-        "summary": "EOQ, ROP, safety stock, and turnover for one product",
+        "summary": "EOQ, ROP, safety stock, and turnover for one product (Owner or Super Admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "productId",
@@ -2509,7 +2520,12 @@
           "Optimization"
         ],
         "operationId": "getOptimizationAbc",
-        "summary": "ABC classification of products",
+        "summary": "ABC classification of products (Owner or Super Admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "ABC classifications",
@@ -2533,7 +2549,12 @@
           "Optimization"
         ],
         "operationId": "getOptimizationFsn",
-        "summary": "FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency",
+        "summary": "FSN (Fast/Slow/Non-moving) classification of products by movement frequency and recency (Owner or Super Admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "window",
@@ -2652,7 +2673,7 @@
         },
         "responses": {
           "201": {
-            "description": "Inquiry submitted (with the GCash payment step when payment_method is gcash/card)",
+            "description": "Inquiry submitted. The Sylver demo returns a simulated card step or manual GCash/bank-transfer proof flow; production only returns payment steps for configured gateways.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2673,7 +2694,7 @@
           "Order Inquiries"
         ],
         "operationId": "updateOrderInquiry",
-        "summary": "Update inquiry status (pending -> approved -> fulfilled / rejected)",
+        "summary": "Update inquiry status under the active production or Sylver demo lifecycle",
         "security": [
           {
             "bearerAuth": []
@@ -2704,6 +2725,7 @@
                     "enum": [
                       "pending",
                       "approved",
+                      "preparing",
                       "rejected",
                       "fulfilled",
                       "delivered"
@@ -2718,6 +2740,16 @@
                     "type": "integer",
                     "minimum": 1,
                     "description": "Required when marking an inquiry fulfilled or delivered. Stock is deducted from this location and recorded as a sale."
+                  },
+                  "delivery_fee": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Required with delivery_schedule when confirming a courier order in the Sylver demo."
+                  },
+                  "delivery_schedule": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Required when confirming a courier order in the Sylver demo."
                   }
                 },
                 "description": "Admin-only status change. Illegal transitions are refused with 409, and rejecting an inquiry without a reason is refused with 400. Cancellation is NOT available here — use POST /api/order-inquiries/{id}/cancel so the actor, time and reason are recorded."
@@ -3404,7 +3436,7 @@
           "Analytics"
         ],
         "operationId": "getReports",
-        "summary": "Printable management report: daily sales, stock by location, order status, low stock, movers (admin only)",
+        "summary": "Printable management report: daily sales, stock by location, order status, low stock and movers (Owner or Super Admin only)",
         "security": [
           {
             "bearerAuth": []
@@ -3742,8 +3774,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Get runtime system settings (admin tier â€” read-only)",
-        "description": "Returns the live runtime configuration: demo-account gate, default FSN window, low-stock multiplier, and session token lifetime. Readable by the admin tier; changes only via PUT (Owner/Super Admin).",
+        "summary": "Get runtime system settings (Owner or Super Admin only)",
+        "description": "Returns the live runtime configuration: demo-account gate, default FSN window, low-stock multiplier, and session token lifetime. Readable and writable by Owner and Super Admin accounts.",
         "security": [
           {
             "bearerAuth": []
@@ -4624,6 +4656,605 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/order-inquiries/policy": {
+      "get": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "getOrderInquiryPolicy",
+        "summary": "Get active order terms and demo policy",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active terms and (when enabled) Sylver demo rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "demo_company_rules": {
+                      "type": "boolean"
+                    },
+                    "credit_eligible": {
+                      "type": "boolean",
+                      "description": "True only in the demo when the authenticated account matches a pre-existing customer record. Staff approval is still required per order."
+                    },
+                    "terms_version": {
+                      "type": "string"
+                    },
+                    "terms": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "discount_threshold": {
+                      "type": "number"
+                    },
+                    "discount_rate": {
+                      "type": "number"
+                    },
+                    "pickup": {
+                      "type": "object",
+                      "properties": {
+                        "business": {
+                          "type": "string"
+                        },
+                        "address": {
+                          "type": "string"
+                        },
+                        "days": {
+                          "type": "string"
+                        },
+                        "hours": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "delivery_areas": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "payment_methods": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/order-inquiries/{id}/payment-proof": {
+      "get": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "getInquiryPaymentProof",
+        "summary": "Read a payment receipt image",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scoped receipt image",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "payment_record_id": {
+                      "type": "string"
+                    },
+                    "proof_data": {
+                      "type": "string",
+                      "maxLength": 900100,
+                      "description": "Base64 image data URL; PNG, JPEG, or WebP up to 650 KB decoded."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/order-inquiries/{id}/change-request": {
+      "post": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "createInquiryChangeRequest",
+        "summary": "Request an order change (Sylver demo only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Request recorded for staff review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "change_request": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "requested_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "reviewInquiryChangeRequest",
+        "summary": "Record a staff decision on a change request (Sylver demo only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "accepted",
+                      "declined"
+                    ]
+                  },
+                  "response": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request decision recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/order-inquiries/{id}/return-requests": {
+      "post": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "createInquiryReturnRequest",
+        "summary": "Report an item issue within 24 hours of delivery (Sylver demo only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "incorrect",
+                      "damaged",
+                      "defective",
+                      "discrepancy"
+                    ]
+                  },
+                  "message": {
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "proof_data": {
+                    "type": "string",
+                    "maxLength": 900100,
+                    "description": "Base64 image data URL; PNG, JPEG, or WebP up to 650 KB decoded."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Return report submitted for review",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "return_request": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "requested_at": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/order-inquiries/{id}/return-proof": {
+      "get": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "getInquiryReturnProof",
+        "summary": "Read a return photo",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scoped return photo evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "return_request_id": {
+                      "type": "string"
+                    },
+                    "proof_data": {
+                      "type": "string",
+                      "maxLength": 900100,
+                      "description": "Base64 image data URL; PNG, JPEG, or WebP up to 650 KB decoded."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/order-inquiries/{id}/return-requests/{requestId}": {
+      "put": {
+        "tags": [
+          "Order Inquiries"
+        ],
+        "operationId": "reviewInquiryReturnRequest",
+        "summary": "Review a return and record a demo refund decision (Sylver demo only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "approved",
+                      "declined"
+                    ]
+                  },
+                  "refund_amount": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "refund_method": {
+                    "type": "string",
+                    "enum": [
+                      "bank_transfer",
+                      "original_method"
+                    ]
+                  },
+                  "response": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Return decision recorded; no money is transferred in the demo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         }
       }
@@ -6331,11 +6962,8 @@
           },
           "terms_version": {
             "type": "string",
-            "maxLength": 40,
-            "enum": [
-              "2026-10-21-v1"
-            ],
-            "description": "Must match the current terms version shown at checkout."
+            "maxLength": 60,
+            "description": "Must match the current terms version returned by GET /api/order-inquiries/policy."
           },
           "delivery_address": {
             "type": "string",
@@ -6355,12 +6983,14 @@
             "type": "string",
             "enum": [
               "cod",
+              "cash",
               "gcash",
+              "bank_transfer",
               "card",
               "other"
             ],
             "default": "cod",
-            "description": "Payment method chosen at checkout"
+            "description": "Payment method. The Sylver demo accepts cash, GCash, bank transfer, and a simulated card transaction that never collects card details or charges a card. Production accepts COD, GCash, and other supported legacy methods; card is not enabled without a real gateway."
           },
           "products": {
             "type": "array",
@@ -6418,7 +7048,8 @@
                 }
               ]
             },
-            "description": "Ordered lines: legacy strings (\"Widget x2\") or structured objects with prices"
+            "description": "Up to 500 lines. In the Sylver demo, quantities must be available in stock and prices are taken from the server catalog.",
+            "maxItems": 500
           },
           "estimated_cost": {
             "type": "number"
@@ -6563,22 +7194,29 @@
             "type": "string",
             "enum": [
               "cod",
+              "cash",
               "gcash",
+              "bank_transfer",
               "card",
-              "other"
+              "other",
+              "credit"
             ],
-            "default": "cod"
+            "default": "cod",
+            "description": "Credit is demo-only and available only to existing customer accounts after staff approval."
           },
           "payment_status": {
             "type": "string",
             "enum": [
               "unpaid",
               "pending_verification",
+              "partial",
               "paid",
-              "failed"
+              "failed",
+              "credit_pending",
+              "credit_approved"
             ],
             "default": "unpaid",
-            "description": "GCash/card payment state (COD inquiries stay unpaid)"
+            "description": "Payment, receipt-review, or existing-credit approval state. Credit is demo-only."
           },
           "payment_reference": {
             "type": "string",
@@ -6645,11 +7283,13 @@
             "enum": [
               "pending",
               "approved",
+              "preparing",
               "rejected",
               "fulfilled",
               "delivered",
               "cancelled"
-            ]
+            ],
+            "description": "Status values include preparing in the Sylver demo only."
           },
           "rejection_reason": {
             "type": "string",
@@ -6726,6 +7366,55 @@
               ]
             },
             "description": "Parsed line items with per-line prices (unit_price, original_price, subtotal)"
+          },
+          "inventory_reserved_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "When stock was held for a confirmed demo order."
+          },
+          "reservation_details": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON stock allocation and lot manifest for a demo reservation."
+          },
+          "sale_committed_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "When delivery was recorded and the demo sale ledger was written."
+          },
+          "bulk_discount_amount": {
+            "type": "number",
+            "description": "Demo-only discount for qualifying syrup and sauce products."
+          },
+          "bulk_discount_eligible_subtotal": {
+            "type": "number",
+            "description": "Demo-only combined syrup/sauce subtotal before discount."
+          },
+          "delivery_fee": {
+            "type": "number",
+            "description": "Demo delivery fee quoted by staff; courier orders require a quote before payment."
+          },
+          "delivery_schedule": {
+            "type": "string",
+            "nullable": true,
+            "description": "Demo delivery schedule confirmed by staff."
+          },
+          "payment_records": {
+            "type": "string",
+            "description": "JSON array of manual payment proof and verification records; proof images are omitted from order lists."
+          },
+          "amount_paid": {
+            "type": "number",
+            "description": "Total verified payment amount."
+          },
+          "return_requests": {
+            "type": "string",
+            "description": "JSON array of return reports and demo refund decisions; proof images are omitted from order lists."
+          },
+          "change_request": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON customer change request and staff decision."
           }
         }
       },
@@ -6749,7 +7438,7 @@
           },
           "payment": {
             "type": "object",
-            "description": "Payment step for GCash/card checkout (present when payment_method is gcash or card)",
+            "description": "Payment reference for manual GCash/bank-transfer proof in the Sylver demo, or a legacy payment step.",
             "required": [
               "payment_method",
               "payment_status",
@@ -6776,8 +7465,19 @@
               "payment_provider": {
                 "type": "string",
                 "nullable": true
+              },
+              "amount_due": {
+                "type": "number"
               }
             }
+          },
+          "estimated_cost": {
+            "type": "number",
+            "description": "Server-priced order subtotal after any eligible demo discount."
+          },
+          "bulk_discount_amount": {
+            "type": "number",
+            "description": "Demo-only discount amount."
           }
         }
       },
@@ -6789,18 +7489,48 @@
             "enum": [
               "paid",
               "unpaid",
-              "failed"
-            ]
+              "failed",
+              "credit_approved"
+            ],
+            "description": "Admin may approve an existing customer credit arrangement only after confirming the order."
+          },
+          "allow_partial": {
+            "type": "boolean",
+            "description": "Admin-only approval for a deposit or split payment. Must be approved before the customer submits a partial amount."
+          },
+          "receipt_method": {
+            "type": "string",
+            "enum": ["gcash", "bank_transfer"],
+            "description": "Receipt channel used to settle an approved existing credit order."
           },
           "customer_reference": {
             "type": "string",
             "minLength": 5,
             "maxLength": 100,
-            "description": "GCash receipt reference submitted by the customer. It moves the payment to pending_verification; it does not mark it paid."
+            "description": "GCash or bank-transfer reference submitted by the customer; payment remains pending until staff verifies it."
           },
           "demo_card_confirmed": {
             "type": "boolean",
             "description": "Completes the explicit demo card transaction. No charge or card data is collected."
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "Partial payment amount for demo GCash/bank-transfer proof, or a cash amount recorded by staff."
+          },
+          "payment_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date shown on the payment receipt."
+          },
+          "proof_data": {
+            "type": "string",
+            "maxLength": 900100,
+            "description": "Base64 image data URL; PNG, JPEG, or WebP up to 650 KB decoded."
+          },
+          "payment_record_id": {
+            "type": "string",
+            "description": "The specific pending manual payment record staff is reviewing."
           }
         }
       },

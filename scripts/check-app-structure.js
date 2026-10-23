@@ -45,7 +45,7 @@ const APPS = {
     ],
     cart: ['CartScreen'],
     orders: ['InquiryHistoryScreen', 'OrderInquiryScreen', 'PaymentScreen', 'NotificationsScreen'],
-    account: ['AccountScreen'],
+    account: ['AccountScreen', 'DemoPolicyScreen'],
     auth: ['LoginScreen', 'SignupScreen', 'ForgotPasswordScreen', 'VerifyEmailScreen'],
   },
   'staff-client': {

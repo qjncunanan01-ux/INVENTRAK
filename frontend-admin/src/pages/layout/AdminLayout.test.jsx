@@ -142,12 +142,15 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     localStorage.clear();
   });
 
-  test('admin sees every module', () => {
+  test('admin sees the focused workflow without secondary or owner-only modules', () => {
     mockUser = { role: 'admin' };
     setViewport(true);
     renderLayout();
-    for (const label of ['Products', 'Inventory', 'Inventory Levels', 'Scan & Stock', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Approvals', 'Order Inquiries', 'Branch Locations', 'Optimization', 'Reports', 'Security']) {
+    for (const label of ['Products', 'Inventory', 'Inventory Levels', 'Shelf vs System', 'Scan & Stock', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Approvals', 'Order Inquiries', 'Branch Locations', 'Till', 'Security']) {
       expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    for (const label of ['Stocktake Schedule', 'Back Orders', 'Unit Conversions', 'Optimization', 'Notifications', 'Reports', 'Audit Trail', 'Backup & Restore', 'System Settings']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
 
@@ -155,8 +158,7 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     mockUser = { role: 'staff' };
     setViewport(true);
     renderLayout();
-    // Flat nav: every allowed module is a visible row — nothing hidden in
-    // collapsed groups.
+    // Every allowed module remains reachable in the grouped navigation.
     for (const label of ['Inventory Levels', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Scan & Stock']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
@@ -168,13 +170,16 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     }
   });
 
-  test('the management tier sees the same modules as an admin', () => {
+  test('the management tier sees operational modules plus oversight tools', () => {
     for (const role of ['super_admin', 'owner']) {
       mockUser = { role };
       setViewport(true);
       const { unmount } = renderLayout();
-      for (const label of ['Dashboard', 'Products', 'Approvals', 'Order Inquiries', 'Optimization', 'Reports', 'Security']) {
+      for (const label of ['Dashboard', 'Products', 'Approvals', 'Order Inquiries', 'Reports', 'Audit Trail', 'Backup & Restore', 'System Settings', 'Security']) {
         expect(screen.getByText(label)).toBeInTheDocument();
+      }
+      for (const label of ['Stocktake Schedule', 'Back Orders', 'Unit Conversions', 'Optimization', 'Notifications']) {
+        expect(screen.queryByText(label)).not.toBeInTheDocument();
       }
       unmount();
     }

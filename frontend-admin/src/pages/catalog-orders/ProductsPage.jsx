@@ -24,6 +24,7 @@ const EMPTY_FORM = { name: '', category: '', brand: '', description: '', size: '
 export default function ProductsPage({ onLogout }) {
   usePageTitle('/products');
   const navigate = useNavigate();
+  const canViewAudit = ['super_admin', 'owner'].includes(getCurrentUser()?.role);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -149,8 +150,8 @@ export default function ProductsPage({ onLogout }) {
     apiGet('/api/meta')
       .then(m => { if (m && m.costing && Number(m.costing.target_margin_percent) > 0) setTargetMargin(Number(m.costing.target_margin_percent)); })
       .catch(() => {});
-    loadCostHistory();
-  }, []);
+    if (canViewAudit) loadCostHistory();
+  }, [canViewAudit]);
 
   const loadCostHistory = async() => {
     try {

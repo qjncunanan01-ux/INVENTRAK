@@ -193,7 +193,7 @@ export default function QrScanScreen({ navigation }) {
     }
   }, [isStaff, product, counts, reason, locIdByName]);
 
-  const handleProduct = async (parsed) => {
+  const handleProduct = async(parsed) => {
     // Audit every scan — an unknown code pointed at the scanner is exactly
     // the kind of event worth reviewing.
     createScanEvent({ payload: parsed.raw.slice(0, 300), kind: 'product', target_id: parsed.id }).catch(() => {});
@@ -231,7 +231,7 @@ export default function QrScanScreen({ navigation }) {
   // checked before navigating: a tag for a location deleted since printing
   // must say so instead of opening an empty screen. Shared by the camera
   // pipeline and manual entry.
-  const focusLocationTag = useCallback(async (parsed) => {
+  const focusLocationTag = useCallback(async(parsed) => {
     setBusy(true);
     try {
       const locations = await listLocations();
@@ -279,7 +279,6 @@ export default function QrScanScreen({ navigation }) {
       return;
     }
     handleProduct(parsed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy, focusLocationTag]);
 
   // Manual entry is deliberate — close the sheet, then resolve. While the

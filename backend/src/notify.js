@@ -13,6 +13,7 @@
 //         or a verified domain to reach real customers.
 //   SMS:   SEMAPHORE_API_KEY (https://semaphore.co — PH gateway)
 //              [+ optional SEMAPHORE_SENDER_NAME]
+//          or PHILSMS_API_TOKEN + PHILSMS_SENDER_ID (PhilSMS — PH gateway)
 //          or TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM (Twilio)
 //
 // When nothing is configured, messages are LOGGED instead of sent, so the
@@ -51,7 +52,11 @@ function emailConfigured() {
   return Boolean(process.env.SMTP_HOST || process.env.RESEND_API_KEY);
 }
 function smsConfigured() {
-  return Boolean(process.env.SEMAPHORE_API_KEY || (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN));
+  return Boolean(
+    process.env.PHILSMS_API_TOKEN ||
+    process.env.SEMAPHORE_API_KEY ||
+    (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
+  );
 }
 function deliveryStatus(result, configured) {
   if (result && result.sent) return 'sent';
@@ -73,6 +78,7 @@ function normalizePhNumber(input, provider) {
   else digits = raw;
   if (!/^9\d{9}$/.test(digits)) return null;
   if (provider === 'twilio') return `+63${digits}`;
+  if (provider === 'philsms') return `63${digits}`;
   return `0${digits}`; // semaphore + default
 }
 
@@ -327,6 +333,51 @@ async function sendEmail({ to, subject, text, html }) {
 }
 
 async function sendSms({ to, message }) {
+  const philsmsToken = process.env.PHILSMS_API_TOKEN;
+  if (philsmsToken) {
+    try {
+      const senderId = String(process.env.PHILSMS_SENDER_ID || '').trim();
+      if (!senderId || senderId.length > 11) {
+        console.error('[notify] sms (philsms) skipped: PHILSMS_SENDER_ID must be set and at most 11 characters');
+        return { sent: false };
+      }
+      const number = normalizePhNumber(to, 'philsms');
+      if (!number) {
+        console.error(`[notify] sms (philsms) skipped: unparseable PH number "${to}"`);
+        return { sent: false };
+      }
+      const res = await fetch('https://app.philsms.com/api/v3/sms/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${philsmsToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: number,
+          sender_id: senderId,
+          type: /[^\x00-\x7F]/.test(String(message || '')) ? 'unicode' : 'plain',
+          message: String(message || ''),
+        }),
+      });
+      const responseText = await res.text();
+      let responseBody = null;
+      try {
+        responseBody = responseText ? JSON.parse(responseText) : null;
+      } catch {}
+      const accepted = res.ok && String(responseBody && responseBody.status || '').toLowerCase() === 'success';
+      if (!accepted) {
+        const detail = responseBody && (responseBody.message || responseBody.error);
+        console.error(`[notify] sms (philsms) failed (${res.status}): ${String(detail || 'provider rejected request').slice(0, 300)}`);
+        return { sent: false };
+      }
+      return { sent: true };
+    } catch (err) {
+      console.error(`[notify] sms (philsms) error: ${err && err.message}`);
+      return { sent: false };
+    }
+  }
+
   const semaphoreKey = process.env.SEMAPHORE_API_KEY;
   if (semaphoreKey) {
     try {
@@ -386,7 +437,7 @@ async function sendSms({ to, message }) {
     }
   }
 
-  logMessage('sms (unconfigured — set SEMAPHORE_API_KEY or TWILIO_* to enable)', { to, message });
+  logMessage('sms (unconfigured — set PHILSMS_API_TOKEN + PHILSMS_SENDER_ID, SEMAPHORE_API_KEY, or TWILIO_* to enable)', { to, message });
   return { sent: false };
 }
 
@@ -394,6 +445,7 @@ const { summarizeProducts } = require('./catalog-orders/product-lines');
 
 const STATUS_LABELS = {
   approved: 'APPROVED',
+  preparing: 'PREPARING',
   rejected: 'REJECTED',
   fulfilled: 'FULFILLED',
   delivered: 'DELIVERED',
@@ -402,6 +454,15 @@ const STATUS_LABELS = {
   // reads as a raw status leak next to the other uppercase labels.
   cancelled: 'CANCELLED',
 };
+const COMPANY_DEMO_STATUS_LABELS = {
+  pending: 'RECEIVED FOR REVIEW',
+  credit_pending: 'CREDIT TERMS UNDER REVIEW',
+  credit_approved: 'EXISTING CREDIT TERMS APPROVED',
+  payment_pending: 'PAYMENT RECEIPT UNDER REVIEW',
+  payment_verified: 'PAYMENT VERIFIED',
+  payment_failed: 'PAYMENT NEEDS ATTENTION',
+};
+const SYLVER_POLICY_DEMO = process.env.SYLVER_POLICY_DEMO === 'true';
 
 // The stored products value is a JSON string of line objects (e.g.
 // '[{"name":"Widget","qty":2}]') or, for legacy rows, plain strings.
@@ -413,7 +474,13 @@ const productSummary = summarizeProducts;
 // Compose + send an order-inquiry status update to the customer (email always,
 // SMS when a phone number was provided). Resolves when both channels settled.
 function notifyInquiryStatus(inquiry, newStatus) {
-  const label = STATUS_LABELS[newStatus] || newStatus;
+  const label = SYLVER_POLICY_DEMO && newStatus === 'approved'
+    ? 'CONFIRMED'
+    : SYLVER_POLICY_DEMO && newStatus === 'fulfilled'
+      ? (inquiry && inquiry.fulfillment_method === 'courier' ? 'DISPATCHED' : 'READY FOR PICKUP')
+      : SYLVER_POLICY_DEMO
+        ? COMPANY_DEMO_STATUS_LABELS[newStatus] || STATUS_LABELS[newStatus] || newStatus
+        : STATUS_LABELS[newStatus] || newStatus;
   const name = (inquiry && inquiry.customer_name) || 'there';
   const items = productSummary(inquiry && inquiry.products);
   const text = `Hi ${name},\n\nYour order inquiry (${items}) is now ${label}.\n\n— Sylver's`;

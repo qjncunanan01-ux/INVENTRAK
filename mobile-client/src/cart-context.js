@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useSessionUsername } from './api';
+import cartItems from './cart-item.cjs';
 
 // Persistent shopping cart (Shopee/Lazada pattern). Cart entries snapshot the
 // product at add-time ({ product, qty }) so the checkout never needs to refetch
@@ -14,16 +15,32 @@ import { useSessionUsername } from './api';
 const CART_STORAGE_PREFIX = 'inventrak_cart_v1:';
 // Retired pre-per-account global key — one-time cleanup on boot.
 const LEGACY_CART_STORAGE_KEY = 'inventrak_cart_v1';
+const MAX_CART_LINES = 500;
+const MAX_UNITS_PER_PRODUCT = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true'
+  ? Number.MAX_SAFE_INTEGER
+  : 10000;
 
 const CartContext = createContext(null);
+const { addCartItem } = cartItems;
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]); // [{ product, qty, price?, original_price? }]
   const [hydrated, setHydrated] = useState(false);
+  const itemsRef = useRef([]);
+  const loadedStorageKey = useRef(null);
   // Re-renders on every login/logout (session listeners), so the basket below
   // always belongs to the account that is signed in right now.
   const owner = useSessionUsername(null);
   const storageKey = owner ? CART_STORAGE_PREFIX + owner : null;
+
+  // Keep a synchronous snapshot for rapid taps. State updater callbacks can
+  // be batched, so using only the last rendered `items` value lets repeated
+  // taps race and exceed the stock/quantity checked by the screens.
+  const replaceItems = useCallback((next) => {
+    itemsRef.current = next;
+    setItems(next);
+    return next;
+  }, []);
 
   // One-time cleanup of the retired global cart key.
   useEffect(() => {
@@ -36,7 +53,8 @@ export function CartProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     setHydrated(false);
-    setItems([]);
+    replaceItems([]);
+    loadedStorageKey.current = null;
     if (!storageKey) {
       // Guest: never show a basket.
       setHydrated(true);
@@ -48,25 +66,45 @@ export function CartProvider({ children }) {
         if (!cancelled && raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            const clean = parsed.filter(
-              (i) => i && i.product && i.product.id != null && Number(i.qty) > 0,
-            );
-            setItems(clean);
+            const clean = [];
+            const lineIndexById = new Map();
+            for (const item of parsed) {
+              const productId = Number(item && item.product && item.product.id);
+              const qty = Number(item && item.qty);
+              if (!Number.isInteger(productId) || productId < 1 || !Number.isInteger(qty) || qty < 1) continue;
+              const existingIndex = lineIndexById.get(productId);
+              if (existingIndex !== undefined) {
+                clean[existingIndex] = {
+                  ...clean[existingIndex],
+                  qty: Math.min(MAX_UNITS_PER_PRODUCT, clean[existingIndex].qty + qty),
+                };
+                continue;
+              }
+              if (clean.length >= MAX_CART_LINES) break;
+              lineIndexById.set(productId, clean.length);
+              clean.push({ ...item, qty: Math.min(qty, MAX_UNITS_PER_PRODUCT) });
+            }
+            replaceItems(clean);
           }
         }
       } catch {
         // corrupt/absent cart — start empty
       }
-      if (!cancelled) setHydrated(true);
+      if (!cancelled) {
+        loadedStorageKey.current = storageKey;
+        setHydrated(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [storageKey]);
+  }, [storageKey, replaceItems]);
 
   // Persist on every change, but only after the current owner's basket loaded.
   useEffect(() => {
-    if (!hydrated || !storageKey) return;
+    // On account switches, effects still see the prior render's `items` once.
+    // Persist only after this exact account's basket has finished loading.
+    if (!hydrated || !storageKey || loadedStorageKey.current !== storageKey) return;
     AsyncStorage.setItem(storageKey, JSON.stringify(items)).catch(() => {});
   }, [items, hydrated, storageKey]);
 
@@ -76,44 +114,41 @@ export function CartProvider({ children }) {
   // carousel/PDP advertised). Falls back to the catalog price when omitted.
   // `originalPrice` snapshots the pre-discount catalog price for deal items,
   // so the order record can show the discount applied (deal vs original).
-  const addItem = useCallback((product, qty = 1, price, originalPrice) => {
-    // Deep links, stale catalog rows, or an expired recommendation can resolve
-    // without a product. Treat that as a failed add instead of dereferencing
-    // an absent row and crashing the customer app.
-    if (!product || product.id == null || !Number.isFinite(Number(product.id))) return false;
-    const requested = Math.floor(Number(qty) || 1);
-    if (requested > 10000) return false;
-    const q = Math.max(1, requested);
-    const unit = Number(price) > 0 ? Number(price) : Number(product.price) || 0;
-    const original = Number(originalPrice) > 0 ? Number(originalPrice) : null;
-    setItems((prev) => {
-      const existing = prev.find((i) => Number(i.product.id) === Number(product.id));
-      if (existing) {
-        return prev.map((i) =>
-          Number(i.product.id) === Number(product.id)
-            ? { ...i, qty: i.qty + q, price: i.price ?? unit, original_price: i.original_price ?? original }
-            : i,
-        );
-      }
-      return [...prev, { product, qty: q, price: unit, original_price: original }];
+  const addItem = useCallback((product, qty = 1, price, originalPrice, available) => {
+    if (!hydrated || !storageKey) return false;
+    const next = addCartItem({
+      previous: itemsRef.current,
+      product,
+      qty,
+      price,
+      originalPrice,
+      available,
+      maxUnits: MAX_UNITS_PER_PRODUCT,
+      maxLines: MAX_CART_LINES,
     });
+    if (!next) return false;
+    replaceItems(next);
     return true;
-  }, []);
+  }, [hydrated, storageKey, replaceItems]);
 
   // Sets an exact quantity; 0 removes the line (stepper minus at qty 1).
   const setQty = useCallback((productId, qty) => {
-    const q = Math.max(0, Math.floor(Number(qty) || 0));
-    setItems((prev) => {
-      if (q === 0) return prev.filter((i) => Number(i.product.id) !== Number(productId));
-      return prev.map((i) => (Number(i.product.id) === Number(productId) ? { ...i, qty: q } : i));
-    });
-  }, []);
+    const id = Number(productId);
+    if (!Number.isInteger(id) || id < 1) return;
+    const q = Math.min(MAX_UNITS_PER_PRODUCT, Math.max(0, Math.floor(Number(qty) || 0)));
+    const previous = itemsRef.current;
+    const next = q === 0
+      ? previous.filter((i) => Number(i.product.id) !== id)
+      : previous.map((i) => (Number(i.product.id) === id ? { ...i, qty: q } : i));
+    if (next !== previous) replaceItems(next);
+  }, [replaceItems]);
 
   const removeItem = useCallback((productId) => {
-    setItems((prev) => prev.filter((i) => Number(i.product.id) !== Number(productId)));
-  }, []);
+    const id = Number(productId);
+    replaceItems(itemsRef.current.filter((i) => Number(i.product.id) !== id));
+  }, [replaceItems]);
 
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => replaceItems([]), [replaceItems]);
 
   const value = useMemo(() => {
     const itemCount = items.length;

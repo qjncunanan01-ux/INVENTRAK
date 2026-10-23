@@ -347,12 +347,17 @@ export default function HomeScreen({ route, navigation }) {
                   }
                   const d = dealPricing(item);
 
-                  addItem(
+                  const added = addItem(
                     item,
                     1,
                     d ? d.deal : undefined,
                     d ? d.original : undefined,
+                    available,
                   );
+                  if (!added) {
+                    showToast('The cart is loading or has reached its order limit. Please try again.');
+                    return;
+                  }
 
                   showToast('Added to cart', {
                     actionLabel: 'View',

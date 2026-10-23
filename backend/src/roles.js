@@ -4,9 +4,9 @@
 //
 //   customer     end customer / café owner (mobile: browse, inquire, track)
 //   staff        Inventory Staff — physical counts, QR scanning, requests only
-//   admin        Admin — products, prices, inventory, inquiries, approvals, reports
-//   super_admin  Super Admin — adds system account / role / permission management
-//   owner        Business Owner — full oversight + authorizes access decisions
+//   admin        Admin — day-to-day products, inventory, orders, sales, approvals
+//   super_admin  Super Admin — full oversight + system/account management
+//   owner        Business Owner — full business oversight + authorizes access decisions
 //
 // Capability tiers say WHICH roles pass a gate. They live in this one module on
 // each backend (mirrored by frontend-admin/src/roles.js) so adding a role or
@@ -19,13 +19,14 @@
 
 const ROLE_ORDER = ['customer', 'staff', 'admin', 'super_admin', 'owner'];
 
-// Full operations tier. Everything money, pricing or revenue touches, plus
-// approvals, products and orders. Inventory Staff is deliberately absent: the
-// spec forbids them from seeing sales, prices, customers, orders, reports or
+// Shared operational tier for Admin and the two elevated management roles.
+// Inventory Staff is deliberately absent from the admin portal: the spec
+// forbids them from seeing sales, prices, customers, orders, reports or
 // business analytics.
 const ADMIN_TIER = ['admin', 'super_admin', 'owner'];
 
-// System administration: accounts, roles, permissions, configuration.
+// Oversight and system administration: reports, audit, backup, privileged
+// account access, roles, permissions and configuration.
 const MANAGEMENT_TIER = ['super_admin', 'owner'];
 
 // Daily inventory work — staff plus everyone above them. This is the tier for

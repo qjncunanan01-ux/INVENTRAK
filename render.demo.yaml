@@ -1,0 +1,46 @@
+# Separate Sylver policy demo. Deploy this blueprint as its own Render service
+# group; it never shares the production API or production frontend origins.
+services:
+  - type: web
+    name: inventrak-demo-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/server_npmfree.js
+    healthCheckPath: /api/openapi.json
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DB_DRIVER
+        value: json
+      - key: SYLVER_POLICY_DEMO
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://inventrak-demo-admin.onrender.com,https://inventrak-demo-mobile.onrender.com
+
+  - type: web
+    name: inventrak-demo-admin
+    runtime: static
+    rootDir: frontend-admin
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_BASE_URL
+        value: https://inventrak-demo-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: web
+    name: inventrak-demo-mobile
+    runtime: static
+    rootDir: mobile-client
+    buildCommand: npm install && EXPO_PUBLIC_API_URL=https://inventrak-demo-api.onrender.com EXPO_PUBLIC_SYLVER_POLICY_DEMO=true EXPO_PUBLIC_DEMO_POLICY_PREVIEW=true npx expo export --platform web
+    staticPublishPath: dist
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://inventrak-demo-api.onrender.com

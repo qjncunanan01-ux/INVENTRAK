@@ -27,7 +27,7 @@ test.describe('Admin Login Flow', () => {
 
     // …and the page points staff at the app they do sign in from.
     await expect(
-      page.getByText(/Inventory Staff: sign in from the Sylver's mobile app/i),
+      page.getByText(/Inventory Staff: sign in from Sylver's mobile app/i),
     ).toBeVisible();
 
     // Credentials hidden by default

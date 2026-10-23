@@ -97,9 +97,9 @@ test.describe('Dashboard Smoke Test', () => {
     const searchInput = page.getByPlaceholder(/search/i).or(page.getByRole('textbox', { name: /search/i }));
     if (await searchInput.isVisible()) {
       await searchInput.fill('Da Vinci');
-      await page.waitForTimeout(500);
       // Verify filtered results
       const rows = dialog.locator('tbody tr');
+      await expect(rows.first()).toBeVisible({ timeout: 5_000 });
       const count = await rows.count();
       expect(count).toBeGreaterThan(0);
     }

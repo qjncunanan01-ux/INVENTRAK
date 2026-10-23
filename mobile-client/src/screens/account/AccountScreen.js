@@ -4,6 +4,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { clearSession, clearToken, logout, STAFF_TOOLS_ROLES, ROLE_LABELS, useSessionEmail, useSessionRole, useSessionUsername, useSessionVerified } from '../../api';
 import { useCart } from '../../cart-context';
 import { useThemeColors } from '../../theme-context';
+import { DEMO_POLICY_PREVIEW_ENABLED } from '../../demo-features';
 
 // Shopee-style tinted icon disc for menu rows (matches the Home quick-action
 // grid): a pastel circular badge with a deeper accent icon per action.
@@ -21,6 +22,7 @@ const MENU_TINTS = {
   recs: { bg: '#fff3e0', fg: '#f9a825' },
   products: { bg: '#e0f2f1', fg: '#00796b' },
   theme: { bg: '#fde8ec', fg: '#e23744' },
+  demo: { bg: '#fff3e0', fg: '#b76e00' },
 };
 
 export default function AccountScreen({ route, navigation }) {
@@ -178,6 +180,25 @@ export default function AccountScreen({ route, navigation }) {
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
+
+        {DEMO_POLICY_PREVIEW_ENABLED ? (
+          <>
+            <Text style={styles.sectionTitle}>Demo</Text>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => navigation.navigate('DemoPolicies')}
+              accessibilityRole="button"
+              accessibilityLabel="Open demo policy preview"
+            >
+              <MenuIcon name="flask-outline" tint={MENU_TINTS.demo} styles={styles} />
+              <View style={styles.menuBody}>
+                <Text style={styles.menuTitle}>Demo Policy Preview</Text>
+                <Text style={styles.menuDesc}>See current limits and store decisions to confirm</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
 
         {/* Preferences: dark-mode switcher (persisted on the device). */}
         <Text style={styles.sectionTitle}>Preferences</Text>

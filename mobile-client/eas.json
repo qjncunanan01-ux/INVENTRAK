@@ -9,7 +9,10 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://inventrak-api.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://inventrak-demo-api.onrender.com",
+        "EXPO_PUBLIC_SYLVER_POLICY_DEMO": "true",
+        "EXPO_PUBLIC_DEMO_POLICY_PREVIEW": "true",
+        "EAS_RESTORE_CACHE": "0"
       }
     },
     "production": {
@@ -17,7 +20,10 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://inventrak-api.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://inventrak-api.onrender.com",
+        "EXPO_PUBLIC_SYLVER_POLICY_DEMO": "false",
+        "EXPO_PUBLIC_DEMO_POLICY_PREVIEW": "false",
+        "EAS_RESTORE_CACHE": "0"
       }
     }
   },

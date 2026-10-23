@@ -160,7 +160,10 @@ export default function RecommendationScreen({ navigation }) {
                   }
                   // Snapshot the day's deal price so the cart matches the card.
                   const d = dealPricing(item);
-                  addItem(item, 1, d ? d.deal : undefined, d ? d.original : undefined);
+                  if (!addItem(item, 1, d ? d.deal : undefined, d ? d.original : undefined, available)) {
+                    showToast('The cart is loading or has reached its order limit. Please try again.');
+                    return;
+                  }
                   // Nested stack: hop up to the tab navigator to reach Cart.
                   showToast('Added to cart', {
                     actionLabel: 'View',

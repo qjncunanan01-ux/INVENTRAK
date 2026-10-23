@@ -27,7 +27,11 @@ const { buildPaymentStep } = require('./payments');
 const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./catalog-orders/qr-codes');
 const { normalizeLines } = require('./catalog-orders/product-lines');
 const { planOrderFulfillment } = require('./catalog-orders/order-fulfillment');
-const { ORDER_TERMS_VERSION } = require('./catalog-orders/order-terms');
+const { currentOrderTerms } = require('./catalog-orders/order-terms');
+const {
+  SYLVER_POLICY_DEMO, PAYMENT_METHODS, applyBulkDiscount,
+  planStockReservation, availableOrderTerms,
+} = require('./catalog-orders/company-policy');
 // Lifecycle RULES are shared with the SQLite backend — see the module header.
 // Storage differs; who may move an inquiry where does not.
 const {
@@ -222,6 +226,7 @@ let users = [
 let nextUserId = 6;
 let salesTransactions = [];
 let nextSaleId = 1;
+let nextInquiryId = 1;
 // Stocktake counts (mirrors the SQLite inventory_counts table).
 let inventoryCounts = [];
 let nextCountId = 1;
@@ -247,7 +252,7 @@ function persistExtended() {
 // active store driver, which is why the snapshot code lives here: only this
 // module knows how each dataset is laid out. The envelope, the validation and
 // the response shape are shared with the SQLite backend
-// (governance/backup.js), so an admin sees the same feature either way.
+// (governance/backup.js), so management sees the same feature either way.
 //
 // Two kinds of dataset:
 //   • row sets (the base documents + the '@' cloud datasets) — carried as
@@ -1497,7 +1502,10 @@ function requireAuth(req, res, adminOnly = false, next) {
   // user) or an explicit array of allowed roles for the staff split. The tier
   // membership comes from roles.js so this mirrors the SQLite backend exactly.
   const allowed = Array.isArray(adminOnly) ? adminOnly : adminOnly ? ADMIN_TIER : null;
-  if (allowed && !allowed.includes(result.user.role)) return sendJson(res, 403, { error: 'Admin access required' });
+  if (allowed && !allowed.includes(result.user.role)) {
+    const error = allowed === MANAGEMENT_TIER ? 'Owner or Super Admin access required' : 'Admin access required';
+    return sendJson(res, 403, { error });
+  }
   req.user = result.user;
   return next(req, res);
 }
@@ -1640,19 +1648,19 @@ const server = http.createServer((req, res) => {
       });
   }
 
-  // ================= CACHE STATS (admin) =================
+  // ================= CACHE STATS (management) =================
   // Exposes cache hit rates, entry counts, and top keys for monitoring.
   if (req.method === 'GET' && url.split('?')[0] === '/api/cache/stats') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
       return sendJson(res, 200, cache.stats());
     });
   }
 
-  // ================= AUDIT TRAIL (admin) =================
+  // ================= AUDIT TRAIL (management) =================
   // Mirrors the SQLite backend's /api/audit-trail (same response shape):
   // structured audit log entries, newest first.
   if (req.method === 'GET' && url.split('?')[0] === '/api/audit-trail') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
       try {
         // Same file audit.js writes to (see audit.js for the default path).
         const auditFile = AUDIT_LOG_FILE;
@@ -1701,10 +1709,9 @@ const server = http.createServer((req, res) => {
   }
 
   // ================= SYSTEM SETTINGS (management tier) =================
-  // Mirrors app.js: GET visible to the admin tier, PUT restricted to
-  // Super Admin / Owner (Governance → System Settings).
+  // Owner / Super Admin-only live configuration (Governance → System Settings).
   if (req.method === 'GET' && url.split('?')[0] === '/api/settings') {
-    return requireAuth(req, res, true, (req, res) => sendJson(res, 200, settings.getSettings()));
+    return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => sendJson(res, 200, settings.getSettings()));
   }
   if (req.method === 'PUT' && url.split('?')[0] === '/api/settings') {
     return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
@@ -1727,7 +1734,7 @@ const server = http.createServer((req, res) => {
   // ================= INTEGRITY =================
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/health/integrity') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
       const errors = [];
       const inv = getInventory();
       const products = readJSON(productsFile) || [];
@@ -4290,7 +4297,7 @@ const server = http.createServer((req, res) => {
   // excluded by the role spec (no sales, prices, customers, orders, reports or
   // business analytics). Mirrors the SQLite backend.
   if (req.method === 'GET' && url.split('?')[0] === '/api/reports') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       const { from, to } = parseDateRange(
         {
@@ -4401,13 +4408,114 @@ const server = http.createServer((req, res) => {
 
   // ================= ORDER INQUIRIES =================
 
+  const parseOrderArray = (value) => {
+    try { const parsed = typeof value === 'string' ? JSON.parse(value) : value; return Array.isArray(parsed) ? parsed : []; }
+    catch { return []; }
+  };
+  const orderOwner = (req, order) => {
+    if (ADMIN_TIER.includes(req.user.role)) return true;
+    const owner = users.find((u) => Number(u.id) === Number(req.user.id));
+    return Number(order.user_id) === Number(req.user.id) ||
+      Boolean(owner && String(order.customer_email || '').toLowerCase() === String(owner.email || '').toLowerCase());
+  };
+  const privateProofFreeOrder = (order) => ({
+    ...order,
+    payment_records: JSON.stringify(parseOrderArray(order.payment_records).map(({ proof_data, ...row }) => row)),
+    return_requests: JSON.stringify(parseOrderArray(order.return_requests).map(({ proof_data, ...row }) => row)),
+  });
+  const validOrderProof = (value) => {
+    if (typeof value !== 'string') return false;
+    const match = value.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+    if (!match || match[2].length > 900000) return false;
+    const bytes = Buffer.from(match[2], 'base64');
+    if (!bytes.length || bytes.length > 650000) return false;
+    if (match[1] === 'png') return bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    if (match[1] === 'jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
+    return bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP';
+  };
+  const orderTotalDue = (order) => Math.round((Number(order.estimated_cost || 0) + Number(order.delivery_fee || 0)) * 100) / 100;
+  const reserveOrderStock = (order, now) => {
+    const inventory = getInventory();
+    const stockRows = [];
+    for (const item of inventory.items || []) {
+      if (!item.product) continue;
+      for (const [index, location] of (inventory.locations || []).entries()) {
+        stockRows.push({ product_id: Number(item.product.id), location_id: index + 1, quantity: Number(item.locations && item.locations[location]) || 0 });
+      }
+    }
+    const plan = planStockReservation(parseOrderArray(order.products), stockRows);
+    if (plan.error) return plan;
+    const movements = readJSON(movementsFile) || [];
+    const allocations = [];
+    for (const allocation of plan.allocations) {
+      const item = inventory.items.find((row) => row.product && Number(row.product.id) === allocation.product_id);
+      const locationName = inventory.locations[allocation.location_id - 1];
+      if (!item || !locationName || (Number(item.locations[locationName]) || 0) < allocation.qty) return { error: 'Stock changed while the order was being confirmed' };
+      item.locations[locationName] = (Number(item.locations[locationName]) || 0) - allocation.qty;
+      item.total = Object.values(item.locations).reduce((sum, qty) => sum + (Number(qty) || 0), 0);
+      const lotManifest = consumeLots(allocation.product_id, allocation.location_id, allocation.qty);
+      allocations.push({ ...allocation, lot_manifest: lotManifest });
+      movements.push({
+        id: movements.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1,
+        product_id: allocation.product_id, qty: allocation.qty, type: 'stock-out',
+        src_location: allocation.location_id, dst_location: null,
+        notes: `Reserved for customer order inquiry #${order.id}`, created_at: now, user: 'order-reservation',
+      });
+      upsertLowStockAlert(allocation.product_id, allocation.location_id, item.locations[locationName]);
+    }
+    writeJSON(inventoryFile, inventory);
+    writeJSON(movementsFile, movements);
+    cache.invalidate('inventory');
+    return { allocations };
+  };
+  const releaseOrderStock = (order, now) => {
+    const inventory = getInventory();
+    const movements = readJSON(movementsFile) || [];
+    for (const allocation of parseOrderArray(order.reservation_details)) {
+      const item = inventory.items.find((row) => row.product && Number(row.product.id) === Number(allocation.product_id));
+      const locationName = inventory.locations[Number(allocation.location_id) - 1];
+      if (!item || !locationName) continue;
+      item.locations[locationName] = (Number(item.locations[locationName]) || 0) + Number(allocation.qty || 0);
+      item.total = Object.values(item.locations).reduce((sum, qty) => sum + (Number(qty) || 0), 0);
+      const manifest = parseOrderArray(allocation.lot_manifest);
+      if (manifest.length) manifest.forEach((lot) => recordLot(Number(allocation.product_id), Number(allocation.location_id), Number(lot.qty), now, lot.expiry_date));
+      else recordLot(Number(allocation.product_id), Number(allocation.location_id), Number(allocation.qty), now, null);
+      movements.push({
+        id: movements.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1,
+        product_id: Number(allocation.product_id), qty: Number(allocation.qty), type: 'stock-in',
+        src_location: null, dst_location: Number(allocation.location_id),
+        notes: `Released reservation for customer order inquiry #${order.id}`, created_at: now, user: 'order-reservation',
+      });
+      upsertLowStockAlert(Number(allocation.product_id), Number(allocation.location_id), item.locations[locationName]);
+    }
+    writeJSON(inventoryFile, inventory);
+    writeJSON(movementsFile, movements);
+    cache.invalidate('inventory');
+  };
+
+  if (req.method === 'GET' && url.split('?')[0] === '/api/order-inquiries/policy') {
+    return requireAuth(req, res, false, (req, res) => {
+      const active = currentOrderTerms();
+      const account = users.find((user) => Number(user.id) === Number(req.user.id));
+      const existingCustomer = customers.find((customer) => Number(customer.user_id) === Number(req.user.id)) ||
+        (account && customers.find((customer) => customer.user_id == null && String(customer.email || '').toLowerCase() === String(account.email || '').toLowerCase()));
+      return sendJson(res, 200, {
+        demo_company_rules: SYLVER_POLICY_DEMO,
+        credit_eligible: Boolean(SYLVER_POLICY_DEMO && existingCustomer),
+        terms_version: active.version,
+        terms: active.terms,
+        ...(SYLVER_POLICY_DEMO ? availableOrderTerms() : {}),
+      });
+    });
+  }
+
   if (req.method === 'GET' && url.split('?')[0] === '/api/order-inquiries') {
     return requireAuth(req, res, false, (req, res) => {
       const parsed = new URL(url, 'http://localhost');
       const page = parsed.searchParams.get('page');
       const limit = parsed.searchParams.get('limit');
       const status = parsed.searchParams.get('status');
-      let orders = readJSON(orderFile) || [];
+      let orders = (readJSON(orderFile) || []).map(privateProofFreeOrder);
       // Normalize so every row carries customer_phone (null when absent) — the
       // SQLite backend always returns the column, and the contract suites assert
       // identical shapes, so an old row without the key would break parity.
@@ -4501,12 +4609,32 @@ const server = http.createServer((req, res) => {
         // Shared lifecycle rules (catalog-orders/inquiry-lifecycle): which
         // statuses are assignable here, which transitions are legal, and the
         // mandatory rejection reason.
-        const refusal = checkStatusChange({ from: order.status, to: updatedStatus });
+        const refusal = checkStatusChange({ from: order.status, to: updatedStatus, companyDemo: SYLVER_POLICY_DEMO });
         if (refusal) return sendJson(res, refusal.status, { error: refusal.error });
-        const mustCommitStock = ['fulfilled', 'delivered'].includes(updatedStatus) && !order.inventory_committed_at;
+        const needsCompanyReservation = SYLVER_POLICY_DEMO && ['approved', 'preparing'].includes(updatedStatus) && !order.inventory_reserved_at;
+        const mustCommitStock = !SYLVER_POLICY_DEMO && ['fulfilled', 'delivered'].includes(updatedStatus) && !order.inventory_committed_at;
         let fulfillmentPlan = null;
         let fulfillmentLocationName = null;
+        let deliveryFee = Number(order.delivery_fee) || 0;
+        let deliverySchedule = order.delivery_schedule || null;
         const locationId = Number(obj.location_id);
+        if (SYLVER_POLICY_DEMO && updatedStatus === 'approved' && order.fulfillment_method === 'courier') {
+          if (obj.delivery_fee === undefined || !Number.isFinite(Number(obj.delivery_fee)) || Number(obj.delivery_fee) < 0) {
+            return sendJson(res, 400, { error: 'Set the delivery fee (use 0 when no fee applies) before confirming a courier order' });
+          }
+          if (typeof obj.delivery_schedule !== 'string' || !obj.delivery_schedule.trim() || obj.delivery_schedule.trim().length > 200) {
+            return sendJson(res, 400, { error: 'Confirm the delivery schedule before confirming a courier order' });
+          }
+          deliveryFee = Math.round(Number(obj.delivery_fee) * 100) / 100;
+          deliverySchedule = obj.delivery_schedule.trim();
+        }
+        if (SYLVER_POLICY_DEMO && updatedStatus === 'fulfilled' && order.fulfillment_method === 'courier' && order.payment_status !== 'paid') {
+          return sendJson(res, 409, { error: 'Courier delivery must be paid and verified before dispatch' });
+        }
+        const approvedCredit = order.payment_method === 'credit' && parseOrderArray(order.payment_records).some((record) => record.type === 'credit_approval' && record.status === 'approved');
+        if (SYLVER_POLICY_DEMO && updatedStatus === 'delivered' && order.payment_status !== 'paid' && !approvedCredit) {
+          return sendJson(res, 409, { error: 'Record and verify the full payment before marking the order delivered' });
+        }
         if (mustCommitStock) {
           if (['gcash', 'card'].includes(order.payment_method) && order.payment_status !== 'paid') {
             return sendJson(res, 409, { error: 'Payment must be verified before this inquiry can be fulfilled' });
@@ -4565,6 +4693,18 @@ const server = http.createServer((req, res) => {
           created_at: order.created_at,
           current_status: order.status,
         });
+        if (needsCompanyReservation) {
+          const reserved = reserveOrderStock(order, new Date().toISOString());
+          if (reserved.error) return sendJson(res, 409, { error: reserved.error, ...(reserved.product_id ? { product_id: reserved.product_id, requested: reserved.requested, available: reserved.available } : {}) });
+          order.inventory_reserved_at = new Date().toISOString();
+          order.reservation_details = JSON.stringify(reserved.allocations);
+        }
+        if (SYLVER_POLICY_DEMO && updatedStatus === 'rejected' && order.inventory_reserved_at) {
+          const now = new Date().toISOString();
+          releaseOrderStock(order, now);
+          order.inventory_reserved_at = null;
+          order.reservation_details = null;
+        }
         if (mustCommitStock) {
           const inventory = getInventory();
           const movements = readJSON(movementsFile) || [];
@@ -4608,9 +4748,26 @@ const server = http.createServer((req, res) => {
           order.fulfillment_location_id = locationId;
           order.inventory_committed_at = now;
         }
+        if (SYLVER_POLICY_DEMO && updatedStatus === 'delivered' && !order.sale_committed_at) {
+          for (const allocation of parseOrderArray(order.reservation_details)) {
+            const unitPrice = Number(allocation.unit_price) || 0;
+            salesTransactions.push({
+              id: nextSaleId++, product_id: Number(allocation.product_id), qty: Number(allocation.qty),
+              unit_price: unitPrice, total_amount: Number(allocation.net_total) || Math.round(unitPrice * Number(allocation.qty) * 100) / 100,
+              transaction_date: new Date().toISOString(), customer_name: order.customer_name || 'customer',
+              customer_id: order.customer_id || null, order_inquiry_id: order.id,
+            });
+          }
+          if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
+          order.sale_committed_at = new Date().toISOString();
+        }
         order.status = updatedStatus;
         order.status_history = JSON.stringify(history);
         order.rejection_reason = rejectionReason;
+        if (SYLVER_POLICY_DEMO && updatedStatus === 'approved' && order.fulfillment_method === 'courier') {
+          order.delivery_fee = deliveryFee;
+          order.delivery_schedule = deliverySchedule;
+        }
         writeJSON(orderFile, orders);
         cache.invalidate('inventory');
         if (updatedStatus !== 'pending') notifyInquiryStatus(order, updatedStatus);
@@ -4638,7 +4795,7 @@ const server = http.createServer((req, res) => {
               String(order.customer_email || '').toLowerCase() === String(owner.email || '').toLowerCase());
           if (!mine) return sendJson(res, 403, { error: 'Not your inquiry' });
         }
-        const verdict = checkCancellation({ from: order.status });
+        const verdict = checkCancellation({ from: order.status, fulfillment_method: order.fulfillment_method, companyDemo: SYLVER_POLICY_DEMO });
         if (verdict && verdict.alreadyCancelled) {
           return sendJson(res, 200, {
             ok: true,
@@ -4667,6 +4824,11 @@ const server = http.createServer((req, res) => {
         order.status_history = JSON.stringify(history);
         order.cancelled_at = now;
         order.cancellation_reason = reason.value;
+        if (SYLVER_POLICY_DEMO && order.inventory_reserved_at) {
+          releaseOrderStock(order, now);
+          order.inventory_reserved_at = null;
+          order.reservation_details = null;
+        }
         writeJSON(orderFile, orders);
         cache.invalidate('inventory');
         notifyInquiryStatus(order, 'cancelled');
@@ -4680,52 +4842,222 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  if (req.method === 'POST' && /^\/api\/order-inquiries\/\d+\/change-request$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, false, (req, res) => parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!SYLVER_POLICY_DEMO) return sendJson(res, 404, { error: 'Not found' });
+      const orders = readJSON(orderFile) || [];
+      const order = orders.find((row) => Number(row.id) === id);
+      if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+      if (!orderOwner(req, order)) return sendJson(res, 403, { error: 'Not your inquiry' });
+      if (!['pending', 'approved', 'preparing'].includes(order.status)) return sendJson(res, 409, { error: 'Changes can only be requested while the order is under review or preparation' });
+      const message = String(obj.message || '').trim();
+      if (!message || message.length > 1000) return sendJson(res, 400, { error: 'Enter a change request up to 1000 characters' });
+      let current = null;
+      try { current = JSON.parse(order.change_request || 'null'); } catch {}
+      if (current && current.status === 'pending') return sendJson(res, 409, { error: 'A change request is already awaiting review' });
+      const request = { id: crypto.randomUUID(), message: sanitizeObject(message), status: 'pending', requested_at: new Date().toISOString() };
+      order.change_request = JSON.stringify(request);
+      writeJSON(orderFile, orders);
+      return sendJson(res, 201, { ok: true, change_request: request });
+    }));
+  }
+
+  if (req.method === 'PUT' && /^\/api\/order-inquiries\/\d+\/change-request$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, true, (req, res) => parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!SYLVER_POLICY_DEMO) return sendJson(res, 404, { error: 'Not found' });
+      const orders = readJSON(orderFile) || [];
+      const order = orders.find((row) => Number(row.id) === id);
+      if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+      let request = null;
+      try { request = JSON.parse(order.change_request || 'null'); } catch {}
+      if (!request || request.status !== 'pending') return sendJson(res, 409, { error: 'There is no pending change request to review' });
+      if (!['accepted', 'declined'].includes(obj.decision)) return sendJson(res, 400, { error: 'decision must be accepted or declined' });
+      request.status = obj.decision;
+      request.reviewed_at = new Date().toISOString();
+      request.reviewed_by = req.user.id;
+      request.response = sanitizeObject(String(obj.response || '').trim()).slice(0, 500);
+      order.change_request = JSON.stringify(request);
+      writeJSON(orderFile, orders);
+      return sendJson(res, 200, { ok: true, change_request: request });
+    }));
+  }
+
+  if (req.method === 'POST' && /^\/api\/order-inquiries\/\d+\/return-requests$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, false, (req, res) => parseBodyWithLimit(req, 1024 * 1024, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!SYLVER_POLICY_DEMO) return sendJson(res, 404, { error: 'Not found' });
+      const orders = readJSON(orderFile) || [];
+      const order = orders.find((row) => Number(row.id) === id);
+      if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+      if (!orderOwner(req, order)) return sendJson(res, 403, { error: 'Not your inquiry' });
+      if (order.status !== 'delivered') return sendJson(res, 409, { error: 'Returns can be requested after delivery' });
+      const delivered = [...parseOrderArray(order.status_history)].reverse().find((event) => event.status === 'delivered');
+      const deliveredAt = Date.parse(delivered && delivered.at || '');
+      if (!Number.isFinite(deliveredAt) || Date.now() - deliveredAt > 24 * 60 * 60 * 1000 || deliveredAt > Date.now()) return sendJson(res, 409, { error: 'The 24-hour return-report window has passed' });
+      const reasons = ['incorrect', 'damaged', 'defective', 'discrepancy'];
+      if (!reasons.includes(obj.reason)) return sendJson(res, 400, { error: `reason must be one of ${reasons.join(', ')}` });
+      const message = String(obj.message || '').trim();
+      if (message.length > 1000) return sendJson(res, 400, { error: 'message must be at most 1000 characters' });
+      if (!validOrderProof(obj.proof_data)) return sendJson(res, 400, { error: 'Attach a PNG, JPEG, or WebP photo up to 650 KB' });
+      const requests = parseOrderArray(order.return_requests);
+      if (requests.some((row) => row.status === 'pending')) return sendJson(res, 409, { error: 'A return request is already under review' });
+      const request = { id: crypto.randomUUID(), reason: obj.reason, message: sanitizeObject(message), proof_data: obj.proof_data, status: 'pending', requested_at: new Date().toISOString() };
+      requests.push(request);
+      order.return_requests = JSON.stringify(requests);
+      writeJSON(orderFile, orders);
+      const { proof_data, ...publicRequest } = request;
+      return sendJson(res, 201, { ok: true, return_request: publicRequest });
+    }));
+  }
+
+  if (req.method === 'GET' && /^\/api\/order-inquiries\/\d+\/return-proof$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, false, (req, res) => {
+      if (!SYLVER_POLICY_DEMO) return sendJson(res, 404, { error: 'Not found' });
+      const order = (readJSON(orderFile) || []).find((row) => Number(row.id) === id);
+      if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+      if (!orderOwner(req, order)) return sendJson(res, 403, { error: 'Not your inquiry' });
+      const query = new URL(url, 'http://localhost').searchParams;
+      const request = parseOrderArray(order.return_requests).find((row) => String(row.id) === query.get('request_id'));
+      if (!request || !request.proof_data) return sendJson(res, 404, { error: 'No return photo is available' });
+      return sendJson(res, 200, { return_request_id: request.id, proof_data: request.proof_data });
+    });
+  }
+
+  if (req.method === 'PUT' && /^\/api\/order-inquiries\/\d+\/return-requests\/[^/]+$/.test(url.split('?')[0])) {
+    const parts = url.split('?')[0].split('/');
+    const id = Number(parts[3]);
+    const requestId = parts[5];
+    return requireAuth(req, res, true, (req, res) => parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      if (!SYLVER_POLICY_DEMO) return sendJson(res, 404, { error: 'Not found' });
+      const orders = readJSON(orderFile) || [];
+      const order = orders.find((row) => Number(row.id) === id);
+      if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+      const requests = parseOrderArray(order.return_requests);
+      const request = requests.find((row) => String(row.id) === String(requestId));
+      if (!request || request.status !== 'pending') return sendJson(res, 409, { error: 'There is no pending return request to review' });
+      if (!['approved', 'declined'].includes(obj.decision)) return sendJson(res, 400, { error: 'decision must be approved or declined' });
+      if (obj.decision === 'approved') {
+        const amount = Number(obj.refund_amount);
+        if (!Number.isFinite(amount) || amount < 0 || amount > Number(order.amount_paid || 0)) return sendJson(res, 400, { error: 'refund_amount must be between zero and the amount paid' });
+        if (!['bank_transfer', 'original_method'].includes(obj.refund_method)) return sendJson(res, 400, { error: 'refund_method must be bank_transfer or original_method' });
+        request.refund_amount = Math.round(amount * 100) / 100;
+        request.refund_method = obj.refund_method;
+        request.refund_status = 'recorded_demo_only';
+      }
+      request.status = obj.decision;
+      request.reviewed_at = new Date().toISOString();
+      request.reviewed_by = req.user.id;
+      request.response = sanitizeObject(String(obj.response || '').trim()).slice(0, 500);
+      order.return_requests = JSON.stringify(requests);
+      writeJSON(orderFile, orders);
+      const { proof_data, ...publicRequest } = request;
+      return sendJson(res, 200, { ok: true, return_request: publicRequest });
+    }));
+  }
+
   if (req.method === 'POST' && url.split('?')[0] === '/api/order-inquiries') {
     return parseBody(req, async (err, obj) => {
       if (err) return bodyError(res, err);
-      if (!obj.customer_name || !obj.customer_email) {
+      if (typeof obj.customer_name !== 'string' || typeof obj.customer_email !== 'string' || !obj.customer_name.trim() || !obj.customer_email.trim()) {
         return sendJson(res, 400, {
           error: 'Validation failed',
-          details: ['customer_name and customer_email are required'],
+          details: ['customer_name and customer_email are required text fields'],
         });
       }
       // Sanitize user input to prevent XSS in stored data
-      obj.customer_name = sanitizeObject(obj.customer_name);
+      obj.customer_name = sanitizeObject(obj.customer_name).trim();
       obj.customer_email = String(obj.customer_email).trim().toLowerCase();
+      if (obj.customer_name.length < 2 || obj.customer_name.length > 100) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['customer_name must be 2–100 characters after trimming'] });
+      }
+      if (obj.customer_email.length > 100) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['customer_email must be at most 100 characters'] });
+      }
       if (!isValidEmail(obj.customer_email)) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['customer_email must be a valid email address'] });
       }
-      if (obj.customer_phone && !isValidPhone(String(obj.customer_phone).trim())) {
+      if (obj.customer_phone != null && typeof obj.customer_phone !== 'string') {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['customer_phone must be text'] });
+      }
+      obj.customer_phone = obj.customer_phone == null ? null : sanitizeObject(obj.customer_phone).trim() || null;
+      if (obj.customer_phone && !isValidPhone(obj.customer_phone)) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['customer_phone must be a valid phone number'] });
       }
-      if (obj.delivery_address) obj.delivery_address = sanitizeObject(obj.delivery_address);
-      if (obj.notes) obj.notes = sanitizeObject(obj.notes);
-      if (obj.notes != null && String(obj.notes).length > 1000) {
+      if (obj.delivery_address != null && typeof obj.delivery_address !== 'string') {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['delivery_address must be text'] });
+      }
+      if (obj.notes != null && typeof obj.notes !== 'string') {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['notes must be text'] });
+      }
+      obj.delivery_address = obj.delivery_address == null ? null : sanitizeObject(obj.delivery_address).trim() || null;
+      obj.notes = obj.notes == null ? '' : sanitizeObject(obj.notes).trim();
+      if (obj.notes.length > 1000) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['notes must be at most 1000 characters'] });
+      }
+      if (obj.estimated_cost != null && (!Number.isFinite(Number(obj.estimated_cost)) || Number(obj.estimated_cost) < 0)) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['estimated_cost must be a finite non-negative amount'] });
+      }
+      if (!Array.isArray(obj.products) || obj.products.length === 0) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['Add at least one product to the inquiry'] });
       }
       if (obj.terms_accepted !== true) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['You must accept the ordering terms before submitting'] });
       }
-      if (obj.terms_version !== ORDER_TERMS_VERSION) {
+      const activeTerms = currentOrderTerms();
+      if (obj.terms_version !== activeTerms.version) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['terms_version is missing or out of date; review the current ordering terms'] });
       }
       // Validate quantities in line items (must be positive integers, max 10000)
       if (Array.isArray(obj.products)) {
         for (const item of obj.products) {
-          if (typeof item === 'string') continue; // Legacy line format, normalized below.
+          if (typeof item === 'string') {
+            const name = item.trim();
+            if (!name || name.length > 200) return sendJson(res, 400, { error: 'Validation failed', details: ['product names must be 1–200 characters'] });
+            continue; // Legacy line format, normalized below.
+          }
+          if (!item || typeof item !== 'object' || Array.isArray(item)) {
+            return sendJson(res, 400, { error: 'Validation failed', details: ['each product must be a product line'] });
+          }
+          const lineName = item.name ?? item.product_name;
+          if (lineName != null && (typeof lineName !== 'string' || !lineName.trim() || lineName.trim().length > 200)) {
+            return sendJson(res, 400, { error: 'Validation failed', details: ['product names must be 1–200 characters'] });
+          }
+          if (item.id != null && (!Number.isInteger(Number(item.id)) || Number(item.id) < 1)) {
+            return sendJson(res, 400, { error: 'Validation failed', details: ['product id must be a positive integer'] });
+          }
+          for (const field of ['price', 'original_price']) {
+            if (item[field] != null && (!Number.isFinite(Number(item[field])) || Number(item[field]) < 0)) {
+              return sendJson(res, 400, { error: 'Validation failed', details: [`${field} must be a finite non-negative amount`] });
+            }
+          }
           const qty = Number(item && (item.quantity ?? item.qty));
-          if (!Number.isInteger(qty) || qty < 1)
+          if (!Number.isSafeInteger(qty) || qty < 1)
             return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must be a positive whole number'] });
-          if (qty > 10000)
+          if (!SYLVER_POLICY_DEMO && qty > 10000)
             return sendJson(res, 400, { error: 'Validation failed', details: ['quantity must not exceed 10000'] });
         }
       }
       if (Array.isArray(obj.products) && obj.products.length > 500) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['an order may not contain more than 500 product lines'] });
       }
+      // Credit is available only to an authenticated account whose email
+      // matches a customer record created before this order.
+      const auth = authUser(req);
+      const userId = (auth && auth.user && auth.user.id) || null;
+      const account = userId ? users.find((user) => Number(user.id) === Number(userId)) : null;
+      const creditCustomer = SYLVER_POLICY_DEMO && account && String(account.email || '').toLowerCase() === String(obj.customer_email || '').toLowerCase()
+        ? (customers.find((customer) => Number(customer.user_id) === Number(userId)) || customers.find((customer) => customer.user_id == null && String(customer.email || '').toLowerCase() === String(account.email || '').toLowerCase()))
+        : null;
       // Checkout fields (optional but validated when present) — mirrors the
       // SQLite backend: delivery_address <= 500 chars, payment_method enum.
-      const validPayments = ['cod', 'gcash', 'card', 'other'];
+      const validPayments = SYLVER_POLICY_DEMO ? [...PAYMENT_METHODS, ...(creditCustomer ? ['credit'] : [])] : ['cod', 'gcash', 'other'];
       if (obj.delivery_address !== undefined && String(obj.delivery_address).length > 500) {
         return sendJson(res, 400, {
           error: 'Validation failed',
@@ -4735,7 +5067,7 @@ const server = http.createServer((req, res) => {
       if (obj.payment_method !== undefined && !validPayments.includes(obj.payment_method)) {
         return sendJson(res, 400, {
           error: 'Validation failed',
-          details: ['payment_method must be one of cod, gcash, card, other'],
+          details: [`payment_method must be one of ${validPayments.join(', ')}`],
         });
       }
       // Fulfilment preference (SQLite parity): 'courier' without an address is
@@ -4747,23 +5079,54 @@ const server = http.createServer((req, res) => {
       if (fulfillment.error) {
         return sendJson(res, 400, { error: 'Validation failed', details: [fulfillment.error] });
       }
+      if (SYLVER_POLICY_DEMO && obj.payment_method === 'cash' && fulfillment.method === 'courier') {
+        return sendJson(res, 400, { error: 'Cash is available for pickup; courier orders must be paid and verified before dispatch' });
+      }
+      if (SYLVER_POLICY_DEMO && obj.payment_method === 'credit' && fulfillment.method === 'courier') {
+        return sendJson(res, 400, { error: 'Credit is available for pickup only; courier orders must be paid and verified before dispatch' });
+      }
+      if (SYLVER_POLICY_DEMO && obj.payment_method === 'card' && fulfillment.method === 'courier') {
+        return sendJson(res, 400, { error: 'The simulated card option is available for pickup orders only' });
+      }
       const orders = readJSON(orderFile) || [];
       // Optional auth: the app sends the customer's token at checkout, so the
       // inquiry can be stamped with its owner for per-account history. A
       // missing or invalid token still submits (legacy guest orders) with
       // user_id null (matches the SQLite backend).
-      const auth = authUser(req);
-      const userId = (auth && auth.user && auth.user.id) || null;
       const now = new Date().toISOString();
-      const id = orders.length + 1;
+      const maximumInquiryId = orders.reduce((max, order) => Math.max(max, Number(order.id) || 0), 0);
+      nextInquiryId = Math.max(nextInquiryId, maximumInquiryId + 1);
+      const id = nextInquiryId++;
       // Line items are normalized to a canonical shape (see product-lines.js):
       // structured entries from the mobile checkout (with the DEAL unit price
       // the customer actually pays + the pre-discount original price) and
       // legacy string entries alike. When any line carries a price, the stored
       // estimated_cost is recomputed from the line subtotals so the record
       // always matches what the customer was charged (SQLite parity).
-      const { lines, total } = normalizeLines(obj.products);
-      const storedCost = total !== null ? total : obj.estimated_cost || 0;
+      const normalized = normalizeLines(obj.products);
+      let lines = normalized.lines;
+      let discount = { total: normalized.total, discount_amount: 0, eligible_subtotal: 0 };
+      const catalog = (readJSON(productsFile) || []).map((product, index) => ({
+        ...product, id: index + 1,
+        name: product['Product Name'] || product.name,
+        price: Number(product.Price ?? product.price) || 0,
+        category: product.Category || product.category || product.Type || product.type || '',
+        status: product.status || 'active',
+      }));
+      const productsById = new Map(catalog.map((product) => [Number(product.id), product]));
+      if (SYLVER_POLICY_DEMO) {
+        if (lines.some((line) => line.id == null)) return sendJson(res, 400, { error: 'Refresh the catalog before placing a demo order; every item must match a current product' });
+        lines = lines.map((line) => {
+          const product = productsById.get(Number(line.id));
+          if (!product || !isProductActive(product)) return line;
+          return { ...line, name: product.name, unit_price: product.price };
+        });
+        discount = applyBulkDiscount(lines, (productId) => productsById.get(Number(productId)));
+        lines = discount.lines;
+      }
+      const storedCost = SYLVER_POLICY_DEMO
+        ? Number(discount.total) || 0
+        : normalized.total !== null ? normalized.total : obj.estimated_cost || 0;
       const requestedByProduct = new Map();
       for (const line of lines) {
         if (line.id == null) continue;
@@ -4771,14 +5134,14 @@ const server = http.createServer((req, res) => {
           return sendJson(res, 400, { error: 'Validation failed', details: ['product id must be a positive integer'] });
         }
         requestedByProduct.set(line.id, (requestedByProduct.get(line.id) || 0) + line.qty);
-        if (requestedByProduct.get(line.id) > 10000) {
+        if (!SYLVER_POLICY_DEMO && requestedByProduct.get(line.id) > 10000) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['quantity per product must not exceed 10000 per inquiry'] });
         }
       }
-      const catalog = readJSON(productsFile) || [];
+      const rawCatalog = readJSON(productsFile) || [];
       const inventoryForOrder = getInventory();
       for (const [productId, requested] of requestedByProduct) {
-        const p = catalog[productId - 1];
+        const p = rawCatalog[productId - 1];
         if (!p || !isProductActive(p)) return sendJson(res, 409, { error: `Product ${productId} is unavailable` });
         const item = inventoryForOrder.items.find((i) => i.product && Number(i.product.id) === productId);
         const available = item ? Number(item.total) || 0 : 0;
@@ -4819,18 +5182,29 @@ const server = http.createServer((req, res) => {
         delivery_address: obj.delivery_address || null,
         fulfillment_method: fulfillment.method,
         payment_method: obj.payment_method || 'cod',
-        payment_status: 'unpaid',
+        payment_status: SYLVER_POLICY_DEMO && obj.payment_method === 'credit' ? 'credit_pending' : 'unpaid',
         payment_reference: null,
         payment_customer_reference: null,
         payment_updated_at: null,
         payment_url: null,
         payment_qr: null,
         payment_provider: null,
+        inventory_reserved_at: null,
+        reservation_details: null,
+        sale_committed_at: null,
+        bulk_discount_amount: Number(discount.discount_amount) || 0,
+        bulk_discount_eligible_subtotal: Number(discount.eligible_subtotal) || 0,
+        delivery_fee: 0,
+        delivery_schedule: null,
+        payment_records: '[]',
+        amount_paid: 0,
+        return_requests: '[]',
+        change_request: null,
         user_id: userId,
         customer_id: customerId,
         status_history: JSON.stringify([{ status: 'pending', at: now }]),
         status: 'pending',
-        terms_version: obj.terms_accepted === true ? ORDER_TERMS_VERSION : null,
+        terms_version: obj.terms_accepted === true ? activeTerms.version : null,
         terms_accepted_at: obj.terms_accepted === true ? now : null,
         created_at: now,
       };
@@ -4855,7 +5229,7 @@ const server = http.createServer((req, res) => {
           amount: storedCost,
           description: `Sylver's order ${id} — ${obj.customer_name}`,
           email: obj.customer_email,
-          paymentMethod: obj.payment_method || 'cod',
+          paymentMethod: obj.payment_method || (SYLVER_POLICY_DEMO ? 'cash' : 'cod'),
         });
       } catch (err) {
         console.error('[payments] buildPaymentStep failed:', err && err.message);
@@ -4878,6 +5252,8 @@ const server = http.createServer((req, res) => {
         ok: true,
         message: 'Inquiry submitted',
         id,
+        estimated_cost: storedCost,
+        bulk_discount_amount: Number(discount.discount_amount) || 0,
         ...(payment
           ? {
               payment: {
@@ -4887,6 +5263,7 @@ const server = http.createServer((req, res) => {
                 payment_url: payment.payment_url,
                 payment_qr: payment.payment_qr,
                 payment_provider: payment.payment_provider,
+                amount_due: storedCost,
               },
             }
           : {}),
@@ -4918,16 +5295,136 @@ const server = http.createServer((req, res) => {
 
   // Payment proof is submitted by the customer; only admins verify GCash.
   // The card path is an explicit demo transaction and never collects card data.
+  if (req.method === 'GET' && /^\/api\/order-inquiries\/\d+\/payment-proof$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, false, (req, res) => {
+      const order = (readJSON(orderFile) || []).find((row) => Number(row.id) === id);
+      if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+      if (!orderOwner(req, order)) return sendJson(res, 403, { error: 'Not your inquiry' });
+      const query = new URL(url, 'http://localhost').searchParams;
+      const records = parseOrderArray(order.payment_records);
+      const proof = query.get('record_id')
+        ? records.find((row) => String(row.id) === query.get('record_id'))
+        : [...records].reverse().find((row) => row.proof_data);
+      if (!proof || !proof.proof_data) return sendJson(res, 404, { error: 'No receipt image is available' });
+      return sendJson(res, 200, { payment_record_id: proof.id, proof_data: proof.proof_data });
+    });
+  }
+
   if (req.method === 'PUT' && /^\/api\/order-inquiries\/\d+\/payment$/.test(url.split('?')[0])) {
     const id = Number(url.split('?')[0].split('/')[3]);
     return requireAuth(req, res, false, (req, res) => {
-      return parseBody(req, (err, obj) => {
+      return parseBodyWithLimit(req, 1024 * 1024, (err, obj) => {
         if (err) return bodyError(res, err);
         const orders = readJSON(orderFile) || [];
         const order = orders.find(o => o.id === id);
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
         const isAdmin = ADMIN_TIER.includes(req.user.role);
         const now = new Date().toISOString();
+        if (SYLVER_POLICY_DEMO) {
+          const records = parseOrderArray(order.payment_records);
+          const due = orderTotalDue(order);
+          if (isAdmin) {
+            if (obj.allow_partial === true) {
+              if (!['approved', 'preparing'].includes(order.status)) return sendJson(res, 409, { error: 'Confirm the order before authorizing a deposit or split payment' });
+              if (!records.some((record) => record.type === 'partial_payment_approval' && record.status === 'approved')) {
+                records.push({ id: crypto.randomUUID(), type: 'partial_payment_approval', status: 'approved', approved_by: req.user.id, approved_at: now });
+                order.payment_records = JSON.stringify(records);
+                order.payment_updated_at = now;
+                writeJSON(orderFile, orders);
+              }
+              return sendJson(res, 200, { ok: true, partial_payment_allowed: true, payment_updated_at: order.payment_updated_at || now });
+            }
+            if (obj.payment_status === 'credit_approved' && order.payment_method === 'credit' && order.customer_id) {
+              if (!['approved', 'preparing'].includes(order.status)) return sendJson(res, 409, { error: 'Confirm the order before approving an existing credit arrangement' });
+              if (order.fulfillment_method === 'courier') return sendJson(res, 409, { error: 'Courier orders must be paid and verified before dispatch' });
+              if (!records.some((record) => record.type === 'credit_approval' && record.status === 'approved')) {
+                records.push({ id: crypto.randomUUID(), type: 'credit_approval', status: 'approved', approved_by: req.user.id, approved_at: now });
+              }
+              order.payment_records = JSON.stringify(records);
+              order.payment_status = 'credit_approved';
+              order.payment_updated_at = now;
+              writeJSON(orderFile, orders);
+              audit('inquiry.credit_approved', { userId: req.user.id, inquiryId: id });
+              notifyInquiryStatus(order, 'credit_approved');
+              return sendJson(res, 200, { ok: true, payment_status: 'credit_approved', payment_updated_at: now });
+            }
+            if (obj.payment_status === 'paid' && order.payment_method === 'cash' && obj.payment_record_id == null) {
+              if (order.fulfillment_method !== 'pickup') return sendJson(res, 409, { error: 'Cash is only collected at pickup' });
+              const outstanding = Math.max(0, due - Number(order.amount_paid || 0));
+              const amount = Number(obj.amount === undefined ? outstanding : obj.amount);
+              if (!Number.isFinite(amount) || amount <= 0 || amount > outstanding + 0.01) return sendJson(res, 400, { error: 'Enter a valid cash amount up to the outstanding balance' });
+              if (amount < outstanding - 0.01 && !records.some((record) => record.type === 'partial_payment_approval' && record.status === 'approved')) return sendJson(res, 409, { error: 'Deposits and split payments require staff approval first' });
+              records.push({ id: crypto.randomUUID(), method: 'cash', amount: Math.round(amount * 100) / 100, paid_on: now.slice(0, 10), status: 'verified', verified_by: req.user.id, verified_at: now });
+              order.amount_paid = Math.round((Number(order.amount_paid || 0) + amount) * 100) / 100;
+              order.payment_status = order.amount_paid + 0.01 >= due ? 'paid' : 'partial';
+              order.payment_records = JSON.stringify(records);
+              order.payment_updated_at = now;
+              writeJSON(orderFile, orders);
+              notifyInquiryStatus(order, 'payment_verified');
+              return sendJson(res, 200, { ok: true, payment_status: order.payment_status, amount_paid: order.amount_paid, amount_due: due, payment_updated_at: now });
+            }
+            if (!['paid', 'failed'].includes(obj.payment_status)) return sendJson(res, 400, { error: 'payment_status must be paid or failed; review a submitted payment record' });
+            const record = obj.payment_record_id
+              ? records.find((item) => String(item.id) === String(obj.payment_record_id))
+              : [...records].reverse().find((item) => item.status === 'pending_verification');
+            if (!record) return sendJson(res, 409, { error: 'There is no submitted payment proof to review' });
+            if (record.status !== 'pending_verification') return sendJson(res, 409, { error: 'This payment proof has already been reviewed' });
+            record.status = obj.payment_status === 'paid' ? 'verified' : 'failed';
+            record.verified_by = req.user.id;
+            record.verified_at = now;
+            if (obj.payment_status === 'paid') order.amount_paid = Math.round((Number(order.amount_paid || 0) + Number(record.amount || 0)) * 100) / 100;
+            order.payment_status = order.amount_paid + 0.01 >= due ? 'paid' : obj.payment_status === 'paid' ? 'partial' : 'failed';
+            order.payment_records = JSON.stringify(records);
+            order.payment_updated_at = now;
+            writeJSON(orderFile, orders);
+            audit('inquiry.payment_verified', { userId: req.user.id, inquiryId: id, payment_status: order.payment_status, amount: record.amount });
+            notifyInquiryStatus(order, obj.payment_status === 'paid' ? 'payment_verified' : 'payment_failed');
+            return sendJson(res, 200, { ok: true, payment_status: order.payment_status, amount_paid: order.amount_paid, amount_due: due, payment_updated_at: now });
+          }
+          if (!orderOwner(req, order)) return sendJson(res, 403, { error: 'Not your inquiry' });
+          const creditSettlement = order.payment_method === 'credit' && records.some((record) => record.type === 'credit_approval' && record.status === 'approved');
+          if (!['approved', 'preparing'].includes(order.status) && !creditSettlement) return sendJson(res, 409, { error: 'Wait for Sylver to confirm the order before paying' });
+          if (order.payment_method === 'card' && order.payment_provider === 'demo_card' && order.fulfillment_method === 'pickup' && obj.demo_card_confirmed === true) {
+            if (order.payment_status !== 'paid') {
+              const amount = Math.round(due * 100) / 100;
+              records.push({ id: crypto.randomUUID(), type: 'demo_card', method: 'card', amount, reference: order.payment_reference, status: 'recorded_demo_only', submitted_at: now });
+              order.payment_records = JSON.stringify(records);
+              order.amount_paid = amount;
+              order.payment_status = 'paid';
+              order.payment_customer_reference = order.payment_reference;
+              order.payment_updated_at = now;
+              writeJSON(orderFile, orders);
+              audit('inquiry.payment_demo_completed', { userId: req.user.id, inquiryId: id, amount, payment_reference: order.payment_reference });
+              notifyInquiryStatus(order, 'payment_verified');
+            }
+            return sendJson(res, 200, { ok: true, payment_status: 'paid', amount_paid: order.amount_paid, amount_due: order.amount_paid, payment_reference: order.payment_reference, payment_updated_at: order.payment_updated_at || now });
+          }
+          if (order.fulfillment_method === 'courier' && (!order.delivery_schedule || order.delivery_fee == null)) return sendJson(res, 409, { error: 'Wait for Sylver to confirm the courier fee and schedule before paying' });
+          const receiptMethod = order.payment_method === 'credit' ? obj.receipt_method : order.payment_method;
+          if (!['gcash', 'bank_transfer'].includes(receiptMethod)) return sendJson(res, 400, { error: 'Only GCash or bank-transfer receipts can be submitted for verification' });
+          if (order.payment_method === 'credit' && !creditSettlement) return sendJson(res, 409, { error: 'Wait for staff to approve the existing customer credit arrangement before paying against it' });
+          const reference = String(obj.customer_reference || '').trim();
+          const amount = Number(obj.amount);
+          const paymentDate = String(obj.payment_date || '').trim();
+          if (reference.length < 5 || reference.length > 100 || !/^[A-Za-z0-9 -]+$/.test(reference)) return sendJson(res, 400, { error: 'Enter a valid payment reference (5–100 letters, numbers, spaces, or dashes)' });
+          if (!Number.isFinite(amount) || amount <= 0 || amount > due - Number(order.amount_paid || 0) + 0.01) return sendJson(res, 400, { error: 'Payment amount must be greater than zero and no more than the outstanding balance' });
+          const outstanding = due - Number(order.amount_paid || 0);
+          if (amount < outstanding - 0.01 && !records.some((record) => record.type === 'partial_payment_approval' && record.status === 'approved')) return sendJson(res, 409, { error: 'Deposits and split payments require staff approval first' });
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) || !Number.isFinite(Date.parse(`${paymentDate}T00:00:00Z`)) || paymentDate > now.slice(0, 10)) return sendJson(res, 400, { error: 'Enter a valid payment date that is not in the future' });
+          if (!validOrderProof(obj.proof_data)) return sendJson(res, 400, { error: 'Attach a PNG, JPEG, or WebP receipt image up to 650 KB' });
+          if (records.some((item) => item.status === 'pending_verification')) return sendJson(res, 409, { error: 'A payment is already waiting for staff verification' });
+          const record = { id: crypto.randomUUID(), method: receiptMethod, amount: Math.round(amount * 100) / 100, paid_on: paymentDate, reference: sanitizeObject(reference), proof_data: obj.proof_data, status: 'pending_verification', submitted_at: now };
+          records.push(record);
+          order.payment_records = JSON.stringify(records);
+          order.payment_status = 'pending_verification';
+          order.payment_customer_reference = record.reference;
+          order.payment_updated_at = now;
+          writeJSON(orderFile, orders);
+          audit('inquiry.payment_submitted', { userId: req.user.id, inquiryId: id, method: order.payment_method, amount: record.amount });
+          notifyInquiryStatus(order, 'payment_pending');
+          return sendJson(res, 200, { ok: true, payment_status: order.payment_status, payment_record_id: record.id, payment_updated_at: now });
+        }
         if (isAdmin) {
           if (!['paid', 'unpaid', 'failed'].includes(obj.payment_status)) {
             return sendJson(res, 400, { error: 'payment_status must be one of paid, unpaid, failed' });
@@ -4944,17 +5441,6 @@ const server = http.createServer((req, res) => {
           const mine =
             Number(order.user_id) === Number(req.user.id) || (order.customer_email || '').toLowerCase() === myEmail;
           if (!mine) return sendJson(res, 403, { error: 'Not your inquiry' });
-        }
-
-        if (order.payment_method === 'card' && order.payment_provider === 'demo' && obj.demo_card_confirmed === true) {
-          if (order.payment_status !== 'paid') {
-            order.payment_status = 'paid';
-            order.payment_customer_reference = order.payment_reference;
-            order.payment_updated_at = now;
-            writeJSON(orderFile, orders);
-            audit('inquiry.payment_demo_completed', { userId: req.user.id, inquiryId: id, payment_reference: order.payment_reference });
-          }
-          return sendJson(res, 200, { ok: true, payment_status: 'paid', payment_reference: order.payment_reference, payment_updated_at: order.payment_updated_at || now });
         }
 
         if (order.payment_method !== 'gcash') {
@@ -5016,6 +5502,10 @@ const server = http.createServer((req, res) => {
   // ================= OPTIMIZATION =================
 
   if (req.method === 'GET' && url.startsWith('/api/optimization')) {
+    let authorized = false;
+    const refusal = requireAuth(req, res, MANAGEMENT_TIER, () => { authorized = true; });
+    if (!authorized) return refusal;
+
     const parts = url.split('?')[0].split('/').filter(Boolean);
     // Valid shapes are /api/optimization (bulk), /api/optimization/abc, and
     // /api/optimization/{productId}. Deeper paths must 404 like Express does.
@@ -5573,12 +6063,12 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  // ================= DATABASE BACKUP / RECOVERY (admin) =================
+  // ================= DATABASE BACKUP / RECOVERY (management) =================
   // The same two endpoints the SQLite backend serves, with the same envelope,
   // the same validation and the same response shape; only the dataset set and
-  // the driver name differ. Admin-tier: a snapshot is the whole database.
+  // the driver name differ. Owner / Super Admin: a snapshot is the whole database.
   if (req.method === 'GET' && url.split('?')[0] === '/api/admin/backup') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
       const snapshot = buildEnvelope({
         driver: backupDriverName(),
         tables: backupDatasets(),
@@ -5597,7 +6087,7 @@ const server = http.createServer((req, res) => {
   // spot instead of waiting an hour for the first timer tick. Additive: a push
   // is a new row, never an overwrite of the copy an admin relies on.
   if (req.method === 'POST' && url.split('?')[0] === '/api/admin/backup') {
-    return requireAuth(req, res, true, async (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, async (req, res) => {
       try {
         const result = await backupRemote.pushSnapshot(
           buildEnvelope({ driver: backupDriverName(), tables: backupDatasets(), generatedBy: req.user.username }),
@@ -5631,7 +6121,7 @@ const server = http.createServer((req, res) => {
   // Reports state — “schedule off” and “store unreachable” are things an operator
   // needs to read, not errors a status page should swallow.
   if (req.method === 'GET' && url.split('?')[0] === '/api/admin/backups') {
-    return requireAuth(req, res, true, async (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, async (req, res) => {
       try {
         const listed = await backupRemote.listSnapshots(20);
         return sendJson(res, 200, {
@@ -5651,7 +6141,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/admin/restore') {
-    return requireAuth(req, res, true, (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
       // A snapshot is far bigger than the normal body cap, so this one route
       // gets the backup limit (mirrors the Express body-parser mount).
       return parseBodyWithLimit(req, BACKUP_MAX_BODY_BYTES, async (err, obj) => {
@@ -5834,7 +6324,7 @@ async function start(port) {
   // boots the app must not leave a timer behind. The first push is one full
   // interval away on purpose — a container that has just booted may have
   // re-seeded itself from the packaged demo data, and that must never become
-  // the newest snapshot an admin restores.
+  // the newest snapshot management restores.
   backupRemote.startScheduler(() =>
     buildEnvelope({ driver: backupDriverName(), tables: backupDatasets(), generatedBy: 'schedule' }),
   );

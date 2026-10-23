@@ -41,7 +41,7 @@ const MAX_BODY_BYTES = 100 * 1024;
  * reject every restore with a 413. Kept as its own bounded constant (and not a
  * raised global limit) so the other endpoints stay capped at MAX_BODY_BYTES:
  * an unbounded body is a memory-exhaustion lever, and only this route is
- * admin-only AND expected to be large. Raise it via BACKUP_MAX_BODY_BYTES on a
+ * management-only AND expected to be large. Raise it via BACKUP_MAX_BODY_BYTES on a
  * deployment whose snapshot outgrows it.
  */
 const BACKUP_MAX_BODY_BYTES = Number(process.env.BACKUP_MAX_BODY_BYTES) || 64 * 1024 * 1024;

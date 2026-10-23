@@ -14,6 +14,7 @@
 // are generated locally with the `qrcode` package.
 
 const crypto = require('crypto');
+const { SYLVER_POLICY_DEMO } = require('./catalog-orders/company-policy');
 const QRCode = require('qrcode');
 
 const PAYMONGO_API = 'https://api.paymongo.com/v1/checkout_sessions';
@@ -103,23 +104,32 @@ async function createPayMongoSession({ amount, description, reference, email }) 
 // is present); the QR fallback is always available so GCash payment works in
 // the demo without any external keys.
 async function buildPaymentStep({ id, amount, description, email, paymentMethod }) {
-  if (paymentMethod !== 'gcash' && paymentMethod !== 'card') {
-    return null; // COD / other: no payment step.
-  }
-
-  // The project has no card gateway configured. Make the requested card flow
-  // usable in a demo with a clearly marked reference, without collecting card
-  // details or pretending that a real charge took place.
-  if (paymentMethod === 'card') {
-    const suffix = crypto.randomBytes(4).toString('hex').toUpperCase();
+  if (SYLVER_POLICY_DEMO) {
+    if (paymentMethod === 'card') {
+      const suffix = crypto.randomBytes(4).toString('hex').toUpperCase();
+      return {
+        payment_method: 'card',
+        payment_status: 'unpaid',
+        payment_reference: `CARD-DEMO-${String(id || '0').padStart(4, '0')}-${suffix}`,
+        payment_url: null,
+        payment_qr: null,
+        payment_provider: 'demo_card',
+      };
+    }
+    if (!['gcash', 'bank_transfer'].includes(paymentMethod)) return null;
+    const prefix = paymentMethod === 'gcash' ? 'GCASH' : 'BANK';
+    const reference = `${prefix}-${String(id || '0').padStart(4, '0')}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     return {
-      payment_method: 'card',
+      payment_method: paymentMethod,
       payment_status: 'unpaid',
-      payment_reference: `CARD-DEMO-${String(id || '0').padStart(4, '0')}-${suffix}`,
+      payment_reference: reference,
       payment_url: null,
       payment_qr: null,
-      payment_provider: 'demo',
+      payment_provider: 'demo_manual',
     };
+  }
+  if (paymentMethod !== 'gcash') {
+    return null; // COD / other: no payment step.
   }
 
   const reference = makeReference(id);

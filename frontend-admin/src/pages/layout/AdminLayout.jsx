@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Box, Button, Chip, Divider, Drawer, IconButton, Stack, Tooltip, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MenuOutlined from '@mui/icons-material/MenuOutlined';
 import MenuOpenOutlined from '@mui/icons-material/MenuOpenOutlined';
@@ -6,11 +6,12 @@ import AssessmentOutlined from '@mui/icons-material/AssessmentOutlined';
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import CompareArrowsOutlined from '@mui/icons-material/CompareArrowsOutlined';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined';
+import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined';
 import PointOfSaleOutlined from '@mui/icons-material/PointOfSaleOutlined';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
 import HistoryOutlined from '@mui/icons-material/HistoryOutlined';
 import RuleOutlined from '@mui/icons-material/RuleOutlined';
-import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
 import LocationOnOutlined from '@mui/icons-material/LocationOnOutlined';
 import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined';
@@ -18,9 +19,6 @@ import SecurityOutlined from '@mui/icons-material/SecurityOutlined';
 import SwapHorizOutlined from '@mui/icons-material/SwapHorizOutlined';
 import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import SettingsOutlined from '@mui/icons-material/SettingsOutlined';
-import StraightenOutlined from '@mui/icons-material/StraightenOutlined';
-import AssignmentLateOutlined from '@mui/icons-material/AssignmentLateOutlined';
-import NotificationsOutlined from '@mui/icons-material/NotificationsOutlined';
 import CloudDownloadOutlined from '@mui/icons-material/CloudDownloadOutlined';
 import WarehouseOutlined from '@mui/icons-material/WarehouseOutlined';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
@@ -31,14 +29,17 @@ import Breadcrumbs from '../../components/Breadcrumbs';
 import LiquidGlassCard from '../../components/LiquidGlassCard';
 
 
-// One flat, always-expanded module list: every module is its own visible row
-// under a small section header — nothing is buried inside a collapsed
-// accordion. Sections group the modules the way the daily workflow reads
-// (see the stock → catalog → money → governance flow), and `roles` on each
-// item drives the role-based nav per the role spec (see src/roles.js):
+// Sections group the modules the way the daily workflow reads (see the stock
+// → catalog → money → governance flow). Core operations stay expanded on a
+// fresh install; lower-frequency sections start folded but remain available.
+// The sidebar keeps the confirmed daily workflow easy to scan. Policy-dependent
+// or low-use pages remain routed in App.jsx but are omitted here until Sylver
+// confirms the workflow needs them. `roles` drives the role-based nav per the
+// role spec (see src/roles.js):
 //
-//   ADMIN_TIER (admin, super_admin, owner) — everything, because every one of
-//     these roles may see money, pricing and business analytics.
+//   ADMIN_TIER (admin, super_admin, owner) — day-to-day business operations.
+//   MANAGEMENT_TIER (super_admin, owner) — reporting, audit, backup and system
+//     configuration in addition to daily operations.
 //   STAFF_TIER (staff + the admin tiers) — the daily inventory modules staff
 //     legitimately need: stock levels, movements, counts, requests, scanning.
 //
@@ -58,10 +59,6 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined, roles: STAFF_TIER },
       { label: 'Shelf vs System', path: '/reconciliation', Icon: RuleOutlined, roles: STAFF_TIER },
-      // Admin-tier to match GET /api/stocktake: it reports how far behind each
-      // shelf is, which is an oversight surface, not a counting one. Staff
-      // record the counts on Shelf vs System.
-      { label: 'Stocktake Schedule', path: '/stocktake', Icon: FactCheckOutlined, roles: ADMIN_TIER },
       { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined, roles: ADMIN_TIER },
     ],
   },
@@ -85,24 +82,20 @@ export const NAV_SECTIONS = [
       { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ADMIN_TIER },
       { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: STAFF_TIER },
       { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ADMIN_TIER },
-      { label: 'Back Orders', path: '/back-orders', Icon: AssignmentLateOutlined, roles: ADMIN_TIER },
-      { label: 'Unit Conversions', path: '/unit-conversions', Icon: StraightenOutlined, roles: ADMIN_TIER },
     ],
   },
   {
     label: 'Insights',
     items: [
-      { label: 'Optimization', path: '/optimization', Icon: InsightsOutlined, roles: ADMIN_TIER },
-      { label: 'Reports', path: '/reports', Icon: AssessmentOutlined, roles: ADMIN_TIER },
+      { label: 'Reports', path: '/reports', Icon: AssessmentOutlined, roles: MANAGEMENT_TIER },
     ],
   },
   {
     label: 'Governance',
     items: [
       { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ADMIN_TIER },
-      { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: ADMIN_TIER },
-      { label: 'Notifications', path: '/notifications', Icon: NotificationsOutlined, roles: ADMIN_TIER },
-      { label: 'Backup & Restore', path: '/backup', Icon: CloudDownloadOutlined, roles: ADMIN_TIER },
+      { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: MANAGEMENT_TIER },
+      { label: 'Backup & Restore', path: '/backup', Icon: CloudDownloadOutlined, roles: MANAGEMENT_TIER },
       { label: 'System Settings', path: '/settings', Icon: SettingsOutlined, roles: MANAGEMENT_TIER },
     ],
   },
@@ -114,6 +107,7 @@ export const NAV_SECTIONS = [
 
 const COLLAPSED_W = 76;
 const EXPANDED_W = 280;
+const NAV_SECTIONS_STORAGE_KEY = 'inventrak.sidebar.collapsedSections';
 
 // AdminLayout wraps every page, so it remounts per navigation — cache the
 // meta answer in module scope to keep GET /api/meta to one request per page
@@ -126,16 +120,46 @@ let metaBuildCache = null;
 function NavContent({ collapsed = false, onNavigate, uiBuild, apiBuild }) {
   const location = useLocation();
   const theme = useTheme();
+  const sectionIdsPrefix = useId();
+  const role = getCurrentUser()?.role || 'admin';
+  const navSectionsStorageKey = `${NAV_SECTIONS_STORAGE_KEY}.${role}`;
+  const defaultCollapsedSections = role === 'admin' ? ['Account'] : [];
+  const [collapsedSections, setCollapsedSections] = useState(() => {
+    try {
+      const saved = localStorage.getItem(navSectionsStorageKey);
+      const parsed = saved === null ? null : JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : defaultCollapsedSections;
+    } catch {
+      return defaultCollapsedSections;
+    }
+  });
 
   // Filter the nav to the signed-in account's role. Defaults to admin so a
   // render without a session (tests, pre-login) still shows the full menu.
-  const role = getCurrentUser()?.role || 'admin';
   const sections = NAV_SECTIONS
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => !item.roles || item.roles.includes(role)),
     }))
     .filter((section) => section.items.length > 0);
+  const activeSectionLabel = sections.find((section) =>
+    section.items.some((item) => item.path === location.pathname))?.label;
+
+  // Opening a page directly should reveal its section in the navigation.
+  useEffect(() => {
+    if (!activeSectionLabel) return;
+    setCollapsedSections((current) => (current.includes(activeSectionLabel)
+      ? current.filter((label) => label !== activeSectionLabel)
+      : current));
+  }, [activeSectionLabel]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(navSectionsStorageKey, JSON.stringify(collapsedSections));
+    } catch {
+      /* storage unavailable — non-fatal */
+    }
+  }, [collapsedSections, navSectionsStorageKey]);
 
   // First-load stagger: one running index across ALL sections so the slide-in
   // delay reads as a single top-down wave through the whole sidebar.
@@ -231,57 +255,89 @@ function NavContent({ collapsed = false, onNavigate, uiBuild, apiBuild }) {
 
       {sections.map((section) => {
         // Active-section highlight: when one of this section's modules is the
-        // current page, the header glows brand-green. On a long flat nav this
+        // current page, the header glows brand-green. On a long nav this
         // is the quick "where am I" cue — and it reads well on a projector
         // during the demo. Exact-path match, same rule the module rows use.
         const sectionActive = section.items.some((item) => item.path === location.pathname);
+        const sectionIsCollapsed = !collapsed && collapsedSections.includes(section.label);
+        const sectionId = `${sectionIdsPrefix}-admin-nav-${section.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+        const toggleSection = () => {
+          setCollapsedSections((current) => (current.includes(section.label)
+            ? current.filter((label) => label !== section.label)
+            : [...current, section.label]));
+        };
 
         return (
           <Box key={section.label}>
-            <Typography
-              variant="caption"
-              component="div"
-              aria-current={sectionActive ? 'true' : undefined}
-              sx={{
-                display: 'block',
-                textTransform: 'uppercase',
-                letterSpacing: 1.2,
-                fontSize: '0.68rem',
-                fontWeight: 700,
-                // Active: full-strength brand green + soft glow; idle: dimmed white.
-                color: sectionActive ? colors.brandSecondary : '#fff',
-                opacity: sectionActive ? 1 : 0.75,
-                textShadow: sectionActive ? '0 0 14px rgba(168, 210, 43, 0.55)' : 'none',
-                mb: 1,
-                px: 2,
-                transition: theme.transitions.create(['color', 'opacity']),
-                // Collapsed rail: the divider itself glows when this section
-                // holds the current page (height stays constant so nothing shifts).
-                ...(collapsed
-                  ? {
-                    px: 0,
-                    mb: 0.5,
-                    '&::before': {
-                      content: '""',
-                      display: 'block',
-                      margin: '4px auto 8px',
-                      width: '60%',
-                      height: 2,
-                      borderRadius: 1,
-                      backgroundColor: sectionActive ? colors.brandSecondary : 'rgba(255,255,255,0.25)',
-                      boxShadow: sectionActive ? '0 0 8px rgba(168, 210, 43, 0.6)' : 'none',
-                      transition: theme.transitions.create(['background-color']),
-                    },
-                  }
-                  : {}),
-              }}
-            >
-              {collapsed ? '' : section.label}
-            </Typography>
+            {collapsed ? (
+              <Typography
+                variant="caption"
+                component="div"
+                aria-current={sectionActive ? 'true' : undefined}
+                sx={{
+                  display: 'block',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1.2,
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  color: sectionActive ? colors.brandSecondary : '#fff',
+                  opacity: sectionActive ? 1 : 0.75,
+                  textShadow: sectionActive ? '0 0 14px rgba(168, 210, 43, 0.55)' : 'none',
+                  mb: 0.5,
+                  px: 0,
+                  '&::before': {
+                    content: '""',
+                    display: 'block',
+                    margin: '4px auto 8px',
+                    width: '60%',
+                    height: 2,
+                    borderRadius: 1,
+                    backgroundColor: sectionActive ? colors.brandSecondary : 'rgba(255,255,255,0.25)',
+                    boxShadow: sectionActive ? '0 0 8px rgba(168, 210, 43, 0.6)' : 'none',
+                    transition: theme.transitions.create(['background-color']),
+                  },
+                }}
+              />
+            ) : (
+              <Button
+                type="button"
+                onClick={toggleSection}
+                aria-expanded={!sectionIsCollapsed}
+                aria-controls={sectionId}
+                aria-current={sectionActive ? 'true' : undefined}
+                endIcon={sectionIsCollapsed ? <ChevronRightOutlined /> : <ExpandMoreOutlined />}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  minHeight: 32,
+                  mb: 0.5,
+                  px: 2,
+                  color: sectionActive ? colors.brandSecondary : 'rgba(255,255,255,0.82)',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  letterSpacing: 1.2,
+                  textAlign: 'left',
+                  textTransform: 'uppercase',
+                  '& .MuiButton-endIcon': { ml: 1, mr: 0, opacity: 0.8 },
+                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' },
+                }}
+              >
+                {section.label}
+              </Button>
+            )}
 
-            <Stack spacing={0.5} alignItems={collapsed ? 'center' : 'stretch'}>
+            <Stack
+              id={sectionId}
+              role="group"
+              aria-label={section.label}
+              spacing={0.5}
+              alignItems={collapsed ? 'center' : 'stretch'}
+              sx={{ display: sectionIsCollapsed ? 'none' : 'flex' }}
+            >
               {section.items.map(({ label, path, Icon }) => {
-                const rowStagger = rowIndex++;
+                const rowStagger = sectionIsCollapsed ? rowIndex : rowIndex++;
                 const active = location.pathname === path;
                 const button = (
                   <Button

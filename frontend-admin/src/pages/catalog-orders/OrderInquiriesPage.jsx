@@ -8,6 +8,7 @@ import AdminLayout from '../layout/AdminLayout';
 const STATUS_COLORS = {
   pending: 'warning',
   approved: 'info',
+  preparing: 'info',
   fulfilled: 'success',
   delivered: 'success',
   rejected: 'error',
@@ -20,6 +21,7 @@ const STATUS_FILTERS = [
   { key: '', label: 'All statuses' },
   { key: 'pending', label: 'Pending' },
   { key: 'approved', label: 'Approved' },
+  { key: 'preparing', label: 'Preparing' },
   { key: 'fulfilled', label: 'Fulfilled' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
@@ -112,8 +114,27 @@ function parseHistory(order) {
   }
 }
 
+function parsePaymentRecords(order) {
+  try {
+    const parsed = JSON.parse(order.payment_records || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseStoredOrderArray(value) {
+  try { const parsed = typeof value === 'string' ? JSON.parse(value) : value; return Array.isArray(parsed) ? parsed : []; }
+  catch { return []; }
+}
+
+function parseStoredOrderObject(value) {
+  try { return typeof value === 'string' ? JSON.parse(value) : value; }
+  catch { return null; }
+}
+
 // Steps of the order lifecycle, in the order the admin acts on them.
-const TIMELINE_STEPS = [
+const LEGACY_TIMELINE_STEPS = [
   { key: 'pending', label: 'Pending' },
   { key: 'approved', label: 'Approved' },
   { key: 'fulfilled', label: 'Fulfilled' },
@@ -123,7 +144,7 @@ const TIMELINE_STEPS = [
 // Shopee-style progress timeline: a dot per lifecycle step, filled when the
 // order has reached it, with the timestamp of the transition underneath.
 // A rejected order renders its own single red step instead of the ladder.
-function StatusTimeline({ history, currentStatus }) {
+function StatusTimeline({ history, currentStatus, steps }) {
   if (currentStatus === 'rejected') {
     const rejectedAt = (history[history.length - 1] || {}).at;
     return (
@@ -151,17 +172,17 @@ function StatusTimeline({ history, currentStatus }) {
   const at = (key) => ((history || []).find((h) => h.status === key) || {}).at;
   return (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0, mt: 1 }}>
-      {TIMELINE_STEPS.map((step, idx) => {
-        const done = reached.has(step.key) || (currentStatus && TIMELINE_STEPS.findIndex((s) => s.key === currentStatus) >= idx && currentStatus !== 'pending') || currentStatus === step.key;
+      {steps.map((step, idx) => {
+        const done = reached.has(step.key) || (currentStatus && steps.findIndex((s) => s.key === currentStatus) >= idx && currentStatus !== 'pending') || currentStatus === step.key;
         return (
-          <Box key={step.key} sx={{ display: 'flex', alignItems: 'flex-start', flex: 1, flexDirection: idx === TIMELINE_STEPS.length - 1 ? 'column' : 'row' }}>
+          <Box key={step.key} sx={{ display: 'flex', alignItems: 'flex-start', flex: 1, flexDirection: idx === steps.length - 1 ? 'column' : 'row' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 64 }}>
               <Box sx={{
                 width: 14, height: 14, borderRadius: '50%', mt: 0.5,
                 backgroundColor: done ? colors.brandPrimary : '#e0e0e0',
                 border: done ? 'none' : '2px solid #bdbdbd',
               }} />
-              {idx < TIMELINE_STEPS.length - 1 && (
+              {idx < steps.length - 1 && (
                 <Box sx={{ width: '100%', height: 2, backgroundColor: done ? colors.brandPrimary : '#e0e0e0', mt: '-0.5rem', mb: 0.25 }} />
               )}
               <Typography variant="caption" sx={{ fontWeight: done ? 700 : 400, color: done ? colors.textPrimary : '#9aa0a6', whiteSpace: 'nowrap' }}>
@@ -183,15 +204,29 @@ function StatusTimeline({ history, currentStatus }) {
 export default function OrderInquiriesPage({ onLogout }) {
   usePageTitle('/order-inquiries');
   const [orders, setOrders] = useState([]);
+  const [companyDemo, setCompanyDemo] = useState(false);
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   // `reason` is the rejection reason. It is REQUIRED for a rejection (the
   // backend refuses a bare one) and ignored for every other action.
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', location_id: '' });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', location_id: '', delivery_fee: '', delivery_schedule: '', order: null });
+  const [receipt, setReceipt] = useState(null);
+  const [cashReceiptTarget, setCashReceiptTarget] = useState(null);
+  const [cashAmount, setCashAmount] = useState('');
   const [details, setDetails] = useState(null);
+  const [refundAmounts, setRefundAmounts] = useState({});
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const timelineSteps = companyDemo
+    ? [
+      { key: 'pending', label: 'Review' },
+      { key: 'approved', label: 'Confirmed' },
+      { key: 'preparing', label: 'Preparing' },
+      { key: 'fulfilled', label: 'Ready / dispatched' },
+      { key: 'delivered', label: 'Delivered' },
+    ]
+    : LEGACY_TIMELINE_STEPS;
   const ordersRequestInFlight = useRef(false);
 
   const loadOrders = useCallback((silent = false) => {
@@ -209,6 +244,7 @@ export default function OrderInquiriesPage({ onLogout }) {
 
   useEffect(() => {
     loadOrders();
+    apiGet('/api/order-inquiries/policy').then((policy) => setCompanyDemo(policy.demo_company_rules === true)).catch(() => setCompanyDemo(false));
     apiGet('/api/locations').then((r) => setLocations(Array.isArray(r) ? r : r.data || [])).catch(() => setLocations([]));
     const refreshIfVisible = () => {
       if (document.visibilityState === 'visible') loadOrders(true);
@@ -222,18 +258,20 @@ export default function OrderInquiriesPage({ onLogout }) {
   }, [loadOrders]);
 
   const handleConfirmAction = (orderId, status) => {
-    setConfirmDialog({ open: true, id: orderId, status, reason: '', location_id: '' });
+    setConfirmDialog({ open: true, id: orderId, status, reason: '', location_id: '', delivery_fee: '', delivery_schedule: '', order: orders.find((order) => Number(order.id) === Number(orderId)) || null });
   };
 
-  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', location_id: '' });
+  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', location_id: '', delivery_fee: '', delivery_schedule: '', order: null });
 
   // A rejection is only meaningful with a reason the customer can act on, so
   // the Confirm button stays disabled until one is typed. The backend enforces
   // the same rule — this is the affordance, not the guard.
   const isRejection = confirmDialog.status === 'rejected';
   const reasonMissing = isRejection && !confirmDialog.reason.trim();
-  const needsStockLocation = ['fulfilled', 'delivered'].includes(confirmDialog.status);
+  const needsQuote = companyDemo && confirmDialog.status === 'approved' && confirmDialog.order?.fulfillment_method === 'courier';
+  const needsStockLocation = !companyDemo && ['fulfilled', 'delivered'].includes(confirmDialog.status);
   const locationMissing = needsStockLocation && !Number(confirmDialog.location_id);
+  const quoteMissing = needsQuote && (confirmDialog.delivery_fee === '' || !Number.isFinite(Number(confirmDialog.delivery_fee)) || Number(confirmDialog.delivery_fee) < 0 || !confirmDialog.delivery_schedule.trim());
 
   const executeAction = async() => {
     if (reasonMissing) return;
@@ -242,8 +280,9 @@ export default function OrderInquiriesPage({ onLogout }) {
         status: confirmDialog.status,
         ...(isRejection ? { rejection_reason: confirmDialog.reason.trim() } : {}),
         ...(needsStockLocation ? { location_id: Number(confirmDialog.location_id) } : {}),
+        ...(needsQuote ? { delivery_fee: Number(confirmDialog.delivery_fee), delivery_schedule: confirmDialog.delivery_schedule.trim() } : {}),
       });
-      setSnackbar({ open: true, message: `Order marked ${confirmDialog.status}`, severity: 'success' });
+      setSnackbar({ open: true, message: confirmDialog.status === 'approved' ? 'Order confirmed and stock reserved' : `Order marked ${confirmDialog.status}`, severity: 'success' });
       loadOrders();
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
@@ -256,13 +295,89 @@ export default function OrderInquiriesPage({ onLogout }) {
   // queue, at a glance.
   const pendingCount = (Array.isArray(orders) ? orders : []).filter(o => o.status === 'pending').length;
 
-  const verifyPayment = async(orderId) => {
+  const verifyPayment = async(orderId, paymentRecordId, amount) => {
     try {
-      await apiPut(`/api/order-inquiries/${orderId}/payment`, { payment_status: 'paid' });
-      setSnackbar({ open: true, message: 'Payment verified', severity: 'success' });
+      const result = await apiPut(`/api/order-inquiries/${orderId}/payment`, { payment_status: 'paid', ...(paymentRecordId ? { payment_record_id: paymentRecordId } : {}), ...(amount !== undefined ? { amount: Number(amount) } : {}) });
+      setSnackbar({ open: true, message: result.payment_status === 'partial' ? `Partial payment verified · P${result.amount_paid} paid` : 'Payment verified', severity: 'success' });
       loadOrders();
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
+    }
+  };
+
+  const authorizePartialPayment = async(orderId) => {
+    try {
+      await apiPut(`/api/order-inquiries/${orderId}/payment`, { allow_partial: true });
+      setSnackbar({ open: true, message: 'Deposit or split payment authorized', severity: 'success' });
+      loadOrders();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    }
+  };
+
+  const approveCredit = async(orderId) => {
+    try {
+      await apiPut(`/api/order-inquiries/${orderId}/payment`, { payment_status: 'credit_approved' });
+      setSnackbar({ open: true, message: 'Existing customer credit arrangement approved', severity: 'success' });
+      loadOrders();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    }
+  };
+
+  const saveCashReceived = async() => {
+    if (!cashReceiptTarget) return;
+    try {
+      const result = await apiPut(`/api/order-inquiries/${cashReceiptTarget.id}/payment`, { payment_status: 'paid', amount: Number(cashAmount) });
+      setSnackbar({ open: true, message: result.payment_status === 'partial' ? `Partial cash recorded · P${result.amount_paid} paid` : 'Cash payment recorded', severity: 'success' });
+      setCashReceiptTarget(null);
+      loadOrders();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message, severity: 'error' });
+    }
+  };
+
+  const openReceipt = async(orderId, recordId) => {
+    try {
+      const result = await apiGet(`/api/order-inquiries/${orderId}/payment-proof${recordId ? `?record_id=${encodeURIComponent(recordId)}` : ''}`);
+      setReceipt(result.proof_data);
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message || 'Could not load receipt image', severity: 'error' });
+    }
+  };
+
+  const openReturnProof = async(orderId, requestId) => {
+    try {
+      const result = await apiGet(`/api/order-inquiries/${orderId}/return-proof?request_id=${encodeURIComponent(requestId)}`);
+      setReceipt(result.proof_data);
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message || 'Could not load the return photo', severity: 'error' });
+    }
+  };
+
+  const reviewChangeRequest = async(order, decision) => {
+    try {
+      const result = await apiPut(`/api/order-inquiries/${order.id}/change-request`, { decision });
+      setDetails((current) => current && Number(current.id) === Number(order.id) ? { ...current, change_request: JSON.stringify(result.change_request) } : current);
+      setSnackbar({ open: true, message: `Change request ${decision}`, severity: 'success' });
+      loadOrders();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message || 'Could not review the change request', severity: 'error' });
+    }
+  };
+
+  const reviewReturnRequest = async(order, request, decision) => {
+    try {
+      const refund = Number(refundAmounts[request.id] ?? order.amount_paid ?? 0);
+      const result = await apiPut(`/api/order-inquiries/${order.id}/return-requests/${encodeURIComponent(request.id)}`, {
+        decision,
+        ...(decision === 'approved' ? { refund_amount: refund, refund_method: 'bank_transfer' } : {}),
+      });
+      setDetails((current) => current && Number(current.id) === Number(order.id) ? { ...current, return_requests: JSON.stringify(parseStoredOrderArray(current.return_requests).map((item) => item.id === request.id ? result.return_request : item)) } : current);
+      setSnackbar({ open: true, message: decision === 'approved' ? `Demo refund recorded · P${refund.toFixed(2)}` : 'Return request declined', severity: 'success' });
+      loadOrders();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.message || 'Could not review the return request', severity: 'error' });
     }
   };
 
@@ -285,10 +400,18 @@ export default function OrderInquiriesPage({ onLogout }) {
     if (order.status === 'pending') {
       return (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          <Button size="small" variant="contained" color="secondary" startIcon={<span>✓</span>} onClick={() => handleConfirmAction(order.id, 'approved')}>Approve</Button>
+          <Button size="small" onClick={() => setDetails(order)}>Details</Button>
+          <Button size="small" variant="contained" color="secondary" startIcon={<span>✓</span>} onClick={() => handleConfirmAction(order.id, 'approved')}>{companyDemo ? 'Confirm & reserve' : 'Approve'}</Button>
           <Button size="small" variant="contained" color="error" startIcon={<span>✕</span>} onClick={() => handleConfirmAction(order.id, 'rejected')}>Reject</Button>
         </Box>
       );
+    }
+    if (companyDemo && order.status === 'approved') {
+      return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}><Button size="small" onClick={() => setDetails(order)}>Details</Button><Button size="small" variant="contained" color="primary" onClick={() => handleConfirmAction(order.id, 'preparing')}>Start preparing</Button></Box>;
+    }
+    if (companyDemo && order.status === 'preparing') {
+      const label = order.fulfillment_method === 'courier' ? 'Dispatch order' : 'Ready for pickup';
+      return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}><Button size="small" onClick={() => setDetails(order)}>Details</Button><Button size="small" variant="contained" color="success" onClick={() => handleConfirmAction(order.id, 'fulfilled')}>{label}</Button></Box>;
     }
     if (order.status === 'approved') {
       return (
@@ -307,7 +430,7 @@ export default function OrderInquiriesPage({ onLogout }) {
       );
     }
     if (order.status === 'delivered') {
-      return <Chip label="✓ Delivered" color="success" size="small" variant="outlined" />;
+      return <Box><Chip label="✓ Delivered" color="success" size="small" variant="outlined" /><Button size="small" onClick={() => setDetails(order)}>Details / return review</Button></Box>;
     }
     if (order.status === 'cancelled') {
       return <Chip label="Cancelled by customer" size="small" variant="outlined" />;
@@ -322,7 +445,7 @@ export default function OrderInquiriesPage({ onLogout }) {
           <div>
             <Typography variant="h6">Submitted order inquiries</Typography>
             <Typography variant="body2" color="text.secondary">
-              Review incoming customer requests and update status: Pending → Approved → Fulfilled → Delivered.
+              Review incoming requests. Confirming reserves stock; staff verify payment before courier dispatch.
             </Typography>
           </div>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
@@ -400,20 +523,40 @@ export default function OrderInquiriesPage({ onLogout }) {
                         />
                         <Chip size="small" label={(order.payment_method || 'cod').toUpperCase()} color={order.payment_method === 'gcash' ? 'info' : 'default'} />
                         {order.payment_status === 'paid' && <Chip size="small" label="PAID" color="success" />}
-                        {order.payment_status === 'pending_verification' && <Chip size="small" label="VERIFY GCash" color="warning" />}
-                        {order.payment_status === 'unpaid' && order.payment_method !== 'cod' && <Chip size="small" label="UNPAID" variant="outlined" />}
+                        {order.payment_status === 'pending_verification' && <Chip size="small" label="VERIFY PAYMENT" color="warning" />}
+                        {order.payment_status === 'partial' && <Chip size="small" label="PARTIAL" color="warning" />}
+                        {companyDemo && order.payment_status === 'credit_pending' && <Chip size="small" label="CREDIT REVIEW" color="warning" />}
+                        {companyDemo && order.payment_status === 'credit_approved' && <Chip size="small" label="CREDIT APPROVED" color="success" />}
+                        {order.payment_status === 'unpaid' && order.payment_method !== 'cod' && order.payment_method !== 'cash' && <Chip size="small" label="UNPAID" variant="outlined" />}
                       </Box>
                       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                         {order.delivery_address || '—'}
                         {order.payment_reference ? ` · Order ref ${order.payment_reference}` : ''}
                         {order.payment_customer_reference ? ` · Receipt ref ${order.payment_customer_reference}` : ''}
                       </Typography>
+                      {companyDemo ? <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>P{Number(order.amount_paid || 0).toFixed(2)} paid · P{Math.max(0, Number(order.estimated_cost || 0) + Number(order.delivery_fee || 0) - Number(order.amount_paid || 0)).toFixed(2)} due</Typography> : null}
                       {order.payment_status === 'pending_verification' && (
-                        <Button size="small" color="success" onClick={() => verifyPayment(order.id)} sx={{ mt: 0.5 }}>Verify payment</Button>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {companyDemo && parsePaymentRecords(order).filter((record) => record.status === 'pending_verification').map((record) => (
+                            <Button key={record.id} size="small" variant="outlined" onClick={() => openReceipt(order.id, record.id)}>View receipt · P{record.amount}</Button>
+                          ))}
+                          <Button size="small" color="success" onClick={() => verifyPayment(order.id, companyDemo ? parsePaymentRecords(order).find((record) => record.status === 'pending_verification')?.id : undefined)}>Verify payment</Button>
+                        </Box>
                       )}
+                      {companyDemo && order.payment_method === 'cash' && order.payment_status !== 'paid' ? (
+                        <Button size="small" color="success" onClick={() => { setCashReceiptTarget(order); setCashAmount(String(Math.max(0, Number(order.estimated_cost || 0) + Number(order.delivery_fee || 0) - Number(order.amount_paid || 0)))); }} sx={{ mt: 0.5 }}>Record cash received</Button>
+                      ) : null}
+                      {companyDemo && ['approved', 'preparing'].includes(order.status) && order.payment_status === 'credit_pending' ? (
+                        <Button size="small" color="success" onClick={() => approveCredit(order.id)} sx={{ mt: 0.5 }}>Approve existing credit</Button>
+                      ) : null}
+                      {companyDemo && ['approved', 'preparing'].includes(order.status) && !parsePaymentRecords(order).some((record) => record.type === 'partial_payment_approval' && record.status === 'approved') && order.payment_status !== 'credit_pending' ? (
+                        <Button size="small" onClick={() => authorizePartialPayment(order.id)} sx={{ mt: 0.5 }}>Authorize deposit / split</Button>
+                      ) : null}
                     </TableCell>
                     <TableCell>
-                      <Chip label={order.status} color={STATUS_COLORS[order.status] || 'default'} size="small" />
+                      <Chip label={companyDemo
+                        ? ({ pending: 'Pending review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: order.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }[order.status] || order.status)
+                        : order.status} color={STATUS_COLORS[order.status] || 'default'} size="small" />
                       {/* A rejected order carries the reason the admin gave —
                           never just the red chip. Same for a cancellation. */}
                       {order.status === 'rejected' && order.rejection_reason && (
@@ -429,8 +572,8 @@ export default function OrderInquiriesPage({ onLogout }) {
                       {/* Compact progress dots so the timeline is visible at a
                           glance without opening Details (see StatusTimeline). */}
                       <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
-                        {TIMELINE_STEPS.map((step, idx) => {
-                          const currentIdx = TIMELINE_STEPS.findIndex((s) => s.key === order.status);
+                        {timelineSteps.map((step, idx) => {
+                          const currentIdx = timelineSteps.findIndex((s) => s.key === order.status);
                           const reached = order.status === 'rejected' ? false : currentIdx >= idx;
                           return <Box key={step.key} sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: reached ? colors.brandPrimary : '#e0e0e0' }} />;
                         })}
@@ -447,10 +590,10 @@ export default function OrderInquiriesPage({ onLogout }) {
       </Paper>
 
       <Dialog open={confirmDialog.open} onClose={closeConfirm} maxWidth="sm" fullWidth>
-        <DialogTitle>Confirm action: mark this inquiry as "{confirmDialog.status}"?</DialogTitle>
+        <DialogTitle>Confirm action: mark this inquiry as “{confirmDialog.status}”?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: isRejection ? 2 : 0 }}>
-            The customer will be notified by email{/* (and SMS when a phone was provided) */} of the status change.
+            The status is saved to the customer&apos;s order history. Email is sent only when an email provider is configured.
           </Typography>
           {isRejection && (
             <TextField
@@ -466,6 +609,24 @@ export default function OrderInquiriesPage({ onLogout }) {
               error={confirmDialog.reason.length > 500}
               autoFocus
             />
+          )}
+          {needsQuote && (
+            <Box sx={{ display: 'grid', gap: 1.5, mt: 2 }}>
+              <Typography variant="body2">Set the delivery fee and schedule now so the customer can review them before paying.</Typography>
+              <TextField
+                fullWidth required type="number" label="Delivery fee (PHP)"
+                value={confirmDialog.delivery_fee}
+                onChange={(e) => setConfirmDialog((d) => ({ ...d, delivery_fee: e.target.value }))}
+                inputProps={{ min: 0, step: '0.01' }}
+              />
+              <TextField
+                fullWidth required label="Confirmed delivery schedule"
+                placeholder="e.g. Saturday, 10:00 AM–12:00 PM"
+                value={confirmDialog.delivery_schedule}
+                onChange={(e) => setConfirmDialog((d) => ({ ...d, delivery_schedule: e.target.value }))}
+                inputProps={{ maxLength: 200 }}
+              />
+            </Box>
           )}
           {needsStockLocation && (
             <FormControl fullWidth required size="small" sx={{ mt: 2 }}>
@@ -488,7 +649,7 @@ export default function OrderInquiriesPage({ onLogout }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={closeConfirm}>Cancel</Button>
-          <Button onClick={executeAction} variant="contained" color="primary" disabled={reasonMissing || locationMissing}>
+          <Button onClick={executeAction} variant="contained" color="primary" disabled={reasonMissing || locationMissing || quoteMissing}>
             Confirm
           </Button>
         </DialogActions>
@@ -506,7 +667,9 @@ export default function OrderInquiriesPage({ onLogout }) {
                 {renderLineItems(parseLines(details))}
               </Box>
               <Typography variant="subtitle2">Cost</Typography>
-              <Typography variant="body2" mb={1}>P{details.estimated_cost} ({details.payment_method?.toUpperCase()} · {details.payment_status || 'unpaid'})</Typography>
+              <Typography variant="body2" mb={1}>P{details.estimated_cost} items{details.bulk_discount_amount ? ` · −P${details.bulk_discount_amount} bulk discount` : ''}{companyDemo && details.fulfillment_method === 'courier' ? ` · P${details.delivery_fee || 0} delivery` : ''} · {details.payment_method?.toUpperCase()} · {details.payment_status || 'unpaid'}</Typography>
+              {companyDemo && details.delivery_schedule ? <Typography variant="body2" mb={1}>Delivery schedule: {details.delivery_schedule}</Typography> : null}
+              {companyDemo ? <Typography variant="body2" mb={1}>Paid P{Number(details.amount_paid || 0).toFixed(2)} · Due P{Math.max(0, Number(details.estimated_cost || 0) + Number(details.delivery_fee || 0) - Number(details.amount_paid || 0)).toFixed(2)}</Typography> : null}
               <Typography variant="subtitle2">Fulfilment</Typography>
               <Typography variant="body2" mb={1}>
                 {FULFILLMENT_LABELS[details.fulfillment_method] || FULFILLMENT_LABELS.pickup}
@@ -543,15 +706,63 @@ export default function OrderInquiriesPage({ onLogout }) {
               )}
               <Typography variant="subtitle2">Status timeline</Typography>
               <Box mb={1.5}>
-                <StatusTimeline history={parseHistory(details)} currentStatus={details.status} />
+                <StatusTimeline history={parseHistory(details)} currentStatus={details.status} steps={timelineSteps} />
               </Box>
               <Typography variant="subtitle2">Notes</Typography>
               <Typography variant="body2">{details.notes || '—'}</Typography>
+              {companyDemo && parseStoredOrderObject(details.change_request) ? (
+                <Box sx={{ mt: 2, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                  <Typography variant="subtitle2">Customer change request · {parseStoredOrderObject(details.change_request).status}</Typography>
+                  <Typography variant="body2" sx={{ my: 1 }}>{parseStoredOrderObject(details.change_request).message}</Typography>
+                  {parseStoredOrderObject(details.change_request).response ? <Typography variant="caption" display="block">Response: {parseStoredOrderObject(details.change_request).response}</Typography> : null}
+                  {parseStoredOrderObject(details.change_request).status === 'pending' ? (
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                      <Button size="small" color="success" variant="contained" onClick={() => reviewChangeRequest(details, 'accepted')}>Acknowledge request</Button>
+                      <Button size="small" color="error" onClick={() => reviewChangeRequest(details, 'declined')}>Decline</Button>
+                    </Box>
+                  ) : null}
+                </Box>
+              ) : null}
+              {companyDemo && parseStoredOrderArray(details.return_requests).map((request) => (
+                <Box key={request.id} sx={{ mt: 2, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                  <Typography variant="subtitle2">Return report · {request.reason} · {request.status}</Typography>
+                  {request.message ? <Typography variant="body2" sx={{ my: 0.5 }}>{request.message}</Typography> : null}
+                  <Typography variant="caption" display="block">Reported {request.requested_at ? new Date(request.requested_at).toLocaleString() : '—'}</Typography>
+                  {request.proof_data || request.status === 'pending' ? <Button size="small" onClick={() => openReturnProof(details.id, request.id)}>View photo evidence</Button> : null}
+                  {request.status === 'pending' ? (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: 1 }}>
+                      <TextField size="small" type="number" label="Refund amount (PHP)" inputProps={{ min: 0, max: details.amount_paid || 0, step: '0.01' }} value={refundAmounts[request.id] ?? Number(details.amount_paid || 0)} onChange={(event) => setRefundAmounts((previous) => ({ ...previous, [request.id]: event.target.value }))} />
+                      <Button size="small" color="success" variant="contained" onClick={() => reviewReturnRequest(details, request, 'approved')}>Approve · record demo refund</Button>
+                      <Button size="small" color="error" onClick={() => reviewReturnRequest(details, request, 'declined')}>Decline</Button>
+                    </Box>
+                  ) : request.refund_status ? <Typography variant="caption" display="block">Refund P{Number(request.refund_amount || 0).toFixed(2)} · {request.refund_method} · demo record only</Typography> : null}
+                </Box>
+              ))}
             </Box>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDetails(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(receipt)} onClose={() => setReceipt(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Customer payment receipt</DialogTitle>
+        <DialogContent dividers>
+          {receipt ? <Box component="img" src={receipt} alt="Customer payment proof" sx={{ display: 'block', maxHeight: '70vh', maxWidth: '100%', mx: 'auto' }} /> : null}
+        </DialogContent>
+        <DialogActions><Button onClick={() => setReceipt(null)}>Close</Button></DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(cashReceiptTarget)} onClose={() => setCashReceiptTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Record cash received</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 2 }}>Cash is collected at pickup. A partial amount is allowed only after staff authorizes a deposit or split payment.</Typography>
+          <TextField autoFocus fullWidth type="number" label="Amount received (PHP)" inputProps={{ min: 0.01, max: cashReceiptTarget ? Number(cashReceiptTarget.estimated_cost || 0) + Number(cashReceiptTarget.delivery_fee || 0) - Number(cashReceiptTarget.amount_paid || 0) : undefined, step: '0.01' }} value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCashReceiptTarget(null)}>Cancel</Button>
+          <Button variant="contained" onClick={saveCashReceived} disabled={!Number.isFinite(Number(cashAmount)) || Number(cashAmount) <= 0}>Record payment</Button>
         </DialogActions>
       </Dialog>
 

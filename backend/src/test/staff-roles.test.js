@@ -64,10 +64,9 @@ test('staff can create and list stock transfers on both backends', async () => {
   }
 });
 
-test('reports and analytics exports are revenue: admin tier only, never staff', async () => {
+test('reports require management; admin analytics exports remain operational', async () => {
   // The role spec forbids Inventory Staff from viewing sales, prices,
-  // customers, orders, reports or business analytics — so every revenue
-  // surface is admin tier (admin, super_admin, owner) and nobody below it.
+  // customers, orders, reports or business analytics.
   const staffReports = await both('staff reports', '/api/reports?days=14', { auth: 'staff' });
   assert.strictEqual(staffReports.a.status, 403, 'staff reports must be 403');
 
@@ -80,7 +79,9 @@ test('reports and analytics exports are revenue: admin tier only, never staff', 
   assert.strictEqual(customerReports.a.status, 403, 'customer reports must stay 403');
 
   const adminReports = await both('admin reports', '/api/reports?days=14', { auth: 'admin' });
-  assert.strictEqual(adminReports.a.status, 200, 'admin reports must be 200');
+  assert.strictEqual(adminReports.a.status, 403, 'admin reports must be 403');
+  const ownerReports = await both('owner reports', '/api/reports?days=14', { auth: 'owner' });
+  assert.strictEqual(ownerReports.a.status, 200, 'owner reports must be 200');
 });
 
 test('staff can use Scan & Stock; customers cannot', async () => {

@@ -19,6 +19,11 @@ backend as the deployed mobile website and admin console. Set
 `EXPO_PUBLIC_API_URL` before running the script only when building against a
 different environment.
 
+The local release script forces the demo policy preview off and clears Metro's
+cache before packaging. EAS `preview` builds enable the demo page for adviser
+testing; EAS `production` builds disable it and skip restored build caches so a
+preview bundle cannot carry over.
+
 **Signing caveat:** the local keystore differs from EAS's, so Android refuses
 to install a local APK **over** an EAS-installed app: uninstall the old
 customer app once (Settings → Apps → INVENTRAK → Uninstall, or long-press the
@@ -32,18 +37,20 @@ when its next rebuild is needed after Oct 1, prefer EAS to keep one key.)
    (git-ignored) and reuses it forever; the signing identity must never
    change or installed apps stop updating. Passwords are demo-grade and
    stored beside it in `.keystore/credentials.env`.
-2. **`expo prebuild --platform android --no-install`** — regenerates the
+2. **Release bundle preflight** — forces the demo policy preview off and
+   clears Metro's cache before Gradle bundles the release APK.
+3. **`expo prebuild --platform android --no-install`** — regenerates the
    native `android/` project from `app.json` (continuous native generation;
    the dir is git-ignored on purpose).
-3. **`scripts/patch-gradle-signing.py`** — idempotently patches
+4. **`scripts/patch-gradle-signing.py`** — idempotently patches
    `android/app/build.gradle` so release builds sign with the local release
    keystore via `INVENTRAK_RELEASE_*` env vars. (Groovy note baked into the
    patch: use Elvis `?:`, not `||` — `||` returns a boolean there.)
-4. **`gradlew.bat assembleRelease`** — the actual build. Requirements (all
+5. **`gradlew.bat assembleRelease`** — the actual build. Requirements (all
    present on this PC): JDK 21, Android SDK platforms 34–36, NDK 27.1
    (`sdkmanager "ndk;27.1.12297006"` if missing/corrupt — the empty-dir
    failure is `NDK ... did not have a source.properties file`).
-5. Copies the APK to `INVENTRAK-production.apk` in the project root.
+6. Copies the APK to `INVENTRAK-production.apk` in the project root.
 
 ## Verification (before installing)
 

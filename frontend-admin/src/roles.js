@@ -4,9 +4,9 @@
 //
 //   customer    end customer / café owner (mobile only)
 //   staff       Inventory Staff — counts, QR scanning, requests (NO money)
-//   admin       Admin — products, prices, inventory, approvals, reports
-//   super_admin Super Admin — adds account / role / permission management
-//   owner       Business Owner — full oversight + access decisions
+//   admin       Admin — daily products, inventory, orders, approvals and sales
+//   super_admin Super Admin — full oversight + system/account management
+//   owner       Business Owner — full business oversight + access decisions
 export const ADMIN_TIER = ['admin', 'super_admin', 'owner'];
 export const MANAGEMENT_TIER = ['super_admin', 'owner'];
 export const STAFF_TIER = ['staff', ...ADMIN_TIER];
@@ -19,8 +19,8 @@ export const ROLE_META = {
   // Sylver palette: the owner chip takes the brand green (dark shade — white
   // text sits on it), keeping role chips on-brand instead of ad-hoc hexes.
   owner: { label: 'OWNER', color: brand.greenDark, blurb: 'full oversight + access decisions' },
-  super_admin: { label: 'SUPER ADMIN', color: '#1565c0', blurb: 'accounts, roles & permissions' },
-  admin: { label: 'ADMIN', color: '#2e7d32', blurb: 'products, stock, approvals & reports' },
+  super_admin: { label: 'SUPER ADMIN', color: '#1565c0', blurb: 'reports, governance & system access' },
+  admin: { label: 'ADMIN', color: '#2e7d32', blurb: 'products, stock, orders & approvals' },
   staff: { label: 'STAFF', color: '#e66a0d', blurb: 'counts, scanning & requests' },
 };
 

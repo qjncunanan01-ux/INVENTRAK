@@ -148,12 +148,12 @@ after(() => {
 });
 
 test('contract: GET /api/optimization/fsn returns identical shape on both backends', async () => {
-  await both('GET /api/optimization/fsn', '/api/optimization/fsn');
+  await both('GET /api/optimization/fsn', '/api/optimization/fsn', { auth: 'owner' });
 });
 
 test('contract: FSN endpoint returns all three classes on seeded data', async () => {
   for (const side of [sqlite, npmfree]) {
-    const res = await call(side.url, '/api/optimization/fsn');
+    const res = await call(side.url, '/api/optimization/fsn', { token: side.token.owner });
     assert.strictEqual(res.status, 200, `${side.url} should answer 200`);
     assert.ok(Array.isArray(res.json), 'expected an array');
     assert.ok(res.json.length > 0, 'expected classifications for the seeded catalog');
@@ -195,9 +195,9 @@ test('contract: FSN endpoint returns all three classes on seeded data', async ()
 });
 
 test('contract: FSN window query param is honored identically (7-day window isolates recent sellers)', async () => {
-  await both('GET /api/optimization/fsn?window=7', '/api/optimization/fsn?window=7');
+  await both('GET /api/optimization/fsn?window=7', '/api/optimization/fsn?window=7', { auth: 'owner' });
   for (const side of [sqlite, npmfree]) {
-    const res = await call(side.url, '/api/optimization/fsn?window=7');
+    const res = await call(side.url, '/api/optimization/fsn?window=7', { token: side.token.owner });
     assert.strictEqual(res.status, 200);
     assert.ok(
       res.json.every(r => r.windowDays === 7),
@@ -210,13 +210,13 @@ test('contract: FSN window clamping is identical on both backends', async () => 
   // 3 clamps up to 7; 99999 clamps down to 730.
   for (const w of ['3', '99999', 'abc']) {
     for (const side of [sqlite, npmfree]) {
-      const res = await call(side.url, `/api/optimization/fsn?window=${w}`);
+      const res = await call(side.url, `/api/optimization/fsn?window=${w}`, { token: side.token.owner });
       assert.strictEqual(res.status, 200, `${side.url} window=${w} should still answer 200`);
       assert.ok(Array.isArray(res.json));
     }
   }
-  const tiny = await call(sqlite.url, '/api/optimization/fsn?window=3');
-  const huge = await call(npmfree.url, '/api/optimization/fsn?window=99999');
+  const tiny = await call(sqlite.url, '/api/optimization/fsn?window=3', { token: sqlite.token.owner });
+  const huge = await call(npmfree.url, '/api/optimization/fsn?window=99999', { token: npmfree.token.owner });
   assert.ok(tiny.json.every(r => r.windowDays === 7));
   assert.ok(huge.json.every(r => r.windowDays === 730));
 });
@@ -226,8 +226,8 @@ test('contract: FSN classifications agree with ABC on the same catalog (same ids
   // that also appears in the ABC output — the two analyses observe the same
   // active-product universe.
   for (const side of [sqlite, npmfree]) {
-    const fsnRes = await call(side.url, '/api/optimization/fsn');
-    const abcRes = await call(side.url, '/api/optimization/abc');
+    const fsnRes = await call(side.url, '/api/optimization/fsn', { token: side.token.owner });
+    const abcRes = await call(side.url, '/api/optimization/abc', { token: side.token.owner });
     assert.strictEqual(fsnRes.status, 200);
     assert.strictEqual(abcRes.status, 200);
     const abcIds = new Set(abcRes.json.map(r => r.id));

@@ -25,7 +25,7 @@ const SIDES = [
 ];
 
 async function exportBackup(side) {
-  const res = await call(side.url, '/api/admin/backup', { token: side.token.admin });
+  const res = await call(side.url, '/api/admin/backup', { token: side.token.owner });
   assert.equal(res.status, 200, 'export succeeds');
   return res.json;
 }
@@ -33,7 +33,7 @@ async function exportBackup(side) {
 async function restore(side, snapshot, extra = {}) {
   return call(side.url, '/api/admin/restore', {
     method: 'POST',
-    token: side.token.admin,
+    token: side.token.owner,
     body: { confirm: true, snapshot, ...extra },
   });
 }
@@ -46,7 +46,7 @@ test('backup: the snapshot is self-describing and complete on both backends', as
     assert.equal(snapshot.format, 'inventrak-backup', `${label} format`);
     assert.equal(snapshot.version, 1, `${label} version`);
     assert.ok(['sqlite', 'json', 'supabase', 'firestore'].includes(snapshot.driver), `${label} driver`);
-    assert.equal(snapshot.generated_by, 'admin', `${label} records who exported it`);
+    assert.equal(snapshot.generated_by, 'owner', `${label} records who exported it`);
     assert.ok(typeof snapshot.created_at === 'string' && snapshot.created_at.length > 0);
 
     // Every table is an array of rows, and counts agrees with the rows shipped.
@@ -71,19 +71,27 @@ test('backup: the drivers report themselves honestly (and differ)', async () => 
   assert.notDeepEqual(Object.keys(a.tables).sort(), Object.keys(b.tables).sort());
 });
 
-test('backup and restore are admin-only', async () => {
+test('backup and restore require Owner or Super Admin access', async () => {
   for (const [label, get] of SIDES) {
     const side = get();
     let r = await call(side.url, '/api/admin/backup');
     assert.equal(r.status, 401, `${label} anonymous export refused`);
     r = await call(side.url, '/api/admin/backup', { token: side.token.staff });
     assert.equal(r.status, 403, `${label} staff export refused`);
+    r = await call(side.url, '/api/admin/backup', { token: side.token.admin });
+    assert.equal(r.status, 403, `${label} admin export refused`);
     r = await call(side.url, '/api/admin/restore', {
       method: 'POST',
       token: side.token.staff,
       body: { confirm: true, snapshot: { format: 'inventrak-backup', version: 1, driver: 'sqlite', tables: {} } },
     });
     assert.equal(r.status, 403, `${label} staff restore refused`);
+    r = await call(side.url, '/api/admin/restore', {
+      method: 'POST',
+      token: side.token.admin,
+      body: { confirm: true, snapshot: { format: 'inventrak-backup', version: 1, driver: 'sqlite', tables: {} } },
+    });
+    assert.equal(r.status, 403, `${label} admin restore refused`);
   }
 });
 
@@ -142,7 +150,7 @@ test('restore: refuses an unconfirmed, foreign-driver or malformed snapshot', as
     // No confirmation: a restore deletes everything, so it has to be deliberate.
     let r = await call(side.url, '/api/admin/restore', {
       method: 'POST',
-      token: side.token.admin,
+      token: side.token.owner,
       body: { snapshot },
     });
     assert.equal(r.status, 400, `${label} requires confirm`);

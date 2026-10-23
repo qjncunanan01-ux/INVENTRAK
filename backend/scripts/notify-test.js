@@ -1,8 +1,8 @@
 // notify-test.js — prove real email + SMS delivery against the configured
-// providers (Resend for email, Semaphore/Twilio for SMS). Run it AFTER pasting
+// providers (Resend for email, PhilSMS/Semaphore/Twilio for SMS). Run it AFTER pasting
 // the provider keys into the environment:
 //
-//   RESEND_API_KEY=re_xxx SEMAPHORE_API_KEY=xxx \
+//   RESEND_API_KEY=re_xxx PHILSMS_API_TOKEN=xxx PHILSMS_SENDER_ID=SYLVERS \
 //   TEST_EMAIL=you@example.com TEST_PHONE=09171234567 \
 //   npm run notify:test
 //
@@ -11,6 +11,8 @@
 const { sendEmail, sendSms } = require('../src/notify');
 
 const emailKey = process.env.RESEND_API_KEY;
+const philsmsToken = process.env.PHILSMS_API_TOKEN;
+const philsmsSenderId = process.env.PHILSMS_SENDER_ID;
 const semaphoreKey = process.env.SEMAPHORE_API_KEY;
 const twilioSid = process.env.TWILIO_ACCOUNT_SID;
 const twilioAuth = process.env.TWILIO_AUTH_TOKEN;
@@ -26,10 +28,10 @@ async function main() {
   const results = [];
   let configured = 0;
 
-  if (!emailKey && !semaphoreKey && !(twilioSid && twilioAuth)) {
+  if (!emailKey && !philsmsToken && !semaphoreKey && !(twilioSid && twilioAuth)) {
     console.log('[notify:test] No providers configured.');
     console.log('  Email:  RESEND_API_KEY');
-    console.log('  SMS:    SEMAPHORE_API_KEY  or  TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN');
+    console.log('  SMS:    PHILSMS_API_TOKEN + PHILSMS_SENDER_ID, SEMAPHORE_API_KEY, or TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN');
     console.log('See DEPLOY.md -> "Real email + SMS notifications".');
     process.exit(2);
   }
@@ -56,10 +58,16 @@ async function main() {
     results.push({ channel: 'email', ok: null, detail: 'RESEND_API_KEY not set — skipped' });
   }
 
-  const smsConfigured = semaphoreKey || (twilioSid && twilioAuth);
+  const smsConfigured = philsmsToken || semaphoreKey || (twilioSid && twilioAuth);
   if (smsConfigured) {
     configured += 1;
-    if (!testPhone) {
+    if (philsmsToken && !philsmsSenderId) {
+      results.push({
+        channel: 'sms',
+        ok: false,
+        detail: 'PHILSMS_SENDER_ID not set — set it to your registered PhilSMS sender ID',
+      });
+    } else if (!testPhone) {
       results.push({
         channel: 'sms',
         ok: false,
@@ -67,7 +75,8 @@ async function main() {
       });
     } else {
       hr();
-      console.log(`[notify:test] sending test SMS to ${testPhone} via ${semaphoreKey ? 'Semaphore' : 'Twilio'}...`);
+      const smsProvider = philsmsToken ? 'PhilSMS' : semaphoreKey ? 'Semaphore' : 'Twilio';
+      console.log(`[notify:test] sending test SMS to ${testPhone} via ${smsProvider}...`);
       const r = await sendSms({
         to: testPhone,
         message: 'INVENTRAK notification test. If you received this, SMS delivery is working.',
@@ -75,7 +84,7 @@ async function main() {
       results.push({ channel: 'sms', ok: r.sent, detail: `to ${testPhone}` });
     }
   } else {
-    results.push({ channel: 'sms', ok: null, detail: 'SEMAPHORE_API_KEY / TWILIO_* not set — skipped' });
+    results.push({ channel: 'sms', ok: null, detail: 'PHILSMS_API_TOKEN / SEMAPHORE_API_KEY / TWILIO_* not set — skipped' });
   }
 
   hr();

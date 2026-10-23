@@ -6,6 +6,7 @@
 // point of these tests is that the two implementations agree.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
+delete process.env.SYLVER_POLICY_DEMO;
 const { sqlite, npmfree, bootBoth, teardown, call, shapeOf } = require('./harness');
 const { ORDER_TERMS_VERSION } = require('../catalog-orders/order-terms');
 
@@ -105,6 +106,14 @@ test('fulfilment: an unknown method is refused rather than silently defaulted', 
   for (const [label, side] of SIDES) {
     const res = await place(side, { fulfillment_method: 'drone' });
     assert.strictEqual(res.status, 400, `${label}: unknown method refused`);
+  }
+});
+
+test('production checkout refuses the no-charge demo card option', async () => {
+  for (const [label, side] of SIDES) {
+    const response = await place(side, { payment_method: 'card' });
+    assert.strictEqual(response.status, 400, `${label}: card demo is unavailable without Sylver demo mode`);
+    assert.match(JSON.stringify(response.json.details || []), /payment_method must be one of/i);
   }
 });
 

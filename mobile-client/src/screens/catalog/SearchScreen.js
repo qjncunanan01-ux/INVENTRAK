@@ -126,7 +126,7 @@ export default function SearchScreen({ navigation }) {
                     const inCart = cartItems.find((entry) => Number(entry.product.id) === Number(item.id))?.qty || 0;
                     if (!Number.isFinite(Number(available))) return showToast('Stock is still loading. Refresh and try again.');
                     if (available < inCart + 1) return showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
-                    addItem(item, 1);
+                    if (!addItem(item, 1, undefined, undefined, available)) showToast('The cart is loading, stock changed, or the order limit was reached. Please try again.');
                   })}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >

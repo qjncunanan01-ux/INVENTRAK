@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../auth-core');
-const { adminOnly } = require('../../middleware');
+const { managementOnly } = require('../../middleware');
 const { audit } = require('../../audit');
 const cache = require('../../cache');
 const {
@@ -14,18 +14,18 @@ const {
 const remote = require('../../governance/backup-remote');
 
 // Database backup and recovery (Web Administration → Database Backup and
-// Recovery). Admin-tier only: a snapshot is a full copy of every table —
+// Recovery). Owner / Super Admin only: a snapshot is a full copy of every table —
 // including password hashes — and a restore overwrites all of it, so the
 // blast radius is the largest in the API.
 //
 // The password hashes are NOT stripped. A backup that cannot restore logins is
-// not a backup, and the caller is already an admin on this server; the file is
+// not a backup, and the caller is already in the management tier; the file is
 // the thing that has to be protected, which is what the audit line and the
-// admin-only gate are for.
+// management-only gate are for.
 //
 // Three ways in and out, and the difference between them is the whole feature:
 //
-//   GET  /api/admin/backup    download a snapshot  — requires an admin who
+//   GET  /api/admin/backup    download a snapshot  — requires management who
 //                                                    remembers to press it
 //   POST /api/admin/backup    push one to the durable store now — the manual
 //                                                    half of the timer
@@ -44,7 +44,7 @@ function snapshotNow(generatedBy) {
 }
 
 // GET /api/admin/backup — download a full snapshot of the database.
-router.get('/backup', authenticateToken, adminOnly, (req, res) => {
+router.get('/backup', authenticateToken, managementOnly, (req, res) => {
   const snapshot = snapshotNow(req.user.username);
   audit('backup.exported', {
     userId: req.user.id,
@@ -59,8 +59,8 @@ router.get('/backup', authenticateToken, adminOnly, (req, res) => {
 // This is the same work the schedule does, on demand, and it exists so the
 // schedule can be verified the moment it is configured instead of an hour
 // later. It is additive: a snapshot is a NEW row, so this can never overwrite
-// the copy an admin is relying on.
-router.post('/backup', authenticateToken, adminOnly, async (req, res) => {
+// the copy an Owner or Super Admin is relying on.
+router.post('/backup', authenticateToken, managementOnly, async (req, res) => {
   try {
     const result = await remote.pushSnapshot(snapshotNow(req.user.username), {
       trigger: 'manual',
@@ -90,7 +90,7 @@ router.post('/backup', authenticateToken, adminOnly, async (req, res) => {
 // to?") before anything destructive is attempted. It reports rather than
 // throws: "the schedule is off" and "the store is unreachable" are states an
 // operator needs to read, not errors to be swallowed by a console.
-router.get('/backups', authenticateToken, adminOnly, async (req, res) => {
+router.get('/backups', authenticateToken, managementOnly, async (req, res) => {
   try {
     const listed = await remote.listSnapshots(20);
     res.json({
@@ -121,7 +121,7 @@ router.get('/backups', authenticateToken, adminOnly, async (req, res) => {
 // is what makes recovery possible after the container — and with it the
 // downloaded file — is gone. Both are validated by the same envelopeError(),
 // so a snapshot from another driver is refused however it arrives.
-router.post('/restore', authenticateToken, adminOnly, async (req, res) => {
+router.post('/restore', authenticateToken, managementOnly, async (req, res) => {
   try {
     const body = req.body || {};
     if (body.confirm !== true) {

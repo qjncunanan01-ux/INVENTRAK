@@ -62,6 +62,10 @@ app.use(cors({
 // sees the body already read and skips it. Only this one admin-only path gets
 // the wide limit — everything else stays capped at the 100 KB default.
 app.use('/api/admin/restore', bodyParser.json({ limit: BACKUP_MAX_BODY_BYTES }));
+// Manual GCash/bank-transfer receipts may include one compressed image. Keep
+// the larger cap on this single route; the normal 100 KB request cap remains.
+app.use('/api/order-inquiries/:id/payment', bodyParser.json({ limit: '1mb' }));
+app.use('/api/order-inquiries/:id/return-requests', bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.json());
 
 // Security headers

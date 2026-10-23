@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../../db');
 const { authenticateToken } = require('../../auth-core');
-const { adminOnly } = require('../../middleware');
+const { managementOnly } = require('../../middleware');
 const settings = require('../../governance/settings');
 const { audit } = require('../../audit');
 
@@ -12,7 +12,7 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/health/integrity
-router.get('/integrity', authenticateToken, adminOnly, (req, res) => {
+router.get('/integrity', authenticateToken, managementOnly, (req, res) => {
   const errors = [];
 
   const dups = db.prepare('SELECT product_id, location_id, COUNT(*) as c FROM stock GROUP BY product_id, location_id HAVING c > 1').all();

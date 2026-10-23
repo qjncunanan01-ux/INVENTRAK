@@ -521,10 +521,12 @@ test('contract: order inquiries lifecycle', async () => {
 // ===== Optimization =====
 
 test('contract: optimization bulk, abc, per-product, 404', async () => {
-  await both('GET /api/optimization', '/api/optimization');
-  await both('GET /api/optimization/abc', '/api/optimization/abc');
-  await both('GET /api/optimization/1', '/api/optimization/1');
-  await both('GET /api/optimization/99999', '/api/optimization/99999');
+  await both('GET /api/optimization', '/api/optimization', { auth: 'owner' });
+  await both('GET /api/optimization/abc', '/api/optimization/abc', { auth: 'owner' });
+  await both('GET /api/optimization/1', '/api/optimization/1', { auth: 'owner' });
+  await both('GET /api/optimization/99999', '/api/optimization/99999', { auth: 'owner' });
+  const admin = await both('GET /api/optimization (admin)', '/api/optimization', { auth: 'admin' });
+  assert.strictEqual(admin.a.status, 403, 'admin cannot access management insights');
 });
 
 // ===== Analytics =====
@@ -690,8 +692,8 @@ test('contract: deeper paths on list endpoints 404 identically on both backends'
     { p: '/api/stock-movements/5' },
     { p: '/api/sales/5', auth: 'admin' },
     { p: '/api/products/categories/x' },
-    { p: '/api/optimization/abc/x' },
-    { p: '/api/optimization/abc/extra' },
+    { p: '/api/optimization/abc/x', auth: 'owner' },
+    { p: '/api/optimization/abc/extra', auth: 'owner' },
     { p: '/api/analytics/summary/x', auth: 'admin' },
     { p: '/api/analytics/export/products/x', auth: 'admin' },
     { p: '/api/analytics/bogus', auth: 'admin' },
@@ -741,18 +743,20 @@ test('contract: deterministic seed means VALUES match, not just shapes', async (
   assert.strictEqual(sumS, sumN, 'total sales value');
 
   // Optimization values identical (demand now derives from the same sales).
-  const so = await call(sqlite.url, '/api/optimization/1');
-  const no = await call(npmfree.url, '/api/optimization/1');
+  const so = await call(sqlite.url, '/api/optimization/1', { token: sqlite.token.owner });
+  const no = await call(npmfree.url, '/api/optimization/1', { token: npmfree.token.owner });
   assert.deepStrictEqual(so.json, no.json, 'optimization/1 values');
 });
 
 // ===== Integrity endpoint =====
 
-test('contract: health/integrity is admin-only and reports clean data identically', async () => {
+test('contract: health/integrity is management-only and reports clean data identically', async () => {
   await both('GET /api/health/integrity (no token)', '/api/health/integrity');
   await both('GET /api/health/integrity (customer)', '/api/health/integrity', { auth: 'customer' });
-  const s = await call(sqlite.url, '/api/health/integrity', { token: sqlite.token.admin });
-  const n = await call(npmfree.url, '/api/health/integrity', { token: npmfree.token.admin });
+  const admin = await both('GET /api/health/integrity (admin)', '/api/health/integrity', { auth: 'admin' });
+  assert.strictEqual(admin.a.status, 403);
+  const s = await call(sqlite.url, '/api/health/integrity', { token: sqlite.token.owner });
+  const n = await call(npmfree.url, '/api/health/integrity', { token: npmfree.token.owner });
   assert.strictEqual(s.status, 200);
   assert.strictEqual(n.status, 200);
   assert.strictEqual(shapeOf(s.json), shapeOf(n.json), 'integrity shapes');
@@ -1374,7 +1378,7 @@ test('contract: deleting a location referenced by adjustments/transfers 400s ide
 });
 
 test('contract: reports endpoint exposes the printable report shape identically', async () => {
-  const res = await both('GET /api/reports', '/api/reports', { auth: 'admin' });
+  const res = await both('GET /api/reports', '/api/reports', { auth: 'owner' });
   assert.strictEqual(res.a.status, 200);
   assert.strictEqual(shapeOf(res.a.json), shapeOf(res.b.json), 'reports shape parity');
   for (const side of [sqlite, npmfree]) {
@@ -1389,8 +1393,10 @@ test('contract: reports endpoint exposes the printable report shape identically'
     assert.ok(body.summary && Number.isFinite(body.summary.total_products), `${side} summary.total_products`);
     assert.ok(Number.isFinite(body.summary.transactions), `${side} summary.transactions`);
   }
-  // Auth: reports + approvals require an admin token.
+  // Auth: reports require management; approvals require an admin token.
   await both('GET /api/reports (no token)', '/api/reports', {});
+  const adminReports = await both('GET /api/reports (admin)', '/api/reports', { auth: 'admin' });
+  assert.strictEqual(adminReports.a.status, 403);
   await both('GET /api/approvals (no token)', '/api/approvals', {});
 });
 

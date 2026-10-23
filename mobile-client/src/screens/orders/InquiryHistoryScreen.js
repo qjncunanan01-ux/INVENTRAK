@@ -3,6 +3,8 @@ import {
   AppState,
   ActivityIndicator,
   FlatList,
+  Image,
+  Modal,
   RefreshControl,
   StyleSheet,
   Text,
@@ -11,15 +13,20 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { cancelOrderInquiry, listBackOrders, listOrderInquiries, useSessionUsername } from '../../api';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { apiPost, cancelOrderInquiry, listBackOrders, listOrderInquiries, useSessionUsername } from '../../api';
 import Dialog from '../../Dialog';
 import EmptyState from '../../EmptyState';
 import { useThemeColors } from '../../theme-context';
+
+const COMPANY_DEMO = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true';
 
 const STATUS_TABS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
   { key: 'approved', label: 'Approved' },
+  ...(COMPANY_DEMO ? [{ key: 'preparing', label: 'Preparing' }] : []),
   { key: 'fulfilled', label: 'Fulfilled' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
@@ -29,9 +36,14 @@ const STATUS_TABS = [
 // Mirrors the server rule (catalog-orders/inquiry-lifecycle): only a pending or
 // approved inquiry can still be cancelled. The button is hidden elsewhere, and
 // the server refuses it anyway — this is affordance, not the guard.
-const CANCELLABLE = ['pending', 'approved'];
+const CANCELLABLE = COMPANY_DEMO ? ['pending', 'approved', 'preparing'] : ['pending', 'approved'];
 
 const FULFILLMENT_LABELS = { pickup: 'Pickup at store', courier: 'Courier delivery' };
+
+function amountDueForOrder(order) {
+  const total = Number(order.estimated_cost || 0) + Number(order.delivery_fee || 0);
+  return Math.max(0, total - Number(order.amount_paid || 0));
+}
 
 export default function InquiryHistoryScreen({ navigation }) {
   const { colors } = useThemeColors();
@@ -55,6 +67,14 @@ export default function InquiryHistoryScreen({ navigation }) {
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelNote, setCancelNote] = useState('');
+  const [changeTarget, setChangeTarget] = useState(null);
+  const [changeMessage, setChangeMessage] = useState('');
+  const [returnTarget, setReturnTarget] = useState(null);
+  const [returnReason, setReturnReason] = useState('damaged');
+  const [returnMessage, setReturnMessage] = useState('');
+  const [returnProofData, setReturnProofData] = useState('');
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [requestError, setRequestError] = useState('');
 
   const fetchData = useCallback(async() => {
     try {
@@ -103,6 +123,52 @@ export default function InquiryHistoryScreen({ navigation }) {
     }
   }, [cancelTarget, fetchData]);
 
+  const sendChangeRequest = async() => {
+    if (!changeTarget || !changeMessage.trim()) return setRequestError('Describe what you need changed.');
+    setRequestBusy(true);
+    try {
+      await apiPost(`/api/order-inquiries/${changeTarget.id}/change-request`, { message: changeMessage.trim() });
+      setChangeTarget(null);
+      setChangeMessage('');
+      setRequestError('');
+      await fetchData();
+    } catch (err) {
+      setRequestError(err.message || 'Could not send the change request.');
+    } finally {
+      setRequestBusy(false);
+    }
+  };
+
+  const chooseReturnPhoto = async() => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.8 });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      const compressed = await ImageManipulator.manipulateAsync(result.assets[0].uri, [{ resize: { width: 1200 } }], { compress: 0.62, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+      if (!compressed.base64 || compressed.base64.length > 870000) throw new Error('Choose a smaller photo (maximum 650 KB after compression).');
+      setReturnProofData(`data:image/jpeg;base64,${compressed.base64}`);
+      setRequestError('');
+    } catch (err) {
+      setRequestError(err.message || 'Could not read that photo.');
+    }
+  };
+
+  const sendReturnRequest = async() => {
+    if (!returnTarget || !returnProofData) return setRequestError('Attach a photo of the issue.');
+    setRequestBusy(true);
+    try {
+      await apiPost(`/api/order-inquiries/${returnTarget.id}/return-requests`, { reason: returnReason, message: returnMessage.trim(), proof_data: returnProofData });
+      setReturnTarget(null);
+      setReturnMessage('');
+      setReturnProofData('');
+      setRequestError('');
+      await fetchData();
+    } catch (err) {
+      setRequestError(err.message || 'Could not send the return request.');
+    } finally {
+      setRequestBusy(false);
+    }
+  };
+
   // Fetch while logged in — and REFETCH every time the tab gains focus, so a
   // freshly placed order (e.g. "View my orders" right after checkout) shows up
   // immediately instead of a stale list until pull-to-refresh. Also covers the
@@ -148,8 +214,13 @@ export default function InquiryHistoryScreen({ navigation }) {
     }
   };
 
+  const getStatusLabel = (item) => {
+    if (!COMPANY_DEMO) return item.status;
+    return ({ pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Dispatched' : 'Ready for pickup' })[item.status] || item.status;
+  };
+
   const counts = useMemo(() => {
-    const c = { all: inquiries.length, pending: 0, approved: 0, fulfilled: 0, delivered: 0, rejected: 0, cancelled: 0 };
+    const c = { all: inquiries.length, pending: 0, approved: 0, preparing: 0, fulfilled: 0, delivered: 0, rejected: 0, cancelled: 0 };
     inquiries.forEach((i) => { if (c[i.status] !== undefined) c[i.status] += 1; });
     return c;
   }, [inquiries]);
@@ -234,7 +305,9 @@ export default function InquiryHistoryScreen({ navigation }) {
     if (events.length === 0) {
       events = [{ status: item.status, at: item.created_at }];
     }
-    const labels = { pending: 'Placed', approved: 'Approved', fulfilled: 'Fulfilled', delivered: 'Delivered', rejected: 'Rejected' };
+    const labels = COMPANY_DEMO
+      ? { pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Dispatched' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }
+      : { pending: 'Placed', approved: 'Approved', fulfilled: 'Fulfilled', delivered: 'Delivered', rejected: 'Rejected' };
     return (
       <View style={styles.timeline}>
         {events.map((e, idx) => (
@@ -250,6 +323,16 @@ export default function InquiryHistoryScreen({ navigation }) {
         ))}
       </View>
     );
+  };
+
+  const parsedRequest = (raw) => {
+    try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
+  };
+  const returnWindowOpen = (item) => {
+    const history = parsedRequest(item.status_history);
+    const event = Array.isArray(history) ? [...history].reverse().find((row) => row.status === 'delivered') : null;
+    const deliveredAt = Date.parse(event?.at || '');
+    return Number.isFinite(deliveredAt) && deliveredAt <= Date.now() && Date.now() - deliveredAt <= 24 * 60 * 60 * 1000;
   };
 
   // Guest state: browsing is free, but order history needs an account. This
@@ -332,7 +415,7 @@ export default function InquiryHistoryScreen({ navigation }) {
             <View style={styles.cardHeader}>
               <Text style={styles.itemTitle}>Order #{item.id}</Text>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-                <Text style={styles.statusText}>{item.status}</Text>
+                <Text style={styles.statusText}>{getStatusLabel(item)}</Text>
               </View>
             </View>
             {item.customer_name ? <Text style={styles.detail}>Customer: {item.customer_name}</Text> : null}
@@ -341,11 +424,18 @@ export default function InquiryHistoryScreen({ navigation }) {
             <Text style={styles.detail}>
               Cost: P{Number(item.estimated_cost).toFixed(2)} ·{' '}
               Payment: {(item.payment_method || 'cod').toUpperCase()}
+              {item.bulk_discount_amount ? ` · −P${Number(item.bulk_discount_amount).toFixed(2)} bulk discount` : ''}
+              {COMPANY_DEMO && item.fulfillment_method === 'courier' ? ` · P${Number(item.delivery_fee || 0).toFixed(2)} delivery` : ''}
               {item.payment_status === 'paid' ? ' · ✅ PAID' : ''}
+              {item.payment_status === 'partial' ? ` · Partial: P${Number(item.amount_paid || 0).toFixed(2)} paid` : ''}
               {item.payment_status === 'pending_verification' ? ' · ⌛ Payment submitted for review' : ''}
-              {item.payment_status === 'unpaid' && item.payment_method === 'gcash' ? ' · ⏳ Unpaid' : ''}
+              {item.payment_status === 'credit_pending' ? ' · ⌛ Existing credit terms awaiting staff approval' : ''}
+              {item.payment_status === 'credit_approved' ? ` · ✅ Existing credit terms approved · P${Math.max(0, Number(item.estimated_cost || 0) + Number(item.delivery_fee || 0) - Number(item.amount_paid || 0)).toFixed(2)} on account` : ''}
+              {['unpaid', 'partial', 'failed'].includes(item.payment_status) && ['gcash', 'bank_transfer'].includes(item.payment_method) ? ' · ⏳ Payment due' : ''}
               {item.payment_customer_reference ? ` · GCash ref ${item.payment_customer_reference}` : ''}
             </Text>
+            {COMPANY_DEMO && item.delivery_schedule ? <Text style={styles.detail}>Delivery schedule: {item.delivery_schedule}</Text> : null}
+            {COMPANY_DEMO && item.payment_status === 'credit_pending' ? <Text style={styles.detail}>Sylver will check that your account has an existing credit arrangement before approving this order.</Text> : null}
             {/* Fulfilment preference + where it goes (Part 11). */}
             <Text style={styles.detail}>
               {item.fulfillment_method === 'courier' ? '🚚' : '🏬'}{' '}
@@ -377,9 +467,52 @@ export default function InquiryHistoryScreen({ navigation }) {
             </Text>
             {renderBackOrder(backOrders[item.id])}
             {renderTimeline(item)}
+            {COMPANY_DEMO && (
+              (['approved', 'preparing'].includes(item.status) && ['gcash', 'bank_transfer'].includes(item.payment_method)) ||
+              (['approved', 'preparing'].includes(item.status) && item.payment_method === 'card' && item.payment_provider === 'demo_card')
+            ) && item.payment_status !== 'paid' ? (
+                <TouchableOpacity
+                  style={styles.paymentBtn}
+                  onPress={() => navigation.navigate('Payment', {
+                    inquiryId: item.id,
+                    payment: {
+                      payment_method: item.payment_method,
+                      payment_reference: item.payment_reference,
+                      payment_provider: item.payment_provider,
+                      amount_due: amountDueForOrder(item),
+                    },
+                  })}
+                >
+                  <Text style={styles.paymentBtnText}>
+                    {item.payment_method === 'card' ? 'Complete demo card transaction' : 'Submit payment receipt'}
+                    {' · P'}{amountDueForOrder(item).toFixed(2)}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            {COMPANY_DEMO && item.payment_method === 'cash' && item.fulfillment_method === 'pickup' && item.status === 'fulfilled' && item.payment_status !== 'paid' ? (
+              <Text style={styles.detail}>Cash is due when you collect your order at the store.</Text>
+            ) : null}
+            {COMPANY_DEMO && ['pending', 'approved', 'preparing'].includes(item.status) ? (
+              parsedRequest(item.change_request)?.status === 'pending' ? (
+                <Text style={styles.detail}>Change request: waiting for Sylver to review.</Text>
+              ) : (
+                <TouchableOpacity style={styles.requestBtn} onPress={() => { setRequestError(''); setChangeTarget(item); }}>
+                  <Text style={styles.requestBtnText}>Request an order change</Text>
+                </TouchableOpacity>
+              )
+            ) : null}
+            {COMPANY_DEMO && item.status === 'delivered' ? (
+              parsedRequest(item.return_requests)?.some((request) => request.status === 'pending') ? (
+                <Text style={styles.detail}>Return request: waiting for Sylver to review.</Text>
+              ) : returnWindowOpen(item) ? (
+                <TouchableOpacity style={styles.requestBtn} onPress={() => { setRequestError(''); setReturnReason('damaged'); setReturnTarget(item); }}>
+                  <Text style={styles.requestBtnText}>Report an order issue · 24 hours</Text>
+                </TouchableOpacity>
+              ) : null
+            ) : null}
             <View style={styles.cardFooter}>
               <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
-              {CANCELLABLE.includes(item.status) ? (
+              {CANCELLABLE.includes(item.status) || (COMPANY_DEMO && item.status === 'fulfilled' && item.fulfillment_method === 'pickup') ? (
                 <TouchableOpacity
                   onPress={() => { setCancelNote(''); setCancelTarget(item); }}
                   style={styles.cancelBtn}
@@ -432,6 +565,47 @@ export default function InquiryHistoryScreen({ navigation }) {
         onConfirm={() => { if (!cancelBusy) doCancel(''); }}
         onCancel={() => { setCancelTarget(null); setCancelNote(''); }}
       />
+
+      <Modal visible={Boolean(changeTarget)} transparent animationType="fade" onRequestClose={() => setChangeTarget(null)}>
+        <View style={styles.formBackdrop}>
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>Request a change</Text>
+            <Text style={styles.formHint}>Sylver must review and accept the request. Sending it does not change the order automatically.</Text>
+            <TextInput style={styles.formInput} multiline value={changeMessage} onChangeText={setChangeMessage} placeholder="Describe the change you need" maxLength={1000} />
+            {requestError ? <Text style={styles.formError}>{requestError}</Text> : null}
+            <TouchableOpacity style={styles.paymentBtn} disabled={requestBusy} onPress={sendChangeRequest}>
+              <Text style={styles.paymentBtnText}>{requestBusy ? 'Sending…' : 'Send change request'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setChangeTarget(null); setRequestError(''); }}><Text style={styles.modalCancel}>Cancel</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={Boolean(returnTarget)} transparent animationType="fade" onRequestClose={() => setReturnTarget(null)}>
+        <View style={styles.formBackdrop}>
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>Report a delivered order issue</Text>
+            <Text style={styles.formHint}>Send within 24 hours of delivery. Staff review the report and any refund; this demo does not transfer money.</Text>
+            <View style={styles.reasonChoices}>
+              {['incorrect', 'damaged', 'defective', 'discrepancy'].map((reason) => (
+                <TouchableOpacity key={reason} style={[styles.reasonChoice, returnReason === reason && styles.reasonChoiceActive]} onPress={() => setReturnReason(reason)}>
+                  <Text style={[styles.reasonChoiceText, returnReason === reason && styles.reasonChoiceTextActive]}>{reason}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput style={styles.formInput} multiline value={returnMessage} onChangeText={setReturnMessage} placeholder="Describe the issue (optional)" maxLength={1000} />
+            <TouchableOpacity style={styles.requestBtn} onPress={chooseReturnPhoto}>
+              <Text style={styles.requestBtnText}>{returnProofData ? 'Photo attached ✓' : 'Attach issue photo'}</Text>
+            </TouchableOpacity>
+            {returnProofData ? <Image source={{ uri: returnProofData }} style={styles.proofPreview} resizeMode="contain" /> : null}
+            {requestError ? <Text style={styles.formError}>{requestError}</Text> : null}
+            <TouchableOpacity style={styles.paymentBtn} disabled={requestBusy || !returnProofData} onPress={sendReturnRequest}>
+              <Text style={styles.paymentBtnText}>{requestBusy ? 'Sending…' : 'Send return request'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setReturnTarget(null); setRequestError(''); }}><Text style={styles.modalCancel}>Cancel</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -441,6 +615,23 @@ const createStyles = (colors) => StyleSheet.create({
   cardFooter: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
   cancelBtn: { borderColor: colors.error, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
   cancelBtnText: { color: colors.error, fontSize: 12, fontWeight: '700' },
+  paymentBtn: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 8, marginTop: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  paymentBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  requestBtn: { alignSelf: 'flex-start', borderColor: colors.brandPrimary, borderRadius: 8, borderWidth: 1, marginTop: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  requestBtnText: { color: colors.brandPrimary, fontSize: 12, fontWeight: '700' },
+  formBackdrop: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.48)', flex: 1, justifyContent: 'center', padding: 22 },
+  formCard: { backgroundColor: colors.surface, borderRadius: 16, maxWidth: 460, padding: 18, width: '100%' },
+  formTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 6 },
+  formHint: { color: colors.textSecondary, fontSize: 13, lineHeight: 18, marginBottom: 12 },
+  formInput: { backgroundColor: colors.background, borderColor: colors.border, borderRadius: 10, borderWidth: 1, color: colors.textPrimary, minHeight: 80, padding: 12, textAlignVertical: 'top' },
+  formError: { color: colors.error, fontSize: 12, marginTop: 7 },
+  modalCancel: { color: colors.textSecondary, fontSize: 13, padding: 8, textAlign: 'center' },
+  reasonChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  reasonChoice: { borderColor: colors.border, borderRadius: 15, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6 },
+  reasonChoiceActive: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
+  reasonChoiceText: { color: colors.textSecondary, fontSize: 12 },
+  reasonChoiceTextActive: { color: '#fff', fontWeight: '700' },
+  proofPreview: { height: 100, marginTop: 8, width: '100%' },
   reasonBox: {
     backgroundColor: colors.background,
     borderColor: 'rgba(0,0,0,0.06)',

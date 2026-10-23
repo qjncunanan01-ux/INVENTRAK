@@ -23,6 +23,13 @@ cd "$(dirname "$0")/.." # mobile-client/
 export EXPO_PUBLIC_API_URL
 echo "== release API: $EXPO_PUBLIC_API_URL =="
 
+# Never package the demo-only policy preview in this production APK. Metro can
+# reuse a transform created with the preview flag on, so pin it off and clear
+# the bundler cache before Gradle creates the bundle.
+export EXPO_PUBLIC_DEMO_POLICY_PREVIEW=false
+echo "== release demo policy preview: off =="
+npx expo export --platform android --clear --output-dir .expo/release-preflight
+
 JKS_DIR=".keystore"
 JKS="$JKS_DIR/inventrak-release.jks"
 CREDS="$JKS_DIR/credentials.env"

@@ -2,15 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../../db');
 const { authenticateToken } = require('../../auth-core');
-const { adminOnly } = require('../../middleware');
+const { managementOnly } = require('../../middleware');
 const { parseDateRange, rangeDays } = require('../../date-range');
 const { criticalLevels, criticalLevelFromMap } = require('../../inventory/critical-level');
 
-// GET /api/reports — printable management report (admin only). Lives in its
+// GET /api/reports — printable management report (Owner / Super Admin only). Lives in its
 // own router because /api/analytics and /api/reports were accidentally BOTH
 // mounted on the analytics router, exposing undocumented aliases
 // (/api/analytics, /api/reports/summary, /api/reports/export/{type}).
-router.get('/', authenticateToken, adminOnly, (req, res) => {
+router.get('/', authenticateToken, managementOnly, (req, res) => {
   const generated_at = new Date().toISOString();
   const { from, to } = parseDateRange(req.query, { defaultDays: 14 });
   const rangeClause = "date(transaction_date) >= date(?) AND date(transaction_date) <= date(?)";

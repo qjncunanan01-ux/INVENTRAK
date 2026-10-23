@@ -202,7 +202,7 @@ beforeEach(async () => {
   setEnv({ BACKUP_REMOTE_URL: store.rest(), BACKUP_REMOTE_KEY: 'service-role-key', BACKUP_INTERVAL_MINUTES: '0' });
 });
 
-async function push(side, token = side.token.admin) {
+async function push(side, token = side.token.owner) {
   return call(side.url, '/api/admin/backup', { method: 'POST', token });
 }
 
@@ -232,7 +232,7 @@ describe('scheduled snapshots reach the durable store', () => {
       assert.equal(envelope.format, 'inventrak-backup', `${label} envelope format`);
       assert.equal(envelope.version, 1);
       assert.equal(envelope.driver, label === 'sqlite' ? 'sqlite' : 'json');
-      assert.equal(envelope.generated_by, 'admin', `${label} records who took the manual snapshot`);
+      assert.equal(envelope.generated_by, 'owner', `${label} records who took the manual snapshot`);
       assert.equal(row.driver, envelope.driver);
       assert.equal(row.bytes, Buffer.byteLength(JSON.stringify(envelope)), `${label} byte count matches the payload`);
       assert.deepEqual(row.counts, envelope.counts, `${label} stores counts beside the payload for listing`);
@@ -343,7 +343,7 @@ describe('recovery without a downloaded file', () => {
       // No file, no uploaded body: name the snapshot by where it lives.
       const done = await call(side.url, '/api/admin/restore', {
         method: 'POST',
-        token: side.token.admin,
+        token: side.token.owner,
         body: { confirm: true, snapshot_id: 'latest' },
       });
       assert.equal(done.status, 200, `${label} restore from the store: ${done.text.slice(0, 300)}`);
@@ -369,7 +369,7 @@ describe('recovery without a downloaded file', () => {
     // ...and try to put it into the sqlite side, which stores different shapes.
     const refused = await call(sqlite.url, '/api/admin/restore', {
       method: 'POST',
-      token: sqlite.token.admin,
+      token: sqlite.token.owner,
       body: { confirm: true, snapshot_id: 'latest' },
     });
     assert.equal(refused.status, 400);
@@ -386,7 +386,7 @@ describe('recovery without a downloaded file', () => {
       const side = get();
       const res = await call(side.url, '/api/admin/restore', {
         method: 'POST',
-        token: side.token.admin,
+        token: side.token.owner,
         body: { confirm: true },
       });
       assert.equal(res.status, 400, `${label} refuses a restore with neither a snapshot nor an id`);
@@ -394,7 +394,7 @@ describe('recovery without a downloaded file', () => {
     }
   });
 
-  test('restore stays admin-only through the durable-store path', async () => {
+  test('restore requires management through the durable-store path', async () => {
     store.rows.length = 0;
     await push(npmfree);
     for (const [label, get] of SIDES) {
@@ -411,9 +411,15 @@ describe('recovery without a downloaded file', () => {
         body: { confirm: true, snapshot_id: 'latest' },
       });
       assert.equal(staff.status, 403, `${label} staff cannot replace the database`);
+      const admin = await call(side.url, '/api/admin/restore', {
+        method: 'POST',
+        token: side.token.admin,
+        body: { confirm: true, snapshot_id: 'latest' },
+      });
+      assert.equal(admin.status, 403, `${label} admin cannot replace the database`);
     }
     // The refusals above must not have restored anything.
-    const listing = await call(npmfree.url, '/api/admin/backups', { token: npmfree.token.admin });
+    const listing = await call(npmfree.url, '/api/admin/backups', { token: npmfree.token.owner });
     assert.equal(listing.status, 200);
   });
 
@@ -425,7 +431,7 @@ describe('recovery without a downloaded file', () => {
     await new Promise((r) => setTimeout(r, 5));
     const second = await push(npmfree);
 
-    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.admin });
+    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     assert.equal(res.status, 200);
     assert.equal(res.json.ok, true);
     assert.deepEqual(res.json.snapshots.map((s) => s.id), [second.json.id, first.json.id], 'newest first');
@@ -453,7 +459,7 @@ describe('a backup that cannot happen says so', () => {
       assert.equal(res.status, 503, `${label} cannot push without a store`);
       assert.match(res.json.error, /SUPABASE_URL|BACKUP_REMOTE_URL/);
 
-      const listing = await call(side.url, '/api/admin/backups', { token: side.token.admin });
+      const listing = await call(side.url, '/api/admin/backups', { token: side.token.owner });
       assert.equal(listing.status, 200, `${label} still answers "what is scheduled?"`);
       assert.equal(listing.json.ok, false);
       assert.match(listing.json.error, /no durable store/i);
@@ -487,7 +493,7 @@ describe('a backup that cannot happen says so', () => {
 
   test('a listing against an unreachable store reports the failure instead of an empty list', async () => {
     setEnv({ BACKUP_REMOTE_URL: 'http://127.0.0.1:1/rest/v1', BACKUP_REMOTE_KEY: 'k' });
-    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.admin });
+    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     assert.equal(res.status, 200);
     assert.equal(res.json.ok, false);
     assert.match(res.json.error, /cannot reach|refused|fetch/i);
@@ -522,7 +528,7 @@ describe('the schedule is visible where an operator looks', () => {
       const pushed = await push(side);
       assert.equal(pushed.status, 200, `${label} push`);
 
-      const res = await call(side.url, '/api/admin/backups', { token: side.token.admin });
+      const res = await call(side.url, '/api/admin/backups', { token: side.token.owner });
       assert.equal(res.status, 200);
       const last = res.json.last_backup;
       assert.ok(last, `${label} the listing carries a last_backup block`);
@@ -541,8 +547,8 @@ describe('the schedule is visible where an operator looks', () => {
     // match exactly (the contract test's job elsewhere, asserted here too
     // because this field is new and the block is derived, not returned raw).
     const [a, b] = await Promise.all([
-      call(sqlite.url, '/api/admin/backups', { token: sqlite.token.admin }),
-      call(npmfree.url, '/api/admin/backups', { token: npmfree.token.admin }),
+      call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner }),
+      call(npmfree.url, '/api/admin/backups', { token: npmfree.token.owner }),
     ]);
     assert.deepEqual(
       Object.keys(a.json.last_backup).sort(),
@@ -556,7 +562,7 @@ describe('the schedule is visible where an operator looks', () => {
     const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
     store.rows.push({ id: 99, created_at: threeHoursAgo, driver: 'sqlite', bytes: 2048, counts: { products: 5 } });
 
-    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.admin });
+    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     const last = res.json.last_backup;
     assert.equal(last.last_backup_at, threeHoursAgo);
     assert.equal(last.stale, true, 'a three-hour-old snapshot is stale');
@@ -570,7 +576,7 @@ describe('the schedule is visible where an operator looks', () => {
 
   test('a store holding nothing says so, instead of claiming "not stale"', async () => {
     store.rows.length = 0;
-    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.admin });
+    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     assert.equal(res.json.ok, true, 'the store answered — it is simply empty');
     const last = res.json.last_backup;
     assert.equal(last.last_backup_at, null);
@@ -589,7 +595,7 @@ describe('the schedule is visible where an operator looks', () => {
     const failed = await push(sqlite);
     assert.equal(failed.status, 503, 'the failing push is reported as a failure');
 
-    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.admin });
+    const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     const last = res.json.last_backup;
     assert.equal(last.last_backup_at, store.rows[0].created_at, 'the good snapshot is still the last backup');
     assert.equal(Number(last.snapshot_id), Number(good.json.id));
@@ -602,14 +608,14 @@ describe('the schedule is visible where an operator looks', () => {
   test('with no store, or an unreachable one, the verdict is unknown rather than "fine"', async () => {
     // No store configured at all: there is nothing to measure.
     clearStoreEnv();
-    let res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.admin });
+    let res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     assert.equal(res.json.last_backup.configured, false);
     assert.equal(res.json.last_backup.stale, null, 'unknown, not false');
     assert.match(res.json.last_backup.reason, /no durable store/i);
 
     // Configured but unreachable: still unmeasurable, and said so.
     setEnv({ BACKUP_REMOTE_URL: 'http://127.0.0.1:1/rest/v1', BACKUP_REMOTE_KEY: 'k' });
-    res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.admin });
+    res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     const last = res.json.last_backup;
     assert.equal(last.configured, true, 'the store is configured — it just cannot be reached');
     assert.equal(last.stale, null, 'an unreadable store is not evidence of a fresh backup');
@@ -617,13 +623,17 @@ describe('the schedule is visible where an operator looks', () => {
     assert.match(last.reason, /cannot reach|refused|fetch/i);
   });
 
-  test('the last backup is only visible to an admin', async () => {
+  test('the last backup is only visible to management', async () => {
     for (const [label, get] of SIDES) {
       const side = get();
       const anon = await call(side.url, '/api/admin/backups');
       assert.equal(anon.status, 401, `${label} anonymous`);
       const staff = await call(side.url, '/api/admin/backups', { token: side.token.staff });
       assert.equal(staff.status, 403, `${label} staff`);
+      const admin = await call(side.url, '/api/admin/backups', { token: side.token.admin });
+      assert.equal(admin.status, 403, `${label} admin`);
+      const owner = await call(side.url, '/api/admin/backups', { token: side.token.owner });
+      assert.equal(owner.status, 200, `${label} owner`);
     }
   });
 

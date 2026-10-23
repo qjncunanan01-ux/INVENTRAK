@@ -36,7 +36,7 @@ async function registerCustomer(side, name) {
 // /api/reports carries the snake_case rollup; /api/analytics/summary the flat
 // camelCase mirror. Assert both stay in lockstep on every read.
 async function summaryOf(side) {
-  const reports = await call(side.url, '/api/reports', { token: side.token.admin });
+  const reports = await call(side.url, '/api/reports', { token: side.token.owner });
   assert.strictEqual(reports.status, 200);
   const flat = await call(side.url, '/api/analytics/summary', { token: side.token.admin });
   assert.strictEqual(flat.status, 200);
@@ -113,7 +113,7 @@ test('analytics summary: customersServed follows the same real-customer rule', a
     assert.ok(Number.isFinite(res.json.customersServed), 'customersServed finite');
     assert.ok(Number.isFinite(res.json.customersPaid), 'customersPaid exposed for the Reports page');
     // The reports payload carries the snake_case mirrors of the same rule.
-    const reports = await call(side.url, '/api/reports', { token: side.token.admin });
+    const reports = await call(side.url, '/api/reports', { token: side.token.owner });
     assert.strictEqual(reports.status, 200);
     assert.strictEqual(reports.json.summary.customers_served, res.json.customersServed, 'reports mirror matches');
     assert.strictEqual(reports.json.summary.customers_paid, res.json.customersPaid, 'paid mirror matches');
@@ -142,13 +142,13 @@ test('customers_registered is the raw account base — rises on signup, orders o
 
 test('audit-trail: status filter, limit and offset work on both backends', async () => {
   for (const side of [sqlite, npmfree]) {
-    const base = await call(side.url, '/api/audit-trail', { token: side.token.admin });
+    const base = await call(side.url, '/api/audit-trail', { token: side.token.owner });
     assert.strictEqual(base.status, 200);
     const all = base.json.data;
     assert.ok(Array.isArray(all));
 
     // limit + offset paginate without losing total.
-    const page = await call(side.url, '/api/audit-trail?limit=2&offset=2', { token: side.token.admin });
+    const page = await call(side.url, '/api/audit-trail?limit=2&offset=2', { token: side.token.owner });
     assert.strictEqual(page.status, 200);
     assert.ok(page.json.data.length <= 2, 'limit respected');
     assert.strictEqual(page.json.pagination.total, all.length, 'total reflects the unfiltered trail');
@@ -158,7 +158,7 @@ test('audit-trail: status filter, limit and offset work on both backends', async
 
     // status filter: the seeded/app events include status details; filter to
     // a lifecycle status and every hit must match.
-    const pending = await call(side.url, '/api/audit-trail?status=pending', { token: side.token.admin });
+    const pending = await call(side.url, '/api/audit-trail?status=pending', { token: side.token.owner });
     assert.strictEqual(pending.status, 200);
     for (const e of pending.json.data) {
       const hit =
@@ -168,7 +168,7 @@ test('audit-trail: status filter, limit and offset work on both backends', async
     }
 
     // Invalid params fall back to defaults instead of erroring.
-    const weird = await call(side.url, '/api/audit-trail?limit=-5&offset=abc&status=', { token: side.token.admin });
+    const weird = await call(side.url, '/api/audit-trail?limit=-5&offset=abc&status=', { token: side.token.owner });
     assert.strictEqual(weird.status, 200);
     assert.ok(Array.isArray(weird.json.data));
 

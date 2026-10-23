@@ -71,6 +71,11 @@ services:
       #   value: xxx
       # - key: SEMAPHORE_SENDER_NAME
       #   value: Sylver's
+      # SMS (PhilSMS; free trial credits, then paid; configure on the backend only):
+      # - key: PHILSMS_API_TOKEN
+      #   value: <PhilSMS API token>
+      # - key: PHILSMS_SENDER_ID
+      #   value: SYLVERS
 
   # ---------- Admin dashboard (static site) ----------
   - type: web

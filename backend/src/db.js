@@ -245,6 +245,23 @@ if (!inquiryColumns.some(c => c.name === 'fulfillment_location_id')) {
 if (!inquiryColumns.some(c => c.name === 'inventory_committed_at')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN inventory_committed_at TEXT');
 }
+for (const [name, ddl] of [
+  ['inventory_reserved_at', 'TEXT'],
+  ['reservation_details', 'TEXT'],
+  ['sale_committed_at', 'TEXT'],
+  ['bulk_discount_amount', 'REAL DEFAULT 0'],
+  ['bulk_discount_eligible_subtotal', 'REAL DEFAULT 0'],
+  ['delivery_fee', 'REAL DEFAULT 0'],
+  ['delivery_schedule', 'TEXT'],
+  ['payment_records', "TEXT DEFAULT '[]'"],
+  ['amount_paid', 'REAL DEFAULT 0'],
+  ['return_requests', "TEXT DEFAULT '[]'"],
+  ['change_request', 'TEXT'],
+]) {
+  if (!inquiryColumns.some(c => c.name === name)) {
+    db.exec(`ALTER TABLE order_inquiries ADD COLUMN ${name} ${ddl}`);
+  }
+}
 const salesColumns = db.prepare('PRAGMA table_info(sales_transactions)').all();
 if (!salesColumns.some(c => c.name === 'customer_id')) {
   db.exec('ALTER TABLE sales_transactions ADD COLUMN customer_id INTEGER');

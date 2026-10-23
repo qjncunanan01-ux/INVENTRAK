@@ -187,6 +187,8 @@ async function runDrill(driver) {
     server = await startServer(driver, dir);
     let admin = await login(server.url, 'admin', 'admin123');
     assert.equal(admin.status, 200, `${driver.name}: admin signs in on a fresh boot`);
+    let owner = await login(server.url, 'owner', 'owner123');
+    assert.equal(owner.status, 200, `${driver.name}: owner signs in on a fresh boot`);
 
     const product = await http(server.url, '/api/products', {
       method: 'POST',
@@ -224,7 +226,7 @@ async function runDrill(driver) {
     assert.equal(inquiry.status, 201, `${driver.name}: marker inquiry submitted (${inquiry.text.slice(0, 200)})`);
 
     // --- 2. SNAPSHOT while all of that exists -------------------------------
-    const frozen = await http(server.url, '/api/admin/backup', { token: admin.json.token });
+    const frozen = await http(server.url, '/api/admin/backup', { token: owner.json.token });
     assert.equal(frozen.status, 200, `${driver.name}: snapshot downloaded`);
     const snapshot = frozen.json;
     assert.equal(snapshot.format, 'inventrak-backup', `${driver.name}: envelope format`);
@@ -251,6 +253,8 @@ async function runDrill(driver) {
     server = await startServer(driver, dir);
     admin = await login(server.url, 'admin', 'admin123');
     assert.equal(admin.status, 200, `${driver.name}: the demo admin is back — the seeder re-creates demo data, which is exactly why the demo data cannot prove recovery`);
+    owner = await login(server.url, 'owner', 'owner123');
+    assert.equal(owner.status, 200, `${driver.name}: the management account is back for restore`);
 
     // Searched by name, and without page/limit so the endpoint answers with a
     // bare array — the marker is unique, so an empty result means gone.
@@ -264,7 +268,7 @@ async function runDrill(driver) {
     // --- 4. RESTORE from the file that outlived the database ----------------
     const restored = await http(server.url, '/api/admin/restore', {
       method: 'POST',
-      token: admin.json.token,
+      token: owner.json.token,
       body: { confirm: true, snapshot: JSON.parse(fs.readFileSync(snapshotFile, 'utf8')) },
     });
     assert.equal(restored.status, 200, `${driver.name}: restore succeeds (${restored.text.slice(0, 300)})`);

@@ -117,6 +117,17 @@ CREATE TABLE IF NOT EXISTS order_inquiries (
   terms_accepted_at TEXT,
   fulfillment_location_id INTEGER,
   inventory_committed_at TEXT,
+  inventory_reserved_at TEXT,
+  reservation_details TEXT,
+  sale_committed_at TEXT,
+  bulk_discount_amount REAL DEFAULT 0,
+  bulk_discount_eligible_subtotal REAL DEFAULT 0,
+  delivery_fee REAL DEFAULT 0,
+  delivery_schedule TEXT,
+  payment_records TEXT DEFAULT '[]',
+  amount_paid REAL DEFAULT 0,
+  return_requests TEXT DEFAULT '[]',
+  change_request TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 

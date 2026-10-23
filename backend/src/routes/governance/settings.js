@@ -1,15 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../../auth-core');
-const { adminOnly, isManagement } = require('../../middleware');
+const { managementOnly, isManagement } = require('../../middleware');
 const settings = require('../../governance/settings');
 const { audit } = require('../../audit');
 
 // GET /api/settings
-router.get('/', authenticateToken, (req, res) => {
-  if (!require('../../roles').ADMIN_TIER.includes(req.user.role)) return res.status(403).json({ error: 'Admin access required' });
-  res.json(settings.getSettings());
-});
+router.get('/', authenticateToken, managementOnly, (req, res) => res.json(settings.getSettings()));
 
 // PUT /api/settings
 router.put('/', authenticateToken, (req, res) => {
