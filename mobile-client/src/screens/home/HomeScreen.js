@@ -1,769 +1,302 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getInventory, getOptimizationAbc, listAllProducts, useSessionUsername} from '../../api';
-import { useCart } from '../../cart-context';
-import { useLoginGate } from '../../login-gate';
-import { buildFlashPicks, dealPricing, stockMapFromInventory } from '../../flash-sale';
-import FlashCarousel from '../../FlashCarousel';
-import { showToast } from '../../toast';
-import FlashSaleHeader from '../../FlashSaleHeader';
-import { useThemeColors } from '../../theme-context';
-import { company } from '../../theme';
-import { categoryIcon } from '../../category-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import PressableScale from '../../PressableScale';
-import WaveHeader from '../../WaveHeader';
-import AnimatedEntry from '../../AnimatedEntry';
-import MotiCard from '../../MotiCard';
+import { getInventory, getOptimizationAbc, imageUrl, listAllProducts, useSessionUsername } from '../../api';
+import { company } from '../../theme';
+import { useThemeColors } from '../../theme-context';
+import { productTitle, stockStatus, stockMapFromInventory } from '../../product-enrichment';
 
 const HOME_CATEGORY_GROUPS = [
+  { label: 'All', icon: 'view-grid-outline', categories: [] },
   {
-    label: 'All',
-    icon: 'view-grid-outline',
-    categories: [],
-  },
-  {
-    label: 'Da Vinci Products',
+    label: 'Da Vinci',
     icon: 'bottle-soda-outline',
-    categories: [
-      'Da Vinci Sauces',
-      'Da Vinci Syrup',
-      'Da Vinci Mixologies',
-      'Da Vinci Powders',
-      'Da Vinci Beverage Mix',
-    ],
+    categories: ['Da Vinci Sauces', 'Da Vinci Syrup', 'Da Vinci Mixologies', 'Da Vinci Powders', 'Da Vinci BeverageMix'],
   },
   {
-    label: 'Drinks & Ingredients',
+    label: 'Drinks',
     icon: 'coffee-outline',
-    categories: [
-      'Torani',
-      'Monin',
-      'Dripp Flavours',
-      'Top Creamery',
-      'Full Cream Milk',
-      'Plant Based Milk',
-      'Whip Cream',
-      'Non Dairy Creamer',
-      'Coffee Beans',
-      'Matcha Powder',
-    ],
+    categories: ['Torani', 'Monin', 'Dripp Flavours', 'Top Creamery', 'Full Cream Milk', 'Plant Based Milk', 'Whip Cream', 'Non Dairy Creamer', 'Coffee Beans', 'MATCHA POWDER'],
   },
   {
     label: 'Food & Baking',
     icon: 'food-outline',
-    categories: [
-      'Spread/Jams/Biscuits',
-      'Chicken Pastil',
-      'Baking Chocolate',
-      'Condensed Milk',
-    ],
+    categories: ['Spread_Jams_Biscuits', 'Chicken Pastil', 'Baking Chocolate', 'Condense Milk'],
   },
-  {
-    label: 'Packaging & Supplies',
-    icon: 'package-variant-closed',
-    categories: [
-      'Cups and Lid',
-    ],
-  },
-  {
-    label: 'Others',
-    icon: 'dots-horizontal-circle-outline',
-    categories: [
-      'Achievers',
-      'Others',
-    ],
-  },
+  { label: 'Packaging', icon: 'package-variant-closed', categories: ['Cups and Lid'] },
+  { label: 'Others', icon: 'dots-horizontal-circle-outline', categories: ['Achievers', 'Others', 'Others1'] },
 ];
+
+function asList(value) {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+}
+
+function money(value) {
+  return `₱${(Number(value) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 export default function HomeScreen({ route, navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  // Guest-first: the catalog opens with no account; the welcome line reflects
-  // the session once a customer logs in.
   const sessionUser = useSessionUsername(route.params?.username || null);
-  const isLoggedIn = !!sessionUser;
-  const { items: cartItems, addItem } = useCart();
-  // Featured-card quick-add is member-only (guests get the login gate).
-  const { requireLogin, gateModal } = useLoginGate(navigation);
   const [featured, setFeatured] = useState([]);
-  const [guestPopupVisible, setGuestPopupVisible] = useState(false);
-  // productId -> total quantity across locations (from the public inventory
-  // API), so each featured card can show an honest In stock / Low / Out tag.
   const [stockMap, setStockMap] = useState({});
-  // Monotonic fetch sequence: drops stale responses when the screen is
-  // blurred/refocused quickly (a slow earlier fetch must not overwrite a
-  // fresher one).
+  const [rankedByAbc, setRankedByAbc] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const fetchSeq = useRef(0);
 
-  const fetchProducts = useCallback(async() => {
+  const fetchHome = useCallback(async() => {
     const seq = ++fetchSeq.current;
-
     try {
-      const [items, abcData, inv] = await Promise.all([
+      const [catalogResponse, abcResponse, inventory] = await Promise.all([
         listAllProducts(),
         getOptimizationAbc().catch(() => []),
         getInventory().catch(() => null),
       ]);
-
       if (seq !== fetchSeq.current) return;
 
-    } catch (err) {
-    // Home still renders without data
+      const catalog = asList(catalogResponse);
+      const abc = asList(abcResponse);
+      const stock = stockMapFromInventory(inventory);
+      const byId = new Map(catalog.map((item) => [Number(item.id), item]));
+      const ranked = abc.map((row) => byId.get(Number(row.id))).filter(Boolean);
+      const ordered = [...ranked, ...catalog.filter((item) => !ranked.some((row) => Number(row.id) === Number(item.id)))];
+      const available = ordered.filter((item) => stock[Number(item.id)] === undefined || stock[Number(item.id)] > 0);
+
+      setFeatured(available.slice(0, 8));
+      setStockMap(stock);
+      setRankedByAbc(ranked.length > 0);
+    } catch {
+      if (seq === fetchSeq.current) {
+        setFeatured([]);
+        setRankedByAbc(false);
+      }
+    } finally {
+      if (seq === fetchSeq.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
-  // Refetch whenever Home regains focus so admin edits (new products, price
-  // changes) appear without killing and reopening the app. Wrapped in a
-  // non-async callback so useFocusEffect never receives a Promise as its
-  // cleanup return value.
-  useFocusEffect(useCallback(() => { fetchProducts(); }, [fetchProducts]));
+  useFocusEffect(useCallback(() => {
+    fetchHome();
+  }, [fetchHome]));
 
-  // Shopee-style: tapping the search bar opens the dedicated Search screen.
-  const openSearch = () => {
-    navigation.navigate('CatalogTab', { screen: 'Search' });
-  };
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchHome();
+  }, [fetchHome]);
+
+  const openCategory = (item) => navigation.navigate('CatalogTab', {
+    screen: 'Products',
+    params: { initialCategory: '', initialCategories: item.categories, initialGroupLabel: item.label },
+  });
+
+  const openProduct = (item) => navigation.navigate('CatalogTab', {
+    screen: 'Products',
+    params: { focusId: item.id },
+  });
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Haikei-style gradient header with wave bottom */}
-        <WaveHeader height={180}>
-          <View style={styles.topRow}>
-            {/* The Sylver symbol sits beside the product name. */}
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
             <View style={styles.brandRow}>
               <View style={styles.brandMarkChip}>
-                <Image
-                  source={company.symbol}
-                  style={styles.brandMark}
-                  resizeMode="contain"
-                  accessibilityLabel="Sylver logo"
-                />
+                <Image source={company.symbol} style={styles.brandMark} resizeMode="contain" accessibilityLabel="Sylver logo" />
               </View>
-              <Text style={styles.brand}>{company.software}</Text>
+              <View>
+                <Text style={styles.brand}>{company.software}</Text>
+                <Text style={styles.tagline}>Restaurant & coffee supplies</Text>
+              </View>
             </View>
-
             <TouchableOpacity
-              style={styles.userStatus}
-              onPress={() => {
-                if (isLoggedIn) {
-                  navigation.navigate('AccountTab');
-                } else {
-                  setGuestPopupVisible(true);
-                }
-              }}
-              activeOpacity={0.7}
-              accessibilityLabel={isLoggedIn ? `Logged in as ${sessionUser}. Tap to view account.` : 'Guest mode. Tap to log in.'}
+              style={styles.accountButton}
+              onPress={() => navigation.navigate('AccountTab')}
               accessibilityRole="button"
+              accessibilityLabel={sessionUser ? `Account for ${sessionUser}` : 'Open account and sign in'}
             >
-              <MaterialCommunityIcons
-                name={isLoggedIn ? 'account-circle' : 'account-circle-outline'}
-                size={32}
-                color="#fff"
-              />
-
-              <View style={styles.userStatusInfo}>
-                <Text
-                  style={styles.userStatusName}
-                  numberOfLines={1}
-                >
-                  {isLoggedIn ? sessionUser : 'Guest'}
-                </Text>
-
-                <Text style={styles.tapToLogin}>
-                  {isLoggedIn ? 'View Account' : 'Tap Here to Log In'}
-                </Text>
-              </View>
+              <MaterialCommunityIcons name="account-outline" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={styles.searchBar}
-            onPress={openSearch}
-            activeOpacity={0.7}
-            accessibilityLabel="Search supplies, brands"
+            style={styles.searchButton}
+            onPress={() => navigation.navigate('CatalogTab', { screen: 'Search' })}
+            activeOpacity={0.8}
             accessibilityRole="search"
+            accessibilityLabel="Search products and brands"
           >
-            <MaterialCommunityIcons
-              name="magnify"
-              size={18}
-              color="rgba(255,255,255,0.7)"
-            />
-
-            <Text style={styles.searchPlaceholder}>
-      Search supplies, brands…
-            </Text>
+            <MaterialCommunityIcons name="magnify" size={21} color={colors.textSecondary} />
+            <Text style={styles.searchPlaceholder}>Search products and brands</Text>
+            <MaterialCommunityIcons name="arrow-right" size={20} color={colors.brandPrimary} />
           </TouchableOpacity>
-        </WaveHeader>
+        </View>
 
-        {/* Promo banner — animated entrance (Watermelon/Motion-Primitives style) */}
-        <MotiCard delay={100} entrance="slide" onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })} style={styles.banner}>
-          <Text style={styles.bannerTag}>WHOLESALE SUPPLIES</Text>
-          <Text style={styles.bannerTitle}>Send an order inquiry today</Text>
-          <Text style={styles.bannerSub}>Get pricing for your café or store</Text>
-        </MotiCard>
-
-        {/* Quick Actions section — animated entrance */}
-        <AnimatedEntry delay={200} preset="fade">
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-          {/* Quick actions. Personal features (Order History, Notifications,
-            Scan Product) are MEMBER-ONLY — hidden from guests. Guests see the
-            public trio plus a Log In tile so the grid stays balanced and the
-            account value is obvious (Shopee/Lazada pattern). */}
-          <View style={styles.quickRow}>
-            {quickActions(isLoggedIn, navigation).map((a, idx) => (
-              <MotiCard
-                key={a.key}
-                delay={250 + idx * 60}
-                entrance="pop"
-                onPress={a.onPress}
-                style={[styles.quickItem, a.primary && styles.quickItemPrimary]}
-              >
-                {/* Shopee-style colored icon disc: each action gets a tinted
-                  circular badge behind its vector icon; the primary CTA
-                  (Log In) gets a solid filled disc instead. */}
-                <View
-                  style={[
-                    styles.quickDisc,
-                    a.primary
-                      ? styles.quickDiscPrimary
-                      : { backgroundColor: a.tint.bg },
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={a.icon}
-                    size={22}
-                    color={a.primary ? '#fff' : a.tint.fg}
-                  />
-                </View>
-                <Text style={[styles.quickLabel, a.primary && styles.quickLabelPrimary]}>{a.label}</Text>
-              </MotiCard>
-            ))}
-          </View>
-          {!isLoggedIn ? (
-            <Text style={styles.guestNudge}>
-    🔒 Sign in to access order history, notifications, and product scanning.
-            </Text>
-          ) : null}
-        </AnimatedEntry>
-
-        {/* Grouped Home categories — animated entrance */}
-        <AnimatedEntry delay={300} preset="slide">
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Categories</Text>
-
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
+          contentContainerStyle={styles.content}
+        >
+          <View style={styles.hero}>
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroEyebrow}>WHOLESALE SUPPLIES</Text>
+              <Text style={styles.heroTitle}>Stock your next creation.</Text>
+              <Text style={styles.heroSubtitle}>Build an order list and ask Sylver’s team for a quote.</Text>
+            </View>
             <TouchableOpacity
-              onPress={() =>
-                navigation.navigate('CatalogTab', {
-                  screen: 'Categories',
-                })
-              }
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.heroButton}
+              onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
+              accessibilityRole="button"
+              accessibilityLabel="Start an order inquiry"
             >
-              <Text style={styles.seeAll}>See all ▸</Text>
+              <Text style={styles.heroButtonText}>Start an inquiry</Text>
+              <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.groupCategoryGrid}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Browse categories</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('CatalogTab', { screen: 'Categories' })} style={styles.textButton}>
+              <Text style={styles.sectionAction}>All</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={colors.brandPrimary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
             {HOME_CATEGORY_GROUPS.map((item) => (
-              <MotiCard
+              <TouchableOpacity
                 key={item.label}
-                delay={350}
-                entrance="fade"
-                onPress={() =>
-                  navigation.navigate('CatalogTab', {
-                    screen: 'Products',
-                    params: {
-                      initialCategory: '',
-                      initialCategories: item.categories,
-                      initialGroupLabel: item.label,
-                    },
-                  })
-                }
-                style={styles.groupCategoryCard}
-                contentStyle={styles.groupCategoryCardInner}
+                style={styles.categoryChip}
+                onPress={() => openCategory(item)}
+                accessibilityRole="button"
                 accessibilityLabel={`Browse ${item.label} products`}
-                accessibilityRole="button"
               >
-                <View style={styles.groupCategoryIcon}>
-                  <MaterialCommunityIcons
-                    name={item.icon}
-                    size={18}
-                    color={colors.brandPrimary}
-                  />
-                </View>
-
-                <Text
-                  style={styles.groupCategoryText}
-                  numberOfLines={2}
-                >
-                  {item.label}
-                </Text>
-              </MotiCard>
+                <MaterialCommunityIcons name={item.icon} size={19} color={colors.brandPrimary} />
+                <Text style={styles.categoryText}>{item.label}</Text>
+              </TouchableOpacity>
             ))}
-          </View>
-        </AnimatedEntry>
+          </ScrollView>
 
-        {/* Flash Sale — Shopee-style urgency: a live countdown to the daily
-            midnight refresh, after which the featured picks rotate to a
-            fresh window of the value-ranked ABC list (see flash-sale.js).
-            'View all top picks' opens the full ranked Recommendations list
-            (same data source, so the carousel and the ranked list always
-            feel connected). Refetches on focus AND when the countdown hits
-            zero, so admin edits and the day rotation show up live. */}
-        {featured.length > 0 ? (
-          <>
-            <FlashSaleHeader
-              onRefresh={fetchProducts}
-              onViewAll={() =>
-                navigation.navigate('CatalogTab', {
-                  screen: 'Recommendations',
-                })
-              }
-            />
-
-            <FlashCarousel
-              items={featured}
-              stockMap={stockMap}
-              onPressItem={(item) =>
-                navigation.navigate('CatalogTab', {
-                  screen: 'Products',
-                  params: { focusId: item.id },
-                })
-              }
-              onAdd={(item) =>
-                requireLogin(() => {
-                  const available = stockMap[Number(item.id)];
-                  const inCart = cartItems.find((entry) => Number(entry.product.id) === Number(item.id))?.qty || 0;
-                  if (!Number.isFinite(Number(available))) {
-                    showToast('Stock is still loading. Refresh and try again.');
-                    return;
-                  }
-                  if (available < inCart + 1) {
-                    showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
-                    return;
-                  }
-                  const d = dealPricing(item);
-
-                  const added = addItem(
-                    item,
-                    1,
-                    d ? d.deal : undefined,
-                    d ? d.original : undefined,
-                    available,
-                  );
-                  if (!added) {
-                    showToast('The cart is loading or has reached its order limit. Please try again.');
-                    return;
-                  }
-
-                  showToast('Added to cart', {
-                    actionLabel: 'View',
-                    onAction: () => navigation.navigate('CartTab'),
-                  });
-                })
-              }
-            />
-          </>
-        ) : (
-          <View style={styles.flashEmpty}>
-            <MaterialCommunityIcons
-              name="sale-outline"
-              size={30}
-              color={colors.brandPrimary}
-            />
-
-            <Text style={styles.flashEmptyTitle}>
-      No deals available right now
-            </Text>
-
-            <Text style={styles.flashEmptyText}>
-      Check back later for new featured offers.
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.spacer} />
-        {/* Honest welcome line: the seeded demo account is NOT logged in on
-            boot — the app always opens as a guest. Show the real username
-            only when a customer actually signs in, never a fake "Customer". */}
-
-      </ScrollView>
-
-      <Modal
-        visible={guestPopupVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setGuestPopupVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.guestModal}>
-
-            <MaterialCommunityIcons
-              name="account-circle-outline"
-              size={48}
-              color={colors.brandPrimary}
-            />
-
-            <Text style={styles.guestModalTitle}>
-              You're browsing as a Guest
-            </Text>
-
-            <Text style={styles.guestModalText}>
-              Log in or create an account to access your account features and continue with ordering.
-            </Text>
-
-            <View style={styles.guestModalButtons}>
-
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setGuestPopupVisible(false)}
-                activeOpacity={0.8}
-                accessibilityLabel="Cancel and close"
-                accessibilityRole="button"
-              >
-                <Text style={styles.cancelButtonText}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.loginButton}
-                onPress={() => {
-                  setGuestPopupVisible(false);
-                  navigation.navigate('Login');
-                }}
-                activeOpacity={0.8}
-                accessibilityLabel="Go to login or sign up"
-                accessibilityRole="button"
-              >
-                <Text style={styles.loginButtonText}>
-                  Log In / Sign Up
-                </Text>
-              </TouchableOpacity>
-
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>{rankedByAbc ? 'Suggested supplies' : 'Browse supplies'}</Text>
+              <Text style={styles.sectionHint}>
+                {rankedByAbc ? 'Ranked from the inventory analysis' : 'Current items from the catalog'}
+              </Text>
             </View>
-
+            <TouchableOpacity onPress={() => navigation.navigate('CatalogTab', { screen: 'Recommendations' })} style={styles.textButton}>
+              <Text style={styles.sectionAction}>View all</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={colors.brandPrimary} />
+            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
 
-      {gateModal}
-    </View>
+          {loading && featured.length === 0 ? (
+            <View style={styles.loading}>
+              <ActivityIndicator color={colors.brandPrimary} />
+              <Text style={styles.mutedText}>Loading supplies…</Text>
+            </View>
+          ) : featured.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productRow}>
+              {featured.map((item) => {
+                const stock = stockMap[Number(item.id)];
+                const stockInfo = stockStatus(stock);
+                const stockColor = stockInfo.tone === 'ok'
+                  ? colors.success
+                  : stockInfo.tone === 'low' ? colors.warning
+                    : stockInfo.tone === 'out' ? colors.error : colors.textSecondary;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.productCard}
+                    onPress={() => openProduct(item)}
+                    activeOpacity={0.82}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${productTitle(item)}, ${money(item.price)}`}
+                  >
+                    {item.image ? (
+                      <Image source={{ uri: imageUrl(item.image) }} style={styles.productImage} resizeMode="contain" />
+                    ) : (
+                      <View style={styles.imagePlaceholder}>
+                        <MaterialCommunityIcons name="package-variant-closed" size={34} color={colors.textSecondary} />
+                      </View>
+                    )}
+                    <Text style={styles.productCategory} numberOfLines={1}>{item.category || 'Supply'}</Text>
+                    <Text style={styles.productName} numberOfLines={2}>{productTitle(item)}</Text>
+                    <Text style={styles.productPrice}>{money(item.price)}</Text>
+                    <Text style={[styles.stockText, { color: stockColor }]}>{stockInfo.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyCard}>
+              <MaterialCommunityIcons name="package-variant-closed" size={26} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>Supplies are unavailable right now. Pull down to refresh.</Text>
+            </View>
+          )}
+          <View style={styles.bottomSpace} />
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
-// Builds the Home quick-action tiles. Public actions stay for everyone;
-// member actions (order history, notifications, scanning) only render for
-// logged-in customers, who also get a Log In tile in their place. `icon` is a
-// MaterialCommunityIcons name (real vector glyph, Shopee/Lazada-style) — the
-// renderer below maps it through the icon component.
-function quickActions(isLoggedIn, navigation) {
-  const go = (screen, params) => navigation.navigate(screen, params);
-  // `tint` drives the Shopee-style colored icon disc: a pastel background
-  // with a deeper accent icon color, picked to stay on-brand with the green
-  // palette while giving each tile its own identity.
-  const publicActions = [
-    { key: 'recs', icon: 'star-circle-outline', label: 'Recommend Supplies', tint: { bg: '#fff3e0', fg: '#f9a825' }, onPress: () => go('CatalogTab', { screen: 'Recommendations' }) },
-    { key: 'inquiry', icon: 'message-text-outline', label: 'Order Inquiry', tint: { bg: '#e8f0fe', fg: '#1565c0' }, onPress: () => go('OrdersTab', { screen: 'OrderInquiry' }) },
-    { key: 'stock', icon: 'store-outline', label: 'Check Product Availability', tint: { bg: '#e0f2f1', fg: '#00796b' }, onPress: () => go('CatalogTab', { screen: 'StockAvailability' }) },
-  ];
-  if (!isLoggedIn) {
-    return publicActions;
-  }
-  return [
-    ...publicActions,
-    { key: 'history', icon: 'clipboard-text-clock-outline', label: 'Order History', tint: { bg: '#e8eaf6', fg: '#3f51b5' }, onPress: () => go('OrdersTab', { screen: 'InquiryHistory' }) },
-    { key: 'notif', icon: 'bell-outline', label: 'Notifications', tint: { bg: '#fde8ec', fg: '#e23744' }, onPress: () => go('OrdersTab', { screen: 'Notifications' }) },
-    { key: 'qr', icon: 'qrcode-scan', label: 'Scan QR', tint: { bg: '#f3e5f5', fg: '#8e24aa' }, onPress: () => go('CatalogTab', { screen: 'QrScan' }) },
-  ];
-}
-
 const createStyles = (colors) => StyleSheet.create({
+  safeArea: { backgroundColor: colors.brandPrimary, flex: 1 },
   container: { backgroundColor: colors.background, flex: 1 },
-
-  fullStickyHeader: {
-    backgroundColor: colors.brandPrimary,
-    elevation: 6,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    zIndex: 20,
-  },
-
-  topRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-
-  brandRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  // White chip: the supplied mark is opaque white, so a plain square logo on
-  // the green header would read as a pasted-on block.
-  brandMarkChip: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 9,
-    height: 28,
-    justifyContent: 'center',
-    padding: 3,
-    width: 28,
-  },
+  header: { backgroundColor: colors.brandPrimary, paddingBottom: 16, paddingHorizontal: 18, paddingTop: 10 },
+  headerRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  brandRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  brandMarkChip: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, height: 38, justifyContent: 'center', padding: 4, width: 38 },
   brandMark: { height: '100%', width: '100%' },
-  brand: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-
-  userStatus: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    width: 145,
-  },
-
-  userStatusInfo: {
-    flex: 1,
-    marginLeft: 7,
-  },
-
-  userStatusName: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-
-  tapToLogin: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 1,
-    textDecorationLine: 'underline',
-  },
-
-  searchBar: {
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    flexDirection: 'row',
-    height: 38,
-    paddingHorizontal: 14,
-    width: '100%',
-  },
-
-  searchPlaceholder: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  sectionRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginRight: 16,
-  },
-  seeAll: { color: colors.brandPrimary, fontSize: 13, fontWeight: '700', marginBottom: 10, marginTop: 8 },
-  banner: {
-    backgroundColor: colors.brandSecondary,
-    borderRadius: 14,
-    margin: 16,
-    padding: 18,
-  },
-  bannerTag: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
-  bannerTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginTop: 4 },
-  bannerSub: { color: '#fff', fontSize: 13, marginTop: 4, opacity: 0.9 },
-  sectionTitle: { color: colors.textPrimary, fontSize: 17, fontWeight: '700', marginBottom: 10, marginLeft: 16, marginTop: 8 },
-  groupCategoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    paddingHorizontal: 16,
-  },
-
-  groupCategoryCard: {
-    backgroundColor: colors.surface,
-    borderColor: 'rgba(0,0,0,0.06)',
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 8,
-    minHeight: 54,
-    width: '48.5%',
-  },
-
-  groupCategoryCardInner: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-
-  groupCategoryIcon: {
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 15,
-    height: 30,
-    justifyContent: 'center',
-    marginRight: 8,
-    width: 30,
-  },
-
-  groupCategoryText: {
-    color: colors.textPrimary,
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 16,
-  },
-  // The chip's row layout lives on the PressableScale inner pressable so the
-  // icon + label sit side by side (the animated shell only carries the box).
-
-  // Card-like surfaces with left-aligned text need the inner pressable to
-  // stretch children full-width (PressableScale centers by default).
-  cardContent: { alignItems: 'stretch' },
-
-  quickRow: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: 16, marginTop: 12 },
-  quickItem: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginBottom: 10,
-    marginRight: '2%',
-    paddingHorizontal: 6,
-    paddingVertical: 14,
-    width: '31%',
-  },
-  quickDisc: {
-    alignItems: 'center',
-    borderRadius: 22,
-    height: 44,
-    justifyContent: 'center',
-    width: 44,
-  },
-  quickDiscPrimary: { backgroundColor: colors.brandPrimary },
-  locationTeaser: {
-    backgroundColor: colors.surface,
-    borderLeftColor: colors.info,
-    borderLeftWidth: 4,
-    borderRadius: 12,
-    marginBottom: 12,
-    marginHorizontal: 16,
-    padding: 14,
-  },
-  locationTeaserTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
-  locationTeaserSub: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
-  quickLabel: { color: colors.textSecondary, fontSize: 11, marginTop: 6, textAlign: 'center' },
-  quickItemPrimary: { backgroundColor: colors.brandPrimary },
-  quickLabelPrimary: { color: '#fff', fontWeight: '700' },
-  guestNudge: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 4,
-    marginHorizontal: 16,
-    marginTop: -2,
-  },
-  spacer: { height: 16 },
-
-  flashEmpty: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: 'rgba(0,0,0,0.06)',
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 16,
-    marginHorizontal: 16,
-    marginTop: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-  },
-
-  flashEmptyTitle: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-
-  flashEmptyText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-
-  modalOverlay: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-
-  guestModal: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    maxWidth: 360,
-    padding: 24,
-    width: '100%',
-  },
-
-  guestModalTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 12,
-    textAlign: 'center',
-  },
-
-  guestModalText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 22,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-
-  guestModalButtons: {
-    flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-  },
-
-  cancelButton: {
-    alignItems: 'center',
-    borderColor: colors.brandPrimary,
-    borderRadius: 10,
-    borderWidth: 1,
-    flex: 1,
-    paddingVertical: 12,
-  },
-
-  cancelButtonText: {
-    color: colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  loginButton: {
-    alignItems: 'center',
-    backgroundColor: colors.brandPrimary,
-    borderRadius: 10,
-    flex: 1.5,
-    paddingVertical: 12,
-  },
-
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
+  brand: { color: '#fff', fontSize: 20, fontWeight: '800', letterSpacing: 0.2 },
+  tagline: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 1 },
+  accountButton: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
+  searchButton: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 14, flexDirection: 'row', gap: 10, height: 50, paddingHorizontal: 14 },
+  searchPlaceholder: { color: colors.textSecondary, flex: 1, fontSize: 15 },
+  content: { paddingBottom: 12, paddingHorizontal: 18, paddingTop: 18 },
+  hero: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 18, borderWidth: 1, marginBottom: 26, overflow: 'hidden', padding: 18 },
+  heroCopy: { marginBottom: 16 },
+  heroEyebrow: { color: colors.brandPrimary, fontSize: 12, fontWeight: '800', letterSpacing: 0.9 },
+  heroTitle: { color: colors.textPrimary, fontSize: 23, fontWeight: '800', lineHeight: 29, marginTop: 6 },
+  heroSubtitle: { color: colors.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 6 },
+  heroButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: colors.brandPrimary, borderRadius: 12, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 48, paddingHorizontal: 16 },
+  heroButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, marginTop: 4 },
+  sectionTitle: { color: colors.textPrimary, fontSize: 18, fontWeight: '800' },
+  sectionHint: { color: colors.textSecondary, fontSize: 12, marginTop: 3 },
+  textButton: { alignItems: 'center', flexDirection: 'row', minHeight: 48, paddingLeft: 8 },
+  sectionAction: { color: colors.brandPrimary, fontSize: 14, fontWeight: '700' },
+  categoryRow: { gap: 9, paddingBottom: 24, paddingRight: 4 },
+  categoryChip: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, minHeight: 48, paddingHorizontal: 13 },
+  categoryText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  productRow: { gap: 12, paddingBottom: 8, paddingRight: 4 },
+  productCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, width: 172 },
+  productImage: { height: 116, marginBottom: 10, width: '100%' },
+  imagePlaceholder: { alignItems: 'center', backgroundColor: colors.background, borderRadius: 12, height: 116, justifyContent: 'center', marginBottom: 10 },
+  productCategory: { color: colors.textSecondary, fontSize: 11, marginBottom: 4 },
+  productName: { color: colors.textPrimary, fontSize: 14, fontWeight: '700', lineHeight: 19, minHeight: 38 },
+  productPrice: { color: colors.brandPrimary, fontSize: 16, fontWeight: '800', marginTop: 8 },
+  stockText: { fontSize: 12, fontWeight: '700', marginTop: 5 },
+  loading: { alignItems: 'center', flexDirection: 'row', gap: 10, minHeight: 120, paddingHorizontal: 6 },
+  mutedText: { color: colors.textSecondary, fontSize: 13 },
+  emptyCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 12, minHeight: 88, padding: 16 },
+  emptyText: { color: colors.textSecondary, flex: 1, fontSize: 13, lineHeight: 19 },
+  bottomSpace: { height: 20 },
 });

@@ -1,5 +1,5 @@
 // Tiny global toast (Shopee/Lazada "added to cart" pattern). Actions that
-// used to be silent — the PLP quick-add +, flash-sale + — now pop a small
+// used to be silent — the product-list quick-add now pops a small
 // pill at the bottom of the screen with optional "View" shortcut.
 //
 // Pure module state + subscription (same pattern as the session store), so

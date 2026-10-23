@@ -139,7 +139,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
   // visit must not re-add after the customer edited their quantities).
   const prefilledRef = useRef(null);
   // Live set of cart product ids, used to skip products the deep link already
-  // added (e.g. "Buy Now" pre-adds from the PDP before navigating here).
+  // added (the product page adds the item before navigating here).
   const cartIdsRef = useRef(new Set());
   useEffect(() => {
     cartIdsRef.current = new Set(items.map((i) => Number(i.product.id)));
@@ -153,7 +153,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
     if (!key || prefilledRef.current === key) return;
     prefilledRef.current = key;
     const addOnce = (p) => {
-      // Never double-count: "Buy Now" already added the item on the PDP, and
+      // Never double-count: the product page already added the item, and
       // a re-entry to this screen must not re-add an item the customer edited.
       if (!p || cartIdsRef.current.has(Number(p.id))) return;
       const stock = stockById[Number(p.id)];
@@ -165,7 +165,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
         showToast(`${p.name} is out of stock and was not added`);
         return;
       }
-      if (!addItem(p, 1, undefined, undefined, stock)) {
+      if (!addItem(p, 1, stock)) {
         showToast('Stock changed or the cart has reached its order limit. Refresh and try again.');
         return;
       }
@@ -195,28 +195,22 @@ export default function OrderInquiryScreen({ route, navigation }) {
     }
   }, [isLoggedIn, sessionUser, prefilledFor]);
 
+  const catalogById = useMemo(() => new Map(catalog.map((product) => [Number(product.id), product])), [catalog]);
   const selectedItems = useMemo(
     () => items.map((i) => {
-      // Unit price: the deal snapshot when added as a flash pick, else the
-      // catalog price — so the checkout total matches what the customer saw.
-      const price = COMPANY_DEMO
-        ? Number(i.product.price) || 0
-        : Number(i.price) > 0 ? Number(i.price) : Number(i.product.price) || 0;
-      // Pre-discount price for deal items (snapshotted at add-to-cart), so the
-      // order record carries the discount applied. Omitted for non-deals.
-      const original = Number(i.original_price) > 0 ? Number(i.original_price) : null;
+      const product = catalogById.get(Number(i.product.id)) || i.product;
+      const price = Number(product.price) || 0;
       return {
-        id: i.product.id,
-        name: productTitle(i.product),
+        id: product.id,
+        name: productTitle(product),
         qty: i.qty,
         price,
-        original_price: original !== null && original > price ? original : null,
-        category: i.product.category || '',
+        category: product.category || '',
         // Line total (what the customer is charged for this line).
         subtotal: Math.round(price * i.qty * 100) / 100,
       };
     }),
-    [items],
+    [items, catalogById],
   );
 
   const checkoutSubtotal = selectedItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -266,16 +260,13 @@ export default function OrderInquiryScreen({ route, navigation }) {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone.trim() || null,
-        // Structured line items: name + qty + the unit price actually charged
-        // (the deal price for today's picks) + the pre-discount original — the
-        // backend stores these verbatim so the admin sees the discount applied
-        // and the total matches the customer's bill.
+        // Use the latest catalog values for the inquiry estimate. Store staff
+        // confirm the final price before approving the order.
         products: selectedItems.map((item) => ({
           id: item.id,
           name: item.name,
           qty: item.qty,
           price: item.price,
-          ...(item.original_price ? { original_price: item.original_price } : {}),
         })),
         estimated_cost: estimatedCost,
         notes,

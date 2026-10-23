@@ -8,35 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { listAllProducts, listCategories } from '../../api';
+import { listAllProducts } from '../../api';
 import { useThemeColors } from '../../theme-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { categoryIcon } from '../../category-icons';
-
-const DEFAULT_CATEGORIES = [
-  'Da Vinci Sauces',
-  'Da Vinci Syrup',
-  'Da Vinci Mixologies',
-  'Da Vinci Powders',
-  'Da Vinci Beverage Mix',
-  'Torani',
-  'Monin',
-  'Dripp Flavours',
-  'Top Creamery',
-  'Full Cream Milk',
-  'Plant Based Milk',
-  'Whip Cream',
-  'Non Dairy Creamer',
-  'Coffee Beans',
-  'Cups and Lid',
-  'Spread/Jams/Biscuits',
-  'Achievers',
-  'Chicken Pastil',
-  'Baking Chocolate',
-  'Condensed Milk',
-  'Matcha Powder',
-  'Others',
-];
 
 export default function CategoriesScreen({ navigation }) {
   const { colors } = useThemeColors();
@@ -48,22 +23,12 @@ export default function CategoriesScreen({ navigation }) {
 
   const fetchData = useCallback(async() => {
     try {
-      const [catData, products] = await Promise.all([
-        listCategories(),
-        listAllProducts(),
-      ]);
-      const apiCats = Array.isArray(catData) ? catData : [];
-
-      const cats = [
-        ...DEFAULT_CATEGORIES,
-        ...apiCats.filter((cat) => !DEFAULT_CATEGORIES.includes(cat)),
-      ];
+      const products = await listAllProducts();
       const c = {};
-      cats.forEach((name) => { c[name] = 0; });
       products.forEach((p) => {
-        if (p.category && c[p.category] !== undefined) c[p.category] += 1;
+        if (p.category) c[p.category] = (c[p.category] || 0) + 1;
       });
-      setCategories(cats);
+      setCategories(Object.keys(c).sort((a, b) => a.localeCompare(b)));
       setCounts(c);
     } catch (err) {
       // Grid still renders with whatever loaded
@@ -87,10 +52,6 @@ export default function CategoriesScreen({ navigation }) {
     });
   };
 
-  const tiles = useMemo(() => {
-    return [...categories];
-  }, [categories]);
-
   if (loading && !refreshing) {
     return (
       <View style={styles.center}>
@@ -102,10 +63,10 @@ export default function CategoriesScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Browse by Category</Text>
-      <Text style={styles.subtitle}>{tiles.length} categories</Text>
+      <Text style={styles.subtitle}>{categories.length} categories</Text>
 
       <FlatList
-        data={tiles}
+        data={categories}
         numColumns={2}
         keyExtractor={(item) => item}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Image,
   Modal,
@@ -12,27 +11,22 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { getInventory, getOptimizationAbc, imageUrl, listAllProducts } from '../../api';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { getInventory, imageUrl, listAllProducts } from '../../api';
 import { useCart } from '../../cart-context';
 import { MODAL_ANIMATION } from '../../Dialog';
 import { useLoginGate } from '../../login-gate';
 import { showToast } from '../../toast';
-import { buildFlashPicks, dealPricing, stockMapFromInventory } from '../../flash-sale';
 import {
-  bulkTiers,
-  describeProduct,
-  moqOf,
-  productRating,
   productTitle,
   similarProducts,
+  stockMapFromInventory,
   stockStatus,
 } from '../../product-enrichment';
 import { useThemeColors } from '../../theme-context';
 import AnimatedEntry from '../../AnimatedEntry';
 
 const SORT_OPTIONS = [
-  { key: 'default', label: 'Featured' },
+  { key: 'default', label: 'Default' },
   { key: 'name', label: 'Name A–Z' },
   { key: 'priceAsc', label: 'Price ↑' },
   { key: 'priceDesc', label: 'Price ↓' },
@@ -42,27 +36,14 @@ const SORT_OPTIONS = [
 // Low stock, red Out of stock (same <25 threshold as the PDP + carousel).
 // Missing stock data shows nothing (stock feed not loaded yet) rather than a
 // misleading badge.
-function StockPill({ total, styles }) {
+function StockPill({ total, styles, colors }) {
   if (total === undefined || total === null) return null;
   const status = stockStatus(total);
   const color =
-    status.tone === 'out' ? '#d32f2f' : status.tone === 'low' ? '#f9a825' : '#2e7d32';
+    status.tone === 'out' ? colors.error : status.tone === 'low' ? colors.warning : colors.success;
   return (
     <View style={[styles.stockPillSm, { borderColor: color }]} accessibilityLabel={`${status.label}`}>
       <Text style={[styles.stockPillSmText, { color }]}>{status.label}</Text>
-    </View>
-  );
-}
-
-// Small deal-price row shared by the PDP and the cross-sell cards: the day's
-// fake sale price (red) + struck original + -% tag (Shopee flash look).
-function DealPrice({ deal, size = 'md', styles }) {
-  if (!deal) return null;
-  return (
-    <View style={styles.dealRow} accessible accessibilityLabel={`Deal price P${deal.deal}, originally P${deal.original}, ${deal.pct} percent off`}>
-      <Text style={[styles.dealPrice, size === 'lg' && styles.dealPriceLg]}>P{deal.deal}</Text>
-      <Text style={styles.dealOriginal}>P{deal.original}</Text>
-      <Text style={styles.dealOff}>-{deal.pct}%</Text>
     </View>
   );
 }
@@ -85,10 +66,6 @@ export default function ProductScreen({ route, navigation }) {
   const [selected, setSelected] = useState(null);
   const [locStock, setLocStock] = useState(null);
   const [addedToCart, setAddedToCart] = useState(null);
-  // Today's flash picks (id set) — the PDP shows the 🔥 Deal of the day price
-  // ONLY for items that are actually in today's rotation, so the detail page
-  // matches the Home/Recommendations carousels exactly (same helper + inputs).
-  const [pickIds, setPickIds] = useState(new Set());
   // Live per-product total stock (productId -> units) from /api/inventory —
   // powers the In stock / Low stock / Out of stock pills on the grid cards.
   const [stockMap, setStockMap] = useState({});
@@ -101,7 +78,7 @@ export default function ProductScreen({ route, navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const tryAddItem = (product, price, originalPrice) => {
+  const tryAddItem = (product) => {
     const available = stockMap[Number(product && product.id)];
     if (!Number.isFinite(Number(available))) {
       showToast('Stock is still loading. Refresh and try again.');
@@ -112,7 +89,7 @@ export default function ProductScreen({ route, navigation }) {
       showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
       return false;
     }
-    if (!addItem(product, 1, price, originalPrice, available)) {
+    if (!addItem(product, 1, available)) {
       showToast('The cart is loading or has reached its order limit. Please try again.');
       return false;
     }
@@ -121,25 +98,14 @@ export default function ProductScreen({ route, navigation }) {
 
   const fetchProducts = useCallback(async() => {
     try {
-      // Parallel: full catalog (pages past the 100-row clamp), ABC ranking and
-      // stock levels — the last two are what determine today's flash picks,
-      // so the PDP can show the same deal pricing as the carousels.
-      const [items, abcData, inv] = await Promise.all([
+      const [items, inv] = await Promise.all([
         listAllProducts(),
-        getOptimizationAbc().catch(() => []),
         getInventory().catch(() => null),
       ]);
       setProducts(items);
-      const abc = abcData && abcData.data ? abcData.data : (Array.isArray(abcData) ? abcData : []);
-      const stock = stockMapFromInventory(inv);
-      setStockMap(stock);
-      setPickIds(new Set(buildFlashPicks(abc, items, stock).map((p) => Number(p.id))));
+      setStockMap(stockMapFromInventory(inv));
     } catch (err) {
-      // Toast (not Alert.alert) so the failure is visible on react-native-web
-      // too — Alert is a silent no-op there, and this is the catalog's only
-      // error surface.
       showToast('Failed to load products. Pull down to retry.');
-      Alert.alert('Error', 'Failed to load products. Please pull down to retry.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -231,7 +197,7 @@ export default function ProductScreen({ route, navigation }) {
     else if (sort === 'priceAsc') list = [...list].sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
     else if (sort === 'priceDesc') list = [...list].sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
     return list;
-  }, [products, filter, category, sort]);
+  }, [products, filter, category, categoryGroup, groupLabel, sort]);
 
   // First-load skeleton: a ghost of the real catalog (search bar + chips +
   // a card grid) instead of a bare spinner, so the layout is stable and the
@@ -256,14 +222,7 @@ export default function ProductScreen({ route, navigation }) {
 
   // ---- PDP: sticky "Send Inquiry" bar (Shopee/Lazada pattern) ----
   if (selected) {
-    // Derived, deterministic selling-point details (see product-enrichment.js).
-    const rating = productRating(selected);
-    const blurb = describeProduct(selected);
-    const tiers = bulkTiers(selected);
-    const moq = moqOf(selected);
-    // Today's deal price ONLY if this item is one of today's flash picks —
-    // matches the Home/Recommendations carousels (same helper + day seed).
-    const deal = pickIds.has(Number(selected.id)) ? dealPricing(selected) : null;
+    const description = String(selected.description || '').trim();
     const totalStock = locStock
       ? Object.keys(locStock.item.locations || {}).reduce(
         (s, k) => s + (Number(locStock.item.locations[k]) || 0),
@@ -273,8 +232,6 @@ export default function ProductScreen({ route, navigation }) {
     const status = stockStatus(totalStock);
     const stockColor =
       status.tone === 'out' ? colors.error : status.tone === 'low' ? colors.warning : colors.success;
-    const filled = Math.round(rating.rating);
-    const stars = '★'.repeat(filled) + '☆'.repeat(5 - filled);
 
     return (
       <View style={styles.container}>
@@ -288,45 +245,21 @@ export default function ProductScreen({ route, navigation }) {
               <Image source={{ uri: imageUrl(selected.image) }} style={styles.detailImage} resizeMode="contain" />
             ) : null}
             <Text style={styles.detailTitle}>{productTitle(selected)}</Text>
-            <View style={styles.ratingRow}>
-              <Text style={styles.ratingStars}>{stars}</Text>
-              <Text style={styles.ratingText}>{rating.rating} ({rating.reviews} reviews)</Text>
-            </View>
             <Text style={styles.detailCategory}>{selected.category}</Text>
 
-            {/* Price area: the day's deal (red + struck original + -%) when the
-                item is a flash pick, otherwise the plain catalog price. */}
-            {deal ? (
-              <View>
-                <DealPrice deal={deal} size="lg" styles={styles} />
-                <View style={styles.dealChip}>
-                  <Text style={styles.dealChipText}>🔥 Deal of the day</Text>
-                </View>
-              </View>
-            ) : (
-              <Text style={styles.detailPrice}>P{selected.price}</Text>
-            )}
-            {/* The cart snapshots the DEAL price for pick items so the basket
-                + checkout total match what the customer saw — the carousel's
-                fake sale is honored end-to-end, not just shown. */}
+            <Text style={styles.detailPrice}>₱{Number(selected.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
 
             <View style={styles.sellerRow}>
-              <Text style={styles.sellerText}>✔ Sold & shipped by Sylver Restaurant and Coffee Supplies</Text>
+              <Text style={styles.sellerText}>Supplied by Sylver Restaurant and Coffee Supplies</Text>
             </View>
 
-            <Text style={styles.detailDesc}>{blurb}</Text>
+            {description ? <Text style={styles.detailDesc}>{description}</Text> : null}
 
             <View style={styles.detailRow}><Text style={styles.detailLabel}>Brand:</Text><Text>{selected.brand || '-'}</Text></View>
             <View style={styles.detailRow}><Text style={styles.detailLabel}>Size:</Text><Text>{selected.size || '-'}</Text></View>
             <View style={styles.detailRow}><Text style={styles.detailLabel}>Unit:</Text><Text>{selected.unit || 'pcs'}</Text></View>
 
-            {/* MOQ + honest stock signal (derived from live inventory) */}
             <View style={styles.metaRow}>
-              <View style={styles.moqPill}>
-                <Text style={styles.moqText}>
-                  MOQ: {moq} {selected.unit || 'pcs'}{moq > 1 ? 's' : null}
-                </Text>
-              </View>
               {totalStock !== undefined ? (
                 <View style={[styles.stockPill, { borderColor: stockColor }]}>
                   <Text style={[styles.stockText, { color: stockColor }]}>
@@ -336,23 +269,9 @@ export default function ProductScreen({ route, navigation }) {
               ) : null}
             </View>
 
-            {/* Wholesale tiers — the supplier's "buy more, save" story */}
-            {tiers.length > 0 ? (
-              <View style={styles.tierCard}>
-                <Text style={styles.tierTitle}>💰 Wholesale pricing — buy more, save</Text>
-                {tiers.map((t) => (
-                  <View key={t.qty} style={styles.tierRow}>
-                    <Text style={styles.tierLabel}>{t.label}</Text>
-                    <Text style={styles.tierSave}>−{t.savePct}%</Text>
-                    <Text style={styles.tierPrice}>P{t.unitPrice}/unit</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
             {/* Multi-location availability */}
             <View style={styles.locCard}>
-              <Text style={styles.locTitle}>🏬 Available stock per location</Text>
+              <Text style={styles.locTitle}>Available stock by location</Text>
               {locStock ? (
                 locStock.locations.map((l) => {
                   const name = typeof l === 'object' ? l.name : l;
@@ -369,47 +288,39 @@ export default function ProductScreen({ route, navigation }) {
               )}
             </View>
 
-            {/* Cross-sell strip: same category first, so a customer looking at
-                a syrup can grab the matching flavor without hunting. */}
+            {/* Related items are based on shared product details, not order history. */}
             {sim.length > 0 ? (
               <View style={styles.simSection}>
-                <Text style={styles.simTitle}>🛒 Customers also ordered</Text>
+                <Text style={styles.simTitle}>Similar items</Text>
                 <FlatList
                   horizontal
                   data={sim}
                   keyExtractor={(item, index) => item?.id ?? item?.name ?? index}
                   showsHorizontalScrollIndicator={false}
-                  renderItem={({ item }) => {
-                    const simDeal = pickIds.has(Number(item.id)) ? dealPricing(item) : null;
-                    return (
-                      <TouchableOpacity style={styles.simCard} onPress={() => setSelected(item)}>
-                        {item.image ? (
-                          <Image source={{ uri: imageUrl(item.image) }} style={styles.simImage} resizeMode="contain" />
-                        ) : null}
-                        <Text style={styles.simName} numberOfLines={2}>{productTitle(item)}</Text>
-                        {simDeal ? (
-                          <DealPrice deal={simDeal} styles={styles} />
-                        ) : (
-                          <Text style={styles.simPrice}>P{item.price}</Text>
-                        )}
-                        <TouchableOpacity
-                          style={styles.simAdd}
-                          onPress={() =>
-                            requireLogin(() => {
-                              if (!tryAddItem(item, simDeal ? simDeal.deal : undefined, simDeal ? simDeal.original : undefined)) return;
-                              showToast('Added to cart', {
-                                actionLabel: 'View',
-                                onAction: () => navigation.navigate('CartTab'),
-                              });
-                            })
-                          }
-                          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                        >
-                          <Text style={styles.simAddText}>+</Text>
-                        </TouchableOpacity>
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={styles.simCard} onPress={() => setSelected(item)}>
+                      {item.image ? (
+                        <Image source={{ uri: imageUrl(item.image) }} style={styles.simImage} resizeMode="contain" />
+                      ) : null}
+                      <Text style={styles.simName} numberOfLines={2}>{productTitle(item)}</Text>
+                      <Text style={styles.simPrice}>₱{Number(item.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                      <TouchableOpacity
+                        style={styles.simAdd}
+                        onPress={() =>
+                          requireLogin(() => {
+                            if (!tryAddItem(item)) return;
+                            showToast('Added to cart', {
+                              actionLabel: 'View',
+                              onAction: () => navigation.navigate('CartTab'),
+                            });
+                          })
+                        }
+                        hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                      >
+                        <Text style={styles.simAddText}>+</Text>
                       </TouchableOpacity>
-                    );
-                  }}
+                    </TouchableOpacity>
+                  )}
                 />
               </View>
             ) : null}
@@ -421,7 +332,7 @@ export default function ProductScreen({ route, navigation }) {
             style={styles.addCartBtn}
             onPress={() =>
               requireLogin(() => {
-                if (!tryAddItem(selected, deal ? deal.deal : undefined, deal ? deal.original : undefined)) return;
+                if (!tryAddItem(selected)) return;
                 setAddedToCart(selected);
               })
             }
@@ -434,17 +345,17 @@ export default function ProductScreen({ route, navigation }) {
             style={styles.stickyBtn}
             onPress={() =>
               requireLogin(() => {
-                if (!tryAddItem(selected, deal ? deal.deal : undefined, deal ? deal.original : undefined)) return;
+                if (!tryAddItem(selected)) return;
                 navigation.navigate('OrdersTab', {
                   screen: 'OrderInquiry',
                   params: { preselectId: selected.id },
                 });
               })
             }
-            accessibilityLabel="Buy now"
+            accessibilityLabel="Request a quote"
             accessibilityRole="button"
           >
-            <Text style={styles.stickyBtnText}>Buy Now</Text>
+            <Text style={styles.stickyBtnText}>Request a quote</Text>
           </TouchableOpacity>
         </View>
         {gateModal}
@@ -463,19 +374,7 @@ export default function ProductScreen({ route, navigation }) {
                 <Text style={styles.addedGlyph}>🛒</Text>
                 <Text style={styles.addedTitle}>Added to cart</Text>
                 <Text style={styles.addedName} numberOfLines={2}>{productTitle(addedToCart)}</Text>
-                {/* The confirmation shows the same price the customer saw: the
-                    deal price when this item is a flash pick, else the plain
-                    catalog price — so the checkout path matches the carousel. */}
-                {pickIds.has(Number(addedToCart.id)) ? (
-                  <View style={styles.addedDealWrap}>
-                    <DealPrice deal={dealPricing(addedToCart)} size="lg" styles={styles} />
-                    <View style={styles.dealChip}>
-                      <Text style={styles.dealChipText}>🔥 Deal of the day</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <Text style={styles.addedPrice}>P{addedToCart.price}</Text>
-                )}
+                <Text style={styles.addedPrice}>₱{Number(addedToCart.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                 <TouchableOpacity
                   style={[styles.addedBtn, styles.addedBtnPrimary]}
                   onPress={() => {
@@ -516,16 +415,6 @@ export default function ProductScreen({ route, navigation }) {
           onChangeText={setFilter}
           autoCapitalize="none"
         />
-        {/* Scan shortcut inside the search bar (Lazada/Shopee pattern): tap to
-            open the QR scanner — a product tag opens the product instantly. */}
-        <TouchableOpacity
-          style={styles.scanBtn}
-          onPress={() => navigation.navigate('QrScan')}
-          accessibilityLabel="Scan a product QR code"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <MaterialCommunityIcons name="qrcode-scan" size={22} color={colors.brandPrimary} />
-        </TouchableOpacity>
       </View>
 
       {/* Category chips: horizontal ScrollView (not FlatList) — FlatList rows
@@ -595,54 +484,40 @@ export default function ProductScreen({ route, navigation }) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
         columnWrapperStyle={styles.rowWrap}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item, index }) => {
-          const cardDeal = pickIds.has(Number(item.id)) ? dealPricing(item) : null;
-          return (
-            <AnimatedEntry delay={Math.min(index * 60, 480)} preset="pop" duration={350} style={styles.gridCell}>
-              <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} accessibilityLabel={`${item.name}, ${item.category}, P${item.price}`} accessibilityRole="button">
-                <View style={styles.cardTop}>
-                  {item.image ? (
-                    <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="contain" />
-                  ) : null}
-                  {/* Quick-add (+) corner button, Shopee-style: adds without
+        renderItem={({ item, index }) => (
+          <AnimatedEntry delay={Math.min(index * 60, 480)} preset="pop" duration={350} style={styles.gridCell}>
+            <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} accessibilityLabel={`${item.name}, ${item.category}, ₱${item.price}`} accessibilityRole="button">
+              <View style={styles.cardTop}>
+                {item.image ? (
+                  <Image source={{ uri: imageUrl(item.image) }} style={styles.cardImage} resizeMode="contain" />
+                ) : null}
+                {/* Quick-add (+) corner button, Shopee-style: adds without
                     leaving the grid. Guests get the login gate instead. */}
-                  <TouchableOpacity
-                    style={styles.quickAdd}
-                    onPress={() =>
-                      requireLogin(() => {
-                        if (!tryAddItem(item, cardDeal ? cardDeal.deal : undefined, cardDeal ? cardDeal.original : undefined)) return;
-                        showToast('Added to cart', {
-                          actionLabel: 'View',
-                          onAction: () => navigation.navigate('CartTab'),
-                        });
-                      })
-                    }
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    accessibilityLabel={`Add ${item.name} to cart`}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.quickAddText}>+</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.cardName} numberOfLines={2}>{productTitle(item)}</Text>
-                </View>
-                <Text style={styles.cardMeta} numberOfLines={1}>{item.category}</Text>
-                {/* Today's picks show the flash deal price right on the card, so
-                  the grid previews what the detail page will charge. */}
-                {cardDeal ? (
-                  <DealPrice deal={cardDeal} styles={styles} />
-                ) : (
-                  <Text style={styles.cardPrice}>P{item.price}</Text>
-                )}
-                <View style={styles.cardBottom}>
-                  {/* Stock-status pill: customer Stock Status Display requirement
-                    (In stock / Low stock / Out of stock) on the catalog grid. */}
-                  <StockPill total={stockMap[Number(item.id)]} styles={styles} />
-                  <Text style={styles.cardRating}>★ {productRating(item).rating}</Text>
-                </View>
-              </TouchableOpacity>
-            </AnimatedEntry>
-          );
-        }}
+                <TouchableOpacity
+                  style={styles.quickAdd}
+                  onPress={() =>
+                    requireLogin(() => {
+                      if (!tryAddItem(item)) return;
+                      showToast('Added to cart', {
+                        actionLabel: 'View',
+                        onAction: () => navigation.navigate('CartTab'),
+                      });
+                    })
+                  }
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityLabel={`Add ${item.name} to cart`}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.quickAddText}>+</Text>
+                </TouchableOpacity>
+                <Text style={styles.cardName} numberOfLines={2}>{productTitle(item)}</Text>
+              </View>
+              <Text style={styles.cardMeta} numberOfLines={1}>{item.category}</Text>
+              <Text style={styles.cardPrice}>₱{Number(item.price || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+              <StockPill total={stockMap[Number(item.id)]} styles={styles} colors={colors} />
+            </TouchableOpacity>
+          </AnimatedEntry>
+        )}
         ListEmptyComponent={<Text style={styles.empty}>No products found.</Text>}
       />
       {gateModal}
@@ -653,24 +528,26 @@ export default function ProductScreen({ route, navigation }) {
 const createStyles = (colors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1, padding: 16 },
   searchWrap: { alignItems: 'center', flexDirection: 'row', marginBottom: 10 },
-  input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, flex: 1, fontSize: 15, padding: 12, paddingRight: 44 },
-  scanBtn: { padding: 6, position: 'absolute', right: 6 },
+  input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, color: colors.textPrimary, flex: 1, fontSize: 15, minHeight: 48, paddingHorizontal: 14 },
   // Explicit height (>= 40px tap target) + centered chips — the row can never
   // collapse into the sort row / count text on any platform or width.
-  chipList: { flexGrow: 0, flexShrink: 0, height: 42, marginBottom: 4 },
+  chipList: { flexGrow: 0, flexShrink: 0, height: 52, marginBottom: 4 },
   chipRow: { alignItems: 'center', paddingRight: 8 },
-  chip: { backgroundColor: colors.surface, borderColor: 'rgba(0,0,0,0.06)', borderRadius: 16, borderWidth: 1, marginRight: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  chip: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, justifyContent: 'center', marginRight: 8, minHeight: 48, paddingHorizontal: 14 },
   chipActive: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
   chipText: { color: colors.textPrimary, fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: '#fff' },
-  sortRow: { flexGrow: 0, flexShrink: 0, height: 36, marginBottom: 8 },
+  sortRow: { flexGrow: 0, flexShrink: 0, height: 52, marginBottom: 8 },
   sortRowContent: { alignItems: 'center' },
   sortChip: {
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 14,
     borderWidth: 1,
+    justifyContent: 'center',
     marginRight: 8,
+    minHeight: 48,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
@@ -688,8 +565,10 @@ const createStyles = (colors) => StyleSheet.create({
   card: {
     alignSelf: 'stretch',
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    elevation: 2,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    elevation: 1,
     marginBottom: 12,
     padding: 12,
     shadowColor: '#000',
@@ -702,33 +581,13 @@ const createStyles = (colors) => StyleSheet.create({
   // on white, so letterboxing blends invisibly and every product renders at
   // the same visual size. 'cover' zoom-crops each photo differently, which
   // read as misaligned/overlapping images in the grid.
-  cardImage: { backgroundColor: '#ffffff', borderRadius: 8, height: 90, marginBottom: 8, width: '100%' },
+  cardImage: { backgroundColor: '#ffffff', borderRadius: 10, height: 116, marginBottom: 10, width: '100%' },
   cardName: { color: colors.textPrimary, fontSize: 14, fontWeight: '700' },
   cardMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 4 },
   cardPrice: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800', marginTop: 8 },
   empty: { color: colors.textSecondary, marginTop: 24, textAlign: 'center' },
-  cardBottom: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  stockPillSm: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
+  stockPillSm: { alignSelf: 'flex-start', borderRadius: 8, borderWidth: 1, marginTop: 8, paddingHorizontal: 8, paddingVertical: 4 },
   stockPillSmText: { fontSize: 10, fontWeight: '800' },
-  cardRating: { color: '#f5a623', fontSize: 12, fontWeight: '700', marginTop: 2 },
-  // ---- Deal-of-the-day price row (shared PDP / PLP / cross-sell) ----
-  dealRow: { alignItems: 'baseline', flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  dealPrice: { color: '#e23744', fontSize: 15, fontWeight: '800' },
-  // Large (PDP) variant: bigger type but NO extra top margin — dealRow already
-  // carries the spacing, so the PDP row doesn't double-pad.
-  dealPriceLg: { color: '#e23744', fontSize: 24, fontWeight: '800' },
-  dealOriginal: { color: '#9aa0a6', fontSize: 11, marginLeft: 6, textDecorationLine: 'line-through' },
-  dealOff: { color: '#e23744', fontSize: 10, fontWeight: '800', marginLeft: 4 },
-  dealChip: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#ffe3dd',
-    borderRadius: 6,
-    marginTop: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  dealChipText: { color: '#e23744', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
-  addedDealWrap: { alignItems: 'center', marginBottom: 16, marginTop: 6 },
   skelSearch: { backgroundColor: colors.surface, borderRadius: 10, height: 44, marginBottom: 10 },
   skelChips: { backgroundColor: colors.surface, borderRadius: 15, height: 30, marginBottom: 14, width: '55%' },
   skelGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
@@ -744,9 +603,6 @@ const createStyles = (colors) => StyleSheet.create({
   skelLineShort: { backgroundColor: colors.background, borderRadius: 6, height: 12, width: '45%' },
   pdp: { flex: 1 },
   pdpContent: { paddingBottom: 8 },
-  ratingRow: { alignItems: 'center', flexDirection: 'row', marginTop: 6 },
-  ratingStars: { color: '#f5a623', fontSize: 15, letterSpacing: 1 },
-  ratingText: { color: colors.textSecondary, fontSize: 12, marginLeft: 6 },
   sellerRow: {
     alignSelf: 'flex-start',
     backgroundColor: colors.background,
@@ -757,15 +613,6 @@ const createStyles = (colors) => StyleSheet.create({
   },
   sellerText: { color: colors.brandPrimary, fontSize: 11, fontWeight: '600' },
   metaRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  moqPill: {
-    backgroundColor: colors.background,
-    borderColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  moqText: { color: colors.textPrimary, fontSize: 12, fontWeight: '700' },
   stockPill: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -774,26 +621,6 @@ const createStyles = (colors) => StyleSheet.create({
     paddingVertical: 5,
   },
   stockText: { fontSize: 12, fontWeight: '700' },
-  tierCard: {
-    backgroundColor: colors.background,
-    borderColor: 'rgba(0,0,0,0.08)',
-    borderRadius: 12,
-    borderWidth: 1,
-    marginTop: 14,
-    padding: 12,
-  },
-  tierTitle: { color: colors.textPrimary, fontSize: 13, fontWeight: '800', marginBottom: 8 },
-  tierRow: {
-    alignItems: 'center',
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 7,
-  },
-  tierLabel: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
-  tierSave: { color: colors.brandSecondary, fontSize: 12, fontWeight: '800' },
-  tierPrice: { color: colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   simSection: { marginTop: 18 },
   simTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 10 },
   simCard: {
@@ -801,21 +628,21 @@ const createStyles = (colors) => StyleSheet.create({
     borderRadius: 10,
     marginRight: 10,
     padding: 8,
-    width: 130,
+    width: 142,
   },
-  simImage: { backgroundColor: '#ffffff', borderRadius: 8, height: 84, width: '100%' },
+  simImage: { backgroundColor: '#ffffff', borderRadius: 8, height: 90, width: '100%' },
   simName: { color: colors.textPrimary, fontSize: 12, fontWeight: '600', marginTop: 6 },
   simPrice: { color: colors.brandPrimary, fontSize: 13, fontWeight: '800', marginTop: 4 },
   simAdd: {
     alignItems: 'center',
     backgroundColor: colors.brandPrimary,
-    borderRadius: 14,
-    height: 24,
+    borderRadius: 24,
+    height: 48,
     justifyContent: 'center',
     position: 'absolute',
     right: 4,
     top: 4,
-    width: 24,
+    width: 48,
   },
   simAddText: { color: '#fff', fontSize: 16, fontWeight: '800', lineHeight: 20 },
   backLink: { paddingVertical: 10 },
@@ -850,17 +677,19 @@ const createStyles = (colors) => StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
     flex: 1,
-    paddingVertical: 13,
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingVertical: 12,
   },
-  addCartBtnText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '800' },
-  stickyBtn: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 12, flex: 1.4, paddingVertical: 14 },
+  addCartBtnText: { color: colors.brandPrimary, fontSize: 14, fontWeight: '800' },
+  stickyBtn: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 12, flex: 1.4, justifyContent: 'center', minHeight: 48, paddingVertical: 12 },
   stickyBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   quickAdd: {
     alignItems: 'center',
     backgroundColor: colors.brandPrimary,
     borderRadius: 16,
     elevation: 3,
-    height: 28,
+    height: 48,
     justifyContent: 'center',
     position: 'absolute',
     right: 4,
@@ -869,7 +698,7 @@ const createStyles = (colors) => StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     top: 4,
-    width: 28,
+    width: 48,
   },
   quickAddText: { color: '#fff', fontSize: 20, fontWeight: '800', lineHeight: 24 },
   addedBackdrop: {

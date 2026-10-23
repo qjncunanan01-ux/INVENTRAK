@@ -10,43 +10,27 @@ import {
   View,
 } from 'react-native';
 import { getInventory, getOptimizationAbc, imageUrl, listAllProducts } from '../../api';
-import { useCart } from '../../cart-context';
 import { useLoginGate } from '../../login-gate';
-import { buildFlashPicks, dealPricing, stockMapFromInventory } from '../../flash-sale';
-import { stockStatus } from '../../product-enrichment';
-import FlashCarousel from '../../FlashCarousel';
-import FlashSaleHeader from '../../FlashSaleHeader';
-import { showToast } from '../../toast';
+import { stockMapFromInventory, stockStatus } from '../../product-enrichment';
 import { useThemeColors } from '../../theme-context';
 
 // Recommendation + Costing modules (reviewer requirement): the recommended
 // supply bundle is the top A-classified products; the estimated costing shows
-// the total for one unit of each, and "Order this bundle" prefills the
+// the total for one unit of each, and the action prefills the
 // checkout inquiry with every item at qty 1.
 export default function RecommendationScreen({ navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [recommendations, setRecommendations] = useState([]);
   const [products, setProducts] = useState([]);
-  // The 🔥 24hr Flash Deal section — today's rotated picks, computed with the
-  // SAME helper and inputs as the Home carousel so both always match.
-  const [flashPicks, setFlashPicks] = useState([]);
   const [stockMap, setStockMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { items: cartItems, addItem } = useCart();
-  // Ordering a bundle adds to the cart — member-only, gated for guests.
+  // A bundle request is member-only, gated for guests.
   const bundleGate = useLoginGate(navigation, {
     title: 'Log in to order a bundle',
-    body: 'Recommended bundles are added straight to your cart, which is a member feature. Create a free account or log in to order this bundle.',
+    body: 'Create a free account or log in to include this suggested bundle in an order inquiry.',
   });
-  // Quick-add on the flash-deal cards — same gate as everywhere else.
-  const quickAddGate = useLoginGate(navigation);
-
-  // useCallback so the FlashSaleHeader's day-rollover effect sees a stable
-  // onRefresh (matches Home) and the flash section degrades like Home when
-  // the ABC call fails: .catch(() => []) lets buildFlashPicks top up from
-  // the photo pool instead of showing an empty carousel.
   const fetchData = useCallback(async() => {
     try {
       const [abcData, prodItems, inv] = await Promise.all([
@@ -56,11 +40,9 @@ export default function RecommendationScreen({ navigation }) {
       ]);
       const abc = abcData.data ? abcData.data : (Array.isArray(abcData) ? abcData : []);
       const prods = prodItems;
-      const stock = stockMapFromInventory(inv);
       setRecommendations(abc);
       setProducts(prods);
-      setFlashPicks(buildFlashPicks(abc, prods, stock));
-      setStockMap(stock);
+      setStockMap(stockMapFromInventory(inv));
     } catch (err) {
       // Silently fail
     } finally {
@@ -74,7 +56,7 @@ export default function RecommendationScreen({ navigation }) {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Recommended bundle = top 3 A-classified products (with catalog prices).
   const bundle = recommendations
@@ -108,10 +90,7 @@ export default function RecommendationScreen({ navigation }) {
     const total = stockMap[Number(id)];
     if (total === undefined || total === null) return null;
     const s = stockStatus(total);
-    return {
-      label: s.label,
-      color: s.tone === 'out' ? '#d32f2f' : s.tone === 'low' ? '#f9a825' : '#2e7d32',
-    };
+    return { label: s.label, color: s.tone === 'out' ? colors.error : s.tone === 'low' ? colors.warning : colors.success };
   };
 
   if (loading) {
@@ -124,8 +103,8 @@ export default function RecommendationScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Suggested Supplies</Text>
-      <Text style={styles.subtitle}>All top picks, ranked by annual value (A first) — tap one for details</Text>
+      <Text style={styles.title}>Suggested supplies</Text>
+      <Text style={styles.subtitle}>Ranked by the store’s ABC inventory analysis.</Text>
 
       <FlatList
         data={recommendations}
@@ -134,63 +113,25 @@ export default function RecommendationScreen({ navigation }) {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View>
-            {/* 🔥 24hr Flash Deal — today's rotated picks with the same live
-                countdown as Home, so the ranked list and the Home carousel
-                feature the exact same products today. */}
-            <FlashSaleHeader
-              title="🔥 24hr Flash Deal"
-              subtitle="Today's rotated top-value picks — new deals every midnight"
-              onRefresh={fetchData}
-            />
-            <FlashCarousel
-              items={flashPicks}
-              stockMap={stockMap}
-              onPressItem={(item) => navigation.push('Products', { focusId: item.id })}
-              onAdd={(item) =>
-                quickAddGate.requireLogin(() => {
-                  const available = stockMap[Number(item.id)];
-                  const inCart = cartItems.find((entry) => Number(entry.product.id) === Number(item.id))?.qty || 0;
-                  if (!Number.isFinite(Number(available))) {
-                    showToast('Stock is still loading. Refresh and try again.');
-                    return;
-                  }
-                  if (available < inCart + 1) {
-                    showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
-                    return;
-                  }
-                  // Snapshot the day's deal price so the cart matches the card.
-                  const d = dealPricing(item);
-                  if (!addItem(item, 1, d ? d.deal : undefined, d ? d.original : undefined, available)) {
-                    showToast('The cart is loading or has reached its order limit. Please try again.');
-                    return;
-                  }
-                  // Nested stack: hop up to the tab navigator to reach Cart.
-                  showToast('Added to cart', {
-                    actionLabel: 'View',
-                    onAction: () => navigation.getParent()?.navigate('CartTab'),
-                  });
-                })
-              }
-            />
-            <Text style={styles.rankedTitle}>★ Top-ranked recommendations</Text>
+            <Text style={styles.rankedTitle}>Top-ranked supplies</Text>
             {bundle.length > 0 ? (
               <View style={styles.bundleCard}>
-                <Text style={styles.bundleTitle}>🛒 Recommended supply bundle</Text>
+                <Text style={styles.bundleTitle}>Suggested order bundle</Text>
                 {bundle.map((b, idx) => (
                   <View key={b.id ?? b.name ?? idx} style={styles.bundleItem}>
                     {b.image ? (
                       <Image source={{ uri: imageUrl(b.image) }} style={styles.bundleThumb} resizeMode="cover" />
                     ) : null}
                     <Text style={styles.bundleName} numberOfLines={1}>{b.name}</Text>
-                    <Text style={styles.bundlePrice}>P{b.price.toFixed(2)}</Text>
+                    <Text style={styles.bundlePrice}>₱{b.price.toFixed(2)}</Text>
                   </View>
                 ))}
                 <View style={styles.bundleTotal}>
                   <Text style={styles.bundleTotalLabel}>Estimated cost (1 each)</Text>
-                  <Text style={styles.bundleTotalValue}>P{bundleCost.toFixed(2)}</Text>
+                  <Text style={styles.bundleTotalValue}>₱{bundleCost.toFixed(2)}</Text>
                 </View>
                 <TouchableOpacity style={styles.orderBtn} onPress={orderBundle}>
-                  <Text style={styles.orderBtnText}>Order this bundle</Text>
+                  <Text style={styles.orderBtnText}>Add bundle to inquiry</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -200,9 +141,7 @@ export default function RecommendationScreen({ navigation }) {
           const badge = getBadge(item.classification);
           const p = products.find((pr) => Number(pr.id) === Number(item.id)) || {};
           return (
-            // Whole row is tappable and opens the product detail (same
-            // focusId deep-link the Home carousel uses), so the ranked list
-            // and the catalog stay connected. push() (not navigate) so a
+            // push() keeps the ranked list beneath the product details so a
             // fresh Products screen stacks on top and back always returns
             // to the ranked list — navigate() could pop to the catalog grid
             // instead, since Products is this stack's initial route.
@@ -228,7 +167,7 @@ export default function RecommendationScreen({ navigation }) {
                 </View>
                 <Text style={styles.meta}>
                   Value: {item.value} | {badge.label}
-                  {p.price ? ` | P${p.price}` : ''}
+                  {p.price ? ` · ₱${Number(p.price).toFixed(2)}` : ''}
                 </Text>
                 {/* Customer Stock Status Display: a small In stock / Low stock /
                     Out of stock chip on every ranked recommendation. */}
@@ -248,7 +187,6 @@ export default function RecommendationScreen({ navigation }) {
         ListEmptyComponent={<Text style={styles.empty}>No recommendations available.</Text>}
       />
       {bundleGate.gateModal}
-      {quickAddGate.gateModal}
     </View>
   );
 }
@@ -267,7 +205,7 @@ const createStyles = (colors) => StyleSheet.create({
     marginLeft: 16,
     marginTop: 6,
   },
-  bundleCard: { backgroundColor: '#fff8e1', borderColor: '#f0c36d', borderRadius: 14, borderWidth: 1, marginBottom: 14, padding: 14 },
+  bundleCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, marginBottom: 14, padding: 16 },
   bundleTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 10 },
   bundleItem: { alignItems: 'center', flexDirection: 'row', marginBottom: 6 },
   bundleThumb: { backgroundColor: colors.background, borderRadius: 6, height: 32, marginRight: 8, width: 32 },
@@ -276,7 +214,7 @@ const createStyles = (colors) => StyleSheet.create({
   bundleTotal: { borderTopColor: 'rgba(0,0,0,0.08)', borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingTop: 8 },
   bundleTotalLabel: { color: colors.textSecondary, fontSize: 13 },
   bundleTotalValue: { color: colors.brandPrimary, fontSize: 16, fontWeight: '800' },
-  orderBtn: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 10, marginTop: 10, paddingVertical: 12 },
+  orderBtn: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 10, justifyContent: 'center', marginTop: 10, minHeight: 48, paddingHorizontal: 12, paddingVertical: 12 },
   orderBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   // position: relative so the absolutely-positioned rank badge anchors to
   // the card (works on native and react-native-web alike).

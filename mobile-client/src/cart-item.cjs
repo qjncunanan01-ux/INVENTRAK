@@ -4,8 +4,6 @@ function addCartItem({
   previous,
   product,
   qty = 1,
-  price,
-  originalPrice,
   available,
   maxUnits = 10000,
   maxLines = 500,
@@ -19,8 +17,6 @@ function addCartItem({
   const quantity = Math.max(1, requested);
   const stockLimit = available === undefined ? null : Number(available);
   if (stockLimit !== null && (!Number.isFinite(stockLimit) || stockLimit < 0)) return null;
-  const unitPrice = Number(price) > 0 ? Number(price) : Number(product.price) || 0;
-  const original = Number(originalPrice) > 0 ? Number(originalPrice) : null;
   const index = items.findIndex((item) => Number(item.product.id) === productId);
 
   if (index >= 0) {
@@ -31,15 +27,13 @@ function addCartItem({
     next[index] = {
       ...existing,
       qty: existing.qty + quantity,
-      price: existing.price ?? unitPrice,
-      original_price: existing.original_price ?? original,
     };
     return next;
   }
 
   if (items.length >= maxLines) return null;
   if (stockLimit !== null && quantity > stockLimit) return null;
-  return [...items, { product, qty: quantity, price: unitPrice, original_price: original }];
+  return [...items, { product, qty: quantity }];
 }
 
 module.exports = { addCartItem };

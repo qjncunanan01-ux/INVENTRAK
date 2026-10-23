@@ -22,11 +22,14 @@ export default function BackButton({ navigation, label = 'Back', dark = false, s
 
 const createStyles = (colors) => StyleSheet.create({
   btn: {
+    alignItems: 'center',
     borderRadius: 20,
     borderWidth: 1,
+    justifyContent: 'center',
     left: 14,
+    minHeight: 48,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     position: 'absolute',
     top: 52,
     zIndex: 10,

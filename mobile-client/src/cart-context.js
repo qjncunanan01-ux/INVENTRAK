@@ -3,9 +3,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useSessionUsername } from './api';
 import cartItems from './cart-item.cjs';
 
-// Persistent shopping cart (Shopee/Lazada pattern). Cart entries snapshot the
-// product at add-time ({ product, qty }) so the checkout never needs to refetch
-// the catalog and survives offline usage.
+// Persistent shopping cart. Cart entries retain the selected product and
+// quantity between sessions; screens refresh catalog prices before quoting.
 //
 // PER-ACCOUNT ISOLATION: each logged-in account gets its OWN basket, keyed by
 // username (usernames are unique — deduped at account creation, including
@@ -24,7 +23,7 @@ const CartContext = createContext(null);
 const { addCartItem } = cartItems;
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([]); // [{ product, qty, price?, original_price? }]
+  const [items, setItems] = useState([]); // [{ product, qty }]
   const [hydrated, setHydrated] = useState(false);
   const itemsRef = useRef([]);
   const loadedStorageKey = useRef(null);
@@ -82,7 +81,7 @@ export function CartProvider({ children }) {
               }
               if (clean.length >= MAX_CART_LINES) break;
               lineIndexById.set(productId, clean.length);
-              clean.push({ ...item, qty: Math.min(qty, MAX_UNITS_PER_PRODUCT) });
+              clean.push({ product: item.product, qty: Math.min(qty, MAX_UNITS_PER_PRODUCT) });
             }
             replaceItems(clean);
           }
@@ -108,20 +107,13 @@ export function CartProvider({ children }) {
     AsyncStorage.setItem(storageKey, JSON.stringify(items)).catch(() => {});
   }, [items, hydrated, storageKey]);
 
-  // Adds a product or increments its quantity (qty is clamped to >= 1).
-  // `price` optionally overrides the unit price snapshot (e.g. the day's flash
-  // DEAL price for a pick, so the cart + checkout total match what the
-  // carousel/PDP advertised). Falls back to the catalog price when omitted.
-  // `originalPrice` snapshots the pre-discount catalog price for deal items,
-  // so the order record can show the discount applied (deal vs original).
-  const addItem = useCallback((product, qty = 1, price, originalPrice, available) => {
+  // Adds a product or increments its quantity; prices come from the live catalog.
+  const addItem = useCallback((product, qty = 1, available) => {
     if (!hydrated || !storageKey) return false;
     const next = addCartItem({
       previous: itemsRef.current,
       product,
       qty,
-      price,
-      originalPrice,
       available,
       maxUnits: MAX_UNITS_PER_PRODUCT,
       maxLines: MAX_CART_LINES,
@@ -153,11 +145,7 @@ export function CartProvider({ children }) {
   const value = useMemo(() => {
     const itemCount = items.length;
     const count = items.reduce((s, i) => s + i.qty, 0);
-    // Unit price: the deal snapshot when the item was added as a flash pick,
-    // else the catalog price (legacy persisted carts have no `price` field).
-    const unitPrice = (i) => (Number(i.price) > 0 ? Number(i.price) : Number(i.product.price) || 0);
-    const subtotal = items.reduce((s, i) => s + unitPrice(i) * i.qty, 0);
-    return { items, itemCount, count, subtotal, hydrated, addItem, setQty, removeItem, clear };
+    return { items, itemCount, count, hydrated, addItem, setQty, removeItem, clear };
   }, [items, hydrated, addItem, setQty, removeItem, clear]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

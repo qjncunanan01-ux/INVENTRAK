@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { clearSession, clearToken, logout, STAFF_TOOLS_ROLES, ROLE_LABELS, useSessionEmail, useSessionRole, useSessionUsername, useSessionVerified } from '../../api';
 import { useCart } from '../../cart-context';
 import { useThemeColors } from '../../theme-context';
 import { DEMO_POLICY_PREVIEW_ENABLED } from '../../demo-features';
 
-// Shopee-style tinted icon disc for menu rows (matches the Home quick-action
-// grid): a pastel circular badge with a deeper accent icon per action.
+// A tinted icon disc keeps each account-menu action easy to scan.
 function MenuIcon({ name, tint, styles }) {
   return (
     <View style={[styles.menuIconDisc, { backgroundColor: tint.bg }]}>
@@ -19,8 +19,7 @@ function MenuIcon({ name, tint, styles }) {
 const MENU_TINTS = {
   history: { bg: '#e8eaf6', fg: '#3f51b5' },
   inquiry: { bg: '#e8f0fe', fg: '#1565c0' },
-  recs: { bg: '#fff3e0', fg: '#f9a825' },
-  products: { bg: '#e0f2f1', fg: '#00796b' },
+  notifications: { bg: '#e0f2f1', fg: '#00796b' },
   theme: { bg: '#fde8ec', fg: '#e23744' },
   demo: { bg: '#fff3e0', fg: '#b76e00' },
 };
@@ -59,180 +58,170 @@ export default function AccountScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{username.charAt(0).toUpperCase()}</Text>
-        </View>
-        <View>
-          <Text style={styles.name}>{username}</Text>
-          <Text style={styles.role}>
-            {!isLoggedIn
-              ? 'Browsing as a guest'
-              : isStaff
-                ? `${ROLE_LABELS[role] || 'Staff'} Account · staff tools unlocked`
-                : 'Customer Account'}
-          </Text>
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {isLoggedIn && !verified ? (
-          <TouchableOpacity
-            style={styles.verifyBanner}
-            onPress={() => navigation.navigate('VerifyEmail', { email: sessionEmail || '' })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.verifyIcon}>🔔</Text>
-            <View style={styles.verifyBody}>
-              <Text style={styles.verifyTitle}>Verify your email</Text>
-              <Text style={styles.verifyDesc}>
-                Tap to enter the verification code we sent to {sessionEmail || 'your inbox'}.
-              </Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        {isLoggedIn ? (
-          <>
-            <Text style={styles.sectionTitle}>My Orders</Text>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('OrdersTab', { screen: 'InquiryHistory' })}
-            >
-              <MenuIcon name="clipboard-text-clock-outline" tint={MENU_TINTS.history} styles={styles} />
-              <View style={styles.menuBody}>
-                <Text style={styles.menuTitle}>Order History</Text>
-                <Text style={styles.menuDesc}>Track the status of your inquiries</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
-            >
-              <MenuIcon name="file-document-edit-outline" tint={MENU_TINTS.inquiry} styles={styles} />
-              <View style={styles.menuBody}>
-                <Text style={styles.menuTitle}>New Order Inquiry</Text>
-                <Text style={styles.menuDesc}>Request pricing for supplies</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <View style={styles.guestCard}>
-            <Text style={styles.guestTitle}>Log in or create an account</Text>
-            <Text style={styles.guestSub}>
-              Browsing is free — an account is only needed when you place an
-              order inquiry.
-            </Text>
-            <TouchableOpacity style={styles.guestBtnPrimary} onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.guestBtnPrimaryText}>Log In</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.guestBtnSecondary} onPress={() => navigation.navigate('Signup')}>
-              <Text style={styles.guestBtnSecondaryText}>Create Account</Text>
-            </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{username.charAt(0).toUpperCase()}</Text>
           </View>
-        )}
+          <View>
+            <Text style={styles.name}>{username}</Text>
+            <Text style={styles.role}>
+              {!isLoggedIn
+                ? 'Browsing as a guest'
+                : isStaff
+                  ? `${ROLE_LABELS[role] || 'Staff'} Account · staff tools unlocked`
+                  : 'Customer Account'}
+            </Text>
+          </View>
+        </View>
 
-        {isStaff ? (
-          <>
-            <Text style={styles.sectionTitle}>Staff Tools</Text>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {isLoggedIn && !verified ? (
             <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('CatalogTab', { screen: 'QrScan' })}
+              style={styles.verifyBanner}
+              onPress={() => navigation.navigate('VerifyEmail', { email: sessionEmail || '' })}
+              activeOpacity={0.85}
             >
-              <MenuIcon name="qrcode-scan" tint={{ bg: '#e0f2f1', fg: '#00796b' }} styles={styles} />
-              <View style={styles.menuBody}>
-                <Text style={styles.menuTitle}>Scan & Count Stock</Text>
-                <Text style={styles.menuDesc}>
-                  Scan a product QR code, record the physical count — corrections go to the owner for approval
+              <MaterialCommunityIcons name="email-alert-outline" size={22} color={colors.warning} style={styles.verifyIcon} />
+              <View style={styles.verifyBody}>
+                <Text style={styles.verifyTitle}>Verify your email</Text>
+                <Text style={styles.verifyDesc}>
+                Tap to enter the verification code we sent to {sessionEmail || 'your inbox'}.
                 </Text>
               </View>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
-          </>
-        ) : null}
+          ) : null}
 
-        <Text style={styles.sectionTitle}>Discover</Text>
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => navigation.navigate('CatalogTab', { screen: 'Recommendations' })}
-        >
-          <MenuIcon name="star-circle-outline" tint={MENU_TINTS.recs} styles={styles} />
-          <View style={styles.menuBody}>
-            <Text style={styles.menuTitle}>Recommendations</Text>
-            <Text style={styles.menuDesc}>ABC-classified top supplies</Text>
+          {isLoggedIn ? (
+            <>
+              <Text style={styles.sectionTitle}>My Orders</Text>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => navigation.navigate('OrdersTab', { screen: 'InquiryHistory' })}
+              >
+                <MenuIcon name="clipboard-text-clock-outline" tint={MENU_TINTS.history} styles={styles} />
+                <View style={styles.menuBody}>
+                  <Text style={styles.menuTitle}>Order History</Text>
+                  <Text style={styles.menuDesc}>Track the status of your inquiries</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => navigation.navigate('OrdersTab', { screen: 'Notifications' })}
+              >
+                <MenuIcon name="bell-outline" tint={MENU_TINTS.notifications} styles={styles} />
+                <View style={styles.menuBody}>
+                  <Text style={styles.menuTitle}>Notifications</Text>
+                  <Text style={styles.menuDesc}>Updates about your inquiries</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
+              >
+                <MenuIcon name="file-document-edit-outline" tint={MENU_TINTS.inquiry} styles={styles} />
+                <View style={styles.menuBody}>
+                  <Text style={styles.menuTitle}>New Order Inquiry</Text>
+                  <Text style={styles.menuDesc}>Request pricing for supplies</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <View style={styles.guestCard}>
+              <Text style={styles.guestTitle}>Log in or create an account</Text>
+              <Text style={styles.guestSub}>
+              Browsing is free — an account is only needed when you place an
+              order inquiry.
+              </Text>
+              <TouchableOpacity style={styles.guestBtnPrimary} onPress={() => navigation.navigate('Login')}>
+                <Text style={styles.guestBtnPrimaryText}>Log In</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.guestBtnSecondary} onPress={() => navigation.navigate('Signup')}>
+                <Text style={styles.guestBtnSecondaryText}>Create Account</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {isStaff ? (
+            <>
+              <Text style={styles.sectionTitle}>Staff Tools</Text>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => navigation.navigate('CatalogTab', { screen: 'QrScan' })}
+              >
+                <MenuIcon name="qrcode-scan" tint={{ bg: '#e0f2f1', fg: '#00796b' }} styles={styles} />
+                <View style={styles.menuBody}>
+                  <Text style={styles.menuTitle}>Scan & Count Stock</Text>
+                  <Text style={styles.menuDesc}>
+                  Scan a product QR code, record the physical count — corrections go to the owner for approval
+                  </Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
+
+          {DEMO_POLICY_PREVIEW_ENABLED ? (
+            <>
+              <Text style={styles.sectionTitle}>Demo</Text>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => navigation.navigate('DemoPolicies')}
+                accessibilityRole="button"
+                accessibilityLabel="Open demo policy preview"
+              >
+                <MenuIcon name="flask-outline" tint={MENU_TINTS.demo} styles={styles} />
+                <View style={styles.menuBody}>
+                  <Text style={styles.menuTitle}>Demo Policy Preview</Text>
+                  <Text style={styles.menuDesc}>See current limits and store decisions to confirm</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
+
+          {/* Preferences: dark-mode switcher (persisted on the device). */}
+          <Text style={styles.sectionTitle}>Preferences</Text>
+          <View style={styles.menuItem}>
+            {/* Theme icon follows the effective mode (moon in dark, sun in light) */}
+            <MenuIcon name={dark ? 'weather-night' : 'white-balance-sunny'} tint={MENU_TINTS.theme} styles={styles} />
+            <View style={styles.menuBody}>
+              <Text style={styles.menuTitle}>Dark Mode</Text>
+              <Text style={styles.menuDesc}>
+                {dark ? 'Night theme is on' : 'Switch to the night theme'}
+              </Text>
+            </View>
+            <Switch
+              value={dark}
+              onValueChange={toggleDark}
+              trackColor={{ false: 'rgba(0,0,0,0.15)', true: colors.brandPrimary }}
+              thumbColor="#fff"
+            />
           </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => navigation.navigate('CatalogTab', { screen: 'Products' })}
-        >
-          <MenuIcon name="view-grid-outline" tint={MENU_TINTS.products} styles={styles} />
-          <View style={styles.menuBody}>
-            <Text style={styles.menuTitle}>Browse Products</Text>
-            <Text style={styles.menuDesc}>View the full product catalog</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-
-        {DEMO_POLICY_PREVIEW_ENABLED ? (
-          <>
-            <Text style={styles.sectionTitle}>Demo</Text>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => navigation.navigate('DemoPolicies')}
-              accessibilityRole="button"
-              accessibilityLabel="Open demo policy preview"
-            >
-              <MenuIcon name="flask-outline" tint={MENU_TINTS.demo} styles={styles} />
-              <View style={styles.menuBody}>
-                <Text style={styles.menuTitle}>Demo Policy Preview</Text>
-                <Text style={styles.menuDesc}>See current limits and store decisions to confirm</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-          </>
-        ) : null}
-
-        {/* Preferences: dark-mode switcher (persisted on the device). */}
-        <Text style={styles.sectionTitle}>Preferences</Text>
-        <View style={styles.menuItem}>
-          {/* Theme icon follows the effective mode (moon in dark, sun in light) */}
-          <MenuIcon name={dark ? 'weather-night' : 'white-balance-sunny'} tint={MENU_TINTS.theme} styles={styles} />
-          <View style={styles.menuBody}>
-            <Text style={styles.menuTitle}>Dark Mode</Text>
-            <Text style={styles.menuDesc}>
-              {dark ? 'Night theme is on' : 'Switch to the night theme'}
-            </Text>
-          </View>
-          <Switch
-            value={dark}
-            onValueChange={toggleDark}
-            trackColor={{ false: 'rgba(0,0,0,0.15)', true: colors.brandPrimary }}
-            thumbColor="#fff"
-          />
-        </View>
-
-        {isLoggedIn ? (
-          <>
-            <View style={styles.spacer} />
-            <TouchableOpacity style={styles.logout} onPress={handleLogout}>
-              <Text style={styles.logoutText}>Log Out</Text>
-            </TouchableOpacity>
-          </>
-        ) : null}
-      </ScrollView>
-    </View>
+          {isLoggedIn ? (
+            <>
+              <View style={styles.spacer} />
+              <TouchableOpacity style={styles.logout} onPress={handleLogout}>
+                <Text style={styles.logoutText}>Log Out</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const createStyles = (colors) => StyleSheet.create({
+  safeArea: { backgroundColor: colors.brandPrimary, flex: 1 },
   avatar: {
     alignItems: 'center',
     backgroundColor: '#fff',
@@ -245,9 +234,9 @@ const createStyles = (colors) => StyleSheet.create({
   avatarText: { color: colors.brandPrimary, fontSize: 24, fontWeight: '800' },
   chevron: { color: colors.textSecondary, fontSize: 22 },
   container: { backgroundColor: colors.background, flex: 1 },
-  guestBtnPrimary: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 12, marginBottom: 10, paddingVertical: 13 },
+  guestBtnPrimary: { alignItems: 'center', backgroundColor: colors.brandPrimary, borderRadius: 12, justifyContent: 'center', marginBottom: 10, minHeight: 48, paddingVertical: 12 },
   guestBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  guestBtnSecondary: { alignItems: 'center', borderColor: colors.brandPrimary, borderRadius: 12, borderWidth: 1.5, paddingVertical: 13 },
+  guestBtnSecondary: { alignItems: 'center', borderColor: colors.brandPrimary, borderRadius: 12, borderWidth: 1.5, justifyContent: 'center', minHeight: 48, paddingVertical: 12 },
   guestBtnSecondaryText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
   guestCard: {
     backgroundColor: colors.surface,
@@ -266,7 +255,7 @@ const createStyles = (colors) => StyleSheet.create({
     flexDirection: 'row',
     paddingBottom: 20,
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 16,
   },
   logout: {
     alignItems: 'center',
@@ -316,6 +305,6 @@ const createStyles = (colors) => StyleSheet.create({
   },
   verifyBody: { flex: 1 },
   verifyDesc: { color: colors.textSecondary, fontSize: 12, lineHeight: 16, marginTop: 2 },
-  verifyIcon: { fontSize: 20, marginRight: 10 },
+  verifyIcon: { marginRight: 10 },
   verifyTitle: { color: colors.warning, fontSize: 14, fontWeight: '700' },
 });
