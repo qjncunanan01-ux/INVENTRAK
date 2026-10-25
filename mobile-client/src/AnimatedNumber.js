@@ -3,8 +3,6 @@ import Animated, {
   useSharedValue,
   useAnimatedProps,
   withTiming,
-  interpolate,
-  Extrapolation,
 } from 'react-native-reanimated';
 import { Text } from 'react-native';
 

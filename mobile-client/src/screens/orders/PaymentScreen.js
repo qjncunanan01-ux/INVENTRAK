@@ -59,7 +59,15 @@ export default function PaymentScreen({ route, navigation }) {
       setReferenceTouched(true);
       return;
     }
-    if (isManualSylverPayment && (!Number.isFinite(Number(paymentAmount)) || Number(paymentAmount) <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) || !proofData)) {
+    if (
+      isManualSylverPayment
+      && (
+        !Number.isFinite(Number(paymentAmount))
+        || Number(paymentAmount) <= 0
+        || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)
+        || !proofData
+      )
+    ) {
       setErrorMsg('Enter the amount and payment date, then attach a receipt image.');
       setShowError(true);
       return;
@@ -71,7 +79,12 @@ export default function PaymentScreen({ route, navigation }) {
         payment.payment_method === 'card'
           ? { demo_card_confirmed: true }
           : isManualSylverPayment
-            ? { customer_reference: customerReference.trim(), amount: Number(paymentAmount), payment_date: paymentDate, proof_data: proofData }
+            ? {
+              customer_reference: customerReference.trim(),
+              amount: Number(paymentAmount),
+              payment_date: paymentDate,
+              proof_data: proofData,
+            }
             : { customer_reference: customerReference.trim() },
       );
       setPaymentResult(response.payment_status);
@@ -160,7 +173,10 @@ export default function PaymentScreen({ route, navigation }) {
         <View style={styles.demoCard}>
           <Text style={styles.demoCardGlyph}>₱</Text>
           <Text style={styles.demoCardTitle}>Manual GCash verification</Text>
-          <Text style={styles.demoCardBody}>This demo does not receive money. Confirm the store's payment details directly before transferring.</Text>
+          <Text style={styles.demoCardBody}>
+            This demo does not receive money. Confirm the store&apos;s payment details
+            directly before transferring.
+          </Text>
         </View>
       )}
 
@@ -183,7 +199,10 @@ export default function PaymentScreen({ route, navigation }) {
         />
       ) : null}
       {(payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && referenceTouched && !/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) ? (
-        <Text style={styles.referenceError}>Enter the receipt reference shown by GCash (5–100 letters, numbers, spaces, or dashes).</Text>
+        <Text style={styles.referenceError}>
+          Enter the receipt reference shown by GCash (5–100 letters, numbers,
+          spaces, or dashes).
+        </Text>
       ) : null}
 
       {sylverDemo && ['gcash', 'bank_transfer'].includes(payment.payment_method) ? (
@@ -194,7 +213,10 @@ export default function PaymentScreen({ route, navigation }) {
             <Text style={styles.btnLinkText}>{proofData ? 'Receipt image attached ✓' : 'Attach payment receipt image'}</Text>
           </TouchableOpacity>
           {proofData ? <Image source={{ uri: proofData }} style={{ width: 140, height: 140, alignSelf: 'center', marginBottom: 12, borderRadius: 8 }} resizeMode="contain" /> : null}
-          <Text style={styles.hint}>Demo only: do not transfer real money. Staff manually review the reference, amount, date and receipt.</Text>
+          <Text style={styles.hint}>
+            Demo only: do not transfer real money. Staff manually review the
+            reference, amount, date and receipt.
+          </Text>
         </>
       ) : null}
 
@@ -245,7 +267,15 @@ const createStyles = (colors) => StyleSheet.create({
   demoCardBody: { color: colors.textSecondary, fontSize: 13, lineHeight: 18, marginTop: 6, textAlign: 'center' },
   hint: { color: colors.textSecondary, fontSize: 12, marginTop: 4, textAlign: 'center' },
   qr: { borderRadius: 8, height: 220, width: 220 },
-  referenceInput: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 10, borderWidth: 1, color: colors.textPrimary, marginBottom: 12, padding: 14 },
+  referenceInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    marginBottom: 12,
+    padding: 14,
+  },
   qrCard: {
     alignSelf: 'center',
     backgroundColor: '#fff',

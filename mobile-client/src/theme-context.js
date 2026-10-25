@@ -21,7 +21,9 @@ import { colors as lightColors, darkColors } from './theme';
 let AsyncStorage = null;
 try {
   AsyncStorage = require('@react-native-async-storage/async-storage').default;
-} catch {}
+} catch {
+  // Native storage is optional; the app falls back to the default theme.
+}
 
 const STORAGE_KEY = 'inventrak_dark_mode';
 

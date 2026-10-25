@@ -45,7 +45,9 @@ function resolveApiBaseUrl() {
       const host = normalized.match(/^https?:\/\/([^/:]+)/);
       if (host && host[1]) return `http://${host[1]}:4001`;
     }
-  } catch {}
+  } catch {
+    // Some React Native runtimes do not expose a script URL.
+  }
   // 3. Fallbacks: 10.0.2.2 = Android emulator's host loopback; localhost =
   //    iOS simulator / web.
   return Platform.OS === 'android' ? 'http://10.0.2.2:4001' : 'http://localhost:4001';
@@ -105,13 +107,17 @@ function persistWebSession() {
         verified: sessionVerified,
       }),
     );
-  } catch {}
+  } catch {
+    // Browser storage may be disabled; keep the session in memory.
+  }
 }
 function clearWebSession() {
   if (!isWeb()) return;
   try {
     window.localStorage.removeItem(WEB_SESSION_KEY);
-  } catch {}
+  } catch {
+    // Browser storage may be disabled; the in-memory session is already clear.
+  }
 }
 
 export function setToken(token) {
@@ -160,7 +166,9 @@ if (isWeb()) {
         sessionVerified = !!s.verified;
       }
     }
-  } catch {}
+  } catch {
+    // Ignore unavailable or malformed persisted browser sessions.
+  }
 }
 
 export function setSessionUsername(name) {

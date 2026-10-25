@@ -22,7 +22,9 @@ export function stockMapFromInventory(response) {
     }
 
     const locations = item.locations || {};
-    const quantities = Array.isArray(locations) ? locations.map((location) => location.quantity) : Object.values(locations);
+    const quantities = Array.isArray(locations)
+      ? locations.map((location) => location.quantity)
+      : Object.values(locations);
     stock[id] = quantities.reduce((sum, quantity) => sum + (Number(quantity) || 0), 0);
   });
   return stock;

@@ -321,7 +321,14 @@ const createStyles = (colors) => StyleSheet.create({
   subtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 16, marginBottom: 2, textAlign: 'center' },
   portalHint: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginBottom: 14, textAlign: 'center' },
   tagline: { color: 'rgba(255,255,255,0.8)', fontSize: 11, letterSpacing: 1.4, marginBottom: 14, textAlign: 'center' },
-  input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, fontSize: 16, marginBottom: 16, padding: 14 },
+  input: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    color: colors.textPrimary,
+    fontSize: 16,
+    marginBottom: 16,
+    padding: 14,
+  },
   demoRow: {
     flexDirection: 'row',
     gap: 10,

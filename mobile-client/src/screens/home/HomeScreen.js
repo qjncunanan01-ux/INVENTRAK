@@ -74,7 +74,12 @@ export default function HomeScreen({ route, navigation }) {
       const stock = stockMapFromInventory(inventory);
       const byId = new Map(catalog.map((item) => [Number(item.id), item]));
       const ranked = abc.map((row) => byId.get(Number(row.id))).filter(Boolean);
-      const ordered = [...ranked, ...catalog.filter((item) => !ranked.some((row) => Number(row.id) === Number(item.id)))];
+      const ordered = [
+        ...ranked,
+        ...catalog.filter(
+          (item) => !ranked.some((row) => Number(row.id) === Number(item.id)),
+        ),
+      ];
       const available = ordered.filter((item) => stock[Number(item.id)] === undefined || stock[Number(item.id)] > 0);
 
       setFeatured(available.slice(0, 8));
@@ -151,7 +156,13 @@ export default function HomeScreen({ route, navigation }) {
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brandPrimary]} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.brandPrimary]}
+            />
+          }
           contentContainerStyle={styles.content}
         >
           <View style={styles.hero}>
@@ -287,7 +298,14 @@ const createStyles = (colors) => StyleSheet.create({
   categoryChip: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, minHeight: 48, paddingHorizontal: 13 },
   categoryText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
   productRow: { gap: 12, paddingBottom: 8, paddingRight: 4 },
-  productCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, padding: 12, width: 172 },
+  productCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    width: 172,
+  },
   productImage: { height: 116, marginBottom: 10, width: '100%' },
   imagePlaceholder: { alignItems: 'center', backgroundColor: colors.background, borderRadius: 12, height: 116, justifyContent: 'center', marginBottom: 10 },
   productCategory: { color: colors.textSecondary, fontSize: 11, marginBottom: 4 },

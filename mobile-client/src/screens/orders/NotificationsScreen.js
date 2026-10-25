@@ -88,7 +88,9 @@ export default function NotificationsScreen({ navigation }) {
       try {
         const parsed = JSON.parse(o.status_history || '[]');
         if (Array.isArray(parsed)) history = parsed;
-      } catch (_) {}
+      } catch (_) {
+        // Use the current order status if its stored history is malformed.
+      }
       if (history.length === 0) history = [{ status: o.status, at: o.created_at }];
       history.forEach((e) => {
         events.push({
@@ -212,9 +214,21 @@ const createStyles = (colors) => StyleSheet.create({
   center: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: 24 },
   container: { backgroundColor: colors.background, flex: 1, padding: 16 },
   glyph: { marginRight: 12 },
-  guestBtnPrimary: { backgroundColor: colors.brandPrimary, borderRadius: 12, marginBottom: 10, paddingHorizontal: 48, paddingVertical: 14 },
+  guestBtnPrimary: {
+    backgroundColor: colors.brandPrimary,
+    borderRadius: 12,
+    marginBottom: 10,
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+  },
   guestBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  guestBtnSecondary: { borderColor: colors.brandPrimary, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 48, paddingVertical: 14 },
+  guestBtnSecondary: {
+    borderColor: colors.brandPrimary,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+  },
   guestBtnSecondaryText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
   guestGlyph: { color: colors.brandPrimary, fontSize: 40, fontWeight: '700', marginBottom: 12 },
   guestSub: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginBottom: 24, marginTop: 6, paddingHorizontal: 32, textAlign: 'center' },

@@ -143,7 +143,15 @@ export default function InquiryHistoryScreen({ navigation }) {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.8 });
       if (result.canceled || !result.assets?.[0]?.uri) return;
-      const compressed = await ImageManipulator.manipulateAsync(result.assets[0].uri, [{ resize: { width: 1200 } }], { compress: 0.62, format: ImageManipulator.SaveFormat.JPEG, base64: true });
+      const compressed = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 1200 } }],
+        {
+          compress: 0.62,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
+      );
       if (!compressed.base64 || compressed.base64.length > 870000) throw new Error('Choose a smaller photo (maximum 650 KB after compression).');
       setReturnProofData(`data:image/jpeg;base64,${compressed.base64}`);
       setRequestError('');
@@ -220,7 +228,16 @@ export default function InquiryHistoryScreen({ navigation }) {
   };
 
   const counts = useMemo(() => {
-    const c = { all: inquiries.length, pending: 0, approved: 0, preparing: 0, fulfilled: 0, delivered: 0, rejected: 0, cancelled: 0 };
+    const c = {
+      all: inquiries.length,
+      pending: 0,
+      approved: 0,
+      preparing: 0,
+      fulfilled: 0,
+      delivered: 0,
+      rejected: 0,
+      cancelled: 0,
+    };
     inquiries.forEach((i) => { if (c[i.status] !== undefined) c[i.status] += 1; });
     return c;
   }, [inquiries]);
@@ -301,7 +318,9 @@ export default function InquiryHistoryScreen({ navigation }) {
     try {
       const parsed = JSON.parse(item.status_history || '[]');
       if (Array.isArray(parsed)) events = parsed;
-    } catch {}
+    } catch {
+      // Fall back to the current status when stored history is malformed.
+    }
     if (events.length === 0) {
       events = [{ status: item.status, at: item.created_at }];
     }
@@ -434,8 +453,17 @@ export default function InquiryHistoryScreen({ navigation }) {
               {['unpaid', 'partial', 'failed'].includes(item.payment_status) && ['gcash', 'bank_transfer'].includes(item.payment_method) ? ' · ⏳ Payment due' : ''}
               {item.payment_customer_reference ? ` · GCash ref ${item.payment_customer_reference}` : ''}
             </Text>
-            {COMPANY_DEMO && item.delivery_schedule ? <Text style={styles.detail}>Delivery schedule: {item.delivery_schedule}</Text> : null}
-            {COMPANY_DEMO && item.payment_status === 'credit_pending' ? <Text style={styles.detail}>Sylver will check that your account has an existing credit arrangement before approving this order.</Text> : null}
+            {COMPANY_DEMO && item.delivery_schedule ? (
+              <Text style={styles.detail}>
+                Delivery schedule: {item.delivery_schedule}
+              </Text>
+            ) : null}
+            {COMPANY_DEMO && item.payment_status === 'credit_pending' ? (
+              <Text style={styles.detail}>
+                Sylver will check that your account has an existing credit arrangement
+                before approving this order.
+              </Text>
+            ) : null}
             {/* Fulfilment preference + where it goes (Part 11). */}
             <Text style={styles.detail}>
               {item.fulfillment_method === 'courier' ? '🚚' : '🏬'}{' '}
@@ -570,7 +598,10 @@ export default function InquiryHistoryScreen({ navigation }) {
         <View style={styles.formBackdrop}>
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>Request a change</Text>
-            <Text style={styles.formHint}>Sylver must review and accept the request. Sending it does not change the order automatically.</Text>
+            <Text style={styles.formHint}>
+              Sylver must review and accept the request. Sending it does not change
+              the order automatically.
+            </Text>
             <TextInput style={styles.formInput} multiline value={changeMessage} onChangeText={setChangeMessage} placeholder="Describe the change you need" maxLength={1000} />
             {requestError ? <Text style={styles.formError}>{requestError}</Text> : null}
             <TouchableOpacity style={styles.paymentBtn} disabled={requestBusy} onPress={sendChangeRequest}>
@@ -585,11 +616,28 @@ export default function InquiryHistoryScreen({ navigation }) {
         <View style={styles.formBackdrop}>
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>Report a delivered order issue</Text>
-            <Text style={styles.formHint}>Send within 24 hours of delivery. Staff review the report and any refund; this demo does not transfer money.</Text>
+            <Text style={styles.formHint}>
+              Send within 24 hours of delivery. Staff review the report and any
+              refund; this demo does not transfer money.
+            </Text>
             <View style={styles.reasonChoices}>
               {['incorrect', 'damaged', 'defective', 'discrepancy'].map((reason) => (
-                <TouchableOpacity key={reason} style={[styles.reasonChoice, returnReason === reason && styles.reasonChoiceActive]} onPress={() => setReturnReason(reason)}>
-                  <Text style={[styles.reasonChoiceText, returnReason === reason && styles.reasonChoiceTextActive]}>{reason}</Text>
+                <TouchableOpacity
+                  key={reason}
+                  style={[
+                    styles.reasonChoice,
+                    returnReason === reason && styles.reasonChoiceActive,
+                  ]}
+                  onPress={() => setReturnReason(reason)}
+                >
+                  <Text
+                    style={[
+                      styles.reasonChoiceText,
+                      returnReason === reason && styles.reasonChoiceTextActive,
+                    ]}
+                  >
+                    {reason}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -599,7 +647,11 @@ export default function InquiryHistoryScreen({ navigation }) {
             </TouchableOpacity>
             {returnProofData ? <Image source={{ uri: returnProofData }} style={styles.proofPreview} resizeMode="contain" /> : null}
             {requestError ? <Text style={styles.formError}>{requestError}</Text> : null}
-            <TouchableOpacity style={styles.paymentBtn} disabled={requestBusy || !returnProofData} onPress={sendReturnRequest}>
+            <TouchableOpacity
+              style={styles.paymentBtn}
+              disabled={requestBusy || !returnProofData}
+              onPress={sendReturnRequest}
+            >
               <Text style={styles.paymentBtnText}>{requestBusy ? 'Sending…' : 'Send return request'}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => { setReturnTarget(null); setRequestError(''); }}><Text style={styles.modalCancel}>Cancel</Text></TouchableOpacity>
@@ -627,7 +679,13 @@ const createStyles = (colors) => StyleSheet.create({
   formError: { color: colors.error, fontSize: 12, marginTop: 7 },
   modalCancel: { color: colors.textSecondary, fontSize: 13, padding: 8, textAlign: 'center' },
   reasonChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-  reasonChoice: { borderColor: colors.border, borderRadius: 15, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6 },
+  reasonChoice: {
+    borderColor: colors.border,
+    borderRadius: 15,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   reasonChoiceActive: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
   reasonChoiceText: { color: colors.textSecondary, fontSize: 12 },
   reasonChoiceTextActive: { color: '#fff', fontWeight: '700' },
@@ -659,9 +717,21 @@ const createStyles = (colors) => StyleSheet.create({
   countTextActive: { color: '#fff' },
   date: { color: colors.textSecondary, fontSize: 12, marginTop: 6 },
   detail: { color: colors.textSecondary, fontSize: 13, marginBottom: 3 },
-  guestBtnPrimary: { backgroundColor: colors.brandPrimary, borderRadius: 12, marginBottom: 10, paddingHorizontal: 48, paddingVertical: 14 },
+  guestBtnPrimary: {
+    backgroundColor: colors.brandPrimary,
+    borderRadius: 12,
+    marginBottom: 10,
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+  },
   guestBtnPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  guestBtnSecondary: { borderColor: colors.brandPrimary, borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 48, paddingVertical: 14 },
+  guestBtnSecondary: {
+    borderColor: colors.brandPrimary,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 48,
+    paddingVertical: 14,
+  },
   guestBtnSecondaryText: { color: colors.brandPrimary, fontSize: 15, fontWeight: '700' },
   guestGlyph: { color: colors.brandPrimary, fontSize: 40, fontWeight: '700', marginBottom: 12 },
   guestSub: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginBottom: 24, marginTop: 6, paddingHorizontal: 32, textAlign: 'center' },

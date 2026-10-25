@@ -170,7 +170,12 @@ export default function ProductScreen({ route, navigation }) {
     if (route.params?.initialCategory !== undefined) setCategory(route.params.initialCategory);
     if (route.params?.initialCategories !== undefined) setCategoryGroup(route.params.initialCategories);
     if (route.params?.initialGroupLabel !== undefined) setGroupLabel(route.params.initialGroupLabel);
-  }, [route.params?.initialSearch, route.params?.initialCategory, route.params?.initialCategories, route.params?.initialGroupLabel]);
+  }, [
+    route.params?.initialSearch,
+    route.params?.initialCategory,
+    route.params?.initialCategories,
+    route.params?.initialGroupLabel,
+  ]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -527,7 +532,17 @@ export default function ProductScreen({ route, navigation }) {
 const createStyles = (colors) => StyleSheet.create({
   container: { backgroundColor: colors.background, flex: 1, padding: 16 },
   searchWrap: { alignItems: 'center', flexDirection: 'row', marginBottom: 10 },
-  input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, color: colors.textPrimary, flex: 1, fontSize: 15, minHeight: 48, paddingHorizontal: 14 },
+  input: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    flex: 1,
+    fontSize: 15,
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
   // Explicit height (>= 40px tap target) + centered chips — the row can never
   // collapse into the sort row / count text on any platform or width.
   chipList: { flexGrow: 0, flexShrink: 0, height: 52, marginBottom: 4 },

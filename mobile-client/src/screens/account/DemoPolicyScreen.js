@@ -56,7 +56,8 @@ export default function DemoPolicyScreen() {
         <View style={styles.noticeBody}>
           <Text style={styles.noticeTitle}>Demo only</Text>
           <Text style={styles.noticeText}>
-            These are demo rules based on Sylver’s answers. Payment proof review and refund actions are simulated; this build is separate from production.
+            These are demo rules based on Sylver’s answers. Payment proof review and refund actions are simulated;
+            this build is separate from production.
           </Text>
         </View>
       </View>

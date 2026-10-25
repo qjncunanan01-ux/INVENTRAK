@@ -497,8 +497,19 @@ export default function OrderInquiryScreen({ route, navigation }) {
                 </TouchableOpacity>
                 <Text style={styles.qtyText}>{item.qty}</Text>
                 <TouchableOpacity
-                  style={[styles.stepBtn, (stockById[Number(item.id)] === undefined || item.qty >= stockById[Number(item.id)] || (!COMPANY_DEMO && item.qty >= 10000)) && styles.stepBtnDisabled]}
-                  disabled={stockById[Number(item.id)] === undefined || item.qty >= stockById[Number(item.id)] || (!COMPANY_DEMO && item.qty >= 10000)}
+                  style={[
+                    styles.stepBtn,
+                    (
+                      stockById[Number(item.id)] === undefined
+                      || item.qty >= stockById[Number(item.id)]
+                      || (!COMPANY_DEMO && item.qty >= 10000)
+                    ) && styles.stepBtnDisabled,
+                  ]}
+                  disabled={
+                    stockById[Number(item.id)] === undefined
+                    || item.qty >= stockById[Number(item.id)]
+                    || (!COMPANY_DEMO && item.qty >= 10000)
+                  }
                   onPress={() => setQty(item.id, item.qty + 1)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -527,8 +538,16 @@ export default function OrderInquiryScreen({ route, navigation }) {
       ) : null}
 
       <Text style={styles.estimate}>Estimated total: P{estimatedCost.toFixed(2)}</Text>
-      {bulkDiscount > 0 ? <Text style={styles.termsText}>Bulk discount: −P{bulkDiscount.toFixed(2)} on syrup and sauce items</Text> : null}
-      {COMPANY_DEMO ? <Text style={styles.termsText}>Final delivery fee and schedule are confirmed by staff before payment.</Text> : null}
+      {bulkDiscount > 0 ? (
+        <Text style={styles.termsText}>
+          Bulk discount: −P{bulkDiscount.toFixed(2)} on syrup and sauce items
+        </Text>
+      ) : null}
+      {COMPANY_DEMO ? (
+        <Text style={styles.termsText}>
+          Final delivery fee and schedule are confirmed by staff before payment.
+        </Text>
+      ) : null}
       <TextInput
         style={[styles.input, showFieldError('notes') && fieldErrors.notes && styles.inputInvalid]}
         placeholder="Notes (optional)"
@@ -646,7 +665,15 @@ export default function OrderInquiryScreen({ route, navigation }) {
 }
 
 const createStyles = (colors) => StyleSheet.create({
-  termsCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 12, borderWidth: 1, marginBottom: 16, marginTop: 8, padding: 14 },
+  termsCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+    marginTop: 8,
+    padding: 14,
+  },
   termsTitle: { color: colors.textPrimary, fontSize: 15, fontWeight: '800', marginBottom: 8 },
   termsText: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 6 },
   termsCheckRow: { alignItems: 'center', flexDirection: 'row', marginTop: 10 },
@@ -655,7 +682,13 @@ const createStyles = (colors) => StyleSheet.create({
   addMoreBtn: { alignItems: 'center', paddingVertical: 10 },
   addMoreText: { color: colors.brandPrimary, fontSize: 14, fontWeight: '700' },
   addressInput: { minHeight: 68, textAlignVertical: 'top' },
-  browseBtn: { backgroundColor: colors.brandPrimary, borderRadius: 10, marginTop: 14, paddingHorizontal: 24, paddingVertical: 12 },
+  browseBtn: {
+    backgroundColor: colors.brandPrimary,
+    borderRadius: 10,
+    marginTop: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
   browseBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   cartInfo: { flex: 1, marginRight: 8 },
   cartName: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
@@ -680,7 +713,14 @@ const createStyles = (colors) => StyleSheet.create({
     padding: 12,
   },
   guestBannerText: { color: '#7a5c00', fontSize: 13, lineHeight: 19 },
-  input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, fontSize: 15, marginBottom: 12, padding: 12 },
+  input: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    color: colors.textPrimary,
+    fontSize: 15,
+    marginBottom: 12,
+    padding: 12,
+  },
   inputInvalid: { borderColor: colors.error, borderWidth: 1 },
   fieldError: { color: colors.error, fontSize: 12, lineHeight: 16, marginBottom: 10, marginTop: -8 },
   lineTotal: { color: colors.brandPrimary, fontSize: 14, fontWeight: '800' },
