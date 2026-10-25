@@ -15,7 +15,7 @@ before(async () => {
   for (const side of [sqlite, npmfree]) {
     const res = await call(side.url, '/api/auth/login', {
       method: 'POST',
-      body: { username: 'staff', password: 'staff123' },
+      body: { username: 'staff', password: 'staff123', portal: 'staff' },
     });
     assert.strictEqual(res.status, 200, 'staff login must succeed');
     side.token.staff = res.json.token;

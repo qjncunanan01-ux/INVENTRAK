@@ -116,10 +116,9 @@ export default function ProductScreen({ route, navigation }) {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Deep-link focus: when Home (quick tile) or the QR scanner navigates here
-  // with focusId, open that product's PDP after the catalog loads. Consumed
-  // once per navigation (lastFocusRef), so closing the PDP clears the param
-  // and the same product can be re-opened by a second scan.
+  // Deep-link focus: when Home (quick tile) navigates here with focusId, open
+  // that product's PDP after the catalog loads. Consumed once per navigation,
+  // so closing the PDP clears the param and it can be opened again later.
   const lastFocusRef = useRef(null);
   useEffect(() => {
     if (!focusId || lastFocusRef.current === focusId) return;

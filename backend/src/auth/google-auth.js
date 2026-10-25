@@ -177,7 +177,8 @@ const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const RELAY_STATE_TTL_MS = 10 * 60 * 1000;
 
 // Short-lived CSRF state (per-instance; the callback arrives seconds later on
-// the same instance). Keyed by a random token, mapped to the app return URL.
+// the same instance). Keyed by a random token and bound to its return URL and
+// requested portal.
 const relayStates = new Map();
 
 // The relay is live only when an allow-listed client AND its secret exist.
@@ -196,10 +197,10 @@ function pruneRelayStates(now = Date.now()) {
   }
 }
 
-function createRelayState(returnUrl, now = Date.now()) {
+function createRelayState(returnUrl, now = Date.now(), portal = null) {
   pruneRelayStates(now);
   const state = crypto.randomBytes(18).toString('hex');
-  relayStates.set(state, { returnUrl, expiresAt: now + RELAY_STATE_TTL_MS });
+  relayStates.set(state, { returnUrl, portal, expiresAt: now + RELAY_STATE_TTL_MS });
   return state;
 }
 
@@ -209,7 +210,11 @@ function consumeRelayState(state, now = Date.now()) {
   const entry = state ? relayStates.get(state) : undefined;
   if (!entry) return { ok: false, reason: 'unknown-or-expired' };
   relayStates.delete(state);
-  return { ok: true, returnUrl: entry.returnUrl };
+  return {
+    ok: true,
+    returnUrl: entry.returnUrl,
+    ...(entry.portal ? { portal: entry.portal } : {}),
+  };
 }
 
 // Only app deep links may carry the session token back: Expo Go (exp://), the

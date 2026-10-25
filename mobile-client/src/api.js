@@ -103,7 +103,6 @@ function persistWebSession() {
         username: sessionUsername,
         email: sessionEmail,
         verified: sessionVerified,
-        role: sessionRole,
       }),
     );
   } catch {}
@@ -144,13 +143,6 @@ export function clearToken() {
 let sessionUsername = null;
 let sessionEmail = null;
 let sessionVerified = false;
-// Account role ('customer' | 'staff' | 'admin' | 'super_admin' | 'owner') —
-// lets the app show role-gated tools (the staff scan-and-count flow).
-// Defaults to 'customer' so guest/customer sessions never expose staff
-// features. Admin-tier roles (admin/super_admin/owner) also unlock the
-// mobile staff tools: they outrank staff, and the spec's mobile app is where
-// EVERYONE scans — the web admin is the desktop-only surface.
-let sessionRole = 'customer';
 const sessionListeners = new Set();
 
 // Restore a persisted web session (after a browser refresh) so the customer
@@ -166,7 +158,6 @@ if (isWeb()) {
         sessionUsername = s.username || null;
         sessionEmail = s.email || null;
         sessionVerified = !!s.verified;
-        sessionRole = STAFF_TOOLS_ROLES.includes(s.role) ? s.role : 'customer';
       }
     }
   } catch {}
@@ -178,25 +169,10 @@ export function setSessionUsername(name) {
   sessionListeners.forEach((fn) => fn(sessionUsername));
 }
 
-// Sets the profile fields that ride along with the session (the email the
-// account was registered with, and whether it has passed verification).
-// Kept separate from setSessionUsername so the guest-first flow stays intact.
-// Roles that unlock the on-phone staff tools (scan & count, QR scanner).
-// staff + the whole admin tier — the tier order is least → most privileged.
-export const STAFF_TOOLS_ROLES = ['staff', 'admin', 'super_admin', 'owner'];
-
-export const ROLE_LABELS = {
-  staff: 'Staff',
-  admin: 'Admin',
-  super_admin: 'Super Admin',
-  owner: 'Owner',
-};
-
-export function setSessionDetails({ email, verified, role }) {
+// Sets customer profile fields separately from the username so the guest-first flow stays intact.
+export function setSessionDetails({ email, verified }) {
   sessionEmail = email || null;
   sessionVerified = !!verified;
-  // Role-gate staff tools: staff and every admin-tier role unlocks them.
-  if (STAFF_TOOLS_ROLES.includes(role)) sessionRole = role;
   persistWebSession();
   sessionListeners.forEach((fn) => fn(sessionUsername));
 }
@@ -211,12 +187,6 @@ export function getSessionEmail() {
 
 export function getSessionVerified() {
   return sessionVerified;
-}
-
-// The signed-in account's role ('customer' | 'staff' | 'admin'). Guests and
-// customers default to 'customer' — staff features never leak to them.
-export function getSessionRole() {
-  return sessionRole;
 }
 
 export function clearSession() {
@@ -254,14 +224,6 @@ export function useSessionEmail() {
   const [email, setEmail] = useState(getSessionEmail());
   useEffect(() => subscribeSession(() => setEmail(getSessionEmail())), []);
   return email;
-}
-
-// React hook: the signed-in account's role (re-renders on login/logout so
-// role-gated UI appears/disappears without a manual refresh).
-export function useSessionRole() {
-  const [role, setRole] = useState(getSessionRole());
-  useEffect(() => subscribeSession(() => setRole(getSessionRole())), []);
-  return role;
 }
 
 // Shared client instance wired to this app's base URL + token store.
@@ -363,15 +325,12 @@ export async function listAllProducts() {
 // re-exported. Admin-only operations (product/location/stock management,
 // sales ledger, alert resolution, user administration, reports, analytics
 // export, integrity, scan-stock) live only in api.generated.js and the admin
-// dashboard — the server rejects them for customers (403), so they must not
+// or staff app — the server rejects them for customers (403), so they must not
 // appear in this module (a future dev importing listSales here would hit a
 // 403 with no warning).
 export const listCategories = client.listCategories;
 export const getProduct = client.getProduct;
 export const getInventory = client.getInventory;
-export const listLocations = client.listLocations;
-export const listStockMovements = client.listStockMovements;
-export const listStockLots = client.listStockLots;
 export const listOrderInquiries = client.listOrderInquiries;
 // Back-order status for the customer's own orders (Back-Order Management).
 // The server scopes the list to the caller's OWN inquiries, so the app can map
@@ -385,17 +344,6 @@ export const createOrderInquiry = client.createOrderInquiry;
 // timestamp and reason rather than rewriting them.
 export const cancelOrderInquiry = client.cancelOrderInquiry;
 export const updateInquiryPayment = client.updateInquiryPayment;
-// QR product identification (staff/admin Scan & Count): the scanned tag
-// payload / SKU / bare id resolves to one product with live per-location
-// stock + open lots in a single round trip.
-export const getProductByQr = client.getProductByQr;
-// Record a scan in the audit trail (who scanned what, when). Fire-and-forget.
-export const createScanEvent = client.createScanEvent;
-// Staff-scoped operations for the on-phone count flow: proposing a corrected
-// physical quantity creates a PENDING adjustment the owner approves — the
-// same maker-approver queue as the admin dashboard.
-export const createStockAdjustment = client.createStockAdjustment;
-export const listStockAdjustments = client.listStockAdjustments;
 export const getOptimizationBulk = client.getOptimizationBulk;
 export const getOptimizationAbc = client.getOptimizationAbc;
 export const getOptimization = client.getOptimization;

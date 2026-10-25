@@ -77,6 +77,7 @@ const {
   isKnownRole,
   canAccessAdminPortal,
   canAccessStaffPortal,
+  canAccessCustomerPortal,
 } = require('./roles');
 const {
   verifyGoogleIdToken,
@@ -1784,6 +1785,10 @@ const server = http.createServer((req, res) => {
       if (obj.website) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['Unexpected field: website'] });
       }
+      if (obj.portal && !['admin', 'staff', 'customer'].includes(obj.portal)) {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['portal must be admin, staff, or customer'] });
+      }
+      const portal = obj.portal || 'customer';
       if (!obj.username || !obj.password) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['username and password are required'] });
       }
@@ -1834,15 +1839,14 @@ const server = http.createServer((req, res) => {
       // Portal gate: Inventory Staff is a MOBILE role (see roles.js). The web
       // admin is desktop-only, so a staff login FROM THE WEB PORTAL is
       // refused with a specific code the portal turns into "use the mobile
-      // app". The portal flag is sent by the web admin only; the mobile app
-      // omits it, so staff sign in there freely (mobile staff surfaces gate
-      // themselves server-side by STAFF_TIER). Runs before the MFA branch so
-      // staff-with-MFA gets the portal error, not a challenge.
-      if (obj.portal === 'admin' && !canAccessAdminPortal(user.role)) {
+      // app". The portal flag is sent by the web admin and customer app, so a
+      // staff account cannot accidentally enter either surface. Runs before
+      // MFA so staff-with-MFA gets a portal error, not a challenge.
+      if (portal === 'admin' && !canAccessAdminPortal(user.role)) {
         audit('auth.login.portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
         return sendJson(res, 403, {
           error:
-            "Inventory Staff accounts are mobile-only. Use Sylver's mobile app to scan QR tags and submit counts.",
+            "Inventory Staff accounts are mobile-only. Use Sylver's Staff app to scan QR tags and submit counts.",
           code: 'portal_mobile_only',
         });
       }
@@ -1850,11 +1854,18 @@ const server = http.createServer((req, res) => {
       // EXCLUSIVELY for Inventory Staff. Admin-tier accounts are refused —
       // they work in the web admin — so a shared shift device can never end
       // up holding an owner/admin session with far broader reach.
-      if (obj.portal === 'staff' && !canAccessStaffPortal(user.role)) {
+      if (portal === 'staff' && !canAccessStaffPortal(user.role)) {
         audit('auth.login.staff_portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
         return sendJson(res, 403, {
           error: 'The staff app is exclusively for Inventory Staff. Admins and owners use the web admin dashboard.',
           code: 'staff_app_exclusive',
+        });
+      }
+      if (portal === 'customer' && !canAccessCustomerPortal(user.role)) {
+        audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
+        return sendJson(res, 403, {
+          error: "Inventory Staff accounts use Sylver's Staff app to scan and count stock.",
+          code: 'customer_app_exclusive',
         });
       }
       // Admin MFA: when the administrator has enrolled, the password alone
@@ -1886,6 +1897,10 @@ const server = http.createServer((req, res) => {
       if (!obj.idToken) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['idToken is required'] });
       }
+      const portal = obj.portal || 'customer';
+      if (portal !== 'customer') {
+        return sendJson(res, 400, { error: 'Validation failed', details: ['portal must be customer'] });
+      }
       if (!googleAuthConfigured()) {
         return sendJson(res, 501, {
           error: 'Google sign-in is not configured',
@@ -1904,6 +1919,13 @@ const server = http.createServer((req, res) => {
       // Find by email (case-insensitive); link google_sub to an existing
       // password account so Google sign-in is the SAME identity, not a dup.
       let user = users.find(u => String(u.email || '').toLowerCase() === lowerEmail);
+      if (user && !canAccessCustomerPortal(user.role)) {
+        audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username });
+        return sendJson(res, 403, {
+          error: "Inventory Staff accounts use Sylver's Staff app to scan and count stock.",
+          code: 'customer_app_exclusive',
+        });
+      }
       if (!user) {
         // New OAuth account: deduped username from Google's verified profile
         // name (e.g. "Jerico Cunanan" not the email prefix), random password
@@ -2408,6 +2430,10 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.split('?')[0] === '/api/auth/google/start') {
     const params = new URL(url, 'http://localhost').searchParams;
     const returnUrl = String(params.get('returnUrl') || '');
+    const portal = params.get('portal') ? String(params.get('portal')) : 'customer';
+    if (portal !== 'customer') {
+      return sendJson(res, 400, { error: 'Validation failed', details: ['portal must be customer'] });
+    }
     if (!isAllowedReturnUrl(returnUrl)) {
       return sendJson(res, 400, {
         error: 'Validation failed',
@@ -2420,7 +2446,7 @@ const server = http.createServer((req, res) => {
         details: ['Set GOOGLE_CLIENT_IDS and GOOGLE_CLIENT_SECRET on this server'],
       });
     }
-    const state = createRelayState(returnUrl);
+    const state = createRelayState(returnUrl, Date.now(), portal);
     res.writeHead(302, {
       Location: buildGoogleAuthUrl({ clientId: webClientId(), redirectUri: relayCallbackUrl(req), state }),
     });
@@ -2468,6 +2494,11 @@ const server = http.createServer((req, res) => {
       const { sub, email } = result.payload;
       const lowerEmail = email.toLowerCase();
       let user = users.find(u => String(u.email || '').toLowerCase() === lowerEmail);
+      if (user && !canAccessCustomerPortal(user.role)) {
+        audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username });
+        res.writeHead(302, { Location: `${webReturn}?error=customer_app_exclusive` });
+        return res.end();
+      }
       if (!user) {
         const base = googleUsername(result.payload.name, email);
         let username = base;

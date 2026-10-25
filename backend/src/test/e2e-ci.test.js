@@ -346,7 +346,7 @@ describe('Role-Based Access Control', () => {
         // Staff token
         const staffRes = await call(side.url, '/api/auth/login', {
           method: 'POST',
-          body: { username: 'staff', password: 'staff123' },
+          body: { username: 'staff', password: 'staff123', portal: 'staff' },
         });
         staffToken = staffRes.json.token;
       });

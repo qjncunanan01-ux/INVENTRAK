@@ -40,8 +40,6 @@ const APPS = {
       'RecommendationScreen',
       'CategoriesScreen',
       'SearchScreen',
-      'QrScanScreen',
-      'StockAvailabilityScreen',
     ],
     cart: ['CartScreen'],
     orders: ['InquiryHistoryScreen', 'OrderInquiryScreen', 'PaymentScreen', 'NotificationsScreen'],

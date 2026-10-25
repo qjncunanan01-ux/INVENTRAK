@@ -41,7 +41,6 @@ const ICON_MAP = {
 
   // Commerce
   'package': 'package-variant',
-  'scanner': 'camera',
   'receipt': 'receipt',
   'tag': 'tag',
   'percent': 'percent',

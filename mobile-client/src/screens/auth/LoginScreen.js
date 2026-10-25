@@ -11,17 +11,11 @@ import { useThemeColors } from '../../theme-context';
 import AnimatedEntry from '../../AnimatedEntry';
 import { company } from '../../theme';
 
-// Demo accounts the quick-fill buttons populate (matches the seeded accounts
-// on both backends). Customer is the buyer demo; Staff is the on-phone
-// inventory role — staff are MOBILE-only by design (the web admin refuses
-// them), so this is where a staff account signs in. Kept in one place so the
-// buttons and any hints can never drift apart.
-// Which build is this? During the QR rollout an OLD installed APK kept
-// failing scans and nobody could tell which build the phone ran — the login
-// screen now prints the app version so an outdated install is obvious at a
-// glance. expo-constants is already a direct dependency; no new native modules.
+// Customer demo account used by the quick-fill button (matches the seeded
+// account on both backends).
+// Show the installed build version so support can identify stale APKs.
 const APP_VERSION =
-  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.3.0';
+  (typeof Constants !== 'undefined' && Constants && Constants.expoConfig && Constants.expoConfig.version) || '1.3.2';
 
 const DEMO_ACCOUNTS = [
   {
@@ -30,13 +24,6 @@ const DEMO_ACCOUNTS = [
     label: 'Customer',
     note: 'demo account',
     icon: 'account-circle-outline',
-  },
-  {
-    username: 'staff',
-    password: 'staff123',
-    label: 'Inventory Staff',
-    note: 'mobile scan & count',
-    icon: 'clipboard-check-outline',
   },
 ];
 
@@ -104,8 +91,6 @@ export default function LoginScreen({ navigation }) {
     setSessionDetails({
       email: response.user?.email || loggedInAs,
       verified: response.user?.email_verified !== false,
-      // Role unlocks staff tools on the phone (staff/admin only).
-      role: response.user?.role,
     });
     const state = navigation.getState();
     if (state && state.routes && state.routes.length >= 2) {
@@ -130,7 +115,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const response = await login({ username, password });
+      const response = await login({ username, password, portal: 'customer' });
       finishLogin(response, username);
     } catch (err) {
       // Brute-force lockout: the generated client attaches err.status + the
@@ -167,11 +152,11 @@ export default function LoginScreen({ navigation }) {
       // the app boots back up.
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         const returnUrl = `${window.location.origin}/#/google-auth`;
-        window.location.href = `${API_BASE_URL}/api/auth/google/start?returnUrl=${encodeURIComponent(returnUrl)}`;
+        window.location.href = `${API_BASE_URL}/api/auth/google/start?returnUrl=${encodeURIComponent(returnUrl)}&portal=customer`;
         return;
       }
       const returnUrl = Linking.createURL('google-auth');
-      const startUrl = `${API_BASE_URL}/api/auth/google/start?returnUrl=${encodeURIComponent(returnUrl)}`;
+      const startUrl = `${API_BASE_URL}/api/auth/google/start?returnUrl=${encodeURIComponent(returnUrl)}&portal=customer`;
       const result = await WebBrowser.openAuthSessionAsync(startUrl, returnUrl);
       if (result.type === 'success' && result.url) {
         const params = parseQuery(result.url);
@@ -182,7 +167,6 @@ export default function LoginScreen({ navigation }) {
               token,
               user: {
                 username: params.username || 'customer',
-                role: params.role || 'customer',
                 email: params.email || '',
                 email_verified: params.email_verified !== '0',
               },
@@ -191,9 +175,12 @@ export default function LoginScreen({ navigation }) {
           );
           return;
         }
+        const deniedStaff = params.error === 'customer_app_exclusive';
         Alert.alert(
-          'Google Sign-In Failed',
-          params.error ? `Google error: ${params.error}` : 'No token returned. Please try again.',
+          deniedStaff ? 'Use Sylver\'s Staff app' : 'Google Sign-In Failed',
+          deniedStaff
+            ? 'Inventory Staff accounts sign in through Sylver\'s Staff app.'
+            : params.error ? `Google error: ${params.error}` : 'No token returned. Please try again.',
         );
       } else if (result.type === 'cancel') {
         // User backed out of the Google page — stay on the login screen.
@@ -231,6 +218,7 @@ export default function LoginScreen({ navigation }) {
         </View>
         <Text style={styles.title}>{company.software}</Text>
         <Text style={styles.subtitle}>Customer Portal</Text>
+        <Text style={styles.portalHint}>Inventory staff: use Sylver&apos;s Staff app to scan and count stock.</Text>
         <Text style={styles.tagline}>{company.tagline}</Text>
         <TextInput
           style={styles.input}
@@ -248,7 +236,7 @@ export default function LoginScreen({ navigation }) {
           secureTextEntry
           editable={!loading}
         />
-        {/* Quick-fill: one tap per demo role — buyer and on-phone staff. */}
+        {/* Quick-fill the customer demo account with one tap. */}
         <View style={styles.demoRow}>
           {DEMO_ACCOUNTS.map((account) => (
             <TouchableOpacity
@@ -305,8 +293,7 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.linkForgot}>Forgot password?</Text>
         </TouchableOpacity>
 
-        {/* Build marker: instantly answers "which build is this phone
-            running?" when a scan or feature misbehaves. */}
+        {/* Build marker makes it easy to identify an outdated install. */}
         <Text style={styles.versionNote}>v{APP_VERSION}</Text>
 
       </AnimatedEntry>
@@ -332,6 +319,7 @@ const createStyles = (colors) => StyleSheet.create({
   logoMark: { height: '100%', width: '100%' },
   title: { color: '#fff', fontSize: 32, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
   subtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 16, marginBottom: 2, textAlign: 'center' },
+  portalHint: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginBottom: 14, textAlign: 'center' },
   tagline: { color: 'rgba(255,255,255,0.8)', fontSize: 11, letterSpacing: 1.4, marginBottom: 14, textAlign: 'center' },
   input: { backgroundColor: colors.surface, borderRadius: 10, color: colors.textPrimary, fontSize: 16, marginBottom: 16, padding: 14 },
   demoRow: {

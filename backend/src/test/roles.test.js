@@ -90,7 +90,7 @@ test('inventory staff keep the daily inventory + scanning modules', async () => 
   }
 });
 
-test('the web-portal flag refuses staff (mobile-only); the same account signs in on mobile', async () => {
+test('portal flags keep staff accounts on the dedicated staff app', async () => {
   for (const side of [sqlite, npmfree]) {
     // Portal login (portal: 'admin' — what the web admin sends): refused with
     // a specific, actionable code, never a session.
@@ -102,15 +102,25 @@ test('the web-portal flag refuses staff (mobile-only); the same account signs in
     assert.strictEqual(denied.json.code, 'portal_mobile_only');
     assert.ok(denied.json.error, 'an explanation ships with the refusal');
 
-    // The SAME account without the flag (the mobile app's login) still gets
-    // a full session — staff tools live on the phone by design.
-    const mobile = await call(side.url, '/api/auth/login', {
+    // The customer app and older logins without a portal flag cannot create
+    // a staff session.
+    const customerPortal = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: 'staff', password: 'staff123', portal: 'customer' },
+    });
+    assert.strictEqual(customerPortal.status, 403, 'staff + portal=customer must be 403');
+    assert.strictEqual(customerPortal.json.code, 'customer_app_exclusive');
+    const legacyMobile = await call(side.url, '/api/auth/login', {
       method: 'POST',
       body: { username: 'staff', password: 'staff123' },
     });
-    assert.strictEqual(mobile.status, 200, 'staff without portal flag = mobile login');
-    assert.strictEqual(mobile.json.user.role, 'staff');
-    assert.ok(mobile.json.token, 'mobile staff get a session token');
+    assert.strictEqual(legacyMobile.status, 403, 'missing portal defaults to customer');
+    assert.strictEqual(legacyMobile.json.code, 'customer_app_exclusive');
+    const staffPortal = await call(side.url, '/api/auth/login', {
+      method: 'POST',
+      body: { username: 'staff', password: 'staff123', portal: 'staff' },
+    });
+    assert.strictEqual(staffPortal.status, 200, 'staff + portal=staff gets a session');
 
     // Every admin-tier role passes the portal gate.
     const adminLogins = [

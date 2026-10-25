@@ -22,6 +22,7 @@ const {
   isKnownRole,
   canAccessAdminPortal,
   canAccessStaffPortal,
+  canAccessCustomerPortal,
   isManagement,
 } = require('../../roles');
 const {
@@ -240,6 +241,10 @@ router.post('/login', validate({ username: { required: true }, password: { requi
   if (req.body.website) {
     return res.status(400).json({ error: 'Validation failed', details: ['Unexpected field: website'] });
   }
+  if (req.body.portal && !['admin', 'staff', 'customer'].includes(req.body.portal)) {
+    return res.status(400).json({ error: 'Validation failed', details: ['portal must be admin, staff, or customer'] });
+  }
+  const portal = req.body.portal || 'customer';
   const { username, password } = req.body;
   const sourceIp = req.socket?.remoteAddress || req.ip || '';
   const lock = loginLockout.check(username, sourceIp);
@@ -275,19 +280,27 @@ router.post('/login', validate({ username: { required: true }, password: { requi
     return res.status(401).json({ error: 'Invalid username or password' });
   }
 
-  if (req.body.portal === 'admin' && !canAccessAdminPortal(user.role)) {
+  if (portal === 'admin' && !canAccessAdminPortal(user.role)) {
     audit('auth.login.portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
     return res.status(403).json({
-      error: "Inventory Staff accounts are mobile-only. Use Sylver's mobile app to scan QR tags and submit counts.",
+      error: "Inventory Staff accounts are mobile-only. Use Sylver's Staff app to scan QR tags and submit counts.",
       code: 'portal_mobile_only',
     });
   }
 
-  if (req.body.portal === 'staff' && !canAccessStaffPortal(user.role)) {
+  if (portal === 'staff' && !canAccessStaffPortal(user.role)) {
     audit('auth.login.staff_portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
     return res.status(403).json({
       error: 'The staff app is exclusively for Inventory Staff. Admins and owners use the web admin dashboard.',
       code: 'staff_app_exclusive',
+    });
+  }
+
+  if (portal === 'customer' && !canAccessCustomerPortal(user.role)) {
+    audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
+    return res.status(403).json({
+      error: "Inventory Staff accounts use Sylver's Staff app to scan and count stock.",
+      code: 'customer_app_exclusive',
     });
   }
 
@@ -306,7 +319,11 @@ router.post('/login', validate({ username: { required: true }, password: { requi
 });
 
 // POST /api/auth/google
-router.post('/google', validate({ idToken: { required: true } }), async (req, res) => {
+router.post('/google', validate({ idToken: { required: true }, portal: { maxLength: 20 } }), async (req, res) => {
+  const portal = req.body.portal || 'customer';
+  if (portal !== 'customer') {
+    return res.status(400).json({ error: 'Validation failed', details: ['portal must be customer'] });
+  }
   if (!googleAuthConfigured()) {
     return res.status(501).json({ error: 'Google sign-in is not configured', details: ['Set GOOGLE_CLIENT_IDS (comma-separated OAuth client IDs) on this server'] });
   }
@@ -319,6 +336,13 @@ router.post('/google', validate({ idToken: { required: true } }), async (req, re
 
   const db = require('../../db').db;
   let user = db.prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').get(lowerEmail);
+  if (user && !canAccessCustomerPortal(user.role)) {
+    audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username });
+    return res.status(403).json({
+      error: "Inventory Staff accounts use Sylver's Staff app to scan and count stock.",
+      code: 'customer_app_exclusive',
+    });
+  }
   if (!user) {
     let base = googleUsername(result.payload.name, email);
     let username = base;
@@ -437,13 +461,17 @@ router.post('/logout', authenticateToken, (req, res) => {
 // GET /api/auth/google/start
 router.get('/google/start', (req, res) => {
   const returnUrl = String(req.query.returnUrl || '');
+  const portal = req.query.portal ? String(req.query.portal) : 'customer';
+  if (portal !== 'customer') {
+    return res.status(400).json({ error: 'Validation failed', details: ['portal must be customer'] });
+  }
   if (!isAllowedReturnUrl(returnUrl)) {
     return res.status(400).json({ error: 'Validation failed', details: ['returnUrl must be an app deep link (exp:// or the app scheme)'] });
   }
   if (!relayConfigured()) {
     return res.status(501).json({ error: 'Google sign-in is not configured', details: ['Set GOOGLE_CLIENT_IDS and GOOGLE_CLIENT_SECRET on this server'] });
   }
-  const state = createRelayState(returnUrl);
+  const state = createRelayState(returnUrl, Date.now(), portal);
   res.redirect(buildGoogleAuthUrl({ clientId: webClientId(), redirectUri: relayCallbackUrl(req), state }));
 });
 
@@ -468,6 +496,10 @@ router.get('/google/callback', async (req, res) => {
 
   const db = require('../../db').db;
   let user = db.prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').get(lowerEmail);
+  if (user && !canAccessCustomerPortal(user.role)) {
+    audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username });
+    return res.redirect(`${webReturn}?error=customer_app_exclusive`);
+  }
   if (!user) {
     let base = googleUsername(result.payload.name, email);
     let username = base;

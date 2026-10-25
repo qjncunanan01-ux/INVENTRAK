@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -17,8 +17,6 @@ import VerifyEmailScreen from './screens/auth/VerifyEmailScreen';
 import AccountScreen from './screens/account/AccountScreen';
 import CategoriesScreen from './screens/catalog/CategoriesScreen';
 import SearchScreen from './screens/catalog/SearchScreen';
-import QrScanScreen from './screens/catalog/QrScanScreen';
-import StockAvailabilityScreen from './screens/catalog/StockAvailabilityScreen';
 import PaymentScreen from './screens/orders/PaymentScreen';
 import NotificationsScreen from './screens/orders/NotificationsScreen';
 import CartScreen from './screens/cart/CartScreen';
@@ -47,8 +45,8 @@ function CatalogNavigator() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.brandPrimary },
         headerTintColor: '#fff',
-        // Arrow-only back button: a long previous-screen label (e.g. "Scan a
-        // Product") would overlap the centered title on narrow phones.
+        // Arrow-only back button prevents a long previous-screen label from
+        // overlapping the centered title on narrow phones.
         headerBackButtonDisplayMode: 'minimal',
       }}
     >
@@ -56,8 +54,6 @@ function CatalogNavigator() {
       <CatalogStack.Screen name="Recommendations" component={RecommendationScreen} options={{ title: 'Recommendations' }} />
       <CatalogStack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Categories' }} />
       <CatalogStack.Screen name="Search" component={SearchScreen} options={{ title: 'Search', headerShown: false }} />
-      <CatalogStack.Screen name="QrScan" component={QrScanScreen} options={{ title: 'Scan QR Code' }} />
-      <CatalogStack.Screen name="StockAvailability" component={StockAvailabilityScreen} options={{ title: 'Stock Availability' }} />
     </CatalogStack.Navigator>
   );
 }
@@ -180,8 +176,12 @@ function AppShell() {
       setSessionDetails({
         email: params.email || params.username || 'customer',
         verified: params.email_verified !== '0',
-        role: params.role,
       });
+    } else if (params.error === 'customer_app_exclusive') {
+      Alert.alert(
+        'Use Sylver\'s Staff app',
+        'Inventory Staff accounts sign in through Sylver\'s Staff app.',
+      );
     }
     window.history.replaceState(null, '', window.location.pathname);
   }, []);

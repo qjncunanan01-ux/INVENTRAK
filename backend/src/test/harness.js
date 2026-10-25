@@ -63,19 +63,19 @@ async function bootBoth() {
     // Every seeded demo account, per role (roles.js). Username/key differ for
     // Super Admin, so the pair is explicit rather than derived.
     const demoLogins = [
-      ['admin', 'admin', 'admin123'],
-      ['customer', 'customer', 'customer123'],
-      ['staff', 'staff', 'staff123'],
-      ['owner', 'owner', 'owner123'],
-      ['superadmin', 'superadmin', 'super123'],
+      ['admin', 'admin', 'admin123', 'admin'],
+      ['customer', 'customer', 'customer123', 'customer'],
+      ['staff', 'staff', 'staff123', 'staff'],
+      ['owner', 'owner', 'owner123', 'admin'],
+      ['superadmin', 'superadmin', 'super123', 'admin'],
     ];
 
     for (const side of [sqlite, npmfree]) {
-      for (const [key, username, password] of demoLogins) {
+      for (const [key, username, password, portal] of demoLogins) {
         const res = await fetch(`${side.url}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ username, password, portal }),
         });
         if (res.status !== 200) {
           throw new Error(`${key} login should succeed on boot`);

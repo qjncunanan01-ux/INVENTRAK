@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { clearSession, clearToken, logout, STAFF_TOOLS_ROLES, ROLE_LABELS, useSessionEmail, useSessionRole, useSessionUsername, useSessionVerified } from '../../api';
+import { clearSession, clearToken, logout, useSessionEmail, useSessionUsername, useSessionVerified } from '../../api';
 import { useCart } from '../../cart-context';
 import { useThemeColors } from '../../theme-context';
 import { DEMO_POLICY_PREVIEW_ENABLED } from '../../demo-features';
@@ -33,9 +33,6 @@ export default function AccountScreen({ route, navigation }) {
   const isLoggedIn = !!session;
   const verified = useSessionVerified();
   const sessionEmail = useSessionEmail();
-  // Staff/admin accounts get a dedicated on-phone scan-and-count entry.
-  const role = useSessionRole();
-  const isStaff = STAFF_TOOLS_ROLES.includes(role);
   const username = session || route.params?.username || 'Guest';
   // Logging out clears the basket too: on a shared device the next customer
   // must not inherit the previous user's cart (badge + items).
@@ -67,11 +64,7 @@ export default function AccountScreen({ route, navigation }) {
           <View>
             <Text style={styles.name}>{username}</Text>
             <Text style={styles.role}>
-              {!isLoggedIn
-                ? 'Browsing as a guest'
-                : isStaff
-                  ? `${ROLE_LABELS[role] || 'Staff'} Account · staff tools unlocked`
-                  : 'Customer Account'}
+              {!isLoggedIn ? 'Browsing as a guest' : 'Customer Account'}
             </Text>
           </View>
         </View>
@@ -148,25 +141,6 @@ export default function AccountScreen({ route, navigation }) {
               </TouchableOpacity>
             </View>
           )}
-
-          {isStaff ? (
-            <>
-              <Text style={styles.sectionTitle}>Staff Tools</Text>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => navigation.navigate('CatalogTab', { screen: 'QrScan' })}
-              >
-                <MenuIcon name="qrcode-scan" tint={{ bg: '#e0f2f1', fg: '#00796b' }} styles={styles} />
-                <View style={styles.menuBody}>
-                  <Text style={styles.menuTitle}>Scan & Count Stock</Text>
-                  <Text style={styles.menuDesc}>
-                  Scan a product QR code, record the physical count — corrections go to the owner for approval
-                  </Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </TouchableOpacity>
-            </>
-          ) : null}
 
           {DEMO_POLICY_PREVIEW_ENABLED ? (
             <>

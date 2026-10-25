@@ -50,6 +50,10 @@ const ADMIN_PORTAL_ROLES = ADMIN_TIER;
 // Mirror of ADMIN_PORTAL_ROLES so each portal has one exact allowed set.
 const STAFF_PORTAL_ROLES = ['staff'];
 
+// The customer storefront admits customers and management accounts. Inventory
+// Staff use the dedicated staff app, where stock workflows are available.
+const CUSTOMER_PORTAL_ROLES = ['customer', ...ADMIN_TIER];
+
 function isKnownRole(role) {
   return ROLE_ORDER.includes(role);
 }
@@ -77,6 +81,16 @@ function canAccessStaffPortal(role) {
   return STAFF_PORTAL_ROLES.includes(role);
 }
 
+/**
+ * Whether `role` may sign into the customer storefront.
+ * Inventory Staff use the dedicated staff app instead.
+ * @param {string} role
+ * @returns {boolean}
+ */
+function canAccessCustomerPortal(role) {
+  return CUSTOMER_PORTAL_ROLES.includes(role);
+}
+
 function hasRole(user, allowed) {
   return Boolean(user) && allowed.includes(user.role);
 }
@@ -98,6 +112,7 @@ module.exports = {
   STAFF_TIER,
   ADMIN_PORTAL_ROLES,
   STAFF_PORTAL_ROLES,
+  CUSTOMER_PORTAL_ROLES,
   ASSIGNABLE_BY_ADMIN,
   ASSIGNABLE_BY_MANAGEMENT,
   isKnownRole,
@@ -106,4 +121,5 @@ module.exports = {
   isManagement,
   canAccessAdminPortal,
   canAccessStaffPortal,
+  canAccessCustomerPortal,
 };

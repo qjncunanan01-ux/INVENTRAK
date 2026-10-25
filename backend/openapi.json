@@ -610,6 +610,16 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "description": "Staff account refused from the customer app (portal=customer).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalDeniedError"
+                }
+              }
+            }
+          },
           "501": {
             "$ref": "#/components/responses/NotImplemented"
           }
@@ -684,6 +694,19 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "portal",
+            "in": "query",
+            "required": false,
+            "description": "Optional app portal; defaults to customer and refuses Inventory Staff accounts with customer_app_exclusive.",
+            "schema": {
+              "type": "string",
+              "default": "customer",
+              "enum": [
+                "customer"
+              ]
+            }
           }
         ],
         "responses": {
@@ -741,7 +764,7 @@
             "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
-            "description": "Forbidden â€” a mobile-only role (Inventory Staff) attempted to sign in from the web portal (portal=admin, code: portal_mobile_only), or a non-staff role attempted to sign in from the staff app (portal=staff, code: staff_app_exclusive).",
+            "description": "Forbidden: Inventory Staff cannot sign in from the customer app (portal=customer, code: customer_app_exclusive) or web portal (portal=admin, code: portal_mobile_only), and non-staff roles cannot sign in from the staff app (portal=staff, code: staff_app_exclusive).",
             "content": {
               "application/json": {
                 "schema": {
@@ -5516,12 +5539,14 @@
         "properties": {
           "error": {
             "type": "string",
-            "description": "Human-readable explanation: staff accounts are mobile-only"
+            "description": "Human-readable explanation for the portal restriction."
           },
           "code": {
             "type": "string",
             "enum": [
-              "portal_mobile_only"
+              "portal_mobile_only",
+              "staff_app_exclusive",
+              "customer_app_exclusive"
             ]
           }
         }
@@ -5543,9 +5568,10 @@
             "type": "string",
             "enum": [
               "admin",
-              "staff"
+              "staff",
+              "customer"
             ],
-            "description": "Portal flag identifying which app is signing in. portal=admin (web admin): mobile-only roles (Inventory Staff) are refused with 403 portal_mobile_only. portal=staff (dedicated staff app): only Inventory Staff is admitted â€” admins/owners are refused with 403 staff_app_exclusive. Omitted by the customer app."
+            "description": "Portal flag identifying which app is signing in. portal=admin (web admin) refuses Inventory Staff with 403 portal_mobile_only. portal=staff (dedicated staff app) admits only Inventory Staff and refuses others with 403 staff_app_exclusive. portal=customer (customer app) refuses Inventory Staff with 403 customer_app_exclusive. Omitted portal values default to customer, so older customer clients cannot open staff sessions."
           }
         }
       },
@@ -8046,6 +8072,14 @@
           "idToken": {
             "type": "string",
             "description": "Google ID token from the OAuth sign-in flow"
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "customer"
+            ],
+            "default": "customer",
+            "description": "Defaults to customer and refuses Inventory Staff accounts from the customer app."
           }
         }
       },

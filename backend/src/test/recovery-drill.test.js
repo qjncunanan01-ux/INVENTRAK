@@ -103,7 +103,8 @@ async function http(url, pathname, { method = 'GET', token, body } = {}) {
 }
 
 async function login(url, username, password) {
-  return http(url, '/api/auth/login', { method: 'POST', body: { username, password } });
+  const portal = username === 'staff' ? 'staff' : 'customer';
+  return http(url, '/api/auth/login', { method: 'POST', body: { username, password, portal } });
 }
 
 /** Boot the real entrypoint against an isolated state directory. */
