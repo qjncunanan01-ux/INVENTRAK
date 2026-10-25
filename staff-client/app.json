@@ -3,7 +3,7 @@
     "name": "Sylver's Staff",
     "slug": "inventrak-staff",
     "scheme": "inventrak-staff",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F8FAF5",
@@ -35,6 +35,7 @@
     ],
     "android": {
       "package": "com.inventrak.staff",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
