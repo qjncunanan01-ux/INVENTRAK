@@ -9,7 +9,7 @@ import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import PeopleIcon from '@mui/icons-material/People';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FormulaBanner from '../../components/FormulaBanner';
 import RangeFilter from '../../components/RangeFilter';
@@ -25,6 +25,8 @@ import { SectionLabel } from './DashboardSection';
 import { InventoryAnalyticsSection, VelocitySection, SalesOrdersSection, MovementSection } from './DashboardCharts';
 import { buildModalData, filterModalData } from './dashboard-helpers';
 import { deriveDashboard } from './dashboard-data';
+
+const DASHBOARD_AUTO_REFRESH_MS = 10_000;
 
 // Container for the Dashboard module: it owns all state, the single load effect
 // and the derived chart/modal data, and composes the presentational pieces
@@ -68,9 +70,14 @@ export default function DashboardPage({ user, onLogout }) {
     locationStock: [], monthlySalesChart: [],
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
   const [lastRefreshed, setLastRefreshed] = useState(null);
+  const refreshInFlight = useRef(false);
+  const requestVersion = useRef(0);
+  const hasLoadedOnce = useRef(false);
+  const lastSuccessfulPayload = useRef({});
 
   const [activeModal, setActiveModal] = useState(null);
   const [modalData, setModalData] = useState([]);
@@ -82,11 +89,19 @@ export default function DashboardPage({ user, onLogout }) {
     alerts: [], summary: null, dailySales: [], accounts: [],
   });
 
-  useEffect(() => {
-    const load = async() => {
-      try {
-        setLoading(true);
-        const [summaryRes, inventoryRes, productsRes, locationsRes, inquiriesRes, salesRes, movementsRes, alertsRes, accountsRes] = await Promise.allSettled([
+  const loadDashboard = useCallback(async({ silent = false, force = false } = {}) => {
+    if (refreshInFlight.current && !force) return;
+    refreshInFlight.current = true;
+    const currentRequest = ++requestVersion.current;
+
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
+    setRefreshing(true);
+
+    try {
+        const results = await Promise.allSettled([
           apiGet('/api/analytics/summary'),
           apiGet('/api/inventory'),
           apiGet('/api/products'),
@@ -97,31 +112,46 @@ export default function DashboardPage({ user, onLogout }) {
           apiGet('/api/alerts'),
           apiGet('/api/users'),
         ]);
+        if (!results.some((result) => result.status === 'fulfilled')) {
+          throw new Error('All dashboard data requests failed.');
+        }
+        const [summaryRes, inventoryRes, productsRes, locationsRes, inquiriesRes, salesRes, movementsRes, alertsRes, accountsRes] = results;
 
-        const summaryData = summaryRes.status === 'fulfilled' ? (summaryRes.value.data || summaryRes.value) : {};
-        const inventoryData = inventoryRes.status === 'fulfilled' ? (inventoryRes.value.data || inventoryRes.value) : { items: [], locations: [] };
-        const productsData = productsRes.status === 'fulfilled' ? (productsRes.value.data || productsRes.value) : [];
-        const locationsData = locationsRes.status === 'fulfilled' ? (locationsRes.value.data || locationsRes.value) : [];
-        const inquiriesData = inquiriesRes.status === 'fulfilled' ? (inquiriesRes.value.data || inquiriesRes.value) : [];
-        const salesData = salesRes.status === 'fulfilled' ? (salesRes.value.data || salesRes.value) : [];
-        const movementsData = movementsRes.status === 'fulfilled' ? (movementsRes.value.data || movementsRes.value) : [];
-        const alertsData = alertsRes.status === 'fulfilled' ? (alertsRes.value.data || alertsRes.value) : [];
+        const isStaff = getCurrentUser()?.role === 'staff';
+        const responseData = (result, key, fallback, skipFailedResponse = false) => {
+          if (result.status === 'fulfilled') {
+            const data = result.value.data || result.value;
+            lastSuccessfulPayload.current[key] = data;
+            return data;
+          }
+          return skipFailedResponse ? fallback : (lastSuccessfulPayload.current[key] ?? fallback);
+        };
+        const summaryData = responseData(summaryRes, 'summary', {});
+        const inventoryData = responseData(inventoryRes, 'inventory', { items: [], locations: [] });
+        const productsData = responseData(productsRes, 'products', []);
+        const locationsData = responseData(locationsRes, 'locations', []);
+        const inquiriesData = responseData(inquiriesRes, 'inquiries', []);
+        const salesData = responseData(salesRes, 'sales', [], isStaff);
+        const movementsData = responseData(movementsRes, 'movements', []);
+        const alertsData = responseData(alertsRes, 'alerts', []);
         // Customer accounts (the Total Registered Customers KPI's source of
         // truth). Staff get 403 here — allSettled turns that into [].
-        const accountsData = accountsRes.status === 'fulfilled' ? (accountsRes.value.data || accountsRes.value) : [];
+        const accountsData = responseData(accountsRes, 'accounts', [], isStaff);
 
         // Staff cannot read the raw sales ledger (GET /api/sales is 403 by
         // role design), so pull the daily sales aggregate from /api/reports
         // (staff-allowed) to keep this-month totals and the chart populated
         // instead of showing zeros.
-        const isStaff = getCurrentUser()?.role === 'staff';
         let reportsData = null;
         if (isStaff) {
           try {
             const r = await apiGet('/api/reports?days=90');
             reportsData = r.data || r;
-          } catch (e) {
-            reportsData = null;
+            if (Array.isArray(reportsData.dailySales)) {
+              lastSuccessfulPayload.current.dailySales = reportsData.dailySales;
+            }
+          } catch {
+            reportsData = { dailySales: lastSuccessfulPayload.current.dailySales || [] };
           }
         }
         const dailySales = isStaff && reportsData && Array.isArray(reportsData.dailySales)
@@ -146,20 +176,43 @@ export default function DashboardPage({ user, onLogout }) {
           dailySales,
           range,
         });
+        if (currentRequest !== requestVersion.current) return;
         setRawData(nextRaw);
         setSummary(nextSummary);
-
-      } catch (err) {
-        setError('Failed to load dashboard data. Make sure the backend is running.');
-        setSnackbar({ open: true, message: err.message });
-      } finally {
+        setError('');
         setLastRefreshed(new Date());
+    } catch (err) {
+      if (currentRequest !== requestVersion.current) return;
+      if (!hasLoadedOnce.current && !silent) {
+        setError('Failed to load dashboard data. Make sure the backend is running.');
+      }
+      if (!silent) setSnackbar({ open: true, message: err.message });
+    } finally {
+      if (currentRequest === requestVersion.current) {
+        refreshInFlight.current = false;
+        hasLoadedOnce.current = true;
+        setRefreshing(false);
         setLoading(false);
       }
+    }
+  }, [range]);
+
+  useEffect(() => {
+    loadDashboard({ silent: hasLoadedOnce.current, force: true });
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') loadDashboard({ silent: true });
     };
-    load();
-    // Re-derive the analytics whenever the range preset changes.
-  }, [rangePreset]);
+    const timer = window.setInterval(refreshIfVisible, DASHBOARD_AUTO_REFRESH_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    window.addEventListener('focus', refreshIfVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.removeEventListener('focus', refreshIfVisible);
+    };
+  }, [loadDashboard]);
 
   // Click a stat card → open its detail modal with rows derived from rawData.
   const handleCardClick = (panel) => {
@@ -405,12 +458,19 @@ export default function DashboardPage({ user, onLogout }) {
               state and syncs sub-filters. */}
           <RangeFilter value={rangePreset} onChange={handleGlobalRangeChange} compact />
           {lastRefreshed && (
-            <Typography variant="caption" color="text.secondary" aria-live="polite">
-              Updated {lastRefreshed.toLocaleTimeString()}
-            </Typography>
+            <Tooltip title="Automatically refreshes every 10 seconds while this tab is visible">
+              <Typography variant="caption" color="text.secondary" aria-live="polite">
+                Updated {lastRefreshed.toLocaleTimeString()}
+              </Typography>
+            </Tooltip>
           )}
-          <Tooltip title="Refresh data">
-            <IconButton size="small" onClick={() => window.location.reload()}>
+          <Tooltip title={refreshing ? 'Refreshing dashboard data…' : 'Refresh data'}>
+            <IconButton
+              size="small"
+              aria-label="Refresh dashboard data"
+              disabled={refreshing}
+              onClick={() => loadDashboard({ force: true })}
+            >
               <RefreshIcon fontSize="small" />
             </IconButton>
           </Tooltip>
