@@ -10,6 +10,8 @@ const { seedDatabase } = require('./seed');
 const { BACKUP_MAX_BODY_BYTES } = require('./config');
 const settings = require('./governance/settings');
 const { audit, AUDIT_LOG_FILE } = require('./audit');
+const { validatePayMongoWebhook, applyVerifiedQrPhPayment } = require('./payments');
+const { notifyInquiryStatus } = require('./notify');
 const cache = require('./cache');
 const { handleTagPageLookup, renderTagPageHtml } = require('./catalog-orders/qr-codes');
 
@@ -56,6 +58,9 @@ app.use(cors({
   },
   credentials: true,
 }));
+// PayMongo signs the exact request bytes. Capture them before JSON parsing so
+// signature verification cannot be affected by re-serialization.
+app.use('/api/webhooks/paymongo', bodyParser.raw({ type: 'application/json', limit: '256kb' }));
 // A database restore uploads a whole snapshot, which is an order of magnitude
 // larger than any other request body (and larger than the default limit, so
 // every restore would 413). Registered BEFORE the global parser, which then
@@ -88,6 +93,38 @@ app.use((req, res, next) => {
     return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
   }
   next();
+});
+
+// PayMongo is the source of truth for QR Ph payment. Customer/admin callbacks
+// cannot mark a gateway checkout paid; only a signed provider event can.
+app.post('/api/webhooks/paymongo', (req, res) => {
+  const verified = validatePayMongoWebhook(req.body, req.headers['paymongo-signature']);
+  if (!verified.ok) return res.status(verified.status).json({ error: verified.error });
+  if (verified.ignored) return res.status(200).json({ received: true, ignored: true });
+
+  const existing = db.prepare('SELECT * FROM order_inquiries WHERE payment_reference = ?').get(verified.reference);
+  if (!existing) {
+    audit('inquiry.paymongo_webhook_ignored', { eventId: verified.event_id, reference: verified.reference, reason: 'order_not_found' });
+    return res.status(200).json({ received: true, ignored: true });
+  }
+  const now = new Date().toISOString();
+  const applied = applyVerifiedQrPhPayment(existing, verified, now);
+  if (!applied.ok) {
+    audit('inquiry.paymongo_webhook_ignored', { eventId: verified.event_id, inquiryId: Number(existing.id), reason: applied.error });
+    return res.status(200).json({ received: true, ignored: true });
+  }
+  if (!applied.changed) return res.status(200).json({ received: true, duplicate: true });
+
+  db.prepare('UPDATE order_inquiries SET payment_records = ?, amount_paid = ?, payment_status = ?, payment_updated_at = ? WHERE id = ?')
+    .run(applied.payment_records, applied.amount_paid, applied.payment_status, applied.payment_updated_at, existing.id);
+  audit('inquiry.payment_verified', {
+    inquiryId: Number(existing.id), payment_status: applied.payment_status,
+    amount: verified.amount_minor / 100, provider: 'paymongo',
+    eventId: verified.event_id, paymentId: verified.payment_id,
+  });
+  const updated = db.prepare('SELECT * FROM order_inquiries WHERE id = ?').get(existing.id);
+  void notifyInquiryStatus(updated, 'payment_verified');
+  return res.status(200).json({ received: true, payment_status: applied.payment_status });
 });
 
 // Static images

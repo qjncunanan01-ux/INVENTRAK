@@ -162,6 +162,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   listOrderInquiries: (params) => request('GET', '/api/order-inquiries', { query: params }),
   // POST /api/order-inquiries — Submit an order inquiry
   createOrderInquiry: (body) => request('POST', '/api/order-inquiries', { body }),
+  // POST /api/webhooks/paymongo — Receive signed PayMongo checkout events
+  paymongoWebhook: (body) => request('POST', '/api/webhooks/paymongo', { body }),
   // PUT /api/order-inquiries/{id} — Update inquiry status under the active production or Sylver demo lifecycle
   updateOrderInquiry: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}', { params: { id }, body }),
   // POST /api/order-inquiries/{id}/cancel — Cancel an inquiry (customer-initiated)

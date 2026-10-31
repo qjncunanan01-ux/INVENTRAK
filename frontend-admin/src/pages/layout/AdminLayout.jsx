@@ -15,6 +15,7 @@ import RuleOutlined from '@mui/icons-material/RuleOutlined';
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined';
 import LocationOnOutlined from '@mui/icons-material/LocationOnOutlined';
 import ShoppingCartOutlined from '@mui/icons-material/ShoppingCartOutlined';
+import PaymentsOutlined from '@mui/icons-material/PaymentsOutlined';
 import SecurityOutlined from '@mui/icons-material/SecurityOutlined';
 import SwapHorizOutlined from '@mui/icons-material/SwapHorizOutlined';
 import TuneOutlined from '@mui/icons-material/TuneOutlined';
@@ -82,6 +83,7 @@ export const NAV_SECTIONS = [
       { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ADMIN_TIER },
       { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: STAFF_TIER },
       { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ADMIN_TIER },
+      { label: 'Payments', path: '/payments', Icon: PaymentsOutlined, roles: ADMIN_TIER },
     ],
   },
   {

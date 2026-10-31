@@ -5,10 +5,10 @@ const { authenticateToken } = require('../../auth-core');
 const { adminOnly } = require('../../middleware');
 const { validate } = require('../../validation');
 const { sanitizeObject } = require('../../sanitize');
-const { normalizeLines } = require('../../catalog-orders/product-lines');
+const { normalizeLines, priceLinesFromCatalog } = require('../../catalog-orders/product-lines');
 const { computeCostingSnapshot, snapshotRow, toPublic } = require('../../insights/costing');
 const { resolveCustomer } = require('../../catalog-orders/customers');
-const { buildPaymentStep } = require('../../payments');
+const { buildPaymentStep, payMongoConfigError } = require('../../payments');
 const { notifyInquiryStatus } = require('../../notify');
 const { enrichInquiryRows } = require('../../catalog-orders/inquiry-helpers');
 const { ADMIN_TIER } = require('../../roles');
@@ -21,7 +21,7 @@ const {
 } = require('../../catalog-orders/inquiry-lifecycle');
 const { audit } = require('../../audit');
 const { applyMovementEffect, restoreStockReservation } = require('../../stock-control/stock-movement-helpers');
-const { planOrderFulfillment } = require('../../catalog-orders/order-fulfillment');
+const { planOrderFulfillment, planAutomaticOrderFulfillment } = require('../../catalog-orders/order-fulfillment');
 const { currentOrderTerms } = require('../../catalog-orders/order-terms');
 const {
   SYLVER_POLICY_DEMO,
@@ -44,7 +44,10 @@ function parseArray(value) {
 function withoutPrivateProofs(row) {
   if (!row) return row;
   const result = { ...row };
-  result.payment_records = JSON.stringify(parseArray(row.payment_records).map(({ proof_data, ...record }) => record));
+  result.payment_records = JSON.stringify(parseArray(row.payment_records).map(({ proof_data, ...record }) => ({
+    ...record,
+    proof_available: Boolean(proof_data),
+  })));
   result.return_requests = JSON.stringify(parseArray(row.return_requests).map(({ proof_data, ...request }) => request));
   return result;
 }
@@ -164,8 +167,8 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
   const refusal = checkStatusChange({ from: existing.status, to: updatedStatus, companyDemo: SYLVER_POLICY_DEMO });
   if (refusal) return res.status(refusal.status).json({ error: refusal.error });
 
-  let fulfillmentLocation = null;
   let fulfillmentPlan = null;
+  let fulfillmentLocationId = null;
   const needsCompanyReservation = SYLVER_POLICY_DEMO &&
     ['approved', 'preparing'].includes(updatedStatus) && !existing.inventory_reserved_at;
   const mustCommitStock = !SYLVER_POLICY_DEMO && ['fulfilled', 'delivered'].includes(updatedStatus) && !existing.inventory_committed_at;
@@ -191,29 +194,55 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
     return res.status(409).json({ error: 'Record and verify the full payment before marking the order delivered' });
   }
   if (mustCommitStock) {
-    if (['gcash', 'card'].includes(existing.payment_method) && existing.payment_status !== 'paid') {
+    if (['gcash', 'qrph', 'card'].includes(existing.payment_method) && existing.payment_status !== 'paid') {
       return res.status(409).json({ error: 'Payment must be verified before this inquiry can be fulfilled' });
     }
-    const locationId = Number(req.body.location_id);
-    fulfillmentLocation = db.prepare('SELECT id, name FROM locations WHERE id = ?').get(locationId);
-    if (!fulfillmentLocation) return res.status(400).json({ error: 'Choose a valid stock location before fulfilling this order' });
     let lines = [];
     try { lines = JSON.parse(existing.products || '[]'); } catch {}
-    fulfillmentPlan = planOrderFulfillment(lines, locationId, {
-      findProduct: (line) => {
-        const byId = Number(line.id);
-        if (Number.isInteger(byId) && byId > 0) {
-          return db.prepare('SELECT id, name, price FROM products WHERE id = ? AND status = ?').get(byId, 'active');
-        }
-        const name = String(line.name || '').trim();
-        if (!name) return null;
-        return db.prepare('SELECT id, name, price FROM products WHERE TRIM(LOWER(name)) = LOWER(?) AND status = ? ORDER BY id LIMIT 1').get(name, 'active');
-      },
-      getAvailable: (productId, locationId) => {
-        const row = db.prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?').get(productId, locationId);
-        return row ? row.quantity : 0;
-      },
-    });
+    const findProduct = (line) => {
+      const byId = Number(line.id);
+      if (Number.isInteger(byId) && byId > 0) {
+        return db.prepare('SELECT id, name, price FROM products WHERE id = ? AND status = ?').get(byId, 'active');
+      }
+      const name = String(line.name || '').trim();
+      if (!name) return null;
+      return db.prepare('SELECT id, name, price FROM products WHERE TRIM(LOWER(name)) = LOWER(?) AND status = ? ORDER BY id LIMIT 1').get(name, 'active');
+    };
+    const requestedLocationId = req.body.location_id;
+    if (requestedLocationId !== undefined && requestedLocationId !== null && requestedLocationId !== '') {
+      const locationId = Number(requestedLocationId);
+      const location = db.prepare('SELECT id FROM locations WHERE id = ?').get(locationId);
+      if (!location) return res.status(400).json({ error: 'Choose a valid stock location before fulfilling this order' });
+      fulfillmentLocationId = locationId;
+      const singleLocationPlan = planOrderFulfillment(lines, locationId, {
+        findProduct,
+        getAvailable: (productId, selectedLocationId) => {
+          const row = db.prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?').get(productId, selectedLocationId);
+          return row ? row.quantity : 0;
+        },
+      });
+      if (!singleLocationPlan.error) {
+        fulfillmentPlan = {
+          plan: singleLocationPlan.plan.map((line) => ({ ...line, total_amount: line.qty * line.unit_price })),
+          allocations: singleLocationPlan.plan.map((line) => ({ ...line, location_id: locationId })),
+        };
+      } else {
+        fulfillmentPlan = singleLocationPlan;
+      }
+    } else {
+      fulfillmentPlan = planAutomaticOrderFulfillment(lines, {
+        findProduct,
+        getStockRows: (ids) => db.prepare(`
+          SELECT s.product_id, s.location_id, s.quantity
+          FROM stock s
+          JOIN locations l ON l.id = s.location_id
+          WHERE s.product_id IN (${ids.map(() => '?').join(',')})
+          ORDER BY CASE WHEN LOWER(TRIM(l.name)) = 'showroom' THEN 0 ELSE 1 END, l.id
+        `).all(...ids),
+      });
+      const allocatedLocations = [...new Set((fulfillmentPlan.allocations || []).map((allocation) => Number(allocation.location_id)))];
+      fulfillmentLocationId = allocatedLocations.length === 1 ? allocatedLocations[0] : null;
+    }
     if (fulfillmentPlan.error) {
       return res.status(fulfillmentPlan.product_id ? 409 : 400).json({
         error: fulfillmentPlan.error,
@@ -266,13 +295,15 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
       const now = new Date().toISOString();
       for (const line of fulfillmentPlan.plan) {
         db.prepare('INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name, customer_id, order_inquiry_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(line.product_id, line.qty, line.unit_price, line.qty * line.unit_price, now, existing.customer_name || 'customer', existing.customer_id || null, Number(req.params.id));
+          .run(line.product_id, line.qty, line.unit_price, line.total_amount ?? line.qty * line.unit_price, now, existing.customer_name || 'customer', existing.customer_id || null, Number(req.params.id));
+      }
+      for (const allocation of fulfillmentPlan.allocations) {
         db.prepare('INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(line.product_id, line.qty, 'stock-out', fulfillmentLocation.id, null, `Customer order inquiry #${req.params.id} fulfilled`, now, req.user.username || 'admin');
-        applyMovementEffect({ product_id: line.product_id, qty: line.qty, type: 'stock-out', srcId: fulfillmentLocation.id, now });
+          .run(allocation.product_id, allocation.qty, 'stock-out', allocation.location_id, null, `Customer order inquiry #${req.params.id} fulfilled`, now, req.user.username || 'admin');
+        applyMovementEffect({ product_id: allocation.product_id, qty: allocation.qty, type: 'stock-out', srcId: allocation.location_id, now });
       }
       db.prepare('UPDATE order_inquiries SET fulfillment_location_id = ?, inventory_committed_at = ? WHERE id = ?')
-        .run(fulfillmentLocation.id, now, req.params.id);
+        .run(fulfillmentLocationId, now, req.params.id);
     }
     if (SYLVER_POLICY_DEMO && updatedStatus === 'delivered' && !existing.sale_committed_at) {
       for (const line of parseArray(existing.reservation_details)) {
@@ -569,7 +600,7 @@ router.post('/', validate({
   const existingCreditCustomer = creditCustomer;
   const validPayments = SYLVER_POLICY_DEMO
     ? [...PAYMENT_METHODS, ...(existingCreditCustomer ? ['credit'] : [])]
-    : ['cod', 'gcash', 'other'];
+    : ['cod', 'gcash', 'qrph', 'other'];
   if (delivery_address !== undefined && String(delivery_address).length > 500) {
     return res.status(400).json({ error: 'Validation failed', details: ['delivery_address must be at most 500 characters'] });
   }
@@ -582,6 +613,13 @@ router.post('/', validate({
   const fulfillment = normalizeFulfillment({ fulfillment_method, delivery_address: cleanAddress });
   if (fulfillment.error) {
     return res.status(400).json({ error: 'Validation failed', details: [fulfillment.error] });
+  }
+  if (!SYLVER_POLICY_DEMO && payment_method === 'qrph') {
+    if (fulfillment.method !== 'pickup') {
+      return res.status(400).json({ error: 'QR Ph checkout is currently available for pickup orders while courier fees are confirmed separately' });
+    }
+    const configError = payMongoConfigError();
+    if (configError) return res.status(503).json({ error: configError });
   }
   if (SYLVER_POLICY_DEMO && payment_method === 'cash' && fulfillment.method === 'courier') {
     return res.status(400).json({ error: 'Cash is available for pickup; courier orders must be paid and verified before dispatch' });
@@ -597,7 +635,15 @@ router.post('/', validate({
 
   const normalized = normalizeLines(products);
   let lines = normalized.lines;
+  let qrPhTotal = null;
   let discount = { total: normalized.total, discount_amount: 0, eligible_subtotal: 0 };
+  if (!SYLVER_POLICY_DEMO && payment_method === 'qrph') {
+    const catalog = db.prepare('SELECT id, name, price, status FROM products').all();
+    const pricing = priceLinesFromCatalog(lines, catalog);
+    if (pricing.error) return res.status(409).json({ error: pricing.error });
+    lines = pricing.lines;
+    qrPhTotal = pricing.total;
+  }
   if (SYLVER_POLICY_DEMO) {
     if (lines.some((line) => line.id == null)) {
       return res.status(400).json({ error: 'Refresh the catalog before placing a demo order; every item must match a current product' });
@@ -614,9 +660,14 @@ router.post('/', validate({
     discount = applyBulkDiscount(lines, (id) => productsById.get(Number(id)));
     lines = discount.lines;
   }
-  const storedCost = SYLVER_POLICY_DEMO
+  const storedCost = !SYLVER_POLICY_DEMO && payment_method === 'qrph'
+    ? qrPhTotal
+    : SYLVER_POLICY_DEMO
     ? Number(discount.total) || 0
     : normalized.total !== null ? normalized.total : (estimated_cost || 0);
+  if (!SYLVER_POLICY_DEMO && payment_method === 'qrph' && (!Number.isFinite(Number(storedCost)) || Number(storedCost) < 1)) {
+    return res.status(400).json({ error: 'QR Ph checkout requires an order total of at least PHP 1.00' });
+  }
 
   // The customer app includes catalog IDs so stock can be checked against the
   // live ledger. Legacy line-only clients remain readable during rollout; all
@@ -720,10 +771,30 @@ router.post('/', validate({
   }
 
   let payment = null;
-  try { payment = await buildPaymentStep({ id: inquiryId, amount: storedCost, description: `Sylver's order ${inquiryId} — ${cleanName}`, email: cleanEmail, paymentMethod: payment_method || 'cod' }); } catch (err) { console.error('[payments] buildPaymentStep failed:', err && err.message); }
+  try {
+    payment = await buildPaymentStep({ id: inquiryId, amount: storedCost, description: `Sylver's order ${inquiryId} — ${cleanName}`, email: cleanEmail, paymentMethod: payment_method || 'cod' });
+  } catch (err) {
+    console.error('[payments] buildPaymentStep failed:', err && err.message);
+    if (!SYLVER_POLICY_DEMO && payment_method === 'qrph') {
+      const createdInquiry = db.prepare('SELECT * FROM order_inquiries WHERE id = ?').get(inquiryId);
+      void notifyInquiryStatus(createdInquiry, 'pending');
+      return res.status(502).json({
+        error: `Order #${inquiryId} was recorded, but PayMongo could not create its QR Ph checkout. Do not submit the order again; contact the store to arrange payment.`,
+        order_id: inquiryId,
+      });
+    }
+  }
   if (payment) {
-    db.prepare('UPDATE order_inquiries SET payment_method = ?, payment_status = ?, payment_reference = ?, payment_url = ?, payment_qr = ?, payment_provider = ?, payment_updated_at = ? WHERE id = ?')
-      .run(payment.payment_method, payment.payment_status, payment.payment_reference, payment.payment_url, payment.payment_qr, payment.payment_provider, now, inquiryId);
+    const paymentRecords = payment.payment_provider === 'paymongo'
+      ? JSON.stringify([{
+        type: 'paymongo_checkout', provider: 'paymongo',
+        provider_reference: payment.payment_provider_reference,
+        reference: payment.payment_reference,
+        amount: storedCost, status: 'pending', created_at: now,
+      }])
+      : '[]';
+    db.prepare('UPDATE order_inquiries SET payment_method = ?, payment_status = ?, payment_reference = ?, payment_url = ?, payment_qr = ?, payment_provider = ?, payment_records = ?, payment_updated_at = ? WHERE id = ?')
+      .run(payment.payment_method, payment.payment_status, payment.payment_reference, payment.payment_url, payment.payment_qr, payment.payment_provider, paymentRecords, now, inquiryId);
   }
 
   const createdInquiry = db.prepare('SELECT * FROM order_inquiries WHERE id = ?').get(inquiryId);
@@ -770,6 +841,10 @@ router.put('/:id/payment', authenticateToken, (req, res) => {
   const existing = db.prepare('SELECT * FROM order_inquiries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Order inquiry not found' });
   const isAdmin = ADMIN_TIER.includes(req.user.role);
+
+  if (!SYLVER_POLICY_DEMO && existing.payment_method === 'qrph') {
+    return res.status(409).json({ error: 'PayMongo QR Ph payments are verified automatically; manual payment status changes are disabled for this order' });
+  }
 
   if (SYLVER_POLICY_DEMO) {
     const now = new Date().toISOString();
@@ -914,7 +989,7 @@ router.put('/:id/payment', authenticateToken, (req, res) => {
   const now = new Date().toISOString();
   const customerReference = String(req.body.customer_reference || '').trim();
   if (existing.payment_method !== 'gcash') {
-    return res.status(400).json({ error: 'Only GCash receipt references can be submitted for verification' });
+    return res.status(400).json({ error: 'Only legacy GCash receipt references can be submitted for verification' });
   }
   if (customerReference.length < 5 || customerReference.length > 100 || !/^[A-Za-z0-9\- ]+$/.test(customerReference)) {
     return res.status(400).json({ error: 'Enter a valid GCash receipt reference (5–100 letters, numbers, spaces, or dashes)' });

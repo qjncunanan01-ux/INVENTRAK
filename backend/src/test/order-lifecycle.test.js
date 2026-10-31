@@ -117,6 +117,18 @@ test('production checkout refuses the no-charge demo card option', async () => {
   }
 });
 
+test('production QR Ph is pickup-only until the courier charge is confirmed', async () => {
+  for (const [label, side] of SIDES) {
+    const response = await place(side, {
+      payment_method: 'qrph',
+      fulfillment_method: 'courier',
+      delivery_address: '12 Mabini St, Quezon City',
+    });
+    assert.strictEqual(response.status, 400, `${label}: QR Ph checkout is refused before courier pricing`);
+    assert.match(response.json.error || '', /pickup orders/i);
+  }
+});
+
 test('rejection: a reason is mandatory and is stored with the actor', async () => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);

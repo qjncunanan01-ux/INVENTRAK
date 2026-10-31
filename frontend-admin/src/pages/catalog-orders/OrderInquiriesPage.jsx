@@ -114,15 +114,6 @@ function parseHistory(order) {
   }
 }
 
-function parsePaymentRecords(order) {
-  try {
-    const parsed = JSON.parse(order.payment_records || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
 function parseStoredOrderArray(value) {
   try { const parsed = typeof value === 'string' ? JSON.parse(value) : value; return Array.isArray(parsed) ? parsed : []; }
   catch { return []; }
@@ -205,15 +196,12 @@ export default function OrderInquiriesPage({ onLogout }) {
   usePageTitle('/order-inquiries');
   const [orders, setOrders] = useState([]);
   const [companyDemo, setCompanyDemo] = useState(false);
-  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   // `reason` is the rejection reason. It is REQUIRED for a rejection (the
   // backend refuses a bare one) and ignored for every other action.
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', location_id: '', delivery_fee: '', delivery_schedule: '', order: null });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', delivery_fee: '', delivery_schedule: '', order: null });
   const [receipt, setReceipt] = useState(null);
-  const [cashReceiptTarget, setCashReceiptTarget] = useState(null);
-  const [cashAmount, setCashAmount] = useState('');
   const [details, setDetails] = useState(null);
   const [refundAmounts, setRefundAmounts] = useState({});
   const [search, setSearch] = useState('');
@@ -245,7 +233,6 @@ export default function OrderInquiriesPage({ onLogout }) {
   useEffect(() => {
     loadOrders();
     apiGet('/api/order-inquiries/policy').then((policy) => setCompanyDemo(policy.demo_company_rules === true)).catch(() => setCompanyDemo(false));
-    apiGet('/api/locations').then((r) => setLocations(Array.isArray(r) ? r : r.data || [])).catch(() => setLocations([]));
     const refreshIfVisible = () => {
       if (document.visibilityState === 'visible') loadOrders(true);
     };
@@ -258,10 +245,10 @@ export default function OrderInquiriesPage({ onLogout }) {
   }, [loadOrders]);
 
   const handleConfirmAction = (orderId, status) => {
-    setConfirmDialog({ open: true, id: orderId, status, reason: '', location_id: '', delivery_fee: '', delivery_schedule: '', order: orders.find((order) => Number(order.id) === Number(orderId)) || null });
+    setConfirmDialog({ open: true, id: orderId, status, reason: '', delivery_fee: '', delivery_schedule: '', order: orders.find((order) => Number(order.id) === Number(orderId)) || null });
   };
 
-  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', location_id: '', delivery_fee: '', delivery_schedule: '', order: null });
+  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', delivery_fee: '', delivery_schedule: '', order: null });
 
   // A rejection is only meaningful with a reason the customer can act on, so
   // the Confirm button stays disabled until one is typed. The backend enforces
@@ -269,8 +256,6 @@ export default function OrderInquiriesPage({ onLogout }) {
   const isRejection = confirmDialog.status === 'rejected';
   const reasonMissing = isRejection && !confirmDialog.reason.trim();
   const needsQuote = companyDemo && confirmDialog.status === 'approved' && confirmDialog.order?.fulfillment_method === 'courier';
-  const needsStockLocation = !companyDemo && ['fulfilled', 'delivered'].includes(confirmDialog.status);
-  const locationMissing = needsStockLocation && !Number(confirmDialog.location_id);
   const quoteMissing = needsQuote && (confirmDialog.delivery_fee === '' || !Number.isFinite(Number(confirmDialog.delivery_fee)) || Number(confirmDialog.delivery_fee) < 0 || !confirmDialog.delivery_schedule.trim());
 
   const executeAction = async() => {
@@ -279,7 +264,6 @@ export default function OrderInquiriesPage({ onLogout }) {
       await apiPut(`/api/order-inquiries/${confirmDialog.id}`, {
         status: confirmDialog.status,
         ...(isRejection ? { rejection_reason: confirmDialog.reason.trim() } : {}),
-        ...(needsStockLocation ? { location_id: Number(confirmDialog.location_id) } : {}),
         ...(needsQuote ? { delivery_fee: Number(confirmDialog.delivery_fee), delivery_schedule: confirmDialog.delivery_schedule.trim() } : {}),
       });
       setSnackbar({ open: true, message: confirmDialog.status === 'approved' ? 'Order confirmed and stock reserved' : `Order marked ${confirmDialog.status}`, severity: 'success' });
@@ -294,57 +278,6 @@ export default function OrderInquiriesPage({ onLogout }) {
   // Pending count drives an urgency chip in the header: work waiting in the
   // queue, at a glance.
   const pendingCount = (Array.isArray(orders) ? orders : []).filter(o => o.status === 'pending').length;
-
-  const verifyPayment = async(orderId, paymentRecordId, amount) => {
-    try {
-      const result = await apiPut(`/api/order-inquiries/${orderId}/payment`, { payment_status: 'paid', ...(paymentRecordId ? { payment_record_id: paymentRecordId } : {}), ...(amount !== undefined ? { amount: Number(amount) } : {}) });
-      setSnackbar({ open: true, message: result.payment_status === 'partial' ? `Partial payment verified · P${result.amount_paid} paid` : 'Payment verified', severity: 'success' });
-      loadOrders();
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    }
-  };
-
-  const authorizePartialPayment = async(orderId) => {
-    try {
-      await apiPut(`/api/order-inquiries/${orderId}/payment`, { allow_partial: true });
-      setSnackbar({ open: true, message: 'Deposit or split payment authorized', severity: 'success' });
-      loadOrders();
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    }
-  };
-
-  const approveCredit = async(orderId) => {
-    try {
-      await apiPut(`/api/order-inquiries/${orderId}/payment`, { payment_status: 'credit_approved' });
-      setSnackbar({ open: true, message: 'Existing customer credit arrangement approved', severity: 'success' });
-      loadOrders();
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    }
-  };
-
-  const saveCashReceived = async() => {
-    if (!cashReceiptTarget) return;
-    try {
-      const result = await apiPut(`/api/order-inquiries/${cashReceiptTarget.id}/payment`, { payment_status: 'paid', amount: Number(cashAmount) });
-      setSnackbar({ open: true, message: result.payment_status === 'partial' ? `Partial cash recorded · P${result.amount_paid} paid` : 'Cash payment recorded', severity: 'success' });
-      setCashReceiptTarget(null);
-      loadOrders();
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    }
-  };
-
-  const openReceipt = async(orderId, recordId) => {
-    try {
-      const result = await apiGet(`/api/order-inquiries/${orderId}/payment-proof${recordId ? `?record_id=${encodeURIComponent(recordId)}` : ''}`);
-      setReceipt(result.proof_data);
-    } catch (err) {
-      setSnackbar({ open: true, message: err.message || 'Could not load receipt image', severity: 'error' });
-    }
-  };
 
   const openReturnProof = async(orderId, requestId) => {
     try {
@@ -521,7 +454,7 @@ export default function OrderInquiriesPage({ onLogout }) {
                           label={FULFILLMENT_LABELS[order.fulfillment_method] || FULFILLMENT_LABELS.pickup}
                           color={order.fulfillment_method === 'courier' ? 'info' : 'default'}
                         />
-                        <Chip size="small" label={(order.payment_method || 'cod').toUpperCase()} color={order.payment_method === 'gcash' ? 'info' : 'default'} />
+                        <Chip size="small" label={(order.payment_method || 'cod').toUpperCase()} color={['gcash', 'qrph'].includes(order.payment_method) ? 'info' : 'default'} />
                         {order.payment_status === 'paid' && <Chip size="small" label="PAID" color="success" />}
                         {order.payment_status === 'pending_verification' && <Chip size="small" label="VERIFY PAYMENT" color="warning" />}
                         {order.payment_status === 'partial' && <Chip size="small" label="PARTIAL" color="warning" />}
@@ -535,23 +468,6 @@ export default function OrderInquiriesPage({ onLogout }) {
                         {order.payment_customer_reference ? ` · Receipt ref ${order.payment_customer_reference}` : ''}
                       </Typography>
                       {companyDemo ? <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>P{Number(order.amount_paid || 0).toFixed(2)} paid · P{Math.max(0, Number(order.estimated_cost || 0) + Number(order.delivery_fee || 0) - Number(order.amount_paid || 0)).toFixed(2)} due</Typography> : null}
-                      {order.payment_status === 'pending_verification' && (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                          {companyDemo && parsePaymentRecords(order).filter((record) => record.status === 'pending_verification').map((record) => (
-                            <Button key={record.id} size="small" variant="outlined" onClick={() => openReceipt(order.id, record.id)}>View receipt · P{record.amount}</Button>
-                          ))}
-                          <Button size="small" color="success" onClick={() => verifyPayment(order.id, companyDemo ? parsePaymentRecords(order).find((record) => record.status === 'pending_verification')?.id : undefined)}>Verify payment</Button>
-                        </Box>
-                      )}
-                      {companyDemo && order.payment_method === 'cash' && order.payment_status !== 'paid' ? (
-                        <Button size="small" color="success" onClick={() => { setCashReceiptTarget(order); setCashAmount(String(Math.max(0, Number(order.estimated_cost || 0) + Number(order.delivery_fee || 0) - Number(order.amount_paid || 0)))); }} sx={{ mt: 0.5 }}>Record cash received</Button>
-                      ) : null}
-                      {companyDemo && ['approved', 'preparing'].includes(order.status) && order.payment_status === 'credit_pending' ? (
-                        <Button size="small" color="success" onClick={() => approveCredit(order.id)} sx={{ mt: 0.5 }}>Approve existing credit</Button>
-                      ) : null}
-                      {companyDemo && ['approved', 'preparing'].includes(order.status) && !parsePaymentRecords(order).some((record) => record.type === 'partial_payment_approval' && record.status === 'approved') && order.payment_status !== 'credit_pending' ? (
-                        <Button size="small" onClick={() => authorizePartialPayment(order.id)} sx={{ mt: 0.5 }}>Authorize deposit / split</Button>
-                      ) : null}
                     </TableCell>
                     <TableCell>
                       <Chip label={companyDemo
@@ -595,6 +511,11 @@ export default function OrderInquiriesPage({ onLogout }) {
           <Typography variant="body2" color="text.secondary" sx={{ mb: isRejection ? 2 : 0 }}>
             The status is saved to the customer&apos;s order history. Email is sent only when an email provider is configured.
           </Typography>
+          {!companyDemo && ['fulfilled', 'delivered'].includes(confirmDialog.status) && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Stock will be allocated automatically from available locations.
+            </Typography>
+          )}
           {isRejection && (
             <TextField
               fullWidth
@@ -628,28 +549,10 @@ export default function OrderInquiriesPage({ onLogout }) {
               />
             </Box>
           )}
-          {needsStockLocation && (
-            <FormControl fullWidth required size="small" sx={{ mt: 2 }}>
-              <InputLabel id="fulfillment-location-label">Stock location</InputLabel>
-              <Select
-                labelId="fulfillment-location-label"
-                value={confirmDialog.location_id}
-                label="Stock location"
-                onChange={(e) => setConfirmDialog((d) => ({ ...d, location_id: e.target.value }))}
-              >
-                {locations.map((location) => (
-                  <MenuItem key={location.id} value={location.id}>{location.name}</MenuItem>
-                ))}
-              </Select>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                Stock and the sales ledger update together when fulfillment is confirmed.
-              </Typography>
-            </FormControl>
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={closeConfirm}>Cancel</Button>
-          <Button onClick={executeAction} variant="contained" color="primary" disabled={reasonMissing || locationMissing || quoteMissing}>
+          <Button onClick={executeAction} variant="contained" color="primary" disabled={reasonMissing || quoteMissing}>
             Confirm
           </Button>
         </DialogActions>
@@ -747,23 +650,11 @@ export default function OrderInquiriesPage({ onLogout }) {
       </Dialog>
 
       <Dialog open={Boolean(receipt)} onClose={() => setReceipt(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Customer payment receipt</DialogTitle>
+        <DialogTitle>Order evidence</DialogTitle>
         <DialogContent dividers>
-          {receipt ? <Box component="img" src={receipt} alt="Customer payment proof" sx={{ display: 'block', maxHeight: '70vh', maxWidth: '100%', mx: 'auto' }} /> : null}
+          {receipt ? <Box component="img" src={receipt} alt="Customer order evidence" sx={{ display: 'block', maxHeight: '70vh', maxWidth: '100%', mx: 'auto' }} /> : null}
         </DialogContent>
         <DialogActions><Button onClick={() => setReceipt(null)}>Close</Button></DialogActions>
-      </Dialog>
-
-      <Dialog open={Boolean(cashReceiptTarget)} onClose={() => setCashReceiptTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Record cash received</DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body2" sx={{ mb: 2 }}>Cash is collected at pickup. A partial amount is allowed only after staff authorizes a deposit or split payment.</Typography>
-          <TextField autoFocus fullWidth type="number" label="Amount received (PHP)" inputProps={{ min: 0.01, max: cashReceiptTarget ? Number(cashReceiptTarget.estimated_cost || 0) + Number(cashReceiptTarget.delivery_fee || 0) - Number(cashReceiptTarget.amount_paid || 0) : undefined, step: '0.01' }} value={cashAmount} onChange={(event) => setCashAmount(event.target.value)} />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCashReceiptTarget(null)}>Cancel</Button>
-          <Button variant="contained" onClick={saveCashReceived} disabled={!Number.isFinite(Number(cashAmount)) || Number(cashAmount) <= 0}>Record payment</Button>
-        </DialogActions>
       </Dialog>
 
       <Snackbar

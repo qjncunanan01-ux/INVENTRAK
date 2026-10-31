@@ -23,7 +23,7 @@ const PAYMENT_METHODS = COMPANY_DEMO ? [
   { id: 'card', label: 'Card (demo only)', hint: 'Simulated · no charge' },
 ] : [
   { id: 'cod', label: 'COD', hint: 'Cash on delivery' },
-  { id: 'gcash', label: 'GCash', hint: 'Pay via GCash' },
+  { id: 'qrph', label: 'QR Ph', hint: 'Pay by GCash or a supported wallet/bank' },
 ];
 
 export default function OrderInquiryScreen({ route, navigation }) {
@@ -289,11 +289,10 @@ export default function OrderInquiryScreen({ route, navigation }) {
       setNotes('');
       setDeliveryAddress('');
 
-      // GCash/Card checkout now has a real payment step: the backend returns a
-      // payment reference + QR (and a PayMongo checkout URL when configured).
-      // Lead the customer there to actually pay, Shopee-style.
+      // Production QR Ph returns a hosted PayMongo checkout link. Lead the
+      // customer there; the server webhook updates the order after payment.
       const payment = created && created.payment;
-      const useImmediatePaymentStep = payment && !COMPANY_DEMO && payment.payment_method === 'gcash';
+      const useImmediatePaymentStep = payment && !COMPANY_DEMO && payment.payment_method === 'qrph';
       if (useImmediatePaymentStep) {
         navigation.navigate('Payment', {
           inquiryId: created.id,
@@ -387,6 +386,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
               onPress={() => {
                 setFulfillment(m.id);
                 if (COMPANY_DEMO && m.id === 'courier' && ['cash', 'credit', 'card'].includes(paymentMethod)) setPaymentMethod('gcash');
+                if (!COMPANY_DEMO && m.id === 'courier' && paymentMethod === 'qrph') setPaymentMethod('cod');
               }}
               activeOpacity={0.7}
               accessibilityRole="radio"
@@ -436,7 +436,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
 
       <Text style={styles.sectionTitle}>3 · Payment method</Text>
       <View style={styles.paymentRow}>
-        {paymentMethods.filter((method) => fulfillment !== 'courier' || !['credit', 'card'].includes(method.id)).map((m) => {
+        {paymentMethods.filter((method) => fulfillment !== 'courier' || !['credit', 'card', 'qrph'].includes(method.id)).map((m) => {
           const active = paymentMethod === m.id;
           return (
             <TouchableOpacity
@@ -451,6 +451,13 @@ export default function OrderInquiryScreen({ route, navigation }) {
           );
         })}
       </View>
+      {!COMPANY_DEMO && paymentMethod === 'qrph' ? (
+        <View style={styles.fulfillmentNote}>
+          <Text style={styles.fulfillmentNoteBody}>
+            PayMongo opens a single-use QR Ph checkout for pickup orders. The server confirms item prices before showing the final amount, then records payment automatically after provider confirmation.
+          </Text>
+        </View>
+      ) : null}
 
       <Text style={styles.sectionTitle}>4 · Items ({itemCount})</Text>
       {selectedItems.length === 0 ? (

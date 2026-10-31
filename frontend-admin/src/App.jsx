@@ -20,6 +20,7 @@ import StockTransfersPage from './pages/stock-control/StockTransfersPage';
 import ProductsPage from './pages/catalog-orders/ProductsPage';
 import ScanStockPage from './pages/catalog-orders/ScanStockPage';
 import OrderInquiriesPage from './pages/catalog-orders/OrderInquiriesPage';
+import PaymentsPage from './pages/catalog-orders/PaymentsPage';
 import UnitConversionsPage from './pages/catalog-orders/UnitConversionsPage';
 import BackOrdersPage from './pages/catalog-orders/BackOrdersPage';
 import NotificationsPage from './pages/governance/NotificationsPage';
@@ -124,6 +125,7 @@ function AppRoutes() {
         <Route path="/stock-transfers" element={<StockTransfersPage onLogout={handleLogout} />} />
         <Route path="/approvals" element={<RequireRole roles={ADMIN_TIER}><ApprovalsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/order-inquiries" element={<RequireRole roles={ADMIN_TIER}><OrderInquiriesPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/payments" element={<RequireRole roles={ADMIN_TIER}><PaymentsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/back-orders" element={<RequireRole roles={ADMIN_TIER}><BackOrdersPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/unit-conversions" element={<RequireRole roles={ADMIN_TIER}><UnitConversionsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/locations" element={<RequireRole roles={ADMIN_TIER}><LocationsPage onLogout={handleLogout} /></RequireRole>} />

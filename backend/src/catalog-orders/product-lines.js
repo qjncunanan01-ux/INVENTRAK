@@ -64,6 +64,46 @@ function normalizeLines(raw) {
   return { lines, total, hasPrices };
 }
 
+// Live QR Ph checkouts must be priced from the backend catalog. Mobile prices
+// are estimates and can be edited by a client, so never use them as the charge
+// amount for a real provider checkout.
+function priceLinesFromCatalog(lines, products) {
+  const byId = new Map((Array.isArray(products) ? products : []).map((product) => [Number(product.id), product]));
+  const pricedLines = [];
+  let totalMinor = 0;
+  for (const line of Array.isArray(lines) ? lines : []) {
+    const id = Number(line && line.id);
+    if (!Number.isSafeInteger(id) || id < 1) {
+      return { error: 'QR Ph orders must use current catalog products; refresh the catalog and try again' };
+    }
+    const product = byId.get(id);
+    if (!product || (product.status && product.status !== 'active')) {
+      return { error: 'Product ' + id + ' is unavailable for QR Ph checkout' };
+    }
+    const rawPrice = Number(product.price);
+    if (product.price == null || String(product.price).trim() === '' || !Number.isFinite(rawPrice) || rawPrice < 0) {
+      return { error: 'The current price for ' + (product.name || 'this product') + ' is not available' };
+    }
+    const qty = Number(line.qty);
+    if (!Number.isSafeInteger(qty) || qty < 1 || qty > 10000) {
+      return { error: 'QR Ph order quantities must be whole numbers between 1 and 10000' };
+    }
+    const unitPrice = Math.round(rawPrice * 100) / 100;
+    const subtotalMinor = Math.round(unitPrice * 100) * qty;
+    totalMinor += subtotalMinor;
+    pricedLines.push({
+      ...line,
+      name: product.name,
+      unit_price: unitPrice,
+      original_price: null,
+      subtotal: subtotalMinor / 100,
+    });
+  }
+  if (!pricedLines.length) return { error: 'QR Ph checkout requires at least one catalog item' };
+  if (!Number.isSafeInteger(totalMinor)) return { error: 'QR Ph order total is too large' };
+  return { lines: pricedLines, total: totalMinor / 100 };
+}
+
 // Friendly one-line-per-product rendering used by the mobile history screen
 // and the admin table for legacy rows that predate structured lines.
 function summarizeLines(lines) {
@@ -91,4 +131,4 @@ function summarizeProducts(raw) {
   return text || 'your items';
 }
 
-module.exports = { normalizeLines, summarizeLines, summarizeProducts };
+module.exports = { normalizeLines, priceLinesFromCatalog, summarizeLines, summarizeProducts };

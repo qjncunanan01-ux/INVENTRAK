@@ -23,10 +23,10 @@ const { DEMO_SEED, SEED_EPOCH, mulberry32, DEMO_LOCATIONS, DEMO_CUSTOMERS } = re
 const { createLoginLockout } = require('./auth/login-lockout');
 const { classifyFsnCatalog, parseFsnWindow } = require('./insights/fsn');
 const { criticalLevelMap, criticalLevelFromMap, stockStatus } = require('./inventory/critical-level');
-const { buildPaymentStep } = require('./payments');
+const { buildPaymentStep, payMongoConfigError, validatePayMongoWebhook, applyVerifiedQrPhPayment } = require('./payments');
 const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup, renderTagPageHtml } = require('./catalog-orders/qr-codes');
-const { normalizeLines } = require('./catalog-orders/product-lines');
-const { planOrderFulfillment } = require('./catalog-orders/order-fulfillment');
+const { normalizeLines, priceLinesFromCatalog } = require('./catalog-orders/product-lines');
+const { planOrderFulfillment, planAutomaticOrderFulfillment } = require('./catalog-orders/order-fulfillment');
 const { currentOrderTerms } = require('./catalog-orders/order-terms');
 const {
   SYLVER_POLICY_DEMO, PAYMENT_METHODS, applyBulkDiscount,
@@ -1434,6 +1434,26 @@ function parseBodyWithLimit(req, limitBytes, callback) {
   });
 }
 
+function parseRawBodyWithLimit(req, limitBytes, callback) {
+  const chunks = [];
+  let size = 0;
+  let tooLarge = false;
+  req.on('data', (chunk) => {
+    if (tooLarge) return;
+    size += chunk.length;
+    if (size > limitBytes) {
+      tooLarge = true;
+      chunks.length = 0;
+      return;
+    }
+    chunks.push(chunk);
+  });
+  req.on('end', () => {
+    if (tooLarge) return callback({ status: 413 });
+    callback(null, Buffer.concat(chunks, size));
+  });
+}
+
 let requestCounter = 0;
 function sendJson(res, status, payload, cacheControl) {
   const requestId = `req-${++requestCounter}-${Date.now().toString(36)}`;
@@ -1556,6 +1576,44 @@ const server = http.createServer((req, res) => {
       'Access-Control-Allow-Credentials': 'true',
     });
     return res.end();
+  }
+
+  if (req.method === 'POST' && url.split('?')[0] === '/api/webhooks/paymongo') {
+    return parseRawBodyWithLimit(req, 256 * 1024, (bodyErrorResult, rawBody) => {
+      if (bodyErrorResult) return sendJson(res, bodyErrorResult.status || 400, { error: bodyErrorResult.status === 413 ? 'Payload Too Large' : 'Invalid webhook body' });
+      const verified = validatePayMongoWebhook(rawBody, req.headers['paymongo-signature']);
+      if (!verified.ok) return sendJson(res, verified.status, { error: verified.error });
+      if (verified.ignored) return sendJson(res, 200, { received: true, ignored: true });
+
+      const orders = readJSON(orderFile) || [];
+      const order = orders.find((row) => String(row.payment_reference || '') === verified.reference);
+      if (!order) {
+        audit('inquiry.paymongo_webhook_ignored', { eventId: verified.event_id, reference: verified.reference, reason: 'order_not_found' });
+        return sendJson(res, 200, { received: true, ignored: true });
+      }
+      const now = new Date().toISOString();
+      const applied = applyVerifiedQrPhPayment(order, verified, now);
+      if (!applied.ok) {
+        audit('inquiry.paymongo_webhook_ignored', { eventId: verified.event_id, inquiryId: Number(order.id), reason: applied.error });
+        return sendJson(res, 200, { received: true, ignored: true });
+      }
+      if (!applied.changed) return sendJson(res, 200, { received: true, duplicate: true });
+
+      Object.assign(order, {
+        payment_records: applied.payment_records,
+        amount_paid: applied.amount_paid,
+        payment_status: applied.payment_status,
+        payment_updated_at: applied.payment_updated_at,
+      });
+      writeJSON(orderFile, orders);
+      audit('inquiry.payment_verified', {
+        inquiryId: Number(order.id), payment_status: applied.payment_status,
+        amount: verified.amount_minor / 100, provider: 'paymongo',
+        eventId: verified.event_id, paymentId: verified.payment_id,
+      });
+      notifyInquiryStatus(order, 'payment_verified');
+      return sendJson(res, 200, { received: true, payment_status: applied.payment_status });
+    });
   }
 
   // ================= HEALTH =================
@@ -4451,7 +4509,10 @@ const server = http.createServer((req, res) => {
   };
   const privateProofFreeOrder = (order) => ({
     ...order,
-    payment_records: JSON.stringify(parseOrderArray(order.payment_records).map(({ proof_data, ...row }) => row)),
+    payment_records: JSON.stringify(parseOrderArray(order.payment_records).map(({ proof_data, ...row }) => ({
+      ...row,
+      proof_available: Boolean(proof_data),
+    }))),
     return_requests: JSON.stringify(parseOrderArray(order.return_requests).map(({ proof_data, ...row }) => row)),
   });
   const validOrderProof = (value) => {
@@ -4645,10 +4706,9 @@ const server = http.createServer((req, res) => {
         const needsCompanyReservation = SYLVER_POLICY_DEMO && ['approved', 'preparing'].includes(updatedStatus) && !order.inventory_reserved_at;
         const mustCommitStock = !SYLVER_POLICY_DEMO && ['fulfilled', 'delivered'].includes(updatedStatus) && !order.inventory_committed_at;
         let fulfillmentPlan = null;
-        let fulfillmentLocationName = null;
+        let fulfillmentLocationId = null;
         let deliveryFee = Number(order.delivery_fee) || 0;
         let deliverySchedule = order.delivery_schedule || null;
-        const locationId = Number(obj.location_id);
         if (SYLVER_POLICY_DEMO && updatedStatus === 'approved' && order.fulfillment_method === 'courier') {
           if (obj.delivery_fee === undefined || !Number.isFinite(Number(obj.delivery_fee)) || Number(obj.delivery_fee) < 0) {
             return sendJson(res, 400, { error: 'Set the delivery fee (use 0 when no fee applies) before confirming a courier order' });
@@ -4667,34 +4727,61 @@ const server = http.createServer((req, res) => {
           return sendJson(res, 409, { error: 'Record and verify the full payment before marking the order delivered' });
         }
         if (mustCommitStock) {
-          if (['gcash', 'card'].includes(order.payment_method) && order.payment_status !== 'paid') {
+          if (['gcash', 'qrph', 'card'].includes(order.payment_method) && order.payment_status !== 'paid') {
             return sendJson(res, 409, { error: 'Payment must be verified before this inquiry can be fulfilled' });
           }
           const inventory = getInventory();
-          fulfillmentLocationName = inventory.locations[locationId - 1];
-          if (!Number.isInteger(locationId) || locationId < 1 || !fulfillmentLocationName) {
-            return sendJson(res, 400, { error: 'Choose a valid stock location before fulfilling this order' });
-          }
           let lines = [];
           try { lines = JSON.parse(order.products || '[]'); } catch {}
           const catalog = readJSON(productsFile) || [];
-          fulfillmentPlan = planOrderFulfillment(lines, locationId, {
-            findProduct: (line) => {
-              const byId = Number(line.id);
-              if (Number.isInteger(byId) && byId > 0) {
-                const p = catalog[byId - 1];
-                return p && isProductActive(p) ? { id: byId, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
-              }
-              const name = String(line.name || '').trim().toLowerCase();
-              const index = catalog.findIndex((p) => isProductActive(p) && String(p['Product Name'] || p.name || '').trim().toLowerCase() === name);
-              const p = index >= 0 ? catalog[index] : null;
-              return p ? { id: index + 1, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
-            },
-            getAvailable: (productId, locId) => {
-              const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(productId));
-              return item ? Number(item.locations[fulfillmentLocationName]) || 0 : 0;
-            },
-          });
+          const findProduct = (line) => {
+            const byId = Number(line.id);
+            if (Number.isInteger(byId) && byId > 0) {
+              const p = catalog[byId - 1];
+              return p && isProductActive(p) ? { id: byId, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
+            }
+            const name = String(line.name || '').trim().toLowerCase();
+            const index = catalog.findIndex((p) => isProductActive(p) && String(p['Product Name'] || p.name || '').trim().toLowerCase() === name);
+            const p = index >= 0 ? catalog[index] : null;
+            return p ? { id: index + 1, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
+          };
+          const requestedLocationId = obj.location_id;
+          if (requestedLocationId !== undefined && requestedLocationId !== null && requestedLocationId !== '') {
+            const locationId = Number(requestedLocationId);
+            const locationName = inventory.locations[locationId - 1];
+            if (!Number.isInteger(locationId) || locationId < 1 || !locationName) {
+              return sendJson(res, 400, { error: 'Choose a valid stock location before fulfilling this order' });
+            }
+            const singleLocationPlan = planOrderFulfillment(lines, locationId, {
+              findProduct,
+              getAvailable: (productId) => {
+                const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(productId));
+                return item ? Number(item.locations[locationName]) || 0 : 0;
+              },
+            });
+            if (!singleLocationPlan.error) {
+              fulfillmentPlan = {
+                plan: singleLocationPlan.plan.map((line) => ({ ...line, total_amount: line.qty * line.unit_price })),
+                allocations: singleLocationPlan.plan.map((line) => ({ ...line, location_id: locationId })),
+              };
+              fulfillmentLocationId = locationId;
+            } else {
+              fulfillmentPlan = singleLocationPlan;
+            }
+          } else {
+            const preferredLocations = (inventory.locations || [])
+              .map((name, index) => ({ name, id: index + 1 }))
+              .sort((a, b) => Number(b.name.trim().toLowerCase() === 'showroom') - Number(a.name.trim().toLowerCase() === 'showroom') || a.id - b.id);
+            fulfillmentPlan = planAutomaticOrderFulfillment(lines, {
+              findProduct,
+              getStockRows: (ids) => ids.flatMap((productId) => preferredLocations.map((location) => {
+                const item = inventory.items.find((row) => row.product && Number(row.product.id) === Number(productId));
+                return { product_id: productId, location_id: location.id, quantity: item ? Number(item.locations[location.name]) || 0 : 0 };
+              })),
+            });
+            const allocatedLocations = [...new Set((fulfillmentPlan.allocations || []).map((allocation) => Number(allocation.location_id)))];
+            fulfillmentLocationId = allocatedLocations.length === 1 ? allocatedLocations[0] : null;
+          }
           if (fulfillmentPlan.error) {
             return sendJson(res, fulfillmentPlan.product_id ? 409 : 400, {
               error: fulfillmentPlan.error,
@@ -4741,7 +4828,6 @@ const server = http.createServer((req, res) => {
           const movements = readJSON(movementsFile) || [];
           const now = new Date().toISOString();
           for (const line of fulfillmentPlan.plan) {
-            const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(line.product_id));
             const qty = Number(line.qty);
             const unitPrice = Number(line.unit_price) || 0;
             salesTransactions.push({
@@ -4749,24 +4835,29 @@ const server = http.createServer((req, res) => {
               product_id: line.product_id,
               qty,
               unit_price: unitPrice,
-              total_amount: qty * unitPrice,
+              total_amount: line.total_amount ?? qty * unitPrice,
               transaction_date: now,
               customer_name: order.customer_name || 'customer',
               customer_id: order.customer_id || null,
               order_inquiry_id: order.id,
             });
+          }
+          for (const allocation of fulfillmentPlan.allocations) {
+            const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(allocation.product_id));
+            const locationId = Number(allocation.location_id);
+            const locationName = inventory.locations[locationId - 1];
             if (item) {
-              item.locations[fulfillmentLocationName] = (Number(item.locations[fulfillmentLocationName]) || 0) - qty;
+              item.locations[locationName] = (Number(item.locations[locationName]) || 0) - Number(allocation.qty);
               item.total = Object.values(item.locations).reduce((sum, value) => sum + (Number(value) || 0), 0);
-              consumeLots(line.product_id, locationId, qty);
-              upsertLowStockAlert(line.product_id, locationId, item.locations[fulfillmentLocationName]);
+              consumeLots(allocation.product_id, locationId, allocation.qty);
+              upsertLowStockAlert(allocation.product_id, locationId, item.locations[locationName]);
             }
             movements.push({
               id: movements.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1,
-              product_id: line.product_id,
-              qty,
+              product_id: allocation.product_id,
+              qty: allocation.qty,
               type: 'stock-out',
-              src_location: locationId,
+              src_location: allocation.location_id,
               dst_location: null,
               notes: `Customer order inquiry #${order.id} fulfilled`,
               created_at: now,
@@ -4776,7 +4867,7 @@ const server = http.createServer((req, res) => {
           writeJSON(inventoryFile, inventory);
           writeJSON(movementsFile, movements);
           if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
-          order.fulfillment_location_id = locationId;
+          order.fulfillment_location_id = fulfillmentLocationId;
           order.inventory_committed_at = now;
         }
         if (SYLVER_POLICY_DEMO && updatedStatus === 'delivered' && !order.sale_committed_at) {
@@ -5088,7 +5179,7 @@ const server = http.createServer((req, res) => {
         : null;
       // Checkout fields (optional but validated when present) — mirrors the
       // SQLite backend: delivery_address <= 500 chars, payment_method enum.
-      const validPayments = SYLVER_POLICY_DEMO ? [...PAYMENT_METHODS, ...(creditCustomer ? ['credit'] : [])] : ['cod', 'gcash', 'other'];
+      const validPayments = SYLVER_POLICY_DEMO ? [...PAYMENT_METHODS, ...(creditCustomer ? ['credit'] : [])] : ['cod', 'gcash', 'qrph', 'other'];
       if (obj.delivery_address !== undefined && String(obj.delivery_address).length > 500) {
         return sendJson(res, 400, {
           error: 'Validation failed',
@@ -5109,6 +5200,13 @@ const server = http.createServer((req, res) => {
       });
       if (fulfillment.error) {
         return sendJson(res, 400, { error: 'Validation failed', details: [fulfillment.error] });
+      }
+      if (!SYLVER_POLICY_DEMO && obj.payment_method === 'qrph') {
+        if (fulfillment.method !== 'pickup') {
+          return sendJson(res, 400, { error: 'QR Ph checkout is currently available for pickup orders while courier fees are confirmed separately' });
+        }
+        const configError = payMongoConfigError();
+        if (configError) return sendJson(res, 503, { error: configError });
       }
       if (SYLVER_POLICY_DEMO && obj.payment_method === 'cash' && fulfillment.method === 'courier') {
         return sendJson(res, 400, { error: 'Cash is available for pickup; courier orders must be paid and verified before dispatch' });
@@ -5136,6 +5234,7 @@ const server = http.createServer((req, res) => {
       // always matches what the customer was charged (SQLite parity).
       const normalized = normalizeLines(obj.products);
       let lines = normalized.lines;
+      let qrPhTotal = null;
       let discount = { total: normalized.total, discount_amount: 0, eligible_subtotal: 0 };
       const catalog = (readJSON(productsFile) || []).map((product, index) => ({
         ...product, id: index + 1,
@@ -5145,6 +5244,12 @@ const server = http.createServer((req, res) => {
         status: product.status || 'active',
       }));
       const productsById = new Map(catalog.map((product) => [Number(product.id), product]));
+      if (!SYLVER_POLICY_DEMO && obj.payment_method === 'qrph') {
+        const pricing = priceLinesFromCatalog(lines, catalog);
+        if (pricing.error) return sendJson(res, 409, { error: pricing.error });
+        lines = pricing.lines;
+        qrPhTotal = pricing.total;
+      }
       if (SYLVER_POLICY_DEMO) {
         if (lines.some((line) => line.id == null)) return sendJson(res, 400, { error: 'Refresh the catalog before placing a demo order; every item must match a current product' });
         lines = lines.map((line) => {
@@ -5155,9 +5260,14 @@ const server = http.createServer((req, res) => {
         discount = applyBulkDiscount(lines, (productId) => productsById.get(Number(productId)));
         lines = discount.lines;
       }
-      const storedCost = SYLVER_POLICY_DEMO
+      const storedCost = !SYLVER_POLICY_DEMO && obj.payment_method === 'qrph'
+        ? qrPhTotal
+        : SYLVER_POLICY_DEMO
         ? Number(discount.total) || 0
         : normalized.total !== null ? normalized.total : obj.estimated_cost || 0;
+      if (!SYLVER_POLICY_DEMO && obj.payment_method === 'qrph' && (!Number.isFinite(Number(storedCost)) || Number(storedCost) < 1)) {
+        return sendJson(res, 400, { error: 'QR Ph checkout requires an order total of at least PHP 1.00' });
+      }
       const requestedByProduct = new Map();
       for (const line of lines) {
         if (line.id == null) continue;
@@ -5250,9 +5360,8 @@ const server = http.createServer((req, res) => {
       } catch (err) {
         console.error('[costing] snapshot failed for order', id, err && err.message);
       }
-      // GCash/Card checkout: build the payment step (PayMongo when configured,
-      // else the QR demo fallback) — identical to the SQLite backend. Guarded
-      // so a provider failure can never leave the client hanging.
+      // QR Ph creates a real PayMongo checkout. Production must never replace
+      // a failed live checkout with a fake QR or manual paid state.
       let payment = null;
       try {
         payment = await buildPaymentStep({
@@ -5264,8 +5373,25 @@ const server = http.createServer((req, res) => {
         });
       } catch (err) {
         console.error('[payments] buildPaymentStep failed:', err && err.message);
+        if (!SYLVER_POLICY_DEMO && obj.payment_method === 'qrph') {
+          orders.unshift(newOrder);
+          writeJSON(orderFile, orders);
+          void notifyInquiryStatus(newOrder, 'pending');
+          return sendJson(res, 502, {
+            error: 'Order #' + id + ' was recorded, but PayMongo could not create its QR Ph checkout. Do not submit the order again; contact the store to arrange payment.',
+            order_id: id,
+          });
+        }
       }
       if (payment) {
+        if (payment.payment_provider === 'paymongo') {
+          newOrder.payment_records = JSON.stringify([{
+            type: 'paymongo_checkout', provider: 'paymongo',
+            provider_reference: payment.payment_provider_reference,
+            reference: payment.payment_reference,
+            amount: storedCost, status: 'pending', created_at: now,
+          }]);
+        }
         Object.assign(newOrder, {
           payment_method: payment.payment_method,
           payment_status: payment.payment_status,
@@ -5352,6 +5478,9 @@ const server = http.createServer((req, res) => {
         if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
         const isAdmin = ADMIN_TIER.includes(req.user.role);
         const now = new Date().toISOString();
+        if (!SYLVER_POLICY_DEMO && order.payment_method === 'qrph') {
+          return sendJson(res, 409, { error: 'PayMongo QR Ph payments are verified automatically; manual payment status changes are disabled for this order' });
+        }
         if (SYLVER_POLICY_DEMO) {
           const records = parseOrderArray(order.payment_records);
           const due = orderTotalDue(order);
@@ -5475,7 +5604,7 @@ const server = http.createServer((req, res) => {
         }
 
         if (order.payment_method !== 'gcash') {
-          return sendJson(res, 400, { error: 'Only GCash receipt references can be submitted for verification' });
+          return sendJson(res, 400, { error: 'Only legacy GCash receipt references can be submitted for verification' });
         }
         const customerReference = String(obj.customer_reference || '').trim();
         if (customerReference.length < 5 || customerReference.length > 100 || !/^[A-Za-z0-9\- ]+$/.test(customerReference)) {

@@ -2696,7 +2696,7 @@
         },
         "responses": {
           "201": {
-            "description": "Inquiry submitted. The Sylver demo returns a simulated card step or manual GCash/bank-transfer proof flow; production only returns payment steps for configured gateways.",
+            "description": "Inquiry submitted. Production QR Ph orders are repriced from the backend catalog and return a PayMongo-hosted checkout URL; paid status is recorded only from a verified PayMongo webhook. QR Ph is currently pickup-only because courier charges are confirmed separately.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2707,6 +2707,57 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "502": {
+            "description": "The order was recorded but PayMongo could not create its hosted checkout. The response includes order_id so the customer does not resubmit."
+          },
+          "503": {
+            "description": "PayMongo QR Ph secrets or checkout redirect settings are not configured."
+          }
+        }
+      }
+    },
+    "/api/webhooks/paymongo": {
+      "post": {
+        "tags": [
+          "Payments"
+        ],
+        "operationId": "paymongoWebhook",
+        "summary": "Receive signed PayMongo checkout events",
+        "description": "Public provider callback. The backend validates the Paymongo-Signature against the raw request bytes and only applies a matching, exact-amount QR Ph payment. Configure PAYMONGO_WEBHOOK_SECRET separately from PAYMONGO_SECRET_KEY.",
+        "parameters": [
+          {
+            "name": "Paymongo-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "PayMongo event envelope, signed over the original raw bytes."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook accepted or safely ignored as a duplicate/unmatched event."
+          },
+          "400": {
+            "description": "Malformed event payload."
+          },
+          "401": {
+            "description": "Invalid signature or live/test mode mismatch."
+          },
+          "503": {
+            "description": "Webhook secrets are not configured."
           }
         }
       }
@@ -2762,7 +2813,7 @@
                   "location_id": {
                     "type": "integer",
                     "minimum": 1,
-                    "description": "Required when marking an inquiry fulfilled or delivered. Stock is deducted from this location and recorded as a sale."
+                    "description": "Optional location override for fulfillment. When omitted, stock is allocated automatically across available locations, preferring Showroom, and stock movements are recorded for each source location."
                   },
                   "delivery_fee": {
                     "type": "number",
@@ -7011,12 +7062,13 @@
               "cod",
               "cash",
               "gcash",
+              "qrph",
               "bank_transfer",
               "card",
               "other"
             ],
             "default": "cod",
-            "description": "Payment method. The Sylver demo accepts cash, GCash, bank transfer, and a simulated card transaction that never collects card details or charges a card. Production accepts COD, GCash, and other supported legacy methods; card is not enabled without a real gateway."
+            "description": "The demo accepts its labelled manual payment options. Production QR Ph is a PayMongo hosted checkout and currently supports pickup orders; COD and legacy GCash/other methods remain accepted where configured."
           },
           "products": {
             "type": "array",
@@ -7222,13 +7274,14 @@
               "cod",
               "cash",
               "gcash",
+              "qrph",
               "bank_transfer",
               "card",
               "other",
               "credit"
             ],
             "default": "cod",
-            "description": "Credit is demo-only and available only to existing customer accounts after staff approval."
+            "description": "QR Ph is processed through PayMongo and verified automatically by webhook; credit remains demo-only and available only to existing customer accounts after staff approval."
           },
           "payment_status": {
             "type": "string",
@@ -7247,7 +7300,7 @@
           "payment_reference": {
             "type": "string",
             "nullable": true,
-            "description": "GCash-style payment reference code"
+            "description": "PayMongo checkout reference for QR Ph, or the legacy manual payment reference."
           },
           "payment_customer_reference": {
             "type": "string",
@@ -7272,7 +7325,7 @@
           "fulfillment_location_id": {
             "type": "integer",
             "nullable": true,
-            "description": "Stock location used when the order was fulfilled."
+            "description": "Stock location used when the entire order was fulfilled from one location; null when stock was allocated across multiple locations. Per-location movements remain in the stock ledger."
           },
           "inventory_committed_at": {
             "type": "string",
@@ -7282,7 +7335,7 @@
           "payment_url": {
             "type": "string",
             "nullable": true,
-            "description": "PayMongo checkout URL (real gateway) when configured"
+            "description": "PayMongo-hosted single-use QR Ph checkout URL for a configured production order."
           },
           "payment_qr": {
             "type": "string",
@@ -7292,7 +7345,7 @@
           "payment_provider": {
             "type": "string",
             "nullable": true,
-            "description": "paymongo | demo"
+            "description": "paymongo for hosted QR Ph; demo_manual or demo_card for labelled demo flows."
           },
           "user_id": {
             "type": "integer",
@@ -7427,7 +7480,7 @@
           },
           "payment_records": {
             "type": "string",
-            "description": "JSON array of manual payment proof and verification records; proof images are omitted from order lists."
+            "description": "JSON array of payment proof and verification records; proof images are omitted from order lists, with proof_available indicating whether a receipt image can be opened."
           },
           "amount_paid": {
             "type": "number",
@@ -7464,7 +7517,7 @@
           },
           "payment": {
             "type": "object",
-            "description": "Payment reference for manual GCash/bank-transfer proof in the Sylver demo, or a legacy payment step.",
+            "description": "Payment details. Production QR Ph returns a PayMongo-hosted checkout URL; the Sylver demo retains its manual GCash/bank-transfer proof and simulated card steps.",
             "required": [
               "payment_method",
               "payment_status",

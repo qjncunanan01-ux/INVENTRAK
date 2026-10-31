@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Linking,
   StyleSheet,
@@ -11,7 +10,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { updateInquiryPayment } from '../../api';
+import { listOrderInquiries, updateInquiryPayment } from '../../api';
 import { useThemeColors } from '../../theme-context';
 import Dialog from '../../Dialog';
 
@@ -22,6 +21,7 @@ export default function PaymentScreen({ route, navigation }) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { inquiryId, payment } = route.params || {};
   const liveGateway = payment && payment.payment_provider === 'paymongo';
+  const qrphGateway = liveGateway && payment.payment_method === 'qrph';
   const sylverDemo = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true';
   const [busy, setBusy] = useState(false);
   const [paymentResult, setPaymentResult] = useState(null);
@@ -32,6 +32,7 @@ export default function PaymentScreen({ route, navigation }) {
   const [referenceTouched, setReferenceTouched] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showError, setShowError] = useState(false);
+  const [qrStatusMessage, setQrStatusMessage] = useState('');
 
   const goToOrders = () => navigation.navigate('InquiryHistory');
 
@@ -96,6 +97,26 @@ export default function PaymentScreen({ route, navigation }) {
     }
   };
 
+  const checkQrPaymentStatus = async() => {
+    setBusy(true);
+    try {
+      const response = await listOrderInquiries();
+      const rows = Array.isArray(response) ? response : (response && Array.isArray(response.data) ? response.data : []);
+      const order = rows.find((row) => Number(row.id) === Number(inquiryId));
+      if (!order) throw new Error('Could not find this order in your account.');
+      if (order.payment_status === 'paid') {
+        setPaymentResult('paid');
+        return;
+      }
+      setQrStatusMessage('No payment confirmation yet. Keep this order screen open or check again after paying. The order changes to paid only after PayMongo confirms it.');
+    } catch (err) {
+      setErrorMsg(err.message || 'Could not check payment status. Try again in a moment.');
+      setShowError(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const chooseReceipt = async() => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -125,10 +146,12 @@ export default function PaymentScreen({ route, navigation }) {
     return (
       <View style={styles.center}>
         <Text style={styles.bigGlyph}>{paymentResult === 'paid' ? '✓' : '⌛'}</Text>
-        <Text style={styles.title}>{paymentResult === 'paid' ? 'Demo transaction complete' : 'Payment sent for review'}</Text>
+        <Text style={styles.title}>{qrphGateway ? 'QR Ph payment confirmed' : paymentResult === 'paid' ? 'Demo transaction complete' : 'Payment sent for review'}</Text>
         <Text style={styles.subtitle}>
-          {paymentResult === 'paid'
-            ? 'This was a simulated card transaction. No card was charged. The store will review your order.'
+          {qrphGateway
+            ? 'PayMongo confirmed your QR Ph payment. Your order status is now updated.'
+            : paymentResult === 'paid'
+              ? 'This was a simulated card transaction. No card was charged. The store will review your order.'
             : 'The store will verify your GCash receipt reference. The order will stay unpaid until the store confirms it.'}
         </Text>
         {/* Clear next step instead of a dead-end confirmation: the paid state
@@ -146,9 +169,11 @@ export default function PaymentScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{payment.payment_method === 'card' ? 'Demo card transaction' : payment.payment_method === 'bank_transfer' ? 'Bank transfer receipt' : payment.payment_method === 'gcash' ? 'Pay via GCash' : 'Order payment'}</Text>
+      <Text style={styles.title}>{qrphGateway ? 'Pay with QR Ph' : payment.payment_method === 'card' ? 'Demo card transaction' : payment.payment_method === 'bank_transfer' ? 'Bank transfer receipt' : payment.payment_method === 'gcash' ? 'Pay via GCash' : 'Order payment'}</Text>
       <Text style={styles.subtitle}>
-        {payment.payment_method === 'card'
+        {qrphGateway
+          ? 'Continue to PayMongo’s secure checkout to show a single-use QR Ph for this order. Use GCash or another participating bank or e-wallet, following the checkout instructions. PayMongo confirms payment automatically.'
+          : payment.payment_method === 'card'
           ? 'This demo creates a transaction record only. Do not enter card details; no real card is charged.'
           : liveGateway
             ? 'Pay using the secure checkout link or QR, then enter the receipt reference from your GCash confirmation. The store verifies it.'
@@ -161,13 +186,17 @@ export default function PaymentScreen({ route, navigation }) {
           <Text style={styles.demoCardTitle}>No card details required</Text>
           <Text style={styles.demoCardBody}>The button below completes a clearly labelled demo transaction.</Text>
         </View>
+      ) : qrphGateway ? (
+        <View style={styles.demoCard}>
+          <Text style={styles.demoCardGlyph}>▦</Text>
+          <Text style={styles.demoCardTitle}>Single-use QR Ph</Text>
+          <Text style={styles.demoCardBody}>The checkout displays the exact order amount. Do not pay from a separate or static QR code.</Text>
+        </View>
       ) : liveGateway ? (
         <View style={styles.qrCard}>
           {payment.payment_qr ? (
             <Image source={{ uri: payment.payment_qr }} style={styles.qr} resizeMode="contain" />
-          ) : (
-            <ActivityIndicator size="large" color={colors.brandPrimary} />
-          )}
+          ) : null}
         </View>
       ) : (
         <View style={styles.demoCard}>
@@ -181,12 +210,18 @@ export default function PaymentScreen({ route, navigation }) {
       )}
 
       <View style={styles.refCard}>
+        {qrphGateway ? (
+          <>
+            <Text style={styles.refLabel}>Amount due</Text>
+            <Text style={styles.refCode}>₱{Number(payment.amount_due || 0).toFixed(2)}</Text>
+          </>
+        ) : null}
         <Text style={styles.refLabel}>Order payment reference</Text>
         <Text style={styles.refCode}>{payment.payment_reference || '—'}</Text>
         <Text style={styles.refHint}>{payment.payment_method === 'card' ? 'Demo transaction ID' : 'Use this reference if requested by the payment provider.'}</Text>
       </View>
 
-      {payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer') ? (
+      {!qrphGateway && (payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) ? (
         <TextInput
           style={styles.referenceInput}
           value={customerReference}
@@ -198,7 +233,7 @@ export default function PaymentScreen({ route, navigation }) {
           accessibilityLabel="GCash receipt reference number"
         />
       ) : null}
-      {(payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && referenceTouched && !/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) ? (
+      {!qrphGateway && (payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && referenceTouched && !/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) ? (
         <Text style={styles.referenceError}>
           Enter the receipt reference shown by GCash (5–100 letters, numbers,
           spaces, or dashes).
@@ -220,13 +255,26 @@ export default function PaymentScreen({ route, navigation }) {
         </>
       ) : null}
 
-      {payment.payment_method === 'gcash' && payment.payment_url ? (
+      {qrphGateway && payment.payment_url ? (
+        <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={openLink}>
+          <Text style={styles.btnPrimaryText}>Open secure QR Ph checkout ↗</Text>
+        </TouchableOpacity>
+      ) : null}
+      {!qrphGateway && payment.payment_method === 'gcash' && payment.payment_url ? (
         <TouchableOpacity style={[styles.btn, styles.btnLink]} onPress={openLink}>
           <Text style={styles.btnLinkText}>Open payment link ↗</Text>
         </TouchableOpacity>
       ) : null}
 
-      <TouchableOpacity
+      {qrphGateway ? (
+        <>
+          <TouchableOpacity style={[styles.btn, styles.btnLink]} onPress={checkQrPaymentStatus} disabled={busy}>
+            <Text style={styles.btnLinkText}>{busy ? 'Checking…' : 'Check payment status'}</Text>
+          </TouchableOpacity>
+          {qrStatusMessage ? <Text style={styles.hint}>{qrStatusMessage}</Text> : null}
+          <Text style={styles.hint}>You can return here after paying. A bank or wallet receipt screenshot is not needed.</Text>
+        </>
+      ) : <TouchableOpacity
         style={[styles.btn, styles.btnPrimary, (payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && !/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) && styles.btnDisabled]}
         onPress={submitPayment}
         disabled={busy || ((payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && (!/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) || (sylverDemo && !proofData)))}
@@ -234,7 +282,7 @@ export default function PaymentScreen({ route, navigation }) {
         <Text style={styles.btnPrimaryText}>
           {busy ? 'Submitting...' : payment.payment_method === 'card' ? 'Complete demo transaction' : sylverDemo ? 'Submit payment for review' : 'Submit receipt reference'}
         </Text>
-      </TouchableOpacity>
+      </TouchableOpacity>}
       {payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer') ? <Text style={styles.hint}>Payment remains unverified until the store checks your receipt.</Text> : null}
 
       {/* Payment error dialog (cross-platform) */}

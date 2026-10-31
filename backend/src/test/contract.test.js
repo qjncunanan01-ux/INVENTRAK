@@ -996,7 +996,7 @@ test('contract: checkout fields (delivery_address + payment_method) are stored a
         estimated_cost: 200,
         notes: 'checkout test',
         delivery_address: '123 Mabini St, Brgy. San Isidro, Manila',
-        payment_method: 'gcash',
+        payment_method: 'cod',
       },
     });
     assert.strictEqual(posted.status, 201);
@@ -1008,7 +1008,7 @@ test('contract: checkout fields (delivery_address + payment_method) are stored a
     const mine = rows.find(r => r.customer_name === uname);
     assert.ok(mine, `${side === sqlite ? 'sqlite' : 'npmfree'} inquiry found`);
     assert.strictEqual(mine.delivery_address, '123 Mabini St, Brgy. San Isidro, Manila');
-    assert.strictEqual(mine.payment_method, 'gcash');
+    assert.strictEqual(mine.payment_method, 'cod');
   }
 
   // Invalid payment_method -> identical 400 on both.
@@ -1073,9 +1073,9 @@ test('contract: promote is admin-only and promotes a customer identically on bot
   });
 });
 
-// ===== GCash payment step + delivered status =====
+// ===== QR Ph gateway / legacy GCash / delivered status =====
 
-test('contract: GCash checkout returns a payment step identically', async () => {
+test('contract: production GCash orders never receive a fake QR payment step', async () => {
   const res = await both('POST /api/order-inquiries (gcash)', '/api/order-inquiries', {
     method: 'POST',
     auth: 'customer',
@@ -1089,18 +1089,13 @@ test('contract: GCash checkout returns a payment step identically', async () => 
       payment_method: 'gcash',
     },
   });
-  // Both must expose the payment step with a reference + QR.
+  // Legacy GCash requests remain readable, but the backend never represents
+  // them as a real or demo gateway payment.
   for (const side of [sqlite, npmfree]) {
     const body = side === sqlite ? res.a.json : res.b.json;
     assert.strictEqual(body.ok, true);
     assert.ok(Number(body.id) > 0, `${side} returns an inquiry id`);
-    assert.ok(body.payment, `${side} returns a payment step`);
-    assert.strictEqual(body.payment.payment_method, 'gcash');
-    assert.strictEqual(body.payment.payment_status, 'unpaid');
-    assert.ok(body.payment.payment_reference, `${side} has a reference`);
-    // The QR is a locally generated data URL (private + offline-capable),
-    // never a third-party QR web service URL.
-    assert.ok(/^data:image\/png;base64,/.test(body.payment.payment_qr), `${side} QR is a local data URL`);
+    assert.strictEqual(body.payment, undefined);
   }
 
   // The stored inquiry carries the payment fields on read-back.
@@ -1109,8 +1104,8 @@ test('contract: GCash checkout returns a payment step identically', async () => 
     const first = (list.json.data || list.json)[0];
     assert.strictEqual(first.payment_method, 'gcash');
     assert.strictEqual(first.payment_status, 'unpaid');
-    assert.ok(first.payment_reference);
-    assert.ok(first.payment_qr);
+    assert.strictEqual(first.payment_reference, null);
+    assert.strictEqual(first.payment_qr, null);
   }
 });
 

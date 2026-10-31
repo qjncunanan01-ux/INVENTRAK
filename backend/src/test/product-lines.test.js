@@ -5,7 +5,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const { summarizeProducts, normalizeLines, summarizeLines } = require('../catalog-orders/product-lines');
+const { summarizeProducts, normalizeLines, priceLinesFromCatalog, summarizeLines } = require('../catalog-orders/product-lines');
 
 test('summarizeProducts renders canonical line objects readably (the [object Object] regression)', () => {
   // Exactly what POST /api/order-inquiries stores today.
@@ -48,6 +48,32 @@ test('normalizeLines derives totals only from priced lines (locked contract)', (
   const unpriced = normalizeLines(['Legacy x2']);
   assert.strictEqual(unpriced.hasPrices, false);
   assert.strictEqual(unpriced.total, null);
+});
+
+test('QR Ph prices every line from the active server catalog, not client fields', () => {
+  const priced = priceLinesFromCatalog([
+    { id: 7, name: 'Edited name', qty: 2, unit_price: 0.01, subtotal: 0.02, original_price: 0.01 },
+  ], [
+    { id: 7, name: 'Server product name', price: 125.5, status: 'active' },
+  ]);
+  assert.equal(priced.error, undefined);
+  assert.equal(priced.total, 251);
+  assert.deepEqual(priced.lines[0], {
+    id: 7,
+    name: 'Server product name',
+    qty: 2,
+    unit_price: 125.5,
+    original_price: null,
+    subtotal: 251,
+  });
+});
+
+test('QR Ph refuses free-text, stale, and inactive items before charging', () => {
+  assert.match(priceLinesFromCatalog([{ id: null, name: 'Widget', qty: 1 }], []).error, /refresh the catalog/i);
+  assert.match(priceLinesFromCatalog([{ id: 2, name: 'Widget', qty: 1 }], []).error, /unavailable/i);
+  assert.match(priceLinesFromCatalog([{ id: 2, name: 'Widget', qty: 1 }], [
+    { id: 2, name: 'Widget', price: 10, status: 'inactive' },
+  ]).error, /unavailable/i);
 });
 
 test('summarizeLines maps qty>1 to name xN (mobile + admin rendering contract)', () => {

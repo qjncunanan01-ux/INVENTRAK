@@ -16,6 +16,7 @@ const ROUTE_TITLES = {
   '/stock-transfers': 'Stock Transfers',
   '/locations': 'Branch Locations',
   '/order-inquiries': 'Order Inquiries',
+  '/payments': 'Payments',
   '/back-orders': 'Back Orders',
   '/unit-conversions': 'Unit & Packaging Conversions',
   '/notifications': 'Notifications',
