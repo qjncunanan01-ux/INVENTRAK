@@ -145,7 +145,7 @@ describe('customer linkage end to end (both backends)', () => {
       const sale = await call(side.url, '/api/sales', {
         method: 'POST',
         token: side.token.admin,
-        body: { product_id: 1, qty: 2, location_id: 1, customer_name: name },
+        body: { product_id: 1, qty: 2, location_id: 1, customer_name: name, idempotency_key: `customer-sale-${tag}` },
       });
       assert.strictEqual(sale.status, 201, `sale recorded on ${side.url}`);
 
@@ -163,7 +163,7 @@ describe('customer linkage end to end (both backends)', () => {
       const name = `History Buyer ${tag}`;
       await call(side.url, '/api/sales', {
         method: 'POST', token: side.token.admin,
-        body: { product_id: 1, qty: 1, location_id: 1, customer_name: name },
+        body: { product_id: 1, qty: 1, location_id: 1, customer_name: name, idempotency_key: `history-sale-${tag}` },
       });
       const list = await call(side.url, '/api/customers', { token: side.token.admin });
       const mine = list.json.find((c) => c.name === name);

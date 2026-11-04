@@ -118,7 +118,7 @@ test('a rejection cannot be confirmed without a reason, and the typed reason is 
   expect(confirm.disabled).toBe(true);
   expect(apiPut).not.toHaveBeenCalled();
 
-  fireEvent.change(within(dialog).getByLabelText(/why is this inquiry being rejected/i), {
+  fireEvent.change(within(dialog).getByLabelText(/why is this order being rejected/i), {
     target: { value: 'Supplier moved the delivery to November.' },
   });
   expect(within(dialog).getByRole('button', { name: /confirm/i }).disabled).toBe(false);
@@ -138,7 +138,7 @@ test('whitespace is not a reason', async () => {
   fireEvent.click(within(row).getByRole('button', { name: /reject/i }));
 
   const dialog = await screen.findByRole('dialog');
-  fireEvent.change(within(dialog).getByLabelText(/why is this inquiry being rejected/i), {
+  fireEvent.change(within(dialog).getByLabelText(/why is this order being rejected/i), {
     target: { value: '   ' },
   });
   expect(within(dialog).getByRole('button', { name: /confirm/i }).disabled).toBe(true);
@@ -167,7 +167,7 @@ test('the fulfilment preference is visible per order', async () => {
   expect(within(pickupRow).getByText('PICKUP')).toBeInTheDocument();
 });
 
-test('an approved inquiry offers fulfilment and rejection, not an approve button', async () => {
+test('an approved legacy order offers preparation, not a separate approval action', async () => {
   apiGet.mockImplementation((path) =>
     Promise.resolve(
       String(path).startsWith('/api/order-inquiries')
@@ -183,6 +183,6 @@ test('an approved inquiry offers fulfilment and rejection, not an approve button
     </MemoryRouter>,
   );
   const row = (await screen.findByText('Ana Reyes')).closest('tr');
-  expect(within(row).getByRole('button', { name: /mark fulfilled/i })).toBeInTheDocument();
+  expect(within(row).getByRole('button', { name: /start preparing/i })).toBeInTheDocument();
   expect(within(row).queryByRole('button', { name: /^approve$/i })).toBeNull();
 });

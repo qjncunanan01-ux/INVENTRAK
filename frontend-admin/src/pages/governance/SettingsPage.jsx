@@ -59,6 +59,13 @@ export default function SettingsPage({ user, onLogout }) {
         low_stock_multiplier: Number(form.low_stock_multiplier),
         session_token_hours: Number(form.session_token_hours),
         stocktake_cycle_days: Number(form.stocktake_cycle_days),
+        eoq_ordering_cost: Number(form.eoq_ordering_cost),
+        eoq_annual_holding_rate: Number(form.eoq_annual_holding_rate),
+        reorder_lead_time_days: Number(form.reorder_lead_time_days),
+        safety_stock_z_score: Number(form.safety_stock_z_score),
+        abc_a_threshold_percent: Number(form.abc_a_threshold_percent),
+        abc_b_threshold_percent: Number(form.abc_b_threshold_percent),
+        lot_allocation_policy: form.lot_allocation_policy,
       });
       setForm({ ...result.settings, _dirty: false });
       setToast('Settings saved — changes take effect immediately.');
@@ -89,6 +96,10 @@ export default function SettingsPage({ user, onLogout }) {
 
       {form ? (
         <Paper sx={{ p: 3, display: 'grid', gap: 3, maxWidth: 720 }}>
+          <Alert severity="info">
+            Replenishment values start with demonstration assumptions. Replace them with Sylver’s purchasing cost, supplier lead time, and desired service target before relying on purchase recommendations. Changes are logged in the Audit Trail.
+          </Alert>
+
           <TextField
             select
             label="Demo accounts"
@@ -154,6 +165,73 @@ export default function SettingsPage({ user, onLogout }) {
                 {d} days{d === 30 ? ' (default — monthly)' : d === 7 ? ' (weekly)' : d === 90 ? ' (quarterly)' : d === 365 ? ' (yearly)' : ''}
               </MenuItem>
             ))}
+          </TextField>
+
+          <Typography variant="subtitle1" sx={{ mb: -2 }}>Inventory planning assumptions</Typography>
+          <TextField
+            label="Cost to place one order (₱)"
+            type="number"
+            inputProps={{ step: 1, min: 0.01, max: 1000000 }}
+            value={form.eoq_ordering_cost}
+            onChange={(e) => change('eoq_ordering_cost', e.target.value)}
+            disabled={!isManagement || saving}
+            helperText="EOQ uses this as the order setup cost per replenishment. Demo default: ₱50."
+          />
+          <TextField
+            label="Annual holding cost rate"
+            type="number"
+            inputProps={{ step: 0.01, min: 0.01, max: 5 }}
+            value={form.eoq_annual_holding_rate}
+            onChange={(e) => change('eoq_annual_holding_rate', e.target.value)}
+            disabled={!isManagement || saving}
+            helperText="Fraction of one unit’s cost spent holding it for a year; 0.20 means 20%."
+          />
+          <TextField
+            label="Supplier lead time (days)"
+            type="number"
+            inputProps={{ step: 1, min: 1, max: 365 }}
+            value={form.reorder_lead_time_days}
+            onChange={(e) => change('reorder_lead_time_days', e.target.value)}
+            disabled={!isManagement || saving}
+            helperText="Used by the reorder point calculation. Demo default: 7 days."
+          />
+          <TextField
+            label="Safety stock service factor (Z)"
+            type="number"
+            inputProps={{ step: 0.01, min: 0.01, max: 4 }}
+            value={form.safety_stock_z_score}
+            onChange={(e) => change('safety_stock_z_score', e.target.value)}
+            disabled={!isManagement || saving}
+            helperText="Multiplies daily-demand variation; 1.65 is approximately a 95% service target under a normal-demand assumption."
+          />
+          <TextField
+            label="ABC A-class cumulative limit (%)"
+            type="number"
+            inputProps={{ step: 1, min: 1, max: 99 }}
+            value={form.abc_a_threshold_percent}
+            onChange={(e) => change('abc_a_threshold_percent', e.target.value)}
+            disabled={!isManagement || saving}
+            helperText="Default: 70%. The B-class limit must be higher."
+          />
+          <TextField
+            label="ABC B-class cumulative limit (%)"
+            type="number"
+            inputProps={{ step: 1, min: 2, max: 100 }}
+            value={form.abc_b_threshold_percent}
+            onChange={(e) => change('abc_b_threshold_percent', e.target.value)}
+            disabled={!isManagement || saving}
+            helperText="Default: 90%; products beyond this cumulative sales value are class C."
+          />
+          <TextField
+            select
+            label="Batch allocation policy"
+            value={form.lot_allocation_policy}
+            onChange={(e) => change('lot_allocation_policy', e.target.value)}
+            disabled={!isManagement || saving}
+            helperText="FEFO prioritizes the earliest expiry for dated products. FIFO prioritizes the oldest received lot."
+          >
+            <MenuItem value="FEFO">FEFO (recommended for dated products)</MenuItem>
+            <MenuItem value="FIFO">FIFO (oldest received first)</MenuItem>
           </TextField>
 
           <Stack direction="row" spacing={2} alignItems="center">

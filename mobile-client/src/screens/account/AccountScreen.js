@@ -97,7 +97,7 @@ export default function AccountScreen({ route, navigation }) {
                 <MenuIcon name="clipboard-text-clock-outline" tint={MENU_TINTS.history} styles={styles} />
                 <View style={styles.menuBody}>
                   <Text style={styles.menuTitle}>Order History</Text>
-                  <Text style={styles.menuDesc}>Track the status of your inquiries</Text>
+                  <Text style={styles.menuDesc}>Track payment, preparation, and delivery</Text>
                 </View>
                 <Text style={styles.chevron}>›</Text>
               </TouchableOpacity>
@@ -109,19 +109,19 @@ export default function AccountScreen({ route, navigation }) {
                 <MenuIcon name="bell-outline" tint={MENU_TINTS.notifications} styles={styles} />
                 <View style={styles.menuBody}>
                   <Text style={styles.menuTitle}>Notifications</Text>
-                  <Text style={styles.menuDesc}>Updates about your inquiries</Text>
+                  <Text style={styles.menuDesc}>Updates about your orders</Text>
                 </View>
                 <Text style={styles.chevron}>›</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
+                onPress={() => navigation.navigate('CatalogTab', { screen: 'Products' })}
               >
                 <MenuIcon name="file-document-edit-outline" tint={MENU_TINTS.inquiry} styles={styles} />
                 <View style={styles.menuBody}>
-                  <Text style={styles.menuTitle}>New Order Inquiry</Text>
-                  <Text style={styles.menuDesc}>Request pricing for supplies</Text>
+                  <Text style={styles.menuTitle}>Shop products</Text>
+                  <Text style={styles.menuDesc}>Browse the catalog and check out</Text>
                 </View>
                 <Text style={styles.chevron}>›</Text>
               </TouchableOpacity>
@@ -130,8 +130,7 @@ export default function AccountScreen({ route, navigation }) {
             <View style={styles.guestCard}>
               <Text style={styles.guestTitle}>Log in or create an account</Text>
               <Text style={styles.guestSub}>
-              Browsing is free — an account is only needed when you place an
-              order inquiry.
+              Browsing is free — create an account when you are ready to place an order.
               </Text>
               <TouchableOpacity style={styles.guestBtnPrimary} onPress={() => navigation.navigate('Login')}>
                 <Text style={styles.guestBtnPrimaryText}>Log In</Text>

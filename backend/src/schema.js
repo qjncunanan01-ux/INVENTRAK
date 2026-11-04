@@ -143,9 +143,11 @@ CREATE TABLE IF NOT EXISTS sales_transactions (
   -- carry only a free-text name (backfill with scripts/backfill-customers.js).
   customer_id INTEGER,
   order_inquiry_id INTEGER,
+  idempotency_key TEXT,
+  idempotency_fingerprint TEXT,
+  idempotency_response TEXT,
   FOREIGN KEY(product_id) REFERENCES products(id)
 );
-
 -- Stocktake counts: what a person physically saw on a shelf.
 --
 -- This table exists because PHYSICAL STOCK IS ONLY OBSERVABLE BY COUNTING. No

@@ -68,8 +68,8 @@ function OrdersNavigator() {
         headerBackButtonDisplayMode: 'minimal',
       }}
     >
-      <OrdersStack.Screen name="InquiryHistory" component={InquiryHistoryScreen} options={{ title: 'Order History' }} />
-      <OrdersStack.Screen name="OrderInquiry" component={OrderInquiryScreen} options={{ title: 'Order Inquiry' }} />
+      <OrdersStack.Screen name="InquiryHistory" component={InquiryHistoryScreen} options={{ title: 'My Orders' }} />
+      <OrdersStack.Screen name="OrderInquiry" component={OrderInquiryScreen} options={{ title: 'Checkout' }} />
       <OrdersStack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Payment' }} />
       <OrdersStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
     </OrdersStack.Navigator>

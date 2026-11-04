@@ -16,8 +16,8 @@ import { useThemeColors } from '../../theme-context';
 
 // Recommendation + Costing modules (reviewer requirement): the recommended
 // supply bundle is the top A-classified products; the estimated costing shows
-// the total for one unit of each, and the action prefills the
-// checkout inquiry with every item at qty 1.
+// the total for one unit of each, and the action prefills checkout with every
+// item at qty 1.
 export default function RecommendationScreen({ navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -29,7 +29,7 @@ export default function RecommendationScreen({ navigation }) {
   // A bundle request is member-only, gated for guests.
   const bundleGate = useLoginGate(navigation, {
     title: 'Log in to order a bundle',
-    body: 'Create a free account or log in to include this suggested bundle in an order inquiry.',
+    body: 'Create a free account or log in to add this suggested bundle to your order.',
   });
   const fetchData = useCallback(async() => {
     try {
@@ -131,7 +131,7 @@ export default function RecommendationScreen({ navigation }) {
                   <Text style={styles.bundleTotalValue}>₱{bundleCost.toFixed(2)}</Text>
                 </View>
                 <TouchableOpacity style={styles.orderBtn} onPress={orderBundle}>
-                  <Text style={styles.orderBtnText}>Add bundle to inquiry</Text>
+                  <Text style={styles.orderBtnText}>Order this bundle</Text>
                 </TouchableOpacity>
               </View>
             ) : null}

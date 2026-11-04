@@ -224,7 +224,7 @@ export default function ProductScreen({ route, navigation }) {
     );
   }
 
-  // ---- PDP: sticky "Send Inquiry" bar (Shopee/Lazada pattern) ----
+  // ---- PDP: sticky cart + Buy Now actions (marketplace pattern) ----
   if (selected) {
     const description = String(selected.description || '').trim();
     const totalStock = locStock
@@ -356,10 +356,10 @@ export default function ProductScreen({ route, navigation }) {
                 });
               })
             }
-            accessibilityLabel="Request a quote"
+            accessibilityLabel="Buy now"
             accessibilityRole="button"
           >
-            <Text style={styles.stickyBtnText}>Request a quote</Text>
+            <Text style={styles.stickyBtnText}>Buy Now</Text>
           </TouchableOpacity>
         </View>
         {gateModal}

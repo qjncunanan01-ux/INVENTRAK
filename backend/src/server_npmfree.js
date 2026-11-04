@@ -45,6 +45,8 @@ const { computeCostingSnapshot, snapshotRow, toPublic, parseCostEntry, targetMar
 const { stripCost, stripCostAll } = require('./catalog-orders/product-visibility');
 const { resolveCustomer, summarize } = require('./catalog-orders/customers');
 const { reconcile } = require('./insights/reconciliation');
+const { calculateReplenishment, classifyAbc } = require('./insights/replenishment');
+const { compareLots } = require('./stock-control/lot-allocation');
 const { schedule, shelfDetail } = require('./inventory/stocktake');
 const { buildEnvelope, envelopeError, restoreResult } = require('./governance/backup');
 const backupRemote = require('./governance/backup-remote');
@@ -282,6 +284,9 @@ const BACKUP_CLOUD_DATASETS = [
   'correction_requests',
   'customers',
 ];
+// Optional in v1 snapshots so backups made before settings persistence remain
+// restorable. New snapshots always carry the effective runtime configuration.
+const BACKUP_OPTIONAL_DATASETS = ['system_settings'];
 
 function backupDriverName() {
   if (useFirestore) return 'firestore';
@@ -315,6 +320,7 @@ function backupDatasets() {
     tables.correction_requests = correctionRequests;
     tables.customers = customers;
   }
+  tables.system_settings = [settings.getSettings()];
   return tables;
 }
 
@@ -330,7 +336,11 @@ function nextIdAfter(rows) {
  * Returns { restored } or { error }.
  */
 function restoreBackupDatasets(tables) {
-  const allowed = new Set([...Object.keys(BACKUP_DOCUMENT_FILES), ...BACKUP_CLOUD_DATASETS]);
+  const allowed = new Set([
+    ...Object.keys(BACKUP_DOCUMENT_FILES),
+    ...BACKUP_CLOUD_DATASETS,
+    ...BACKUP_OPTIONAL_DATASETS,
+  ]);
   const unknown = Object.keys(tables).filter(name => !allowed.has(name));
   if (unknown.length) return { error: `unknown dataset(s) for this backend: ${unknown.join(', ')}` };
 
@@ -340,6 +350,15 @@ function restoreBackupDatasets(tables) {
 
   for (const [name, rows] of Object.entries(tables)) {
     if (!Array.isArray(rows)) return { error: `snapshot dataset "${name}" is not an array of rows` };
+  }
+  if (Object.prototype.hasOwnProperty.call(tables, 'system_settings')) {
+    if (tables.system_settings.length !== 1) {
+      return { error: 'snapshot dataset "system_settings" must contain exactly one settings row' };
+    }
+    const validSettings = settings.validateSettingsPatch(tables.system_settings[0]);
+    if (!validSettings.ok) {
+      return { error: `snapshot system settings are invalid: ${validSettings.errors.join('; ')}` };
+    }
   }
 
   const restored = {};
@@ -376,6 +395,11 @@ function restoreBackupDatasets(tables) {
     writeJSON('@alerts', alerts);
     persistExtended();
     persistLots();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(tables, 'system_settings')) {
+    settings.updateSettings(tables.system_settings[0]);
+    restored.system_settings = 1;
   }
 
   return { restored };
@@ -893,9 +917,8 @@ function recordLot(productId, locationId, qty, now, expiryDate) {
   persistLots();
 }
 
-// FEFO + FIFO fallback — identical ordering to the SQLite backend's
-// consumeStockLots: expiring lots first (soonest expiry wins), non-expiring
-// lots last, arrival order as the tiebreaker within each group.
+// Allocation policy is shared with SQLite: FEFO is the dated-goods default,
+// and FIFO can be selected in Governance → System Settings.
 function consumeLots(productId, locationId, qty) {
   let remaining = qty;
   // Consumption manifest (mirrors the SQLite consumeStockLots): what was
@@ -908,14 +931,7 @@ function consumeLots(productId, locationId, qty) {
     .filter(
       l => Number(l.product_id) === Number(productId) && Number(l.location_id) === Number(locationId) && l.qty > 0
     )
-    .sort((a, b) => {
-      const aHas = a.expiry_date != null;
-      const bHas = b.expiry_date != null;
-      if (aHas !== bHas) return aHas ? -1 : 1;
-      if (aHas && a.expiry_date !== b.expiry_date) return a.expiry_date < b.expiry_date ? -1 : 1;
-      if (a.received_at !== b.received_at) return a.received_at < b.received_at ? -1 : 1;
-      return a.id - b.id;
-    });
+    .sort((a, b) => compareLots(a, b, settings.getInventoryAlgorithmSettings().lot_allocation_policy));
   for (const lot of candidates) {
     if (remaining <= 0) break;
     const take = Math.min(lot.qty, remaining);
@@ -1130,8 +1146,17 @@ function convertUnit(fromUnit, toUnit, value) {
   const row = unitConversions.find(
     (c) => c.from_unit === normalizeUnit(fromUnit) && c.to_unit === normalizeUnit(toUnit)
   );
-  if (!row) return null;
-  return row.rate * value;
+  if (row) {
+    const rate = Number(row.rate);
+    const converted = value * rate;
+    return Number.isFinite(rate) && rate > 0 && Number.isFinite(converted) ? converted : null;
+  }
+  const reverse = unitConversions.find(
+    (c) => c.from_unit === normalizeUnit(toUnit) && c.to_unit === normalizeUnit(fromUnit)
+  );
+  if (!reverse || !(Number(reverse.rate) > 0)) return null;
+  const converted = value / Number(reverse.rate);
+  return Number.isFinite(converted) ? converted : null;
 }
 
 // ---------- notification ledger ----------
@@ -3620,15 +3645,7 @@ const server = http.createServer((req, res) => {
         }
         return true;
       })
-      // FEFO order for the lot view too (mirrors the SQLite backend).
-      .sort((a, b) => {
-        const aHas = a.expiry_date != null;
-        const bHas = b.expiry_date != null;
-        if (aHas !== bHas) return aHas ? -1 : 1;
-        if (aHas && a.expiry_date !== b.expiry_date) return a.expiry_date < b.expiry_date ? -1 : 1;
-        if (a.received_at !== b.received_at) return a.received_at < b.received_at ? -1 : 1;
-        return a.id - b.id;
-      });
+      .sort((a, b) => compareLots(a, b, settings.getInventoryAlgorithmSettings().lot_allocation_policy));
     return sendJson(res, 200, lots);
   }
 
@@ -3667,9 +3684,9 @@ const server = http.createServer((req, res) => {
         // and product_id a positive integer. A negative qty stock-out would
         // otherwise ADD stock, and a non-numeric qty would string-concatenate
         // into the inventory totals.
-        const qty = Number(obj.qty);
+        const enteredQty = Number(obj.qty);
         const pid = Number(obj.product_id);
-        if (!Number.isFinite(qty) || qty <= 0) {
+        if (!Number.isFinite(enteredQty) || enteredQty <= 0) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
         }
         // Mirror the SQLite validate(): reject non-numeric ids with 400, but
@@ -3678,9 +3695,7 @@ const server = http.createServer((req, res) => {
         if (Number.isNaN(pid) || pid < 1) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['product_id must be a positive number'] });
         }
-        // Additional lot guards so the ledger can never be corrupted by a
-        // malformed movement: stock-in needs a destination, and a stock-out
-        // without a source would silently skip FEFO consumption.
+        // Required locations make movements effective and traceable.
         if (obj.type === 'stock-in' && !obj.dst_location) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['dst_location is required for stock-in'] });
         }
@@ -3690,17 +3705,49 @@ const server = http.createServer((req, res) => {
             details: ['src_location is required for stock-out'],
           });
         }
+        if (obj.type === 'transfer' && (!obj.src_location || !obj.dst_location)) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['src_location and dst_location are required for transfer'] });
+        }
+        if (obj.type === 'adjustment' && !obj.src_location && !obj.dst_location) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['a source or destination location is required for adjustment'] });
+        }
         const products = readJSON(productsFile) || [];
         if (!products[pid - 1] || !isProductActive(products[pid - 1])) {
           return sendJson(res, 404, { error: 'Product not found or inactive' });
+        }
+        const product = formatProduct(products[pid - 1], pid - 1);
+        const baseUnit = normalizeUnit(product.unit) || 'pcs';
+        const enteredUnit = normalizeUnit(obj.qty_unit) || baseUnit;
+        const qty = convertUnit(enteredUnit, baseUnit, enteredQty);
+        if (qty === null) {
+          return sendJson(res, 400, { error: `No unit conversion is configured from ${enteredUnit} to ${baseUnit}` });
         }
         // Pre-flight stock availability so a rejected movement leaves no trace
         // in the movement ledger (mirrors the SQLite backend).
         const inv = getInventory();
         const item = inv.items.find(i => i.product.id === pid);
-        const locFor = loc => (typeof loc === 'string' ? loc : inv.locations[Number(loc) - 1]);
-        if ((obj.type === 'stock-out' || obj.type === 'transfer') && obj.src_location) {
-          const available = item ? item.locations[locFor(obj.src_location)] || 0 : 0;
+        const locationIdFor = value => {
+          if (value === undefined || value === null || value === '') return null;
+          const text = typeof value === 'string' ? value.trim() : value;
+          const numeric = Number(text);
+          const id = Number.isInteger(numeric)
+            ? numeric
+            : inv.locations.findIndex(name => name === text) + 1;
+          return id >= 1 && id <= inv.locations.length ? id : null;
+        };
+        const srcId = locationIdFor(obj.src_location);
+        const dstId = locationIdFor(obj.dst_location);
+        const locFor = id => inv.locations[Number(id) - 1];
+        const hasSource = obj.src_location !== undefined && obj.src_location !== null && obj.src_location !== '';
+        const hasDestination = obj.dst_location !== undefined && obj.dst_location !== null && obj.dst_location !== '';
+        if ((hasSource && !srcId) || (hasDestination && !dstId)) {
+          return sendJson(res, 404, { error: 'Location not found' });
+        }
+        if (obj.type === 'transfer' && srcId === dstId) {
+          return sendJson(res, 400, { error: 'Source and destination locations must be different' });
+        }
+        if ((obj.type === 'stock-out' || obj.type === 'transfer') && srcId) {
+          const available = item ? item.locations[locFor(srcId)] || 0 : 0;
           if (available < qty) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
         }
         const movements = readJSON(movementsFile) || [];
@@ -3709,8 +3756,8 @@ const server = http.createServer((req, res) => {
           product_id: pid,
           qty,
           type: obj.type,
-          src_location: obj.src_location || null,
-          dst_location: obj.dst_location || null,
+          src_location: srcId,
+          dst_location: dstId,
           notes: obj.notes || '',
           created_at: new Date().toISOString(),
           user: obj.user || (req.user && req.user.username) || 'system',
@@ -3720,47 +3767,39 @@ const server = http.createServer((req, res) => {
         cache.invalidate('inventory');
 
         if (item) {
-          // Resolve numeric location ids once so the lot ledger can be kept
-          // in sync with the stock change below (same rows the SQLite
-          // backend's stock_lots table would hold).
-          const locIdFor = loc => {
-            const name = locFor(loc);
-            const idx = inv.locations.indexOf(name);
-            return idx >= 0 ? idx + 1 : null;
-          };
-          if (obj.type === 'stock-in' && obj.dst_location) {
-            const loc = locFor(obj.dst_location);
+          if (obj.type === 'stock-in' && dstId) {
+            const loc = locFor(dstId);
             item.locations[loc] = (item.locations[loc] || 0) + qty;
-            recordLot(pid, locIdFor(obj.dst_location), qty, new Date().toISOString(), expiryDate);
-          } else if (obj.type === 'stock-out' && obj.src_location) {
-            const loc = locFor(obj.src_location);
+            recordLot(pid, dstId, qty, new Date().toISOString(), expiryDate);
+          } else if (obj.type === 'stock-out' && srcId) {
+            const loc = locFor(srcId);
             item.locations[loc] = item.locations[loc] - qty;
-            consumeLots(pid, locIdFor(obj.src_location), qty);
-          } else if (obj.type === 'transfer' && obj.src_location && obj.dst_location) {
-            const src = locFor(obj.src_location);
-            const dst = locFor(obj.dst_location);
+            consumeLots(pid, srcId, qty);
+          } else if (obj.type === 'transfer' && srcId && dstId) {
+            const src = locFor(srcId);
+            const dst = locFor(dstId);
             item.locations[src] = item.locations[src] - qty;
             item.locations[dst] = (item.locations[dst] || 0) + qty;
             // FEFO: destination lots mirror the consumed source lots (grouped
             // by expiry). A request-supplied expiry_date only applies when the
             // source had no dated lots (non-perishable goods).
-            const transferManifest = groupManifestByExpiry(consumeLots(pid, locIdFor(obj.src_location), qty));
+            const transferManifest = groupManifestByExpiry(consumeLots(pid, srcId, qty));
             const dstGroups = transferManifest.some(g => g.expiry_date != null)
               ? transferManifest
               : expiryDate
                 ? [{ expiry_date: expiryDate, qty }]
                 : transferManifest;
             for (const g of dstGroups) {
-              recordLot(pid, locIdFor(obj.dst_location), g.qty, new Date().toISOString(), g.expiry_date);
+              recordLot(pid, dstId, g.qty, new Date().toISOString(), g.expiry_date);
             }
-          } else if (obj.type === 'adjustment' && (obj.dst_location || obj.src_location)) {
-            const loc = locFor(obj.dst_location || obj.src_location);
+          } else if (obj.type === 'adjustment' && (dstId || srcId)) {
+            const locationId = dstId || srcId;
+            const loc = locFor(locationId);
             item.locations[loc] = qty;
             // Mirror the SQLite adjustment behavior: the location's lot
             // history is replaced by a single lot of the corrected qty.
-            const locId = locIdFor(obj.dst_location || obj.src_location);
-            stockLots = stockLots.filter(l => !(Number(l.product_id) === pid && Number(l.location_id) === locId));
-            if (qty > 0) recordLot(pid, locId, qty, new Date().toISOString(), null);
+            stockLots = stockLots.filter(l => !(Number(l.product_id) === pid && Number(l.location_id) === locationId));
+            if (qty > 0) recordLot(pid, locationId, qty, new Date().toISOString(), null);
           }
           item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
           writeJSON(inventoryFile, inv);
@@ -3773,7 +3812,7 @@ const server = http.createServer((req, res) => {
           }
         }
 
-        return sendJson(res, 200, { ok: true, message: `Stock ${obj.type} recorded successfully` });
+        return sendJson(res, 200, { ok: true, quantity: qty, unit: baseUnit, entered_quantity: enteredQty, entered_unit: enteredUnit, message: `Stock ${obj.type} recorded successfully` });
       });
     });
   }
@@ -4421,7 +4460,7 @@ const server = http.createServer((req, res) => {
       }));
 
       const orders = readJSON(orderFile) || [];
-      const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+      const orderStatusSummary = { pending: 0, approved: 0, preparing: 0, rejected: 0, fulfilled: 0, delivered: 0, cancelled: 0 };
       orders.forEach(o => {
         const s = o.status || 'pending';
         if (orderStatusSummary[s] !== undefined) orderStatusSummary[s] += 1;
@@ -4703,7 +4742,12 @@ const server = http.createServer((req, res) => {
         // mandatory rejection reason.
         const refusal = checkStatusChange({ from: order.status, to: updatedStatus, companyDemo: SYLVER_POLICY_DEMO });
         if (refusal) return sendJson(res, refusal.status, { error: refusal.error });
-        const needsCompanyReservation = SYLVER_POLICY_DEMO && ['approved', 'preparing'].includes(updatedStatus) && !order.inventory_reserved_at;
+        const orderLines = parseOrderArray(order.products);
+        const hasCatalogLineIds = orderLines.length > 0 && orderLines.every((line) => line && typeof line === 'object' && Number.isInteger(Number(line.id)) && Number(line.id) > 0);
+        const needsCompanyReservation = !order.inventory_reserved_at && (
+          (updatedStatus === 'preparing' && (SYLVER_POLICY_DEMO || hasCatalogLineIds)) ||
+          (SYLVER_POLICY_DEMO && updatedStatus === 'approved')
+        );
         const mustCommitStock = !SYLVER_POLICY_DEMO && ['fulfilled', 'delivered'].includes(updatedStatus) && !order.inventory_committed_at;
         let fulfillmentPlan = null;
         let fulfillmentLocationId = null;
@@ -4722,71 +4766,84 @@ const server = http.createServer((req, res) => {
         if (SYLVER_POLICY_DEMO && updatedStatus === 'fulfilled' && order.fulfillment_method === 'courier' && order.payment_status !== 'paid') {
           return sendJson(res, 409, { error: 'Courier delivery must be paid and verified before dispatch' });
         }
+        if (!SYLVER_POLICY_DEMO && updatedStatus === 'preparing' && ['qrph', 'gcash', 'other'].includes(order.payment_method) && order.payment_status !== 'paid') {
+          return sendJson(res, 409, { error: 'Verify payment before preparing this order' });
+        }
+        if (!SYLVER_POLICY_DEMO && updatedStatus === 'rejected' && order.payment_status === 'paid') {
+          return sendJson(res, 409, { error: 'This order is paid. Arrange a refund with the store before rejecting it.' });
+        }
         const approvedCredit = order.payment_method === 'credit' && parseOrderArray(order.payment_records).some((record) => record.type === 'credit_approval' && record.status === 'approved');
         if (SYLVER_POLICY_DEMO && updatedStatus === 'delivered' && order.payment_status !== 'paid' && !approvedCredit) {
           return sendJson(res, 409, { error: 'Record and verify the full payment before marking the order delivered' });
         }
         if (mustCommitStock) {
-          if (['gcash', 'qrph', 'card'].includes(order.payment_method) && order.payment_status !== 'paid') {
+          if (['gcash', 'qrph', 'other', 'card'].includes(order.payment_method) && order.payment_status !== 'paid') {
             return sendJson(res, 409, { error: 'Payment must be verified before this inquiry can be fulfilled' });
           }
-          const inventory = getInventory();
-          let lines = [];
-          try { lines = JSON.parse(order.products || '[]'); } catch {}
-          const catalog = readJSON(productsFile) || [];
-          const findProduct = (line) => {
-            const byId = Number(line.id);
-            if (Number.isInteger(byId) && byId > 0) {
-              const p = catalog[byId - 1];
-              return p && isProductActive(p) ? { id: byId, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
-            }
-            const name = String(line.name || '').trim().toLowerCase();
-            const index = catalog.findIndex((p) => isProductActive(p) && String(p['Product Name'] || p.name || '').trim().toLowerCase() === name);
-            const p = index >= 0 ? catalog[index] : null;
-            return p ? { id: index + 1, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
-          };
-          const requestedLocationId = obj.location_id;
-          if (requestedLocationId !== undefined && requestedLocationId !== null && requestedLocationId !== '') {
-            const locationId = Number(requestedLocationId);
-            const locationName = inventory.locations[locationId - 1];
-            if (!Number.isInteger(locationId) || locationId < 1 || !locationName) {
-              return sendJson(res, 400, { error: 'Choose a valid stock location before fulfilling this order' });
-            }
-            const singleLocationPlan = planOrderFulfillment(lines, locationId, {
-              findProduct,
-              getAvailable: (productId) => {
-                const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(productId));
-                return item ? Number(item.locations[locationName]) || 0 : 0;
-              },
-            });
-            if (!singleLocationPlan.error) {
-              fulfillmentPlan = {
-                plan: singleLocationPlan.plan.map((line) => ({ ...line, total_amount: line.qty * line.unit_price })),
-                allocations: singleLocationPlan.plan.map((line) => ({ ...line, location_id: locationId })),
-              };
-              fulfillmentLocationId = locationId;
-            } else {
-              fulfillmentPlan = singleLocationPlan;
-            }
+          if (order.inventory_reserved_at) {
+            const allocations = parseOrderArray(order.reservation_details);
+            if (!allocations.length) return sendJson(res, 409, { error: 'The reserved stock record is incomplete. Contact an administrator before fulfilling this order.' });
+            const locations = [...new Set(allocations.map((allocation) => Number(allocation.location_id)))];
+            fulfillmentLocationId = locations.length === 1 ? locations[0] : null;
           } else {
-            const preferredLocations = (inventory.locations || [])
-              .map((name, index) => ({ name, id: index + 1 }))
-              .sort((a, b) => Number(b.name.trim().toLowerCase() === 'showroom') - Number(a.name.trim().toLowerCase() === 'showroom') || a.id - b.id);
-            fulfillmentPlan = planAutomaticOrderFulfillment(lines, {
-              findProduct,
-              getStockRows: (ids) => ids.flatMap((productId) => preferredLocations.map((location) => {
-                const item = inventory.items.find((row) => row.product && Number(row.product.id) === Number(productId));
-                return { product_id: productId, location_id: location.id, quantity: item ? Number(item.locations[location.name]) || 0 : 0 };
-              })),
-            });
-            const allocatedLocations = [...new Set((fulfillmentPlan.allocations || []).map((allocation) => Number(allocation.location_id)))];
-            fulfillmentLocationId = allocatedLocations.length === 1 ? allocatedLocations[0] : null;
-          }
-          if (fulfillmentPlan.error) {
-            return sendJson(res, fulfillmentPlan.product_id ? 409 : 400, {
-              error: fulfillmentPlan.error,
-              ...(fulfillmentPlan.product_id ? { available: fulfillmentPlan.available, requested: fulfillmentPlan.requested, product_id: fulfillmentPlan.product_id } : {}),
-            });
+            const inventory = getInventory();
+            let lines = [];
+            try { lines = JSON.parse(order.products || '[]'); } catch {}
+            const catalog = readJSON(productsFile) || [];
+            const findProduct = (line) => {
+              const byId = Number(line.id);
+              if (Number.isInteger(byId) && byId > 0) {
+                const p = catalog[byId - 1];
+                return p && isProductActive(p) ? { id: byId, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
+              }
+              const name = String(line.name || '').trim().toLowerCase();
+              const index = catalog.findIndex((p) => isProductActive(p) && String(p['Product Name'] || p.name || '').trim().toLowerCase() === name);
+              const p = index >= 0 ? catalog[index] : null;
+              return p ? { id: index + 1, name: p['Product Name'] || p.name, price: p.Price || p.price || 0 } : null;
+            };
+            const requestedLocationId = obj.location_id;
+            if (requestedLocationId !== undefined && requestedLocationId !== null && requestedLocationId !== '') {
+              const locationId = Number(requestedLocationId);
+              const locationName = inventory.locations[locationId - 1];
+              if (!Number.isInteger(locationId) || locationId < 1 || !locationName) {
+                return sendJson(res, 400, { error: 'Choose a valid stock location before fulfilling this order' });
+              }
+              const singleLocationPlan = planOrderFulfillment(lines, locationId, {
+                findProduct,
+                getAvailable: (productId) => {
+                  const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(productId));
+                  return item ? Number(item.locations[locationName]) || 0 : 0;
+                },
+              });
+              if (!singleLocationPlan.error) {
+                fulfillmentPlan = {
+                  plan: singleLocationPlan.plan.map((line) => ({ ...line, total_amount: line.qty * line.unit_price })),
+                  allocations: singleLocationPlan.plan.map((line) => ({ ...line, location_id: locationId })),
+                };
+                fulfillmentLocationId = locationId;
+              } else {
+                fulfillmentPlan = singleLocationPlan;
+              }
+            } else {
+              const preferredLocations = (inventory.locations || [])
+                .map((name, index) => ({ name, id: index + 1 }))
+                .sort((a, b) => Number(b.name.trim().toLowerCase() === 'showroom') - Number(a.name.trim().toLowerCase() === 'showroom') || a.id - b.id);
+              fulfillmentPlan = planAutomaticOrderFulfillment(lines, {
+                findProduct,
+                getStockRows: (ids) => ids.flatMap((productId) => preferredLocations.map((location) => {
+                  const item = inventory.items.find((row) => row.product && Number(row.product.id) === Number(productId));
+                  return { product_id: productId, location_id: location.id, quantity: item ? Number(item.locations[location.name]) || 0 : 0 };
+                })),
+              });
+              const allocatedLocations = [...new Set((fulfillmentPlan.allocations || []).map((allocation) => Number(allocation.location_id)))];
+              fulfillmentLocationId = allocatedLocations.length === 1 ? allocatedLocations[0] : null;
+            }
+            if (fulfillmentPlan.error) {
+              return sendJson(res, fulfillmentPlan.product_id ? 409 : 400, {
+                error: fulfillmentPlan.error,
+                ...(fulfillmentPlan.product_id ? { available: fulfillmentPlan.available, requested: fulfillmentPlan.requested, product_id: fulfillmentPlan.product_id } : {}),
+              });
+            }
           }
         }
         let rejectionReason = order.rejection_reason || null;
@@ -4817,55 +4874,69 @@ const server = http.createServer((req, res) => {
           order.inventory_reserved_at = new Date().toISOString();
           order.reservation_details = JSON.stringify(reserved.allocations);
         }
-        if (SYLVER_POLICY_DEMO && updatedStatus === 'rejected' && order.inventory_reserved_at) {
+        if (updatedStatus === 'rejected' && order.inventory_reserved_at) {
           const now = new Date().toISOString();
           releaseOrderStock(order, now);
           order.inventory_reserved_at = null;
           order.reservation_details = null;
         }
         if (mustCommitStock) {
-          const inventory = getInventory();
-          const movements = readJSON(movementsFile) || [];
           const now = new Date().toISOString();
-          for (const line of fulfillmentPlan.plan) {
-            const qty = Number(line.qty);
-            const unitPrice = Number(line.unit_price) || 0;
-            salesTransactions.push({
-              id: nextSaleId++,
-              product_id: line.product_id,
-              qty,
-              unit_price: unitPrice,
-              total_amount: line.total_amount ?? qty * unitPrice,
-              transaction_date: now,
-              customer_name: order.customer_name || 'customer',
-              customer_id: order.customer_id || null,
-              order_inquiry_id: order.id,
-            });
-          }
-          for (const allocation of fulfillmentPlan.allocations) {
-            const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(allocation.product_id));
-            const locationId = Number(allocation.location_id);
-            const locationName = inventory.locations[locationId - 1];
-            if (item) {
-              item.locations[locationName] = (Number(item.locations[locationName]) || 0) - Number(allocation.qty);
-              item.total = Object.values(item.locations).reduce((sum, value) => sum + (Number(value) || 0), 0);
-              consumeLots(allocation.product_id, locationId, allocation.qty);
-              upsertLowStockAlert(allocation.product_id, locationId, item.locations[locationName]);
+          if (order.inventory_reserved_at) {
+            for (const allocation of parseOrderArray(order.reservation_details)) {
+              const qty = Number(allocation.qty) || 0;
+              const unitPrice = Number(allocation.unit_price) || 0;
+              salesTransactions.push({
+                id: nextSaleId++, product_id: Number(allocation.product_id), qty, unit_price: unitPrice,
+                total_amount: Number(allocation.net_total) || qty * unitPrice, transaction_date: now,
+                customer_name: order.customer_name || 'customer', customer_id: order.customer_id || null,
+                order_inquiry_id: order.id,
+              });
             }
-            movements.push({
-              id: movements.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1,
-              product_id: allocation.product_id,
-              qty: allocation.qty,
-              type: 'stock-out',
-              src_location: allocation.location_id,
-              dst_location: null,
-              notes: `Customer order inquiry #${order.id} fulfilled`,
-              created_at: now,
-              user: req.user.username || 'admin',
-            });
+          } else {
+            const inventory = getInventory();
+            const movements = readJSON(movementsFile) || [];
+            for (const line of fulfillmentPlan.plan) {
+              const qty = Number(line.qty);
+              const unitPrice = Number(line.unit_price) || 0;
+              salesTransactions.push({
+                id: nextSaleId++,
+                product_id: line.product_id,
+                qty,
+                unit_price: unitPrice,
+                total_amount: line.total_amount ?? qty * unitPrice,
+                transaction_date: now,
+                customer_name: order.customer_name || 'customer',
+                customer_id: order.customer_id || null,
+                order_inquiry_id: order.id,
+              });
+            }
+            for (const allocation of fulfillmentPlan.allocations) {
+              const item = inventory.items.find((i) => i.product && Number(i.product.id) === Number(allocation.product_id));
+              const locationId = Number(allocation.location_id);
+              const locationName = inventory.locations[locationId - 1];
+              if (item) {
+                item.locations[locationName] = (Number(item.locations[locationName]) || 0) - Number(allocation.qty);
+                item.total = Object.values(item.locations).reduce((sum, value) => sum + (Number(value) || 0), 0);
+                consumeLots(allocation.product_id, locationId, allocation.qty);
+                upsertLowStockAlert(allocation.product_id, locationId, item.locations[locationName]);
+              }
+              movements.push({
+                id: movements.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1,
+                product_id: allocation.product_id,
+                qty: allocation.qty,
+                type: 'stock-out',
+                src_location: allocation.location_id,
+                dst_location: null,
+                notes: `Customer order inquiry #${order.id} fulfilled`,
+                created_at: now,
+                user: req.user.username || 'admin',
+              });
+            }
+            writeJSON(inventoryFile, inventory);
+            writeJSON(movementsFile, movements);
+            cache.invalidate('inventory');
           }
-          writeJSON(inventoryFile, inventory);
-          writeJSON(movementsFile, movements);
           if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
           order.fulfillment_location_id = fulfillmentLocationId;
           order.inventory_committed_at = now;
@@ -4927,6 +4998,9 @@ const server = http.createServer((req, res) => {
           });
         }
         if (verdict) return sendJson(res, verdict.status, { error: verdict.error });
+        if (!SYLVER_POLICY_DEMO && order.payment_status === 'paid') {
+          return sendJson(res, 409, { error: 'This order is paid. Contact the store to arrange cancellation and refund.' });
+        }
         const reason = normalizeReason(obj.cancellation_reason ?? obj.reason, {
           field: 'cancellation_reason',
         });
@@ -4946,7 +5020,7 @@ const server = http.createServer((req, res) => {
         order.status_history = JSON.stringify(history);
         order.cancelled_at = now;
         order.cancellation_reason = reason.value;
-        if (SYLVER_POLICY_DEMO && order.inventory_reserved_at) {
+        if (order.inventory_reserved_at) {
           releaseOrderStock(order, now);
           order.inventory_reserved_at = null;
           order.reservation_details = null;
@@ -5676,24 +5750,8 @@ const server = http.createServer((req, res) => {
     const products = readJSON(productsFile) || [];
 
     if (pid === 'abc') {
-      const arr = products.map((p, idx) => ({
-        id: idx + 1,
-        name: p['Product Name'] || p.name,
-        value: (idx + 1) * 10 * (p['Price'] || p.price || 1),
-        annualQty: 0,
-      }));
-      arr.sort((a, b) => b.value - a.value);
-      const total = arr.reduce((sum, item) => sum + item.value, 0);
-      let cum = 0;
-      const result = arr.map(item => {
-        cum += item.value;
-        const pct = total > 0 ? (cum / total) * 100 : 0;
-        let classification = 'C';
-        if (pct <= 70) classification = 'A';
-        else if (pct <= 90) classification = 'B';
-        return { ...item, classification };
-      });
-      return sendJson(res, 200, result);
+      const catalog = products.map((p, idx) => formatProduct(p, idx)).filter(isProductActive);
+      return sendJson(res, 200, classifyAbc(catalog, salesTransactions, settings.getInventoryAlgorithmSettings()));
     }
 
     if (pid === 'fsn') {
@@ -5720,47 +5778,50 @@ const server = http.createServer((req, res) => {
 
     if (!pid) {
       // Bulk optimization metrics for all products
+      const inventory = getInventory();
+      const algorithmSettings = settings.getInventoryAlgorithmSettings();
+      const salesByProduct = new Map();
+      const allSales = salesTransactions.length ? salesTransactions : readJSON('@sales') || [];
+      for (const sale of allSales) {
+        const key = Number(sale.product_id);
+        const rows = salesByProduct.get(key) || [];
+        rows.push(sale);
+        salesByProduct.set(key, rows);
+      }
+      const stockByProduct = new Map(inventory.items.map(item => [Number(item.product.id), Number(item.total) || 0]));
       const results = products.map((p, idx) => {
-        const C = p['Price'] || p.price || 1;
-        const D = computeDemand(idx + 1);
-        const H = 0.2 * C;
-        const EOQ = Math.sqrt((2 * D * 50) / H);
-        const inv = getInventory();
-        const item = inv.items.find(i => i.product.id === idx + 1);
-        const avgInv = item?.total || 1;
+        const product = formatProduct(p, idx);
+        if (!isProductActive(p)) return null;
+        const metrics = calculateReplenishment({
+          product,
+          sales: salesByProduct.get(idx + 1) || [],
+          stock: stockByProduct.get(idx + 1) || 0,
+          settings: algorithmSettings,
+        });
         return {
           productId: idx + 1,
-          productName: p['Product Name'] || p.name,
-          eoq: Math.round(EOQ),
-          annualDemand: D,
-          turnoverRatio: Math.round((D / avgInv) * 100) / 100,
+          productName: product.name,
+          eoq: metrics.EOQ,
+          ROP: metrics.ROP,
+          safetyStock: metrics.safetyStock,
+          annualDemand: metrics.annualDemand,
+          turnoverRatio: metrics.turnoverRatio,
         };
-      });
+      }).filter(Boolean);
       return sendJson(res, 200, results);
     }
 
     const product = products[pid - 1];
-    if (!product) return sendJson(res, 404, { error: 'Product not found' });
-    const C = product['Price'] || product.price || 1;
-    // Single-product demand falls back to 1000 (SQLite uses 1000 here, 100 bulk).
-    const D = computeDemand(pid, 1000);
-    const S = 50;
-    const H = 0.2 * C;
-    const EOQ = Math.sqrt((2 * D * S) / H);
-    const leadTimeDays = 7;
-    const ROP = Math.ceil((D / 365) * leadTimeDays);
-    const safetyStock = Math.ceil(Math.sqrt(D) * 0.1);
+    if (!product || !isProductActive(product)) return sendJson(res, 404, { error: 'Product not found' });
     const inv = getInventory();
     const item = inv.items.find(i => i.product.id === Number(pid));
-    const avgInventory = Math.round(item?.total || 1);
-    return sendJson(res, 200, {
-      EOQ: Math.round(EOQ),
-      ROP,
-      safetyStock,
-      annualDemand: D,
-      turnoverRatio: Math.round((D / avgInventory) * 100) / 100,
-      avgInventory,
+    const metrics = calculateReplenishment({
+      product: formatProduct(product, Number(pid) - 1),
+      sales: salesTransactions.filter(s => Number(s.product_id) === Number(pid)),
+      stock: item?.total || 0,
+      settings: settings.getInventoryAlgorithmSettings(),
     });
+    return sendJson(res, 200, metrics);
   }
 
   // ================= ANALYTICS =================
@@ -5895,7 +5956,7 @@ const server = http.createServer((req, res) => {
         const customersRegistered = users.filter(u => u.role === 'customer').length;
 
         // 7. Order status summary (incl. the new 'delivered' state).
-        const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+        const orderStatusSummary = { pending: 0, approved: 0, preparing: 0, rejected: 0, fulfilled: 0, delivered: 0, cancelled: 0 };
         orders.forEach(o => {
           if (orderStatusSummary[o.status] !== undefined) orderStatusSummary[o.status] += 1;
         });
@@ -5993,14 +6054,20 @@ const server = http.createServer((req, res) => {
       const page = parsed.searchParams.get('page');
       const limit = parsed.searchParams.get('limit');
       const products = readJSON(productsFile) || [];
-      const enriched = salesTransactions.map(s => ({
-        ...s,
-        order_inquiry_id: s.order_inquiry_id ?? null,
-        product_name:
-          (products[s.product_id - 1] &&
-            (products[s.product_id - 1]['Product Name'] || products[s.product_id - 1].name)) ||
-          '',
-      }));
+      const enriched = salesTransactions.map(s => {
+        const { idempotency_key, idempotency_fingerprint, idempotency_response, ...publicSale } = s;
+        void idempotency_key;
+        void idempotency_fingerprint;
+        void idempotency_response;
+        return {
+          ...publicSale,
+          order_inquiry_id: s.order_inquiry_id ?? null,
+          product_name:
+            (products[s.product_id - 1] &&
+              (products[s.product_id - 1]['Product Name'] || products[s.product_id - 1].name)) ||
+            '',
+        };
+      });
       if (page !== null || limit !== null) {
         const pageNum = Math.max(1, parseInt(page, 10) || 1);
         const limitNum = Math.min(MAX_PAGE_SIZE, Math.max(1, parseInt(limit, 10) || DEFAULT_PAGE_SIZE));
@@ -6023,13 +6090,17 @@ const server = http.createServer((req, res) => {
     return requireAuth(req, res, true, (req, res) => {
       return parseBody(req, (err, obj) => {
         if (err) return bodyError(res, err);
+        const idempotencyKey = String(obj.idempotency_key || '').trim();
+        if (idempotencyKey.length < 8 || idempotencyKey.length > 128) {
+          return sendJson(res, 400, { error: 'Validation failed', details: ['idempotency_key must be 8-128 characters'] });
+        }
         // Mirror the SQLite validate() schema: qty must be a positive number
         // and product_id a positive integer (a NaN/negative qty would corrupt
         // the recorded total, and inactive products must not be sold).
-        const saleQty = Number(obj.qty);
+        const enteredSaleQty = Number(obj.qty);
         const salePid = Number(obj.product_id);
         const saleLoc = Number(obj.location_id);
-        if (!Number.isFinite(saleQty) || saleQty <= 0) {
+        if (!Number.isFinite(enteredSaleQty) || enteredSaleQty <= 0) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['qty must be a positive number'] });
         }
         // Mirror the SQLite validate(): reject non-numeric ids with 400, but
@@ -6045,9 +6116,29 @@ const server = http.createServer((req, res) => {
         if (!Number.isFinite(saleLoc) || saleLoc < 1) {
           return sendJson(res, 400, { error: 'Validation failed', details: ['location_id must be a positive number'] });
         }
+        const fingerprint = JSON.stringify({
+          product_id: salePid,
+          qty: enteredSaleQty,
+          qty_unit: normalizeUnit(obj.qty_unit),
+          location_id: saleLoc,
+          customer_name: String(obj.customer_name || (req.user && req.user.username) || 'anonymous').trim(),
+        });
+        const previousSale = salesTransactions.find(s => s.idempotency_key === idempotencyKey);
+        if (previousSale) {
+          if (previousSale.idempotency_fingerprint !== fingerprint) {
+            return sendJson(res, 409, { error: 'idempotency_key was already used for a different sale' });
+          }
+          return sendJson(res, 200, { ...(previousSale.idempotency_response || {}), idempotent_replay: true });
+        }
         const products = readJSON(productsFile) || [];
         const p = products[salePid - 1];
         if (!p || !isProductActive(p)) return sendJson(res, 404, { error: 'Product not found or inactive' });
+        const productUnit = normalizeUnit(formatProduct(p, salePid - 1).unit) || 'pcs';
+        const enteredUnit = normalizeUnit(obj.qty_unit) || productUnit;
+        const saleQty = convertUnit(enteredUnit, productUnit, enteredSaleQty);
+        if (saleQty === null) {
+          return sendJson(res, 400, { error: `No unit conversion is configured from ${enteredUnit} to ${productUnit}` });
+        }
         const inv = getInventory();
         const locName = inv.locations[saleLoc - 1];
         if (!locName) return sendJson(res, 404, { error: 'Location not found' });
@@ -6064,7 +6155,8 @@ const server = http.createServer((req, res) => {
             location: locName,
           });
         }
-        const total = saleQty * (p['Price'] || p.price || 0);
+        const unitPrice = Number(p['Price'] || p.price || 0);
+        const total = Math.round(saleQty * unitPrice * 100) / 100;
         // Link the sale to a Customer Record (a counter sale carries only a
         // name, so resolve-or-create on name). Guarded, like the SQLite backend.
         let saleCustomerId = null;
@@ -6085,14 +6177,15 @@ const server = http.createServer((req, res) => {
           id: nextSaleId++,
           product_id: salePid,
           qty: saleQty,
-          unit_price: p['Price'] || p.price || 0,
+          unit_price: unitPrice,
           total_amount: total,
           transaction_date: new Date().toISOString(),
           customer_name: obj.customer_name || 'anonymous',
           customer_id: saleCustomerId,
+          idempotency_key: idempotencyKey,
+          idempotency_fingerprint: fingerprint,
         };
         salesTransactions.push(saleRow);
-        if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
 
         // Move the stock through the SAME primitives a staff stock-out uses
         // (consumeLots + upsertLowStockAlert), so FEFO and the alert refresh
@@ -6129,9 +6222,13 @@ const server = http.createServer((req, res) => {
           customer_id: saleCustomerId,
         });
 
-        return sendJson(res, 201, {
+        const response = {
           ok: true,
           total,
+          quantity: saleQty,
+          unit: productUnit,
+          entered_quantity: enteredSaleQty,
+          entered_unit: enteredUnit,
           sale_id: saleRow.id,
           location_id: saleLoc,
           location: locName,
@@ -6140,7 +6237,10 @@ const server = http.createServer((req, res) => {
           // SQLite backend). lot_id: null means stock with no covering lot.
           lots_consumed: saleManifest,
           low_stock_alert: saleAlert,
-        });
+        };
+        saleRow.idempotency_response = response;
+        if (useFirestore || useSupabase) writeJSON('@sales', salesTransactions);
+        return sendJson(res, 201, response);
       });
     });
   }
@@ -6468,6 +6568,27 @@ function createServer(port = process.env.PORT || 4001) {
 // harmless no-op re-seed (every step is guarded).
 async function start(port) {
   if (useFirestore || useSupabase) await store.init();
+  if (useFirestore || useSupabase) {
+    if (store.isDatasetAvailable && store.isDatasetAvailable('@systemSettings')) {
+      settings.configurePersistence({
+        name: useSupabase ? 'supabase' : 'firestore',
+        read() {
+          const rows = store.read('@systemSettings');
+          return Array.isArray(rows) && rows[0] && rows[0].value && typeof rows[0].value === 'object'
+            ? rows[0].value
+            : null;
+        },
+        write(value) {
+          store.write('@systemSettings', [{ id: 1, value }]);
+        },
+      });
+      if (store.flush) await store.flush();
+    } else if (useSupabase) {
+      console.warn(
+        '[settings] Durable Supabase settings are unavailable; apply backend/supabase-settings-migration.sql. Settings will use the local file until the table exists.',
+      );
+    }
+  }
   bootstrap();
   // Build identity for GET /api/meta (first-boot time of this container).
   process.env.INVENTRAK_STARTED_AT = process.env.INVENTRAK_STARTED_AT || new Date().toISOString();

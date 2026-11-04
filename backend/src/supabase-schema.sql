@@ -140,3 +140,14 @@ CREATE TABLE IF NOT EXISTS customers (
   idx       INTEGER NOT NULL DEFAULT 0,
   data      JSONB NOT NULL DEFAULT '{}'
 );
+
+-- ============================================================
+-- Runtime system settings (owner/super-admin controlled)
+-- ============================================================
+-- One row stores the validated settings object. Backend access uses the
+-- service-role key; do not add anon/authenticated policies for this table.
+CREATE TABLE IF NOT EXISTS system_settings (
+  id        INTEGER PRIMARY KEY,
+  idx       INTEGER NOT NULL DEFAULT 0,
+  data      JSONB NOT NULL DEFAULT '{}'
+);

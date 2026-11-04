@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { db } = require('../../db');
+const { getInventoryAlgorithmSettings } = require('../../governance/settings');
+const { lotOrderSql } = require('../../stock-control/lot-allocation');
 
 // GET /api/stock-lots
 router.get('/', (req, res) => {
@@ -20,7 +22,9 @@ router.get('/', (req, res) => {
     params.push(cutoff);
   }
 
-  query += ' ORDER BY (sl.expiry_date IS NULL) ASC, sl.expiry_date ASC, sl.received_at ASC, sl.id ASC';
+  const policy = getInventoryAlgorithmSettings().lot_allocation_policy;
+  const order = lotOrderSql('sl')[policy] || lotOrderSql('sl').FEFO;
+  query += ` ORDER BY ${order}`;
   const rows = db.prepare(query).all(...params);
   res.json(rows);
 });

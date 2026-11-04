@@ -7,7 +7,7 @@ import { apiGet } from '../../api';
 
 // The dashboard's stat cards and charts must never depend on a wrong endpoint
 // again. Regression for the 404 bug where DashboardPage called the
-// nonexistent /api/inquiries and the Order Status / Pending Inquiries cards
+// nonexistent /api/inquiries and the Order Status / Orders to Process cards
 // silently showed 0.
 let mockRole = 'admin';
 vi.mock('../../api', () => ({
@@ -95,10 +95,10 @@ describe('DashboardPage data wiring', () => {
     mockResponses();
     renderPage();
 
-    // Pending Inquiries card (count of status === 'pending') and the Order
+    // Orders to Process card (count of status === 'pending') and the Order
     // Status card ("1 Pending").
     await waitFor(() => {
-      expect(screen.getByText('Pending Inquiries')).toBeInTheDocument();
+      expect(screen.getByText('Orders to Process')).toBeInTheDocument();
       expect(screen.getByText('1')).toBeInTheDocument();
     });
     await waitFor(() => {

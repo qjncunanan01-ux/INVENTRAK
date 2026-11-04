@@ -444,7 +444,8 @@ async function sendSms({ to, message }) {
 const { summarizeProducts } = require('./catalog-orders/product-lines');
 
 const STATUS_LABELS = {
-  approved: 'APPROVED',
+  pending: 'ORDER RECEIVED',
+  approved: 'TO PREPARE',
   preparing: 'PREPARING',
   rejected: 'REJECTED',
   fulfilled: 'FULFILLED',
@@ -483,15 +484,15 @@ function notifyInquiryStatus(inquiry, newStatus) {
         : STATUS_LABELS[newStatus] || newStatus;
   const name = (inquiry && inquiry.customer_name) || 'there';
   const items = productSummary(inquiry && inquiry.products);
-  const text = `Hi ${name},\n\nYour order inquiry (${items}) is now ${label}.\n\n— Sylver's`;
+  const text = `Hi ${name},\n\nYour order (${items}) is now ${label}.\n\n— Sylver's`;
   const html = htmlBody({
-    title: `Your order inquiry is ${label}`,
-    bodyText: `Hi ${esc(name)},<br><br>Your order inquiry <strong>(${esc(items)})</strong> is now <strong>${esc(label)}</strong>.`,
+    title: `Your order is ${label}`,
+    bodyText: `Hi ${esc(name)},<br><br>Your order <strong>(${esc(items)})</strong> is now <strong>${esc(label)}</strong>.`,
   });
 
   const emailP =
     inquiry && inquiry.customer_email
-      ? sendEmail({ to: inquiry.customer_email, subject: `Your Sylver's order inquiry is ${label}`, text, html })
+      ? sendEmail({ to: inquiry.customer_email, subject: `Your Sylver's order is ${label}`, text, html })
       : Promise.resolve({ sent: false });
 
   const smsP =

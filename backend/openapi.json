@@ -2768,7 +2768,7 @@
           "Order Inquiries"
         ],
         "operationId": "updateOrderInquiry",
-        "summary": "Update inquiry status under the active production or Sylver demo lifecycle",
+        "summary": "Update an order through its preparation and fulfillment lifecycle",
         "security": [
           {
             "bearerAuth": []
@@ -2808,12 +2808,12 @@
                   "rejection_reason": {
                     "type": "string",
                     "maxLength": 500,
-                    "description": "Required when status is rejected; ignored otherwise. Stored on the inquiry and in the status timeline."
+                    "description": "Required when status is rejected; ignored otherwise. Stored on the order and in the status timeline."
                   },
                   "location_id": {
                     "type": "integer",
                     "minimum": 1,
-                    "description": "Optional location override for fulfillment. When omitted, stock is allocated automatically across available locations, preferring Showroom, and stock movements are recorded for each source location."
+                    "description": "Optional location override for legacy fulfillment. New orders reserve stock automatically when preparation begins."
                   },
                   "delivery_fee": {
                     "type": "number",
@@ -2826,14 +2826,14 @@
                     "description": "Required when confirming a courier order in the Sylver demo."
                   }
                 },
-                "description": "Admin-only status change. Illegal transitions are refused with 409, and rejecting an inquiry without a reason is refused with 400. Cancellation is NOT available here — use POST /api/order-inquiries/{id}/cancel so the actor, time and reason are recorded."
+                "description": "Admin-only status change. Standard orders move from pending to preparing after payment checks, then to fulfilled and delivered; an unfulfillable order may be rejected with a reason. Stock is reserved when preparation begins and released on rejection. Illegal transitions are refused with 409. Customer cancellation uses POST /api/order-inquiries/{id}/cancel."
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Inquiry updated",
+            "description": "Order updated",
             "content": {
               "application/json": {
                 "schema": {
@@ -2866,8 +2866,8 @@
           "Order Inquiries"
         ],
         "operationId": "cancelOrderInquiry",
-        "summary": "Cancel an inquiry (customer-initiated)",
-        "description": "The customer cancelling their own inquiry, or an admin cancelling on their behalf. Only a pending or approved inquiry can be cancelled (409 otherwise); repeating the request is idempotent and returns the original timestamp and reason. Stock is deducted only when the order is fulfilled.",
+        "summary": "Cancel an unpaid order (customer-initiated)",
+        "description": "The customer can cancel their own unpaid order while pending or approved, or an admin can cancel on their behalf. Paid orders need store assistance because refunds are not automated. Repeating cancellation is idempotent. A stock reservation is released when an eligible order is cancelled.",
         "security": [
           {
             "bearerAuth": []
@@ -3610,8 +3610,8 @@
           "Sales"
         ],
         "operationId": "createSale",
-        "summary": "Record a counter / walk-in sale: decrements stock, consumes the FEFO lot, audits",
-        "description": "The physical-store path. Writes the revenue row, decrements stock at the given location, consumes the expiring-first (FEFO) lot, refreshes the low-stock alert and writes a `sale.recorded` audit entry - all through the same helpers a staff stock-out uses, so the two cannot drift. Refuses with 409 rather than driving stock negative. Returns the consumption manifest so the till can show the customer which batch left.",
+        "summary": "Record an idempotent counter / walk-in sale",
+        "description": "Records a sale, converts an optional entered quantity into the product unit, moves stock at the specified location, and returns the consumed batch manifest. A required idempotency_key makes safe retries return the original result without charging or decrementing stock twice.",
         "security": [
           {
             "bearerAuth": []
@@ -3628,6 +3628,9 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "The original sale result returned for a safe idempotent retry"
+          },
           "201": {
             "description": "Sale recorded; stock moved at that location",
             "content": {
@@ -3650,6 +3653,22 @@
                     "total": {
                       "type": "number"
                     },
+                    "quantity": {
+                      "type": "number",
+                      "description": "Quantity converted to the product's configured unit"
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "entered_quantity": {
+                      "type": "number"
+                    },
+                    "entered_unit": {
+                      "type": "string"
+                    },
+                    "idempotent_replay": {
+                      "type": "boolean"
+                    },
                     "sale_id": {
                       "type": "integer"
                     },
@@ -3665,7 +3684,7 @@
                     },
                     "lots_consumed": {
                       "type": "array",
-                      "description": "Which batches actually left the shelf, in FEFO order (soonest expiry first). Entries with lot_id null are units that sat on the shelf with no covering lot.",
+                      "description": "Which batches left the shelf in the configured allocation order (FEFO by default, FIFO when selected). Entries with lot_id null are units without a covering lot.",
                       "items": {
                         "type": "object",
                         "required": [
@@ -3849,7 +3868,7 @@
           "Users"
         ],
         "summary": "Get runtime system settings (Owner or Super Admin only)",
-        "description": "Returns the live runtime configuration: demo-account gate, default FSN window, low-stock multiplier, and session token lifetime. Readable and writable by Owner and Super Admin accounts.",
+        "description": "Returns live runtime settings plus configurable inventory-planning assumptions for EOQ, reorder point, safety stock, ABC classes, and batch allocation. Readable and writable by Owner and Super Admin accounts.",
         "security": [
           {
             "bearerAuth": []
@@ -4209,7 +4228,7 @@
           "Stock Movements"
         ],
         "operationId": "createStockMovement",
-        "summary": "Record a stock movement (FIFO-aware)",
+        "summary": "Record a stock movement using configured FEFO/FIFO allocation",
         "security": [
           {
             "bearerAuth": []
@@ -4231,7 +4250,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Message"
+                  "$ref": "#/components/schemas/StockMovementResult"
                 }
               }
             }
@@ -6084,6 +6103,18 @@
           }
         }
       },
+      "StockMovementResult": {
+        "type": "object",
+        "required": ["ok", "quantity", "unit", "entered_quantity", "entered_unit", "message"],
+        "properties": {
+          "ok": { "type": "boolean" },
+          "quantity": { "type": "number", "description": "Quantity converted to the product's configured unit." },
+          "unit": { "type": "string" },
+          "entered_quantity": { "type": "number" },
+          "entered_unit": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
       "PromoteRequest": {
         "type": "object",
         "required": [
@@ -6316,6 +6347,11 @@
             "type": "number",
             "minimum": 0.01
           },
+          "qty_unit": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Optional entered unit; converted to the product's configured base unit before movement."
+          },
           "type": {
             "type": "string",
             "enum": [
@@ -6434,7 +6470,7 @@
           "expiry_date": {
             "type": "string",
             "nullable": true,
-            "description": "FEFO expiry date (ISO). null = non-perishable lot, consumed in pure FIFO order."
+            "description": "Expiry date (ISO). null = non-perishable lot; FEFO places dated lots first while FIFO orders by received_at."
           }
         }
       },
@@ -6468,6 +6504,45 @@
             "minimum": 1,
             "maximum": 365,
             "description": "How long a shelf count stays fresh before that shelf is due to be walked again, in days. A shelf counts as re-counted only when EVERY line stocked on it is inside this window."
+          },
+          "eoq_ordering_cost": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000,
+            "description": "Demo default is PHP 50; configure with Sylver's actual ordering cost."
+          },
+          "eoq_annual_holding_rate": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 5,
+            "description": "Annual holding cost as a fraction of product unit cost."
+          },
+          "reorder_lead_time_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "safety_stock_z_score": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 4,
+            "description": "Service factor multiplied by daily demand standard deviation and square root of lead time."
+          },
+          "abc_a_threshold_percent": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "abc_b_threshold_percent": {
+            "type": "number",
+            "minimum": 2,
+            "maximum": 100,
+            "description": "Must be greater than abc_a_threshold_percent."
+          },
+          "lot_allocation_policy": {
+            "type": "string",
+            "enum": ["FEFO", "FIFO"],
+            "description": "FEFO prioritizes earliest expiry; FIFO prioritizes earliest received_at."
           }
         }
       },
@@ -6497,6 +6572,40 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 365
+          },
+          "eoq_ordering_cost": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1000000
+          },
+          "eoq_annual_holding_rate": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 5
+          },
+          "reorder_lead_time_days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "safety_stock_z_score": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 4
+          },
+          "abc_a_threshold_percent": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 99
+          },
+          "abc_b_threshold_percent": {
+            "type": "number",
+            "minimum": 2,
+            "maximum": 100
+          },
+          "lot_allocation_policy": {
+            "type": "string",
+            "enum": ["FEFO", "FIFO"]
           }
         }
       },
@@ -7355,7 +7464,7 @@
           "status_history": {
             "type": "string",
             "nullable": true,
-            "description": "JSON array of { status, at } progress events (Placed -> Approved -> Delivered)"
+            "description": "JSON array of { status, at } progress events (Placed -> Preparing -> Fulfilled -> Delivered)"
           },
           "status": {
             "type": "string",
@@ -7368,7 +7477,7 @@
               "delivered",
               "cancelled"
             ],
-            "description": "Status values include preparing in the Sylver demo only."
+            "description": "Preparing is available for standard and demo orders; it records when staff start packing."
           },
           "rejection_reason": {
             "type": "string",
@@ -7619,6 +7728,8 @@
           "productId",
           "productName",
           "eoq",
+          "ROP",
+          "safetyStock",
           "annualDemand",
           "turnoverRatio"
         ],
@@ -7630,6 +7741,12 @@
             "type": "string"
           },
           "eoq": {
+            "type": "number"
+          },
+          "ROP": {
+            "type": "number"
+          },
+          "safetyStock": {
             "type": "number"
           },
           "annualDemand": {
@@ -7661,6 +7778,9 @@
           "annualQty": {
             "type": "number"
           },
+          "cumulativePercent": {
+            "type": "number"
+          },
           "classification": {
             "type": "string",
             "enum": [
@@ -7678,8 +7798,12 @@
           "ROP",
           "safetyStock",
           "annualDemand",
+          "averageDailyDemand",
+          "dailyDemandStdDev",
+          "demandHistoryDays",
           "turnoverRatio",
-          "avgInventory"
+          "avgInventory",
+          "assumptions"
         ],
         "properties": {
           "EOQ": {
@@ -7699,6 +7823,25 @@
           },
           "avgInventory": {
             "type": "number"
+          },
+          "averageDailyDemand": {
+            "type": "number"
+          },
+          "dailyDemandStdDev": {
+            "type": "number"
+          },
+          "demandHistoryDays": {
+            "type": "integer"
+          },
+          "assumptions": {
+            "type": "object",
+            "required": ["orderingCost", "annualHoldingRate", "leadTimeDays", "serviceLevelZScore"],
+            "properties": {
+              "orderingCost": { "type": "number" },
+              "annualHoldingRate": { "type": "number" },
+              "leadTimeDays": { "type": "integer" },
+              "serviceLevelZScore": { "type": "number" }
+            }
           }
         }
       },
@@ -7913,12 +8056,15 @@
           },
           "orderStatusSummary": {
             "type": "object",
-            "description": "Inquiry counts per status",
+            "description": "Order counts per status",
             "properties": {
               "pending": {
                 "type": "integer"
               },
               "approved": {
+                "type": "integer"
+              },
+              "preparing": {
                 "type": "integer"
               },
               "rejected": {
@@ -7928,6 +8074,9 @@
                 "type": "integer"
               },
               "delivered": {
+                "type": "integer"
+              },
+              "cancelled": {
                 "type": "integer"
               }
             }
@@ -7942,12 +8091,15 @@
           },
           "orderStatusCounts": {
             "type": "object",
-            "description": "Alias of orderStatusSummary â€” inquiry counts per status",
+            "description": "Alias of orderStatusSummary — order counts per status",
             "properties": {
               "pending": {
                 "type": "integer"
               },
               "approved": {
+                "type": "integer"
+              },
+              "preparing": {
                 "type": "integer"
               },
               "rejected": {
@@ -7957,6 +8109,9 @@
                 "type": "integer"
               },
               "delivered": {
+                "type": "integer"
+              },
+              "cancelled": {
                 "type": "integer"
               }
             }
@@ -8024,7 +8179,8 @@
         "required": [
           "product_id",
           "qty",
-          "location_id"
+          "location_id",
+          "idempotency_key"
         ],
         "properties": {
           "product_id": {
@@ -8035,13 +8191,24 @@
             "type": "number",
             "minimum": 0.01
           },
+          "qty_unit": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Optional entered unit; converted to the product's configured unit before pricing and stock deduction."
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128,
+            "description": "Unique per intended sale; reuse the same value when retrying after a network error."
+          },
           "customer_name": {
             "type": "string"
           },
           "location_id": {
             "type": "integer",
             "minimum": 1,
-            "description": "Which shelf or stockroom the goods left from. Required: it decides which FEFO lot is consumed and which low-stock alert fires."
+            "description": "Which shelf or stockroom the goods left from. Required: it decides which configured allocation lot is consumed and which low-stock alert fires."
           }
         }
       },

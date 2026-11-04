@@ -1,0 +1,58 @@
+# Isolated payment/integration staging environment.
+#
+# Deploy this blueprint as a separate Render project/service group. It uses
+# disposable JSON data (never production Supabase) and accepts only PayMongo
+# test credentials. Keep real customer data and live payment credentials out.
+# Populate the sync:false variables in the Render Dashboard before testing.
+services:
+  - type: web
+    name: inventrak-staging-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server_npmfree.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DB_DRIVER
+        value: json
+      - key: SYLVER_POLICY_DEMO
+        value: "false"
+      - key: NPMFREE_TOKEN_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://inventrak-staging-admin.onrender.com,https://inventrak-staging-mobile.onrender.com
+      - key: PAYMONGO_SECRET_KEY
+        sync: false
+      - key: PAYMONGO_WEBHOOK_SECRET
+        sync: false
+      - key: PAYMONGO_SUCCESS_URL
+        value: https://inventrak-staging-mobile.onrender.com/
+      - key: PAYMONGO_CANCEL_URL
+        value: https://inventrak-staging-mobile.onrender.com/
+
+  - type: web
+    name: inventrak-staging-admin
+    runtime: static
+    rootDir: frontend-admin
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_BASE_URL
+        value: https://inventrak-staging-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: web
+    name: inventrak-staging-mobile
+    runtime: static
+    rootDir: mobile-client
+    buildCommand: npm install && EXPO_PUBLIC_API_URL=https://inventrak-staging-api.onrender.com npx expo export --platform web
+    staticPublishPath: dist
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://inventrak-staging-api.onrender.com

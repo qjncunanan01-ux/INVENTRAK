@@ -34,6 +34,7 @@ const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 const PROD = 1;
 const LOC = 1;
 const QTY = 2;
+let saleKeySequence = 0;
 const SIDE_LABEL = side => (side === sqlite ? 'sqlite' : 'npmfree');
 
 before(async () => {
@@ -95,7 +96,7 @@ function sell(side, body, role = 'admin') {
   return call(side.url, '/api/sales', {
     method: 'POST',
     token: side.token[role],
-    body: { product_id: PROD, qty: QTY, location_id: LOC, ...body },
+    body: { product_id: PROD, qty: QTY, location_id: LOC, idempotency_key: `walk-in-sale-${++saleKeySequence}`, ...body },
   });
 }
 
@@ -144,6 +145,39 @@ describe('a counter sale moves inventory', () => {
         QTY * Number(product.json.price),
         `${SIDE_LABEL(side)}: total recomputed from the catalog`
       );
+    }
+  });
+
+  test('configured package units convert stock-in and sale quantities to the product unit', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const productRes = await call(side.url, `/api/products/${PROD}`);
+      assert.strictEqual(productRes.status, 200, `${SIDE_LABEL(side)} product loads`);
+      const baseUnit = String(productRes.json.unit || 'pcs').trim().toLowerCase();
+      const packageUnit = `case-${SIDE_LABEL(side)}`;
+      const conversion = await call(side.url, '/api/unit-conversions', {
+        method: 'POST',
+        token: side.token.admin,
+        body: { from_unit: packageUnit, to_unit: baseUnit, rate: 12 },
+      });
+      assert.strictEqual(conversion.status, 200, `${SIDE_LABEL(side)} conversion is configured`);
+
+      const before = await stockAt(side, PROD, LOC);
+      const received = await call(side.url, '/api/stock-movement', {
+        method: 'POST',
+        token: side.token.admin,
+        body: { product_id: PROD, qty: 2, qty_unit: packageUnit, type: 'stock-in', dst_location: LOC },
+      });
+      assert.strictEqual(received.status, 200, `${SIDE_LABEL(side)} stock-in succeeds`);
+      assert.strictEqual(received.json.quantity, 24);
+      assert.strictEqual(received.json.unit, baseUnit);
+      assert.strictEqual(await stockAt(side, PROD, LOC), before + 24);
+
+      const sold = await sell(side, { qty: 1, qty_unit: packageUnit, customer_name: 'Unit Test Buyer' });
+      assert.strictEqual(sold.status, 201, `${SIDE_LABEL(side)} sale succeeds`);
+      assert.strictEqual(sold.json.quantity, 12);
+      assert.strictEqual(sold.json.unit, baseUnit);
+      assert.strictEqual(sold.json.total, Number(productRes.json.price) * 12);
+      assert.strictEqual(await stockAt(side, PROD, LOC), before + 12);
     }
   });
 });
@@ -248,6 +282,57 @@ describe('a counter sale cannot oversell', () => {
   });
 });
 
+describe('counter sale retries are idempotent', () => {
+  test('replaying one key returns the original sale without a second stock deduction', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const key = `replay-sale-${SIDE_LABEL(side)}-0001`;
+      const before = await stockAt(side, PROD, LOC);
+      const first = await sell(side, { qty: 1, customer_name: 'Retry Buyer', idempotency_key: key });
+      assert.strictEqual(first.status, 201, `${SIDE_LABEL(side)} first sale`);
+      const afterFirst = await stockAt(side, PROD, LOC);
+      assert.strictEqual(afterFirst, before - 1);
+
+      const replay = await sell(side, { qty: 1, customer_name: 'Retry Buyer', idempotency_key: key });
+      assert.strictEqual(replay.status, 200, `${SIDE_LABEL(side)} replay status`);
+      assert.strictEqual(replay.json.sale_id, first.json.sale_id);
+      assert.strictEqual(replay.json.idempotent_replay, true);
+      assert.strictEqual(await stockAt(side, PROD, LOC), afterFirst, `${SIDE_LABEL(side)} stock is unchanged on replay`);
+
+      const conflict = await sell(side, { qty: 2, customer_name: 'Retry Buyer', idempotency_key: key });
+      assert.strictEqual(conflict.status, 409, `${SIDE_LABEL(side)} key cannot identify a different sale`);
+      assert.strictEqual(await stockAt(side, PROD, LOC), afterFirst);
+    }
+  });
+
+  test('parallel retries with one key record and deduct only one sale', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const key = `parallel-retry-${SIDE_LABEL(side)}-0001`;
+      const before = await stockAt(side, PROD, LOC);
+      const results = await Promise.all(Array.from({ length: 8 }, () => sell(side, {
+        qty: 1,
+        customer_name: 'Concurrent Retry Buyer',
+        idempotency_key: key,
+      })));
+      assert.equal(results.filter(result => result.status === 201).length, 1, `${SIDE_LABEL(side)} creates once`);
+      assert.equal(results.filter(result => result.status === 200).length, 7, `${SIDE_LABEL(side)} replays seven times`);
+      assert.equal(new Set(results.map(result => result.json.sale_id)).size, 1, `${SIDE_LABEL(side)} returns one sale id`);
+      assert.equal(await stockAt(side, PROD, LOC), before - 1, `${SIDE_LABEL(side)} deducts once`);
+    }
+  });
+
+  test('a sale without an idempotency key is rejected', async () => {
+    for (const side of [sqlite, npmfree]) {
+      const res = await call(side.url, '/api/sales', {
+        method: 'POST',
+        token: side.token.admin,
+        body: { product_id: PROD, qty: 1, location_id: LOC },
+      });
+      assert.strictEqual(res.status, 400, `${SIDE_LABEL(side)} missing key`);
+      assert.match(res.json.details.join(' '), /idempotency_key/i);
+    }
+  });
+});
+
 // ---- the location is a question, not a default -----------------------------
 
 describe('location_id is required', () => {
@@ -256,7 +341,7 @@ describe('location_id is required', () => {
       const res = await call(side.url, '/api/sales', {
         method: 'POST',
         token: side.token.admin,
-        body: { product_id: PROD, qty: 1, customer_name: 'No Location' },
+        body: { product_id: PROD, qty: 1, customer_name: 'No Location', idempotency_key: `missing-location-${++saleKeySequence}` },
       });
       assert.strictEqual(res.status, 400, `${SIDE_LABEL(side)}: missing location_id rejected`);
     }
@@ -267,7 +352,7 @@ describe('location_id is required', () => {
       const res = await call(side.url, '/api/sales', {
         method: 'POST',
         token: side.token.admin,
-        body: { product_id: PROD, qty: 1, location_id: 'Showroom' },
+        body: { product_id: PROD, qty: 1, location_id: 'Showroom', idempotency_key: `bad-location-${++saleKeySequence}` },
       });
       assert.strictEqual(res.status, 400, `${SIDE_LABEL(side)}: a location NAME is not an id`);
     }
@@ -336,7 +421,7 @@ describe('the sale reports which lot left', () => {
       const res = await call(side.url, '/api/sales', {
         method: 'POST',
         token: side.token.admin,
-        body: { product_id: pid, qty: 5, location_id: LOC, customer_name: 'Split Buyer' },
+        body: { product_id: pid, qty: 5, location_id: LOC, customer_name: 'Split Buyer', idempotency_key: `split-sale-${++saleKeySequence}` },
       });
       assert.strictEqual(res.status, 201, `${SIDE_LABEL(side)}: sale accepted`);
 
@@ -395,7 +480,7 @@ describe('the sale reports which lot left', () => {
       const res = await call(side.url, '/api/sales', {
         method: 'POST',
         token: side.token.admin,
-        body: { product_id: pid, qty: 5, location_id: LOC, customer_name: 'Last One' },
+        body: { product_id: pid, qty: 5, location_id: LOC, customer_name: 'Last One', idempotency_key: `last-sale-${++saleKeySequence}` },
       });
       assert.strictEqual(res.status, 201, `${SIDE_LABEL(side)}: the whole shelf sold`);
       assert.strictEqual(res.json.stock_remaining, 0);

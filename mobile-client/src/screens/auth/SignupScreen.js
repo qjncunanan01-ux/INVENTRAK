@@ -202,7 +202,7 @@ export default function SignupScreen({ navigation }) {
             <Text style={styles.consentTitle}>Data Privacy Act (RA 10173) Consent</Text>
             <Text style={styles.consentBody}>
               I agree that Sylver's may collect and process my name, email address, and mobile
-              number for the purposes of account verification, order inquiries, and status
+              number for the purposes of account verification, order updates, and status
               updates by email and SMS. Sylver's will never sell or share my personal data,
               and I can request its deletion at any time.
             </Text>

@@ -345,22 +345,30 @@ export default function DashboardPage({ user, onLogout }) {
       chartData = summary.monthlySalesChart;
     }
 
-    const pending = inquiries.filter(i => i.status === 'pending').length;
-    const approved = inquiries.filter(i => i.status === 'approved' || i.status === 'fulfilled').length;
-    const rejected = inquiries.filter(i => i.status === 'rejected' || i.status === 'cancelled').length;
+    const orderStatusNames = {
+      pending: 'New',
+      approved: 'To prepare',
+      preparing: 'Preparing',
+      fulfilled: 'Ready / dispatched',
+      delivered: 'Delivered',
+      rejected: 'Rejected',
+      cancelled: 'Cancelled',
+    };
+    const orderStatusValues = inquiries.reduce((counts, order) => {
+      if (Object.prototype.hasOwnProperty.call(orderStatusNames, order.status)) {
+        counts[order.status] = (counts[order.status] || 0) + 1;
+      }
+      return counts;
+    }, {});
 
-    let pieData = [
-      { name: 'Pending', value: pending },
-      { name: 'Approved', value: approved },
-      { name: 'Rejected', value: rejected },
-    ].filter(d => d.value > 0);
+    let pieData = Object.entries(orderStatusNames)
+      .map(([status, name]) => ({ name, value: orderStatusValues[status] || 0 }))
+      .filter(d => d.value > 0);
 
     if (pieData.length === 0 && summary.orderStatusCounts) {
-      pieData = [
-        { name: 'Pending', value: summary.orderStatusCounts.pending || 0 },
-        { name: 'Approved', value: summary.orderStatusCounts.approved || 0 },
-        { name: 'Rejected', value: summary.orderStatusCounts.rejected || 0 },
-      ].filter(d => d.value > 0);
+      pieData = Object.entries(orderStatusNames)
+        .map(([status, name]) => ({ name, value: summary.orderStatusCounts[status] || 0 }))
+        .filter(d => d.value > 0);
     }
 
     return { monthlySalesChartData: chartData, orderStatusPieData: pieData };
@@ -422,7 +430,7 @@ export default function DashboardPage({ user, onLogout }) {
     { key: 'orderStatus', label: 'Order Status', value: summary.orderStatusCounts.pending, numericValue: summary.orderStatusCounts.pending, suffix: ' Pending', color: summary.orderStatusCounts.pending > 0 ? colors.warning : colors.success, icon: <ReceiptIcon color="warning" />, navigateTo: '/order-inquiries' },
     // Row 3 — Activity
     { key: 'monthlySalesTx', label: 'Transactions This Month', value: summary.monthlyTransactions, numericValue: summary.monthlyTransactions, color: colors.brandSecondary, icon: <ReceiptIcon />, navigateTo: '/stock-movement' },
-    { key: 'inquiries', label: 'Pending Inquiries', value: summary.pendingInquiries, numericValue: summary.pendingInquiries, color: summary.pendingInquiries > 0 ? '#f9a825' : colors.success, icon: <ShoppingCartIcon color="warning" />, navigateTo: '/order-inquiries' },
+    { key: 'inquiries', label: 'Orders to Process', value: summary.pendingInquiries, numericValue: summary.pendingInquiries, color: summary.pendingInquiries > 0 ? '#f9a825' : colors.success, icon: <ShoppingCartIcon color="warning" />, navigateTo: '/order-inquiries' },
     { key: 'movements', label: 'Stock Movements', value: summary.totalMovements, numericValue: summary.totalMovements, color: colors.info, icon: <HistoryIcon color="info" />, navigateTo: '/stock-movement' },
     { key: 'alerts', label: 'Active Alerts', value: summary.activeAlerts, numericValue: summary.activeAlerts, color: summary.activeAlerts > 0 ? colors.error : colors.success, icon: <NotificationsActiveIcon color="error" />, navigateTo: '/optimization' },
   ];

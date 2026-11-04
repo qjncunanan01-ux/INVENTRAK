@@ -24,17 +24,17 @@ const COMPANY_DEMO = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true';
 
 const STATUS_TABS = [
   { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'approved', label: 'Approved' },
-  ...(COMPANY_DEMO ? [{ key: 'preparing', label: 'Preparing' }] : []),
-  { key: 'fulfilled', label: 'Fulfilled' },
+  { key: 'pending', label: COMPANY_DEMO ? 'Review' : 'Placed' },
+  { key: 'approved', label: COMPANY_DEMO ? 'Confirmed' : 'To prepare' },
+  { key: 'preparing', label: 'Preparing' },
+  { key: 'fulfilled', label: 'Ready / sent' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
-// Mirrors the server rule (catalog-orders/inquiry-lifecycle): only a pending or
-// approved inquiry can still be cancelled. The button is hidden elsewhere, and
+// Mirrors the server rule (catalog-orders/inquiry-lifecycle): only an unpaid
+// pending or approved order can be cancelled in production. The button is hidden elsewhere, and
 // the server refuses it anyway — this is affordance, not the guard.
 const CANCELLABLE = COMPANY_DEMO ? ['pending', 'approved', 'preparing'] : ['pending', 'approved'];
 
@@ -117,7 +117,7 @@ export default function InquiryHistoryScreen({ navigation }) {
     } catch (err) {
       // Shown in the dialog body so the customer sees WHY it was refused (e.g.
       // the order was already fulfilled) instead of the dialog closing.
-      setCancelNote(err && err.message ? err.message : 'Could not cancel this inquiry.');
+      setCancelNote(err && err.message ? err.message : 'Could not cancel this order.');
     } finally {
       setCancelBusy(false);
     }
@@ -213,7 +213,8 @@ export default function InquiryHistoryScreen({ navigation }) {
 
   const getStatusColor = (status) => {
     switch (status) {
-    case 'approved': return colors.info;
+    case 'approved':
+    case 'preparing': return colors.info;
     case 'fulfilled': return colors.success;
     case 'delivered': return colors.success;
     case 'rejected': return colors.error;
@@ -223,8 +224,16 @@ export default function InquiryHistoryScreen({ navigation }) {
   };
 
   const getStatusLabel = (item) => {
-    if (!COMPANY_DEMO) return item.status;
-    return ({ pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Dispatched' : 'Ready for pickup' })[item.status] || item.status;
+    const labels = COMPANY_DEMO
+      ? { pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Dispatched' : 'Ready for pickup' }
+      : {
+        pending: item.payment_method === 'qrph' && item.payment_status !== 'paid' ? 'Awaiting payment' : 'Order placed',
+        approved: 'To prepare',
+        preparing: 'Preparing',
+        fulfilled: item.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup',
+        delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled',
+      };
+    return labels[item.status] || item.status;
   };
 
   const counts = useMemo(() => {
@@ -326,7 +335,7 @@ export default function InquiryHistoryScreen({ navigation }) {
     }
     const labels = COMPANY_DEMO
       ? { pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Dispatched' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }
-      : { pending: 'Placed', approved: 'Approved', fulfilled: 'Fulfilled', delivered: 'Delivered', rejected: 'Rejected' };
+      : { pending: 'Placed', approved: 'To prepare', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' };
     return (
       <View style={styles.timeline}>
         {events.map((e, idx) => (
@@ -363,7 +372,7 @@ export default function InquiryHistoryScreen({ navigation }) {
         <Text style={styles.guestGlyph}>✓</Text>
         <Text style={styles.guestTitle}>Log in to see your orders</Text>
         <Text style={styles.guestSub}>
-          Your order inquiries will appear here once you have an account.
+          Your order history will appear here once you have an account.
         </Text>
         <TouchableOpacity style={styles.guestBtnPrimary} onPress={() => navigation.navigate('Signup')}>
           <Text style={styles.guestBtnPrimaryText}>Create Account</Text>
@@ -450,6 +459,7 @@ export default function InquiryHistoryScreen({ navigation }) {
               {item.payment_status === 'pending_verification' ? ' · ⌛ Payment submitted for review' : ''}
               {item.payment_status === 'credit_pending' ? ' · ⌛ Existing credit terms awaiting staff approval' : ''}
               {item.payment_status === 'credit_approved' ? ` · ✅ Existing credit terms approved · P${Math.max(0, Number(item.estimated_cost || 0) + Number(item.delivery_fee || 0) - Number(item.amount_paid || 0)).toFixed(2)} on account` : ''}
+              {!COMPANY_DEMO && item.payment_method === 'qrph' && item.payment_status !== 'paid' ? ' · ⏳ QR Ph payment due' : ''}
               {['unpaid', 'partial', 'failed'].includes(item.payment_status) && ['gcash', 'bank_transfer'].includes(item.payment_method) ? ' · ⏳ Payment due' : ''}
               {item.payment_customer_reference ? ` · GCash ref ${item.payment_customer_reference}` : ''}
             </Text>
@@ -495,6 +505,24 @@ export default function InquiryHistoryScreen({ navigation }) {
             </Text>
             {renderBackOrder(backOrders[item.id])}
             {renderTimeline(item)}
+            {!COMPANY_DEMO && item.payment_method === 'qrph' && item.payment_status !== 'paid' && item.payment_url ? (
+              <TouchableOpacity
+                style={styles.paymentBtn}
+                onPress={() => navigation.navigate('Payment', {
+                  inquiryId: item.id,
+                  payment: {
+                    payment_method: item.payment_method,
+                    payment_reference: item.payment_reference,
+                    payment_url: item.payment_url,
+                    payment_qr: item.payment_qr,
+                    payment_provider: item.payment_provider,
+                    amount_due: amountDueForOrder(item),
+                  },
+                })}
+              >
+                <Text style={styles.paymentBtnText}>Continue QR Ph payment · P{amountDueForOrder(item).toFixed(2)}</Text>
+              </TouchableOpacity>
+            ) : null}
             {COMPANY_DEMO && (
               (['approved', 'preparing'].includes(item.status) && ['gcash', 'bank_transfer'].includes(item.payment_method)) ||
               (['approved', 'preparing'].includes(item.status) && item.payment_method === 'card' && item.payment_provider === 'demo_card')
@@ -540,15 +568,15 @@ export default function InquiryHistoryScreen({ navigation }) {
             ) : null}
             <View style={styles.cardFooter}>
               <Text style={styles.date}>{new Date(item.created_at).toLocaleString()}</Text>
-              {CANCELLABLE.includes(item.status) || (COMPANY_DEMO && item.status === 'fulfilled' && item.fulfillment_method === 'pickup') ? (
+              {(CANCELLABLE.includes(item.status) && (COMPANY_DEMO || item.payment_status !== 'paid')) || (COMPANY_DEMO && item.status === 'fulfilled' && item.fulfillment_method === 'pickup') ? (
                 <TouchableOpacity
                   onPress={() => { setCancelNote(''); setCancelTarget(item); }}
                   style={styles.cancelBtn}
                   accessibilityRole="button"
-                  accessibilityLabel={`Cancel inquiry ${item.id}`}
+                  accessibilityLabel={`Cancel order ${item.id}`}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={styles.cancelBtnText}>Cancel inquiry</Text>
+                  <Text style={styles.cancelBtnText}>Cancel order</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -557,11 +585,11 @@ export default function InquiryHistoryScreen({ navigation }) {
         ListEmptyComponent={
           <EmptyState
             glyph="📋"
-            title={tab === 'all' ? 'No inquiries yet' : `No ${tab} inquiries`}
+            title={tab === 'all' ? 'No orders yet' : `No ${tab} orders`}
             sub={
               tab === 'all'
-                ? 'Your submitted order inquiries will appear here. Start one from the Order Inquiry tab.'
-                : `You have no ${tab} orders right now — try another status or submit a new inquiry.`
+                ? 'Your orders and their payment and delivery progress will appear here.'
+                : `You have no ${tab} orders right now — try another status or place an order.`
             }
           />
         }
@@ -569,9 +597,9 @@ export default function InquiryHistoryScreen({ navigation }) {
 
       <TouchableOpacity
         style={styles.newInquiry}
-        onPress={() => navigation.navigate('OrderInquiry')}
+        onPress={() => navigation.navigate('CatalogTab', { screen: 'Products' })}
       >
-        <Text style={styles.newInquiryText}>+ New Order Inquiry</Text>
+        <Text style={styles.newInquiryText}>+ Shop products</Text>
       </TouchableOpacity>
 
       {/* Cancellation confirmation. Cross-platform Dialog (not Alert.alert,
@@ -581,11 +609,11 @@ export default function InquiryHistoryScreen({ navigation }) {
       <Dialog
         visible={!!cancelTarget}
         glyph="✕"
-        title="Cancel this inquiry?"
+        title="Cancel this order?"
         body={
           cancelNote
             ? cancelNote
-            : `Inquiry #${cancelTarget ? cancelTarget.id : ''} will be cancelled and the store notified. This cannot be undone — you would need to submit a new inquiry.`
+            : `Order #${cancelTarget ? cancelTarget.id : ''} will be cancelled and the store notified. This cannot be undone — you would need to place a new order.`
         }
         confirmLabel={cancelBusy ? 'Cancelling…' : 'Yes, cancel it'}
         cancelLabel="Keep it"

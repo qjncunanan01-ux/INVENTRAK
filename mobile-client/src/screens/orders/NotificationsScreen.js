@@ -191,7 +191,7 @@ export default function NotificationsScreen({ navigation }) {
           <EmptyState
             glyph="🔔"
             title="No notifications yet"
-            sub="Your order status updates will show up here — place an order inquiry and we'll keep you posted."
+            sub="Your order status updates will show up here after you place an order."
           />
         }
       />

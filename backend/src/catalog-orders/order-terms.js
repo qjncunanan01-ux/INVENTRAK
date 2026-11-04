@@ -1,14 +1,14 @@
 const { SYLVER_POLICY_DEMO, COMPANY_POLICY_VERSION } = require('./company-policy');
 
-const ORDER_TERMS_VERSION = '2026-10-21-v1';
+const ORDER_TERMS_VERSION = '2026-10-31-v2';
 const ORDER_TERMS = [
-  'Submitting an order creates an inquiry. Sylver confirms availability, final pricing, and acceptance before the order is final.',
-  'Stock is deducted when the store marks an approved inquiry fulfilled. Availability may change while an inquiry is being reviewed.',
-  'Bulk quantities are subject to available stock. The system allows up to 10,000 units of one product per inquiry; larger requests must be discussed with the store.',
-  'Pickup or courier is a preference. The store confirms courier fees and timing after reviewing the inquiry.',
-  'An inquiry may be cancelled while pending or approved. The app does not allow cancellation after fulfillment or delivery.',
+  'Check item quantities and catalog prices before placing your order. Current stock is checked at checkout, and QRPh totals use the current product catalog. Online payments must be verified before preparation; cash orders may proceed when staff start processing them and are paid at pickup or delivery.',
+  'Stock is held for your order when the store starts preparing it. The reservation becomes a completed sale when the order is ready for pickup or dispatch. Availability is checked again before preparation.',
+  'Bulk quantities are subject to available stock. The system allows up to 10,000 units of one product per order; larger requests must be discussed with the store.',
+  'Pickup or courier is a preference. The store confirms courier fees and timing after receiving the order.',
+  'An unpaid order may be cancelled while it is waiting to be prepared. Paid orders must be cancelled with the store because refunds are not automated.',
   'GCash payments are checked by the store using the receipt reference you submit. Card checkout is a demo transaction only; it does not charge a card or collect card details.',
-  'The app does not process refunds or set courier fees. Confirm return, refund, and delivery charges with Sylver before paying.',
+  'The app does not process refunds or book couriers. Confirm return, refund, and delivery charges with Sylver before paying.',
 ];
 
 const COMPANY_ORDER_TERMS = [

@@ -82,7 +82,7 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ADMIN_TIER },
       { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: STAFF_TIER },
-      { label: 'Order Inquiries', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ADMIN_TIER },
+      { label: 'Orders', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ADMIN_TIER },
       { label: 'Payments', path: '/payments', Icon: PaymentsOutlined, roles: ADMIN_TIER },
     ],
   },

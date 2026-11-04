@@ -56,7 +56,7 @@ describe('AdminLayout responsive sidebar', () => {
     expect(aside).toBeInTheDocument();
     // Full labels visible
     expect(screen.getByText('Products')).toBeInTheDocument();
-    expect(screen.getByText('Order Inquiries')).toBeInTheDocument();
+    expect(screen.getByText('Orders')).toBeInTheDocument();
     // The hamburger reads "Collapse sidebar" on desktop
     expect(screen.getByLabelText('Collapse sidebar')).toBeInTheDocument();
   });
@@ -146,7 +146,7 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     mockUser = { role: 'admin' };
     setViewport(true);
     renderLayout();
-    for (const label of ['Products', 'Inventory', 'Inventory Levels', 'Shelf vs System', 'Scan & Stock', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Approvals', 'Order Inquiries', 'Branch Locations', 'Till', 'Security']) {
+    for (const label of ['Products', 'Inventory', 'Inventory Levels', 'Shelf vs System', 'Scan & Stock', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Approvals', 'Orders', 'Branch Locations', 'Till', 'Security']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     for (const label of ['Stocktake Schedule', 'Back Orders', 'Unit Conversions', 'Optimization', 'Notifications', 'Reports', 'Audit Trail', 'Backup & Restore', 'System Settings']) {
@@ -165,7 +165,7 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     // The role spec forbids Inventory Staff from sales, prices, customers,
     // orders, reports or business analytics — so the dashboard (money KPIs),
     // Optimization, Reports and every admin module stay hidden.
-    for (const label of ['Dashboard', 'Products', 'Approvals', 'Order Inquiries', 'Branch Locations', 'Optimization', 'Reports', 'Security']) {
+    for (const label of ['Dashboard', 'Products', 'Approvals', 'Orders', 'Branch Locations', 'Optimization', 'Reports', 'Security']) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
@@ -175,7 +175,7 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
       mockUser = { role };
       setViewport(true);
       const { unmount } = renderLayout();
-      for (const label of ['Dashboard', 'Products', 'Approvals', 'Order Inquiries', 'Reports', 'Audit Trail', 'Backup & Restore', 'System Settings', 'Security']) {
+      for (const label of ['Dashboard', 'Products', 'Approvals', 'Orders', 'Reports', 'Audit Trail', 'Backup & Restore', 'System Settings', 'Security']) {
         expect(screen.getByText(label)).toBeInTheDocument();
       }
       for (const label of ['Stocktake Schedule', 'Back Orders', 'Unit Conversions', 'Optimization', 'Notifications']) {

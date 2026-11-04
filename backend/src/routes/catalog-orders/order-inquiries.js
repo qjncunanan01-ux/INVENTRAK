@@ -78,7 +78,9 @@ function totalDue(order) {
 function reserveCompanyStock(existing, now) {
   const lines = parseArray(existing.products);
   const ids = [...new Set(lines.map((line) => Number(line.id)).filter((id) => Number.isInteger(id) && id > 0))];
-  if (ids.length !== lines.length) return { error: 'Refresh the catalog before confirming this order; every line must reference a current product' };
+  if (!lines.length || lines.some((line) => !Number.isInteger(Number(line.id)) || Number(line.id) < 1)) {
+    return { error: 'Refresh the catalog before preparing this order; every line must reference a current product' };
+  }
   const rows = db.prepare(`SELECT product_id, location_id, quantity FROM stock WHERE product_id IN (${ids.map(() => '?').join(',')}) ORDER BY location_id`).all(...ids);
   const plan = planStockReservation(lines, rows);
   if (plan.error) return plan;
@@ -169,8 +171,12 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
 
   let fulfillmentPlan = null;
   let fulfillmentLocationId = null;
-  const needsCompanyReservation = SYLVER_POLICY_DEMO &&
-    ['approved', 'preparing'].includes(updatedStatus) && !existing.inventory_reserved_at;
+  const orderLines = parseArray(existing.products);
+  const hasCatalogLineIds = orderLines.length > 0 && orderLines.every((line) => line && typeof line === 'object' && Number.isInteger(Number(line.id)) && Number(line.id) > 0);
+  const needsCompanyReservation = !existing.inventory_reserved_at && (
+    (updatedStatus === 'preparing' && (SYLVER_POLICY_DEMO || hasCatalogLineIds)) ||
+    (SYLVER_POLICY_DEMO && updatedStatus === 'approved')
+  );
   const mustCommitStock = !SYLVER_POLICY_DEMO && ['fulfilled', 'delivered'].includes(updatedStatus) && !existing.inventory_committed_at;
   let deliveryFee = Number(existing.delivery_fee) || 0;
   let deliverySchedule = existing.delivery_schedule || null;
@@ -189,65 +195,78 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
   if (SYLVER_POLICY_DEMO && updatedStatus === 'fulfilled' && existing.fulfillment_method === 'courier' && existing.payment_status !== 'paid') {
     return res.status(409).json({ error: 'Courier delivery must be paid and verified before dispatch' });
   }
+  if (!SYLVER_POLICY_DEMO && updatedStatus === 'preparing' && ['qrph', 'gcash', 'other'].includes(existing.payment_method) && existing.payment_status !== 'paid') {
+    return res.status(409).json({ error: 'Verify payment before preparing this order' });
+  }
+  if (!SYLVER_POLICY_DEMO && updatedStatus === 'rejected' && existing.payment_status === 'paid') {
+    return res.status(409).json({ error: 'This order is paid. Arrange a refund with the store before rejecting it.' });
+  }
   const approvedCredit = existing.payment_method === 'credit' && parseArray(existing.payment_records).some((record) => record.type === 'credit_approval' && record.status === 'approved');
   if (SYLVER_POLICY_DEMO && updatedStatus === 'delivered' && existing.payment_status !== 'paid' && !approvedCredit) {
     return res.status(409).json({ error: 'Record and verify the full payment before marking the order delivered' });
   }
   if (mustCommitStock) {
-    if (['gcash', 'qrph', 'card'].includes(existing.payment_method) && existing.payment_status !== 'paid') {
+    if (['gcash', 'qrph', 'other', 'card'].includes(existing.payment_method) && existing.payment_status !== 'paid') {
       return res.status(409).json({ error: 'Payment must be verified before this inquiry can be fulfilled' });
     }
-    let lines = [];
-    try { lines = JSON.parse(existing.products || '[]'); } catch {}
-    const findProduct = (line) => {
-      const byId = Number(line.id);
-      if (Number.isInteger(byId) && byId > 0) {
-        return db.prepare('SELECT id, name, price FROM products WHERE id = ? AND status = ?').get(byId, 'active');
-      }
-      const name = String(line.name || '').trim();
-      if (!name) return null;
-      return db.prepare('SELECT id, name, price FROM products WHERE TRIM(LOWER(name)) = LOWER(?) AND status = ? ORDER BY id LIMIT 1').get(name, 'active');
-    };
-    const requestedLocationId = req.body.location_id;
-    if (requestedLocationId !== undefined && requestedLocationId !== null && requestedLocationId !== '') {
-      const locationId = Number(requestedLocationId);
-      const location = db.prepare('SELECT id FROM locations WHERE id = ?').get(locationId);
-      if (!location) return res.status(400).json({ error: 'Choose a valid stock location before fulfilling this order' });
-      fulfillmentLocationId = locationId;
-      const singleLocationPlan = planOrderFulfillment(lines, locationId, {
-        findProduct,
-        getAvailable: (productId, selectedLocationId) => {
-          const row = db.prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?').get(productId, selectedLocationId);
-          return row ? row.quantity : 0;
-        },
-      });
-      if (!singleLocationPlan.error) {
-        fulfillmentPlan = {
-          plan: singleLocationPlan.plan.map((line) => ({ ...line, total_amount: line.qty * line.unit_price })),
-          allocations: singleLocationPlan.plan.map((line) => ({ ...line, location_id: locationId })),
-        };
-      } else {
-        fulfillmentPlan = singleLocationPlan;
-      }
+    if (existing.inventory_reserved_at) {
+      const allocations = parseArray(existing.reservation_details);
+      if (!allocations.length) return res.status(409).json({ error: 'The reserved stock record is incomplete. Contact an administrator before fulfilling this order.' });
+      const locations = [...new Set(allocations.map((allocation) => Number(allocation.location_id)))];
+      fulfillmentLocationId = locations.length === 1 ? locations[0] : null;
     } else {
-      fulfillmentPlan = planAutomaticOrderFulfillment(lines, {
-        findProduct,
-        getStockRows: (ids) => db.prepare(`
-          SELECT s.product_id, s.location_id, s.quantity
-          FROM stock s
-          JOIN locations l ON l.id = s.location_id
-          WHERE s.product_id IN (${ids.map(() => '?').join(',')})
-          ORDER BY CASE WHEN LOWER(TRIM(l.name)) = 'showroom' THEN 0 ELSE 1 END, l.id
-        `).all(...ids),
-      });
-      const allocatedLocations = [...new Set((fulfillmentPlan.allocations || []).map((allocation) => Number(allocation.location_id)))];
-      fulfillmentLocationId = allocatedLocations.length === 1 ? allocatedLocations[0] : null;
-    }
-    if (fulfillmentPlan.error) {
-      return res.status(fulfillmentPlan.product_id ? 409 : 400).json({
-        error: fulfillmentPlan.error,
-        ...(fulfillmentPlan.product_id ? { available: fulfillmentPlan.available, requested: fulfillmentPlan.requested, product_id: fulfillmentPlan.product_id } : {}),
-      });
+      let lines = [];
+      try { lines = JSON.parse(existing.products || '[]'); } catch {}
+      const findProduct = (line) => {
+        const byId = Number(line.id);
+        if (Number.isInteger(byId) && byId > 0) {
+          return db.prepare('SELECT id, name, price FROM products WHERE id = ? AND status = ?').get(byId, 'active');
+        }
+        const name = String(line.name || '').trim();
+        if (!name) return null;
+        return db.prepare('SELECT id, name, price FROM products WHERE TRIM(LOWER(name)) = LOWER(?) AND status = ? ORDER BY id LIMIT 1').get(name, 'active');
+      };
+      const requestedLocationId = req.body.location_id;
+      if (requestedLocationId !== undefined && requestedLocationId !== null && requestedLocationId !== '') {
+        const locationId = Number(requestedLocationId);
+        const location = db.prepare('SELECT id FROM locations WHERE id = ?').get(locationId);
+        if (!location) return res.status(400).json({ error: 'Choose a valid stock location before fulfilling this order' });
+        fulfillmentLocationId = locationId;
+        const singleLocationPlan = planOrderFulfillment(lines, locationId, {
+          findProduct,
+          getAvailable: (productId, selectedLocationId) => {
+            const row = db.prepare('SELECT quantity FROM stock WHERE product_id = ? AND location_id = ?').get(productId, selectedLocationId);
+            return row ? row.quantity : 0;
+          },
+        });
+        if (!singleLocationPlan.error) {
+          fulfillmentPlan = {
+            plan: singleLocationPlan.plan.map((line) => ({ ...line, total_amount: line.qty * line.unit_price })),
+            allocations: singleLocationPlan.plan.map((line) => ({ ...line, location_id: locationId })),
+          };
+        } else {
+          fulfillmentPlan = singleLocationPlan;
+        }
+      } else {
+        fulfillmentPlan = planAutomaticOrderFulfillment(lines, {
+          findProduct,
+          getStockRows: (ids) => db.prepare(`
+            SELECT s.product_id, s.location_id, s.quantity
+            FROM stock s
+            JOIN locations l ON l.id = s.location_id
+            WHERE s.product_id IN (${ids.map(() => '?').join(',')})
+            ORDER BY CASE WHEN LOWER(TRIM(l.name)) = 'showroom' THEN 0 ELSE 1 END, l.id
+          `).all(...ids),
+        });
+        const allocatedLocations = [...new Set((fulfillmentPlan.allocations || []).map((allocation) => Number(allocation.location_id)))];
+        fulfillmentLocationId = allocatedLocations.length === 1 ? allocatedLocations[0] : null;
+      }
+      if (fulfillmentPlan.error) {
+        return res.status(fulfillmentPlan.product_id ? 409 : 400).json({
+          error: fulfillmentPlan.error,
+          ...(fulfillmentPlan.product_id ? { available: fulfillmentPlan.available, requested: fulfillmentPlan.requested, product_id: fulfillmentPlan.product_id } : {}),
+        });
+      }
     }
   }
 
@@ -287,20 +306,29 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
       db.prepare('UPDATE order_inquiries SET inventory_reserved_at = ?, reservation_details = ? WHERE id = ?')
         .run(now, JSON.stringify(reservation.allocations), req.params.id);
     }
-    if (SYLVER_POLICY_DEMO && updatedStatus === 'rejected' && existing.inventory_reserved_at) {
+    if (updatedStatus === 'rejected' && existing.inventory_reserved_at) {
       releaseCompanyStock(existing, now);
       db.prepare('UPDATE order_inquiries SET inventory_reserved_at = NULL, reservation_details = NULL WHERE id = ?').run(req.params.id);
     }
     if (mustCommitStock) {
       const now = new Date().toISOString();
-      for (const line of fulfillmentPlan.plan) {
-        db.prepare('INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name, customer_id, order_inquiry_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(line.product_id, line.qty, line.unit_price, line.total_amount ?? line.qty * line.unit_price, now, existing.customer_name || 'customer', existing.customer_id || null, Number(req.params.id));
-      }
-      for (const allocation of fulfillmentPlan.allocations) {
-        db.prepare('INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(allocation.product_id, allocation.qty, 'stock-out', allocation.location_id, null, `Customer order inquiry #${req.params.id} fulfilled`, now, req.user.username || 'admin');
-        applyMovementEffect({ product_id: allocation.product_id, qty: allocation.qty, type: 'stock-out', srcId: allocation.location_id, now });
+      if (existing.inventory_reserved_at) {
+        for (const allocation of parseArray(existing.reservation_details)) {
+          const qty = Number(allocation.qty) || 0;
+          const unitPrice = Number(allocation.unit_price) || 0;
+          db.prepare('INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name, customer_id, order_inquiry_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(Number(allocation.product_id), qty, unitPrice, Number(allocation.net_total) || qty * unitPrice, now, existing.customer_name || 'customer', existing.customer_id || null, Number(req.params.id));
+        }
+      } else {
+        for (const line of fulfillmentPlan.plan) {
+          db.prepare('INSERT INTO sales_transactions (product_id, qty, unit_price, total_amount, transaction_date, customer_name, customer_id, order_inquiry_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(line.product_id, line.qty, line.unit_price, line.total_amount ?? line.qty * line.unit_price, now, existing.customer_name || 'customer', existing.customer_id || null, Number(req.params.id));
+        }
+        for (const allocation of fulfillmentPlan.allocations) {
+          db.prepare('INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+            .run(allocation.product_id, allocation.qty, 'stock-out', allocation.location_id, null, `Customer order inquiry #${req.params.id} fulfilled`, now, req.user.username || 'admin');
+          applyMovementEffect({ product_id: allocation.product_id, qty: allocation.qty, type: 'stock-out', srcId: allocation.location_id, now });
+        }
       }
       db.prepare('UPDATE order_inquiries SET fulfillment_location_id = ?, inventory_committed_at = ? WHERE id = ?')
         .run(fulfillmentLocationId, now, req.params.id);
@@ -346,14 +374,12 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
 //   · authenticate AND authorize — a customer may only cancel their OWN
 //     inquiry (404 unknown, 403 someone else's, exactly like the costing
 //     endpoint); admin tier may cancel on the customer's behalf.
-//   · only pending / approved inquiries are cancellable. A fulfilled or
+//   · only pending / approved orders are cancellable. A fulfilled or
 //     delivered order is a business problem, not a button, and an already
 //     decided one keeps its decision.
 //   · the cancellation records who, when and (optionally) why.
 //   · repeating the request is idempotent — the original timestamp and reason
 //     are returned, nothing is rewritten.
-// No stock is touched: an inquiry has never deducted inventory (see the stock
-// movement workflow), so there is no reservation to release here.
 router.post('/:id/cancel', authenticateToken, (req, res) => {
   const existing = db.prepare('SELECT * FROM order_inquiries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Order inquiry not found' });
@@ -376,6 +402,9 @@ router.post('/:id/cancel', authenticateToken, (req, res) => {
     });
   }
   if (verdict) return res.status(verdict.status).json({ error: verdict.error });
+  if (!SYLVER_POLICY_DEMO && existing.payment_status === 'paid') {
+    return res.status(409).json({ error: 'This order is paid. Contact the store to arrange cancellation and refund.' });
+  }
 
   const reason = normalizeReason(req.body.cancellation_reason ?? req.body.reason, {
     field: 'cancellation_reason',
@@ -393,7 +422,7 @@ router.post('/:id/cancel', authenticateToken, (req, res) => {
   });
 
   const cancelOrder = db.transaction(() => {
-    if (SYLVER_POLICY_DEMO && existing.inventory_reserved_at) {
+    if (existing.inventory_reserved_at) {
       releaseCompanyStock(existing, now);
       db.prepare('UPDATE order_inquiries SET inventory_reserved_at = NULL, reservation_details = NULL WHERE id = ?').run(req.params.id);
     }

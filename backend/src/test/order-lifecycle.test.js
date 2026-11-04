@@ -272,7 +272,7 @@ test('cancellation: a fulfilled inquiry cannot be cancelled', async () => {
       products: [{ id: 23, name: 'Essse Cafe Selezione Speciale Coffee Beans 1kg', qty: 1, price: 10 }],
     });
     const id = placed.json.id;
-    for (const status of ['approved', 'fulfilled']) {
+    for (const status of ['approved', 'preparing', 'fulfilled']) {
       const moved = await call(side.url, `/api/order-inquiries/${id}`, {
         method: 'PUT',
         token: side.token.admin,

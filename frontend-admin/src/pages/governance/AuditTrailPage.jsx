@@ -42,7 +42,7 @@ const eventModule = (event = '') => {
   if (event.startsWith('approval.')) return 'Approvals';
   if (event.startsWith('scan.')) return 'QR Scanning';
   if (event.startsWith('product.')) return 'Products';
-  if (event.startsWith('order.')) return 'Order Inquiries';
+  if (event.startsWith('order.')) return 'Orders';
   if (event.startsWith('user.')) return 'User Management';
   return 'System';
 };

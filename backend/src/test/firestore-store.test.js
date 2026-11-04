@@ -131,6 +131,23 @@ test('firestore driver persists verification + password-reset codes so they surv
   assert.strictEqual(resets[0].code_hash, 'rhash456');
 });
 
+test('firestore driver persists runtime settings and reloads them after re-init', async () => {
+  const fake = makeFakeDb();
+  fsStore._setDb(fake);
+  await fsStore.init();
+  assert.equal(fsStore.isDatasetAvailable('@systemSettings'), true);
+
+  const rows = [{ id: 1, value: { eoq_ordering_cost: 123 } }];
+  fsStore.write('@systemSettings', rows);
+  await fsStore.flush();
+  assert.deepStrictEqual(fsStore.read('@systemSettings'), rows);
+  assert.equal(fake._cols.get('systemSettings').get('1').value.eoq_ordering_cost, 123);
+
+  fsStore._setDb(fake);
+  await fsStore.init();
+  assert.deepStrictEqual(fsStore.read('@systemSettings'), rows, 'settings survive a driver restart');
+});
+
 test('firestore driver sanitizes nulls to empty strings (Firestore rejects null)', async () => {
   const fake = makeFakeDb();
   fsStore._setDb(fake);

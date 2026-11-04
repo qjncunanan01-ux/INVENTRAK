@@ -19,10 +19,10 @@ const STATUS_COLORS = {
 
 const STATUS_FILTERS = [
   { key: '', label: 'All statuses' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'approved', label: 'Approved' },
+  { key: 'pending', label: 'New / awaiting payment', demoLabel: 'Needs review' },
+  { key: 'approved', label: 'To prepare', demoLabel: 'Confirmed' },
   { key: 'preparing', label: 'Preparing' },
-  { key: 'fulfilled', label: 'Fulfilled' },
+  { key: 'fulfilled', label: 'Ready / dispatched' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'cancelled', label: 'Cancelled' },
@@ -125,10 +125,10 @@ function parseStoredOrderObject(value) {
 }
 
 // Steps of the order lifecycle, in the order the admin acts on them.
-const LEGACY_TIMELINE_STEPS = [
-  { key: 'pending', label: 'Pending' },
-  { key: 'approved', label: 'Approved' },
-  { key: 'fulfilled', label: 'Fulfilled' },
+const STANDARD_TIMELINE_STEPS = [
+  { key: 'pending', label: 'Placed' },
+  { key: 'preparing', label: 'Preparing' },
+  { key: 'fulfilled', label: 'Ready / dispatched' },
   { key: 'delivered', label: 'Delivered' },
 ];
 
@@ -214,7 +214,7 @@ export default function OrderInquiriesPage({ onLogout }) {
       { key: 'fulfilled', label: 'Ready / dispatched' },
       { key: 'delivered', label: 'Delivered' },
     ]
-    : LEGACY_TIMELINE_STEPS;
+    : STANDARD_TIMELINE_STEPS;
   const ordersRequestInFlight = useRef(false);
 
   const loadOrders = useCallback((silent = false) => {
@@ -266,7 +266,12 @@ export default function OrderInquiriesPage({ onLogout }) {
         ...(isRejection ? { rejection_reason: confirmDialog.reason.trim() } : {}),
         ...(needsQuote ? { delivery_fee: Number(confirmDialog.delivery_fee), delivery_schedule: confirmDialog.delivery_schedule.trim() } : {}),
       });
-      setSnackbar({ open: true, message: confirmDialog.status === 'approved' ? 'Order confirmed and stock reserved' : `Order marked ${confirmDialog.status}`, severity: 'success' });
+      const actionMessage = confirmDialog.status === 'approved'
+        ? 'Order confirmed and stock reserved'
+        : confirmDialog.status === 'preparing'
+          ? 'Preparation started and stock reserved'
+          : `Order marked ${confirmDialog.status}`;
+      setSnackbar({ open: true, message: actionMessage, severity: 'success' });
       loadOrders();
     } catch (err) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
@@ -330,12 +335,19 @@ export default function OrderInquiriesPage({ onLogout }) {
   });
 
   const renderActions = (order) => {
+    const requiresVerifiedPayment = !companyDemo && ['qrph', 'gcash', 'other'].includes(order.payment_method);
+    const mayStartPreparing = !requiresVerifiedPayment || order.payment_status === 'paid';
     if (order.status === 'pending') {
+      const startLabel = mayStartPreparing ? 'Start preparing' : 'Awaiting payment';
       return (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           <Button size="small" onClick={() => setDetails(order)}>Details</Button>
-          <Button size="small" variant="contained" color="secondary" startIcon={<span>✓</span>} onClick={() => handleConfirmAction(order.id, 'approved')}>{companyDemo ? 'Confirm & reserve' : 'Approve'}</Button>
-          <Button size="small" variant="contained" color="error" startIcon={<span>✕</span>} onClick={() => handleConfirmAction(order.id, 'rejected')}>Reject</Button>
+          {companyDemo ? (
+            <Button size="small" variant="contained" color="secondary" startIcon={<span>✓</span>} onClick={() => handleConfirmAction(order.id, 'approved')}>Confirm & reserve</Button>
+          ) : (
+            <Button size="small" variant="contained" color="primary" disabled={!mayStartPreparing} onClick={() => handleConfirmAction(order.id, 'preparing')}>{startLabel}</Button>
+          )}
+          {order.payment_status !== 'paid' ? <Button size="small" variant="contained" color="error" startIcon={<span>✕</span>} onClick={() => handleConfirmAction(order.id, 'rejected')}>Reject</Button> : null}
         </Box>
       );
     }
@@ -349,8 +361,19 @@ export default function OrderInquiriesPage({ onLogout }) {
     if (order.status === 'approved') {
       return (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          <Button size="small" variant="contained" color="success" startIcon={<span>📦</span>} onClick={() => handleConfirmAction(order.id, 'fulfilled')}>Mark Fulfilled</Button>
-          <Button size="small" variant="outlined" color="error" onClick={() => handleConfirmAction(order.id, 'rejected')}>Reject</Button>
+          <Button size="small" onClick={() => setDetails(order)}>Details</Button>
+          <Button size="small" variant="contained" color="primary" disabled={!mayStartPreparing} onClick={() => handleConfirmAction(order.id, 'preparing')}>{mayStartPreparing ? 'Start preparing' : 'Awaiting payment'}</Button>
+          {order.payment_status !== 'paid' ? <Button size="small" variant="outlined" color="error" onClick={() => handleConfirmAction(order.id, 'rejected')}>Reject</Button> : null}
+        </Box>
+      );
+    }
+    if (order.status === 'preparing') {
+      const label = order.fulfillment_method === 'courier' ? 'Dispatch order' : 'Ready for pickup';
+      return (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          <Button size="small" onClick={() => setDetails(order)}>Details</Button>
+          <Button size="small" variant="contained" color="success" onClick={() => handleConfirmAction(order.id, 'fulfilled')}>{label}</Button>
+          {order.payment_status !== 'paid' ? <Button size="small" variant="outlined" color="error" onClick={() => handleConfirmAction(order.id, 'rejected')}>Reject</Button> : null}
         </Box>
       );
     }
@@ -372,20 +395,22 @@ export default function OrderInquiriesPage({ onLogout }) {
   };
 
   return (
-    <AdminLayout title="Order Inquiries" onLogout={onLogout}>
+    <AdminLayout title="Orders" onLogout={onLogout}>
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
           <div>
-            <Typography variant="h6">Submitted order inquiries</Typography>
+            <Typography variant="h6">Orders to process</Typography>
             <Typography variant="body2" color="text.secondary">
-              Review incoming requests. Confirming reserves stock; staff verify payment before courier dispatch.
+              {companyDemo
+                ? 'Review each request, confirm it, then prepare and fulfill the order.'
+                : 'Online payment is verified before preparation. Starting preparation reserves stock automatically; no separate approval is needed.'}
             </Typography>
           </div>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <FormControl size="small" sx={{ minWidth: 160, backgroundColor: colors.surface }}>
               <InputLabel id="inq-status-label">Status</InputLabel>
               <Select labelId="inq-status-label" id="inq-status" value={statusFilter} label="Status" onChange={e => setStatusFilter(e.target.value)}>
-                {STATUS_FILTERS.map(f => <MenuItem key={f.key || 'all'} value={f.key}>{f.label}</MenuItem>)}
+                {STATUS_FILTERS.map(f => <MenuItem key={f.key || 'all'} value={f.key}>{companyDemo ? (f.demoLabel || f.label) : f.label}</MenuItem>)}
               </Select>
             </FormControl>
             <TextField
@@ -397,13 +422,13 @@ export default function OrderInquiriesPage({ onLogout }) {
             />
             {pendingCount > 0 && (
               <Chip
-                label={`${pendingCount} pending`}
+                label={`${pendingCount} new orders`}
                 color="warning"
                 size="small"
                 sx={{ fontWeight: 700 }}
               />
             )}
-            <Typography variant="subtitle2" color="text.secondary">{orderList.length} inquiries</Typography>
+            <Typography variant="subtitle2" color="text.secondary">{orderList.length} orders</Typography>
           </Box>
         </Box>
         <TableContainer sx={{ overflowX: 'auto' }}>
@@ -413,7 +438,7 @@ export default function OrderInquiriesPage({ onLogout }) {
                 <TableCell>Customer</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Products</TableCell>
-                <TableCell>Estimated Cost</TableCell>
+                <TableCell>Order Total</TableCell>
                 <TableCell>Delivery & Payment</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Date</TableCell>
@@ -424,7 +449,7 @@ export default function OrderInquiriesPage({ onLogout }) {
               {loading ? (
                 <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>
               ) : orderList.length === 0 ? (
-                <TableRow><TableCell colSpan={8}>No order inquiries</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8}>No orders to show</TableCell></TableRow>
               ) : orderList.map(order => {
                 const lines = parseLines(order);
                 return (
@@ -472,7 +497,7 @@ export default function OrderInquiriesPage({ onLogout }) {
                     <TableCell>
                       <Chip label={companyDemo
                         ? ({ pending: 'Pending review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: order.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }[order.status] || order.status)
-                        : order.status} color={STATUS_COLORS[order.status] || 'default'} size="small" />
+        : ({ pending: ['qrph', 'gcash', 'other'].includes(order.payment_method) && order.payment_status !== 'paid' ? 'Awaiting payment' : 'New order', approved: 'To prepare', preparing: 'Preparing', fulfilled: order.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }[order.status] || order.status)} color={STATUS_COLORS[order.status] || 'default'} size="small" />
                       {/* A rejected order carries the reason the admin gave —
                           never just the red chip. Same for a cancellation. */}
                       {order.status === 'rejected' && order.rejection_reason && (
@@ -506,11 +531,16 @@ export default function OrderInquiriesPage({ onLogout }) {
       </Paper>
 
       <Dialog open={confirmDialog.open} onClose={closeConfirm} maxWidth="sm" fullWidth>
-        <DialogTitle>Confirm action: mark this inquiry as “{confirmDialog.status}”?</DialogTitle>
+        <DialogTitle>Update order: mark as “{confirmDialog.status}”?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: isRejection ? 2 : 0 }}>
             The status is saved to the customer&apos;s order history. Email is sent only when an email provider is configured.
           </Typography>
+          {!companyDemo && confirmDialog.status === 'preparing' && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Available stock will be reserved automatically while this order is prepared.
+            </Typography>
+          )}
           {!companyDemo && ['fulfilled', 'delivered'].includes(confirmDialog.status) && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Stock will be allocated automatically from available locations.
@@ -522,7 +552,7 @@ export default function OrderInquiriesPage({ onLogout }) {
               required
               multiline
               minRows={2}
-              label="Why is this inquiry being rejected?"
+              label="Why is this order being rejected?"
               helperText="Required — the customer sees this. e.g. &quot;Out of stock until next week&quot;."
               value={confirmDialog.reason}
               onChange={(e) => setConfirmDialog((d) => ({ ...d, reason: e.target.value }))}

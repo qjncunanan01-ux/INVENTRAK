@@ -182,6 +182,23 @@ test('supabase driver maps the QR-flow datasets to real tables', async () => {
   assert.strictEqual(store.read('unknown-file.json'), null, 'unmapped file reads null');
 });
 
+test('supabase driver persists runtime settings and reloads them after re-init', async () => {
+  const fake = makeFakeSupabase({
+    products: [{ id: 1, idx: 0, data: { 'Product Name': 'P1' } }],
+  });
+  let store = await freshStore(fake);
+  assert.equal(store.isDatasetAvailable('@systemSettings'), true);
+
+  const rows = [{ id: 1, value: { eoq_ordering_cost: 123 } }];
+  store.write('@systemSettings', rows);
+  await drain();
+  assert.deepStrictEqual(store.read('@systemSettings'), rows);
+  assert.deepStrictEqual(fake._tables.get('system_settings').get('1').data, rows[0]);
+
+  store = await freshStore(fake);
+  assert.deepStrictEqual(store.read('@systemSettings'), rows, 'the next process loads the same settings');
+});
+
 test('supabase driver auto-seeds products from local JSON when the table is empty', async () => {
   const fake = makeFakeSupabase();
   const store = await freshStore(fake);

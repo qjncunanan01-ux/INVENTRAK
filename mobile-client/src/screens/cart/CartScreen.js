@@ -10,7 +10,7 @@ import Dialog from '../../Dialog';
 import { productTitle } from '../../product-enrichment';
 import { showToast } from '../../toast';
 
-// The cart holds supplies and current catalog prices; checkout is an order inquiry.
+// The cart holds supplies and current catalog prices until the customer checks out.
 export default function CartScreen({ navigation }) {
   const { colors } = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -179,7 +179,7 @@ export default function CartScreen({ navigation }) {
           <Text style={styles.totalValue}>₱{items.reduce((sum, item) => sum + (Number(catalogById[Number(item.product.id)]?.price ?? item.product.price) || 0) * item.qty, 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
         </View>
         <TouchableOpacity style={styles.checkoutBtn} onPress={goCheckout} activeOpacity={0.85} accessibilityLabel="Proceed to checkout" accessibilityRole="button">
-          <Text style={styles.checkoutText}>Continue to order inquiry</Text>
+          <Text style={styles.checkoutText}>Continue to checkout</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={goBrowse} hitSlop={{ top: 8, bottom: 8 }} accessibilityLabel="Browse more products" accessibilityRole="button">
           <Text style={styles.continue}>+ Add more supplies</Text>

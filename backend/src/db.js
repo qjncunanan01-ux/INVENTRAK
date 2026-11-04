@@ -269,5 +269,16 @@ if (!salesColumns.some(c => c.name === 'customer_id')) {
 if (!salesColumns.some(c => c.name === 'order_inquiry_id')) {
   db.exec('ALTER TABLE sales_transactions ADD COLUMN order_inquiry_id INTEGER');
 }
+for (const [name, ddl] of [
+  ['idempotency_key', 'TEXT'],
+  ['idempotency_fingerprint', 'TEXT'],
+  ['idempotency_response', 'TEXT'],
+]) {
+  if (!salesColumns.some(c => c.name === name)) {
+    db.exec(`ALTER TABLE sales_transactions ADD COLUMN ${name} ${ddl}`);
+  }
+}
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_idempotency_key
+  ON sales_transactions(idempotency_key) WHERE idempotency_key IS NOT NULL`);
 
 module.exports = { db };

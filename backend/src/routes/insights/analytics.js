@@ -44,7 +44,7 @@ router.get('/summary', authenticateToken, adminOnly, (req, res) => {
   const customersRegistered = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'customer'").get().count;
 
   const statusRows = db.prepare('SELECT status, COUNT(*) as count FROM order_inquiries GROUP BY status').all();
-  const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+  const orderStatusSummary = { pending: 0, approved: 0, preparing: 0, rejected: 0, fulfilled: 0, delivered: 0, cancelled: 0 };
   statusRows.forEach((r) => { if (orderStatusSummary[r.status] !== undefined) orderStatusSummary[r.status] = r.count; });
 
   const thisMonth = new Date().toISOString().substring(0, 7);

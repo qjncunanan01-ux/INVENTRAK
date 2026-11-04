@@ -7,6 +7,9 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F8FAF5",
+    "ios": {
+      "bundleIdentifier": "com.inventrak.staff"
+    },
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/sylver-symbol.png",

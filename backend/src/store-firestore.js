@@ -53,6 +53,8 @@ const COLLECTIONS = {
   // breaking in-flight signups/resets mid-deploy.)
   '@verificationCodes': 'verificationCodes',
   '@resetTokens': 'resetTokens',
+  // Owner-configurable settings survive process restarts in cloud deployments.
+  '@systemSettings': 'systemSettings',
 };
 
 let db = null; // injected fake (tests) or real firebase-admin Firestore
@@ -86,6 +88,10 @@ function collectionFor(file) {
 // requests against an uninitialized cache in Firestore mode).
 function isReady() {
   return ready;
+}
+
+function isDatasetAvailable(file) {
+  return Boolean(ready && collectionFor(file));
 }
 
 // Optional named-database support: Firestore allows multiple databases per
@@ -343,6 +349,7 @@ module.exports = {
   init,
   flush,
   isReady,
+  isDatasetAvailable,
   _setDb,
   collectionFor,
   sanitize,

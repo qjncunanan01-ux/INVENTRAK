@@ -16,6 +16,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
+const settings = require('../governance/settings');
 
 const SETTINGS_FILE = path.join(process.env.INVENTRAK_DATA_DIR, 'settings.json');
 
@@ -29,8 +30,29 @@ function resetSettingsFile() {
 
 test.before(bootBoth);
 test.after(() => {
+  settings.configurePersistence(null);
   resetSettingsFile();
   teardown();
+});
+
+test('settings: cloud persistence survives a settings-module restart', () => {
+  resetSettingsFile();
+  const durable = { value: null };
+  const adapter = {
+    name: 'test-cloud',
+    read: () => (durable.value ? JSON.parse(JSON.stringify(durable.value)) : null),
+    write: (value) => { durable.value = JSON.parse(JSON.stringify(value)); },
+  };
+
+  settings.configurePersistence(adapter);
+  const changed = settings.updateSettings({ eoq_ordering_cost: 123 });
+  assert.equal(changed.ok, true);
+  assert.equal(durable.value.eoq_ordering_cost, 123, 'the update reached durable storage');
+
+  settings.configurePersistence(null);
+  settings.configurePersistence(adapter);
+  assert.equal(settings.getSettings().eoq_ordering_cost, 123, 'a fresh binding reloads the durable value');
+  assert.deepEqual(settings.getPersistenceStatus(), { durable: true, backend: 'test-cloud' });
 });
 
 test('settings: GET returns defaults and shapes match across backends', async () => {

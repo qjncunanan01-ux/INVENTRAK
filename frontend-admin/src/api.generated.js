@@ -164,9 +164,9 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   createOrderInquiry: (body) => request('POST', '/api/order-inquiries', { body }),
   // POST /api/webhooks/paymongo — Receive signed PayMongo checkout events
   paymongoWebhook: (body) => request('POST', '/api/webhooks/paymongo', { body }),
-  // PUT /api/order-inquiries/{id} — Update inquiry status under the active production or Sylver demo lifecycle
+  // PUT /api/order-inquiries/{id} — Update an order through its preparation and fulfillment lifecycle
   updateOrderInquiry: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}', { params: { id }, body }),
-  // POST /api/order-inquiries/{id}/cancel — Cancel an inquiry (customer-initiated)
+  // POST /api/order-inquiries/{id}/cancel — Cancel an unpaid order (customer-initiated)
   cancelOrderInquiry: ({ id }, body) => request('POST', '/api/order-inquiries/{id}/cancel', { params: { id }, body }),
   // GET /api/order-inquiries/{id}/costing — Get the immutable costing snapshot frozen when the inquiry was submitted
   getInquiryCosting: ({ id }) => request('GET', '/api/order-inquiries/{id}/costing', { params: { id } }),
@@ -196,7 +196,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getReports: (params) => request('GET', '/api/reports', { query: params }),
   // GET /api/sales — List sales transactions (admin only)
   listSales: (params) => request('GET', '/api/sales', { query: params }),
-  // POST /api/sales — Record a counter / walk-in sale: decrements stock, consumes the FEFO lot, audits
+  // POST /api/sales — Record an idempotent counter / walk-in sale
   createSale: (body) => request('POST', '/api/sales', { body }),
   // POST /api/scan-events — Record a QR / barcode scan into the audit trail (staff or admin)
   createScanEvent: (body) => request('POST', '/api/scan-events', { body }),
@@ -214,7 +214,7 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   rejectStockAdjustment: ({ id }, body) => request('POST', '/api/stock-adjustments/{id}/reject', { params: { id }, body }),
   // GET /api/stock-lots — List FIFO stock lots
   listStockLots: (params) => request('GET', '/api/stock-lots', { query: params }),
-  // POST /api/stock-movement — Record a stock movement (FIFO-aware)
+  // POST /api/stock-movement — Record a stock movement using configured FEFO/FIFO allocation
   createStockMovement: (body) => request('POST', '/api/stock-movement', { body }),
   // GET /api/stock-movements — List stock movements
   listStockMovements: (params) => request('GET', '/api/stock-movements', { query: params }),

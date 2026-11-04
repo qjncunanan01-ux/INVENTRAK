@@ -43,6 +43,16 @@ const DEFAULTS = Object.freeze({
   // again (1–365; default 30 days — a monthly stocktake, the cadence most
   // small retail operations actually run). Read by src/stocktake.js.
   stocktake_cycle_days: 30,
+  // Demonstration defaults for replenishment planning. Sylver should replace
+  // these with its purchasing costs and supplier lead times before relying on
+  // the recommendations operationally.
+  eoq_ordering_cost: 50,
+  eoq_annual_holding_rate: 0.2,
+  reorder_lead_time_days: 7,
+  safety_stock_z_score: 1.65,
+  abc_a_threshold_percent: 70,
+  abc_b_threshold_percent: 90,
+  lot_allocation_policy: 'FEFO',
 });
 
 const LIMITS = Object.freeze({
@@ -50,16 +60,28 @@ const LIMITS = Object.freeze({
   low_stock_multiplier: { min: 1.0, max: 3.0 },
   session_token_hours: { min: 1, max: 168 },
   stocktake_cycle_days: { min: 1, max: 365 },
+  eoq_ordering_cost: { min: 0.01, max: 1000000 },
+  eoq_annual_holding_rate: { min: 0.01, max: 5 },
+  reorder_lead_time_days: { min: 1, max: 365 },
+  safety_stock_z_score: { min: 0.01, max: 4 },
+  abc_a_threshold_percent: { min: 1, max: 99 },
+  abc_b_threshold_percent: { min: 2, max: 100 },
 });
 
+const LOT_ALLOCATION_POLICIES = Object.freeze(['FEFO', 'FIFO']);
+
 let memo = { at: 0, value: null };
+let persistence = null;
 
 function readAll() {
   const now = Date.now();
   if (memo.value && now - memo.at < 1000) return memo.value;
   let stored = {};
   try {
-    stored = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    const raw = persistence
+      ? persistence.read()
+      : JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    stored = raw;
     if (!stored || typeof stored !== 'object' || Array.isArray(stored)) stored = {};
   } catch {
     stored = {};
@@ -69,6 +91,11 @@ function readAll() {
   const merged = { ...DEFAULTS };
   for (const key of Object.keys(DEFAULTS)) {
     if (stored[key] === undefined || stored[key] === null) continue;
+    if (key === 'lot_allocation_policy') {
+      const policy = String(stored[key]).toUpperCase();
+      merged[key] = LOT_ALLOCATION_POLICIES.includes(policy) ? policy : DEFAULTS[key];
+      continue;
+    }
     merged[key] = clamp(key, stored[key]);
   }
   memo = { at: now, value: merged };
@@ -84,9 +111,49 @@ function clamp(key, value) {
 }
 
 function writeAll(next) {
-  fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(next, null, 2));
+  if (persistence) {
+    persistence.write(next);
+  } else {
+    fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(next, null, 2));
+  }
   memo = { at: Date.now(), value: next };
+}
+
+// Cloud drivers can bind settings to their durable store after initialization.
+// Keep the JSON file as the local/test fallback, and seed a new durable store
+// from the current values so switching backends does not silently reset them.
+function configurePersistence(adapter) {
+  const current = getSettings();
+  if (adapter == null) {
+    persistence = null;
+    memo = { at: Date.now(), value: current };
+    return getSettings();
+  }
+  if (typeof adapter.read !== 'function' || typeof adapter.write !== 'function') {
+    throw new TypeError('settings persistence adapter requires read() and write()');
+  }
+
+  persistence = adapter;
+  memo = { at: 0, value: null };
+  let stored;
+  try {
+    stored = adapter.read();
+  } catch (error) {
+    persistence = null;
+    memo = { at: Date.now(), value: current };
+    throw error;
+  }
+  if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+    memo = { at: Date.now(), value: readAll() };
+  } else {
+    writeAll(current);
+  }
+  return getSettings();
+}
+
+function getPersistenceStatus() {
+  return { durable: Boolean(persistence), backend: persistence && persistence.name || 'file' };
 }
 
 // ---- Public API ----
@@ -100,7 +167,7 @@ function getSettings() {
  * caller turns `errors` into a 400 with details, mirroring the API's other
  * validation errors.
  */
-function updateSettings(patch) {
+function validateSettingsPatch(patch) {
   const current = readAll();
   const errors = [];
   const next = { ...current };
@@ -117,7 +184,7 @@ function updateSettings(patch) {
     }
   }
 
-  for (const key of ['fsn_window_days', 'low_stock_multiplier', 'session_token_hours', 'stocktake_cycle_days']) {
+  for (const key of Object.keys(LIMITS)) {
     if (patch[key] === undefined) continue;
     const num = Number(patch[key]);
     if (!Number.isFinite(num)) {
@@ -133,10 +200,25 @@ function updateSettings(patch) {
     next[key] = key.endsWith('_days') || key === 'session_token_hours' ? Math.round(num) : num;
   }
 
+  if (patch.lot_allocation_policy !== undefined) {
+    const policy = String(patch.lot_allocation_policy).toUpperCase();
+    if (!LOT_ALLOCATION_POLICIES.includes(policy)) errors.push('lot_allocation_policy must be FEFO or FIFO');
+    else next.lot_allocation_policy = policy;
+  }
+  if (next.abc_a_threshold_percent >= next.abc_b_threshold_percent) {
+    errors.push('abc_b_threshold_percent must be greater than abc_a_threshold_percent');
+  }
+
   if (errors.length > 0) return { ok: false, errors, settings: current };
 
-  writeAll(next);
   return { ok: true, settings: next, errors: [] };
+}
+
+function updateSettings(patch) {
+  const result = validateSettingsPatch(patch);
+  if (!result.ok) return result;
+  writeAll(result.settings);
+  return result;
 }
 
 // ---- Typed getters for the hot paths ----
@@ -164,15 +246,32 @@ function getStocktakeCycleDays() {
   return n > 0 ? n : DEFAULTS.stocktake_cycle_days;
 }
 
+function getInventoryAlgorithmSettings() {
+  const value = readAll();
+  return {
+    eoq_ordering_cost: Number(value.eoq_ordering_cost),
+    eoq_annual_holding_rate: Number(value.eoq_annual_holding_rate),
+    reorder_lead_time_days: Number(value.reorder_lead_time_days),
+    safety_stock_z_score: Number(value.safety_stock_z_score),
+    abc_a_threshold_percent: Number(value.abc_a_threshold_percent),
+    abc_b_threshold_percent: Number(value.abc_b_threshold_percent),
+    lot_allocation_policy: value.lot_allocation_policy,
+  };
+}
+
 module.exports = {
   DEFAULTS,
   LIMITS,
   SETTINGS_FILE,
   getSettings,
+  validateSettingsPatch,
+  configurePersistence,
+  getPersistenceStatus,
   updateSettings,
   getDemoAccountsDisabled,
   getFsnWindowDays,
   getLowStockMultiplier,
   getSessionTokenTtlMs,
   getStocktakeCycleDays,
+  getInventoryAlgorithmSettings,
 };

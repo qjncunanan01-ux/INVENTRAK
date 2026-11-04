@@ -169,15 +169,15 @@ export default function HomeScreen({ route, navigation }) {
             <View style={styles.heroCopy}>
               <Text style={styles.heroEyebrow}>WHOLESALE SUPPLIES</Text>
               <Text style={styles.heroTitle}>Stock your next creation.</Text>
-              <Text style={styles.heroSubtitle}>Build an order list and ask Sylver’s team for a quote.</Text>
+              <Text style={styles.heroSubtitle}>Browse products, add them to your cart, and check out when you are ready.</Text>
             </View>
             <TouchableOpacity
               style={styles.heroButton}
-              onPress={() => navigation.navigate('OrdersTab', { screen: 'OrderInquiry' })}
+              onPress={() => navigation.navigate('CatalogTab', { screen: 'Products' })}
               accessibilityRole="button"
-              accessibilityLabel="Start an order inquiry"
+              accessibilityLabel="Shop products"
             >
-              <Text style={styles.heroButtonText}>Start an inquiry</Text>
+              <Text style={styles.heroButtonText}>Shop products</Text>
               <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
             </TouchableOpacity>
           </View>

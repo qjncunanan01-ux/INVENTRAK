@@ -2,7 +2,7 @@ import {
   Alert, Autocomplete, Box, Button, Chip, CircularProgress, Divider, Paper,
   TextField, Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost } from '../../api';
 import { colors } from '../../theme';
 import usePageTitle from '../../hooks/usePageTitle';
@@ -42,6 +42,7 @@ export default function TillPage({ onLogout }) {
   const [lots, setLots] = useState([]);
   const [receipt, setReceipt] = useState(null);
   const [error, setError] = useState(null);
+  const pendingSaleRef = useRef(null);
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -85,15 +86,25 @@ export default function TillPage({ onLogout }) {
 
   const recordSale = async () => {
     if (!form.product || !form.location_id || !qtyValid) return;
+    const saleBody = {
+      product_id: Number(form.product.id),
+      qty,
+      location_id: Number(form.location_id),
+      customer_name: form.customer_name.trim() || undefined,
+    };
+    const fingerprint = JSON.stringify(saleBody);
+    if (!pendingSaleRef.current || pendingSaleRef.current.fingerprint !== fingerprint) {
+      const key = globalThis.crypto?.randomUUID?.() || `sale-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      pendingSaleRef.current = { fingerprint, key };
+    }
     setSaving(true);
     setError(null);
     try {
       const result = await apiPost('/api/sales', {
-        product_id: Number(form.product.id),
-        qty,
-        location_id: Number(form.location_id),
-        customer_name: form.customer_name.trim() || undefined,
+        ...saleBody,
+        idempotency_key: pendingSaleRef.current.key,
       });
+      pendingSaleRef.current = null;
       setReceipt(result);
       setForm({ product: null, qty: '', location_id: '', customer_name: '' });
       setLots([]);

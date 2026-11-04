@@ -549,7 +549,7 @@ test('contract: sales + users', async () => {
   await both('POST /api/sales', '/api/sales', {
     method: 'POST',
     auth: 'admin',
-    body: { product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer' },
+    body: { product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer', idempotency_key: 'contract-sale-0001' },
   });
   await both('POST /api/sales (no token)', '/api/sales', {
     method: 'POST',
@@ -568,12 +568,12 @@ test('contract: input validation + edge cases behave identically', async () => {
   // Requests the SQLite schema rejects (or handles specially) that the
   // npm-free fallback must mirror exactly.
   const cases = [
-    ['POST /api/sales qty="abc"', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 1, qty: 'abc' } }],
-    ['POST /api/sales qty=-5', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 1, qty: -5 } }],
+    ['POST /api/sales qty="abc"', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 1, qty: 'abc', location_id: 1, idempotency_key: 'contract-sale-bad1' } }],
+    ['POST /api/sales qty=-5', '/api/sales', { method: 'POST', auth: 'admin', body: { product_id: 1, qty: -5, location_id: 1, idempotency_key: 'contract-sale-bad2' } }],
     [
       'POST /api/sales product_id="abc"',
       '/api/sales',
-      { method: 'POST', auth: 'admin', body: { product_id: 'abc', qty: 2 } },
+      { method: 'POST', auth: 'admin', body: { product_id: 'abc', qty: 2, location_id: 1, idempotency_key: 'contract-sale-bad3' } },
     ],
     [
       'POST /api/products no price',
@@ -616,7 +616,7 @@ test('contract: input validation + edge cases behave identically', async () => {
   await both('POST /api/sales inactive product', '/api/sales', {
     method: 'POST',
     auth: 'admin',
-    body: { product_id: 2, qty: 2, location_id: 1 },
+    body: { product_id: 2, qty: 2, location_id: 1, idempotency_key: 'contract-sale-inactive' },
   });
 
   // Malformed JSON must be a 400 client error on both, never a 500.
@@ -1159,7 +1159,7 @@ test('contract: customer submits GCash receipt and admin verifies payment identi
   }
 });
 
-test('contract: delivered status accepted identically', async () => {
+test('contract: delivered status accepted after the preparation lifecycle', async () => {
   for (const side of [sqlite, npmfree]) {
     const created = await call(side.url, '/api/order-inquiries', {
       method: 'POST',
@@ -1172,12 +1172,14 @@ test('contract: delivered status accepted identically', async () => {
     });
     assert.strictEqual(created.status, 201);
     const id = created.json.id;
-    const delivered = await call(side.url, `/api/order-inquiries/${id}`, {
-      method: 'PUT',
-      token: side.token.admin,
-      body: { status: 'delivered', location_id: 1 },
-    });
-    assert.strictEqual(delivered.status, 200, 'delivery records stock movement at a location');
+    for (const status of ['preparing', 'fulfilled', 'delivered']) {
+      const moved = await call(side.url, `/api/order-inquiries/${id}`, {
+        method: 'PUT',
+        token: side.token.admin,
+        body: { status, ...(status === 'fulfilled' ? { location_id: 1 } : {}) },
+      });
+      assert.strictEqual(moved.status, 200, `${status} accepted after the prior lifecycle step`);
+    }
 
     const invalid = await call(side.url, `/api/order-inquiries/${id}`, {
       method: 'PUT',

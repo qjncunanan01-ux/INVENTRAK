@@ -1,10 +1,15 @@
 const { db } = require('../db');
 const { criticalLevelOf } = require('../inventory/critical-level');
+const { getInventoryAlgorithmSettings } = require('../governance/settings');
+const { lotOrderSql } = require('./lot-allocation');
 
 function resolveLocation(value) {
   if (!value && value !== 0) return null;
   const numeric = Number(value);
-  if (!Number.isNaN(numeric) && Number.isInteger(numeric)) return numeric;
+  if (!Number.isNaN(numeric) && Number.isInteger(numeric)) {
+    const row = db.prepare('SELECT id FROM locations WHERE id = ?').get(numeric);
+    return row ? row.id : null;
+  }
   const row = db.prepare('SELECT id FROM locations WHERE name = ?').get(value);
   return row ? row.id : null;
 }
@@ -25,7 +30,9 @@ function consumeStockLots(productId, locationId, quantity) {
   let remaining = quantity;
   const manifest = [];
 
-  const lots = db.prepare('SELECT id, qty, expiry_date, received_at FROM stock_lots WHERE product_id = ? AND location_id = ? AND qty > 0 ORDER BY (expiry_date IS NULL) ASC, expiry_date ASC, received_at ASC, id ASC').all(productId, locationId);
+  const policy = getInventoryAlgorithmSettings().lot_allocation_policy;
+  const order = lotOrderSql()[policy] || lotOrderSql().FEFO;
+  const lots = db.prepare(`SELECT id, qty, expiry_date, received_at FROM stock_lots WHERE product_id = ? AND location_id = ? AND qty > 0 ORDER BY ${order}`).all(productId, locationId);
 
   for (const lot of lots) {
     if (remaining <= 0) break;

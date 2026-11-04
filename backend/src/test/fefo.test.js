@@ -208,6 +208,63 @@ test('GET /api/stock-lots orders FEFO: dated lots first, then FIFO', async () =>
   }
 });
 
+test('FIFO setting is live and controls both lot display and stock-out allocation', async () => {
+  const policyChange = (side, policy) => call(side.url, '/api/settings', {
+    method: 'PUT',
+    token: side.token.owner,
+    body: { lot_allocation_policy: policy },
+  });
+
+  for (const side of [sqlite, npmfree]) {
+    try {
+      const setFifo = await policyChange(side, 'FIFO');
+      assert.equal(setFifo.status, 200);
+      assert.equal(setFifo.json.settings.lot_allocation_policy, 'FIFO');
+
+      const inventory = await call(side.url, '/api/inventory');
+      assert.equal(inventory.status, 200);
+      const locationName = inventory.json.locations.find(location => Number(location.id) === LOC_C).name;
+      const product = inventory.json.items.find(item => Number(item.product.id) === PROD);
+      const existingQty = Number(product.locations[locationName] || 0);
+      if (existingQty > 0) {
+        await move(side, { product_id: PROD, qty: existingQty, type: 'stock-out', src_location: LOC_C });
+      }
+
+      const baseline = await call(side.url, `/api/stock-lots?product_id=${PROD}&location_id=${LOC_C}`, {
+        token: side.token.admin,
+      });
+      assert.equal(baseline.status, 200);
+      assert.equal(baseline.json.reduce((sum, lot) => sum + Number(lot.qty), 0), 0, 'location is drained');
+
+      const beforeIds = new Set(baseline.json.map(lot => Number(lot.id)));
+      await move(side, { product_id: PROD, qty: 2, type: 'stock-in', dst_location: LOC_C });
+      const afterFirst = await call(side.url, `/api/stock-lots?product_id=${PROD}&location_id=${LOC_C}`, {
+        token: side.token.admin,
+      });
+      const fifoLot = afterFirst.json.find(lot => !beforeIds.has(Number(lot.id)));
+      assert.ok(fifoLot && fifoLot.expiry_date == null, 'first arrival is the undated FIFO lot');
+
+      const laterExpiry = day(300);
+      await move(side, { product_id: PROD, qty: 2, type: 'stock-in', dst_location: LOC_C, expiry_date: laterExpiry });
+      const beforeOut = await call(side.url, `/api/stock-lots?product_id=${PROD}&location_id=${LOC_C}`, {
+        token: side.token.admin,
+      });
+      assert.equal(Number(beforeOut.json[0].id), Number(fifoLot.id), 'FIFO display uses arrival order');
+
+      await move(side, { product_id: PROD, qty: 1, type: 'stock-out', src_location: LOC_C });
+      const afterOut = await call(side.url, `/api/stock-lots?product_id=${PROD}&location_id=${LOC_C}`, {
+        token: side.token.admin,
+      });
+      const consumedFirstArrival = afterOut.json.find(lot => Number(lot.id) === Number(fifoLot.id));
+      const datedLot = afterOut.json.find(lot => lot.expiry_date === laterExpiry);
+      assert.equal(Number(consumedFirstArrival.qty), 1, 'oldest receipt loses the first unit under FIFO');
+      assert.equal(Number(datedLot.qty), 2, 'later arrival stays untouched under FIFO');
+    } finally {
+      await policyChange(side, 'FEFO');
+    }
+  }
+});
+
 test('invalid expiring_within is rejected identically on both backends', async () => {
   for (const side of [sqlite, npmfree]) {
     for (const bad of ['nope', '-1', '99999']) {
@@ -216,5 +273,30 @@ test('invalid expiring_within is rejected identically on both backends', async (
       });
       assert.strictEqual(status, 400, `expiring_within=${bad} should 400`);
     }
+  }
+});
+
+test('stock movements require valid locations before writing the ledger', async () => {
+  for (const side of [sqlite, npmfree]) {
+    const noDestination = await call(side.url, '/api/stock-movement', {
+      method: 'POST',
+      token: side.token.admin,
+      body: { product_id: PROD, qty: 1, type: 'stock-in' },
+    });
+    assert.equal(noDestination.status, 400);
+
+    const unknownLocation = await call(side.url, '/api/stock-movement', {
+      method: 'POST',
+      token: side.token.admin,
+      body: { product_id: PROD, qty: 1, type: 'stock-in', dst_location: 999999 },
+    });
+    assert.equal(unknownLocation.status, 404);
+
+    const sameLocation = await call(side.url, '/api/stock-movement', {
+      method: 'POST',
+      token: side.token.admin,
+      body: { product_id: PROD, qty: 1, type: 'transfer', src_location: LOC_A, dst_location: LOC_A },
+    });
+    assert.equal(sameLocation.status, 400);
   }
 });

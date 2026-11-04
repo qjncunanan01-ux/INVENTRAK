@@ -142,6 +142,39 @@ test('restore: a snapshot round-trips — the change made after it is gone', asy
   }
 });
 
+test('backup: runtime settings are included, restored, and older snapshots remain compatible', async () => {
+  const side = npmfree;
+  const setOrderingCost = (value) => call(side.url, '/api/settings', {
+    method: 'PUT',
+    token: side.token.owner,
+    body: { eoq_ordering_cost: value },
+  });
+
+  const initial = await setOrderingCost(123);
+  assert.equal(initial.status, 200);
+  const snapshot = await exportBackup(side);
+  assert.equal(snapshot.tables.system_settings.length, 1);
+  assert.equal(snapshot.tables.system_settings[0].eoq_ordering_cost, 123);
+
+  const changed = await setOrderingCost(321);
+  assert.equal(changed.status, 200);
+  const restored = await restore(side, snapshot);
+  assert.equal(restored.status, 200);
+  const after = await call(side.url, '/api/settings', { token: side.token.owner });
+  assert.equal(after.json.eoq_ordering_cost, 123, 'restoring the snapshot restores settings');
+
+  const legacy = { ...snapshot, tables: { ...snapshot.tables } };
+  delete legacy.tables.system_settings;
+  const newer = await setOrderingCost(222);
+  assert.equal(newer.status, 200);
+  const legacyRestore = await restore(side, legacy);
+  assert.equal(legacyRestore.status, 200, 'pre-settings snapshots remain valid');
+  const kept = await call(side.url, '/api/settings', { token: side.token.owner });
+  assert.equal(kept.json.eoq_ordering_cost, 222, 'legacy restore leaves current settings unchanged');
+
+  await setOrderingCost(50);
+});
+
 test('restore: refuses an unconfirmed, foreign-driver or malformed snapshot', async () => {
   for (const [label, get] of SIDES) {
     const side = get();

@@ -1,12 +1,5 @@
 // Daily flash-sale helpers for the admin "Today's Flash Deals" card.
 //
-// This is an EXACT port of mobile-client/src/flash-sale.js — the same pure
-// functions (day seed, rotation, stock map, deal pricing) so the admin
-// dashboard surfaces EXACTLY the same picks and deal prices customers see in
-// the mobile carousels. CRA cannot import outside src/, so the module is
-// copied and locked against drift by a parity test (flash-sale.test.js) that
-// runs both implementations over identical inputs.
-//
 // Pure functions (no React, no device APIs) so they can be unit-tested
 // headlessly with plain Node.
 
@@ -19,8 +12,7 @@ export function msUntilDailyRefresh(from = Date.now()) {
 }
 
 // Deterministic per-local-day seed: a new integer every local day, stable
-// within the day, identical across devices (so every customer sees the same
-// "today's flash sale").
+// within that day in the current runtime's local timezone.
 export function daySeed(from = Date.now()) {
   const d = new Date(from);
   return d.getFullYear() * 372 + (d.getMonth() + 1) * 31 + d.getDate();
@@ -33,8 +25,7 @@ function gcd(a, b) {
 const FEATURED_SIZE = 6;
 
 // Pick the day's featured list from the value-ranked `eligible` products
-// (photo + in-stock, already sorted by ABC value descending). See the mobile
-// module for the full rotation rationale — this must stay identical.
+// (photo + in-stock, already sorted by ABC value descending).
 export function dailyPicks(eligible, pool = [], now = Date.now(), size = FEATURED_SIZE) {
   const picks = eligible.slice(0, size);
   if (eligible.length <= size) {
@@ -68,11 +59,10 @@ export function stockMapFromInventory(inv) {
   return stock;
 }
 
-// Today's flash-sale picks, computed IDENTICALLY to the mobile app: enrich the
-// value-ranked ABC list with catalog photo/price/category, keep photo +
-// in-stock items, then rotate a deterministic window per local day. The admin
-// calls this with the same three API payloads the mobile uses, so the
-// dashboard mirrors the customer-facing carousels exactly.
+// Today's flash-sale picks: enrich the value-ranked ABC list with catalog
+// photo/price/category, keep photo + in-stock items, then rotate a deterministic
+// window per local day. If the ABC ranking is unavailable, the catalog fills
+// the list.
 export function buildFlashPicks(abcItems, catalogItems, stockByProductId = {}, now = Date.now()) {
   const inStock = (id) => {
     const total = stockByProductId[Number(id)];
@@ -107,9 +97,8 @@ export function buildFlashPicks(abcItems, catalogItems, stockByProductId = {}, n
 }
 
 // Fake flash-sale price for a pick: a deterministic 10-25% discount derived
-// from the product id and the LOCAL DAY seed — every device shows the same
-// deal on the same day, stable within the day, changes at midnight together
-// with the rotation. Products without a price return null.
+// from the product id and the LOCAL DAY seed. The deal is stable within that
+// local day and changes with the day seed. Products without a price return null.
 export function dealPricing(product, now = Date.now()) {
   const original = Number(product && product.price) || 0;
   if (original <= 0) return null;

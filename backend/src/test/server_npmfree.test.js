@@ -190,7 +190,7 @@ test('GET /api/analytics/summary returns dashboard data (admin tier only)', asyn
 test('POST /api/sales records a sale', async () => {
   const { status, body } = await authRequest('/api/sales', {
     method: 'POST',
-    body: JSON.stringify({ product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer' }),
+    body: JSON.stringify({ product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer', idempotency_key: 'npmfree-sale-test-1' }),
   });
   assert.strictEqual(status, 201);
   assert.strictEqual(body.ok, true);

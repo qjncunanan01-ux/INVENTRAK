@@ -149,12 +149,13 @@ describe('TillPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Record sale/ }));
 
     await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
-    expect(apiPost).toHaveBeenCalledWith('/api/sales', {
+    expect(apiPost).toHaveBeenCalledWith('/api/sales', expect.objectContaining({
       product_id: 1,
       qty: 2,
       location_id: 1,
       customer_name: 'Maria (walk-in)',
-    });
+      idempotency_key: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+    }));
 
     const receipt = await screen.findByLabelText('Sale receipt');
     await waitFor(() => expect(receipt).toHaveTextContent('3,210'));

@@ -25,7 +25,7 @@ const DEFAULT_FULFILLMENT = 'pickup';
 // 'cancelled' is deliberately NOT here: cancellation has its own endpoint so
 // the timestamp, the reason and the responsible user are always recorded the
 // same way, instead of being one more value an admin can type.
-const ASSIGNABLE_STATUSES = ['pending', 'approved', 'rejected', 'fulfilled', 'delivered'];
+const ASSIGNABLE_STATUSES = ['pending', 'approved', 'preparing', 'rejected', 'fulfilled', 'delivered'];
 
 const COMPANY_DEMO_TRANSITIONS = {
   pending: ['approved', 'rejected'],
@@ -38,22 +38,23 @@ const COMPANY_DEMO_TRANSITIONS = {
 };
 
 // Legal forward moves. Everything absent from a row is refused.
-//   pending   -> approved / rejected / fulfilled / delivered
-//   approved  -> fulfilled / delivered / rejected
+//   pending   -> approved / preparing / rejected
+//   approved  -> preparing / rejected
+//   preparing -> fulfilled / rejected
 //   fulfilled -> delivered
 // rejected, delivered and cancelled are TERMINAL: nothing leaves them.
 const TRANSITIONS = {
-  pending: ['approved', 'rejected', 'fulfilled', 'delivered'],
-  approved: ['fulfilled', 'delivered', 'rejected'],
+  pending: ['approved', 'preparing', 'rejected'],
+  approved: ['preparing', 'rejected'],
+  preparing: ['fulfilled', 'rejected'],
   fulfilled: ['delivered'],
   rejected: [],
   delivered: [],
   cancelled: [],
 };
 
-// Only these can still be cancelled by the customer. Once the business has
-// fulfilled or delivered the order, or already decided it, cancelling is a
-// conversation with the business, not a button.
+// Only pending or approved orders can still be cancelled by the customer.
+// Once staff start preparing the order, cancellation needs store assistance.
 const CANCELLABLE_FROM = ['pending', 'approved'];
 
 const MAX_REASON = 500;
@@ -128,7 +129,7 @@ function appendStatusEvent(historyJson, { status, at, by = null, reason = null, 
 // The guard both PUT handlers call. Returns null when the change is allowed, or
 // { status, error } describing the refusal.
 function checkStatusChange({ from, to, companyDemo = false }) {
-  const assignable = companyDemo ? [...ASSIGNABLE_STATUSES, 'preparing'] : ASSIGNABLE_STATUSES;
+  const assignable = ASSIGNABLE_STATUSES;
   const transitions = companyDemo ? COMPANY_DEMO_TRANSITIONS : TRANSITIONS;
   if (!assignable.includes(to)) {
     return {
@@ -162,7 +163,7 @@ function checkCancellation({ from, fulfillment_method, companyDemo = false }) {
   if (!cancellable.includes(from)) {
     return {
       status: 409,
-      error: `Only a pending or approved inquiry can be cancelled — this one is ${from}`,
+      error: `Only a pending or approved order can be cancelled — this one is ${from}`,
     };
   }
   return null;

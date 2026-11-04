@@ -431,7 +431,7 @@ httpTest('both backends agree on the numbers, not just the shape', async () => {
 
     await call(side.url, '/api/sales', {
       method: 'POST', token: side.token.admin,
-      body: { product_id: PRODUCT, qty: SOLD, location_id: LOC, customer_name: 'Parity Buyer' },
+      body: { product_id: PRODUCT, qty: SOLD, location_id: LOC, customer_name: 'Parity Buyer', idempotency_key: `reconcile-sale-${tag}` },
     });
 
     // Re-count what the shelf REALLY holds: the start, minus the recorded sale,

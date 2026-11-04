@@ -36,10 +36,14 @@ const TABLES = {
   // Customer Records — the business entity behind orders and sales. Distinct
   // from `users`, which are accounts (see backend/src/customers.js).
   '@customers': 'customers',
+  // Durable owner-configurable runtime settings. Create this table with
+  // supabase-settings-migration.sql before enabling it for Supabase.
+  '@systemSettings': 'system_settings',
 };
 
 let client = null; // supabase client
 const cache = {}; // table -> { rows: [...], byId: Map }
+const loadedTables = new Set();
 let writeChain = Promise.resolve();
 let ready = false;
 
@@ -53,6 +57,11 @@ function tableFor(file) {
 
 function isReady() {
   return ready;
+}
+
+function isDatasetAvailable(file) {
+  const table = tableFor(file);
+  return Boolean(ready && table && loadedTables.has(table));
 }
 
 function upsertRow(table, id, idx, data) {
@@ -80,6 +89,7 @@ async function loadTable(client, table) {
     rows: [],
     byId: new Map(entries.map(e => [String(e.id), e])),
   };
+  loadedTables.add(table);
   rebuildRows(table);
 }
 
@@ -176,6 +186,10 @@ function write(file, rows) {
     });
 }
 
+function flush() {
+  return writeChain;
+}
+
 async function init() {
   if (client) return; // already initialized
 
@@ -257,4 +271,4 @@ async function init() {
   console.log(`[supabase] Driver initialized — ${rebuildRows('products').length} products loaded`);
 }
 
-module.exports = { read, write, init, isReady };
+module.exports = { read, write, init, isReady, isDatasetAvailable, flush };

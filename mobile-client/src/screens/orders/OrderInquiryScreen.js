@@ -260,8 +260,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
         customer_name: customerName,
         customer_email: customerEmail,
         customer_phone: customerPhone.trim() || null,
-        // Use the latest catalog values for the inquiry estimate. Store staff
-        // confirm the final price before approving the order.
+        // The backend validates catalog prices and availability again before
+        // accepting the purchase into the order workflow.
         products: selectedItems.map((item) => ({
           id: item.id,
           name: item.name,
@@ -312,7 +312,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
       setSuccessInfo({ count: orderedCount, method: orderedMethod });
       setShowSuccess(true);
     } catch (err) {
-      setMessage('Failed to submit inquiry.');
+      setMessage('Could not place the order.');
       setErrorMsg(err.message || 'Could not place your order. Please try again.');
       setShowError(true);
     } finally {
@@ -406,7 +406,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
           <Text style={styles.fulfillmentNoteBody}>
             {COMPANY_DEMO
               ? 'Sylver Restaurant & Café Supplier OPC · 23-B Mohawk Street, Concepcion Uno, Marikina City · Monday–Saturday, 8:00 AM–5:00 PM. Bring your order reference.'
-              : 'Your branch will contact you with the pickup schedule once the order is confirmed. Bring the inquiry reference from your orders screen when you collect.'}
+              : 'We will show your pickup instructions and order reference in My Orders.'}
           </Text>
         </View>
       ) : (
@@ -438,6 +438,12 @@ export default function OrderInquiryScreen({ route, navigation }) {
       <View style={styles.paymentRow}>
         {paymentMethods.filter((method) => fulfillment !== 'courier' || !['credit', 'card', 'qrph'].includes(method.id)).map((m) => {
           const active = paymentMethod === m.id;
+          const paymentLabel = m.id === 'cod'
+            ? (fulfillment === 'pickup' ? 'Cash on pickup' : 'Cash on delivery')
+            : m.label;
+          const paymentHint = m.id === 'cod'
+            ? (fulfillment === 'pickup' ? 'Pay when you collect' : 'Pay when your order arrives')
+            : m.hint;
           return (
             <TouchableOpacity
               key={m.id}
@@ -445,8 +451,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
               onPress={() => setPaymentMethod(m.id)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.paymentChipLabel, active && styles.paymentChipLabelActive]}>{m.label}</Text>
-              <Text style={[styles.paymentChipHint, active && styles.paymentChipHintActive]}>{m.hint}</Text>
+              <Text style={[styles.paymentChipLabel, active && styles.paymentChipLabelActive]}>{paymentLabel}</Text>
+              <Text style={[styles.paymentChipHint, active && styles.paymentChipHintActive]}>{paymentHint}</Text>
             </TouchableOpacity>
           );
         })}
@@ -568,7 +574,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
       />
       {showFieldError('notes') && fieldErrors.notes ? <Text style={styles.fieldError}>{fieldErrors.notes}</Text> : null}
       <View style={styles.termsCard}>
-        <Text style={styles.termsTitle}>Order rules and terms (demo)</Text>
+        <Text style={styles.termsTitle}>{COMPANY_DEMO ? 'Demo ordering rules' : 'Ordering information'}</Text>
         {ORDER_TERMS.map((term, index) => (
           <Text key={`term-${index}`} style={styles.termsText}>• {term}</Text>
         ))}
@@ -584,7 +590,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
           <Text style={styles.termsCheck}>{termsAccepted ? '☑' : '☐'}</Text>
           <Text style={styles.termsCheckText}>I have read and agree to these terms.</Text>
         </TouchableOpacity>
-        {showFieldError('terms') && !termsAccepted ? <Text style={styles.fieldError}>Accept the terms to submit your inquiry.</Text> : null}
+        {showFieldError('terms') && !termsAccepted ? <Text style={styles.fieldError}>Accept the terms to place your order.</Text> : null}
       </View>
       <Button
         title={submitting ? 'Placing order...' : 'Place Order'}
@@ -605,13 +611,15 @@ export default function OrderInquiryScreen({ route, navigation }) {
         onCancel={() => setShowError(false)}
       />
 
-      {/* Order placed confirmation (COD path) */}
+      {/* Order placed confirmation for payment methods without a hosted checkout. */}
       <Dialog
         visible={showSuccess}
         glyph="🎉"
         title="Order Placed"
-        body={`Your order (${successInfo.count} item${successInfo.count === 1 ? '' : 's'}, ${successInfo.method}) has been submitted. The store will review it shortly.`}
-        confirmLabel="View my orders"
+        body={COMPANY_DEMO
+          ? `Your order (${successInfo.count} item${successInfo.count === 1 ? '' : 's'}, ${successInfo.method}) has been submitted. The store will review it shortly.`
+          : `Your order (${successInfo.count} item${successInfo.count === 1 ? '' : 's'}, ${successInfo.method}) is placed. Track preparation and delivery in My Orders.`}
+        confirmLabel="View My Orders"
         onConfirm={() => {
           setShowSuccess(false);
           navigation.navigate('InquiryHistory');
@@ -636,7 +644,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
             <Text style={styles.modalGlyph}>🔒</Text>
             <Text style={styles.modalTitle}>Account Required</Text>
             <Text style={styles.modalBody}>
-              Create a free account or log in to place your order inquiry.
+              Create a free account or log in to place your order.
             </Text>
             <TouchableOpacity
               style={[styles.modalBtn, styles.modalBtnPrimary]}

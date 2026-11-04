@@ -21,7 +21,7 @@ router.get('/', authenticateToken, managementOnly, (req, res) => {
   const stockByLocation = db.prepare(`SELECT l.name as location, COALESCE(SUM(s.quantity), 0) as total FROM locations l LEFT JOIN stock s ON s.location_id = l.id GROUP BY l.id ORDER BY l.id`).all();
 
   const statusRows = db.prepare('SELECT status, COUNT(*) as count FROM order_inquiries GROUP BY status').all();
-  const orderStatusSummary = { pending: 0, approved: 0, rejected: 0, fulfilled: 0, delivered: 0 };
+  const orderStatusSummary = { pending: 0, approved: 0, preparing: 0, rejected: 0, fulfilled: 0, delivered: 0, cancelled: 0 };
   statusRows.forEach((r) => { if (orderStatusSummary[r.status] !== undefined) orderStatusSummary[r.status] = r.count; });
 
   const levelMap = criticalLevels();
