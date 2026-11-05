@@ -168,6 +168,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   updateOrderInquiry: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}', { params: { id }, body }),
   // POST /api/order-inquiries/{id}/cancel — Cancel an unpaid order (customer-initiated)
   cancelOrderInquiry: ({ id }, body) => request('POST', '/api/order-inquiries/{id}/cancel', { params: { id }, body }),
+  // PUT /api/order-inquiries/{id}/delivery-booking — Record a customer-booked Lalamove delivery
+  submitDeliveryBooking: ({ id }, body) => request('PUT', '/api/order-inquiries/{id}/delivery-booking', { params: { id }, body }),
   // GET /api/order-inquiries/{id}/costing — Get the immutable costing snapshot frozen when the inquiry was submitted
   getInquiryCosting: ({ id }) => request('GET', '/api/order-inquiries/{id}/costing', { params: { id } }),
   // PUT /api/order-inquiries/{id}/payment — Submit GCash payment proof, complete a demo card payment, or verify payment as an admin

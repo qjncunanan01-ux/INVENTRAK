@@ -4,7 +4,9 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Linking,
   Modal,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -15,7 +17,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { apiPost, cancelOrderInquiry, listBackOrders, listOrderInquiries, useSessionUsername } from '../../api';
+import { apiPost, cancelOrderInquiry, listBackOrders, listOrderInquiries, submitDeliveryBooking, useSessionUsername } from '../../api';
 import Dialog from '../../Dialog';
 import EmptyState from '../../EmptyState';
 import { useThemeColors } from '../../theme-context';
@@ -27,7 +29,7 @@ const STATUS_TABS = [
   { key: 'pending', label: COMPANY_DEMO ? 'Review' : 'Placed' },
   { key: 'approved', label: COMPANY_DEMO ? 'Confirmed' : 'To prepare' },
   { key: 'preparing', label: 'Preparing' },
-  { key: 'fulfilled', label: 'Ready / sent' },
+  { key: 'fulfilled', label: 'Ready / courier booking' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'cancelled', label: 'Cancelled' },
@@ -39,6 +41,24 @@ const STATUS_TABS = [
 const CANCELLABLE = COMPANY_DEMO ? ['pending', 'approved', 'preparing'] : ['pending', 'approved'];
 
 const FULFILLMENT_LABELS = { pickup: 'Pickup at store', courier: 'Courier delivery' };
+const LALAMOVE_PICKUP_ADDRESS = '23-B Mohawk Street, Concepcion Uno, Marikina City';
+const LALAMOVE_APP_STORE_URL = Platform.OS === 'ios'
+  ? 'https://apps.apple.com/ph/app/lalamove-fast-affordable/id735701965'
+  : 'https://play.google.com/store/apps/details?id=hk.easyvan.app.client';
+
+function lalamoveBookingUrl(dropoff) {
+  return `https://web.lalamove.com/?location=PH&pickup=${encodeURIComponent(LALAMOVE_PICKUP_ADDRESS)}&dropoff=${encodeURIComponent(dropoff || '')}`;
+}
+
+function isLalamoveShareUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password &&
+      (parsed.hostname.toLowerCase() === 'lalamove.com' || parsed.hostname.toLowerCase().endsWith('.lalamove.com'));
+  } catch {
+    return false;
+  }
+}
 
 function amountDueForOrder(order) {
   const total = Number(order.estimated_cost || 0) + Number(order.delivery_fee || 0);
@@ -75,6 +95,9 @@ export default function InquiryHistoryScreen({ navigation }) {
   const [returnProofData, setReturnProofData] = useState('');
   const [requestBusy, setRequestBusy] = useState(false);
   const [requestError, setRequestError] = useState('');
+  const [deliveryBookingInputs, setDeliveryBookingInputs] = useState({});
+  const [deliveryBookingErrors, setDeliveryBookingErrors] = useState({});
+  const [deliveryBookingBusyId, setDeliveryBookingBusyId] = useState(null);
 
   const fetchData = useCallback(async() => {
     try {
@@ -136,6 +159,55 @@ export default function InquiryHistoryScreen({ navigation }) {
       setRequestError(err.message || 'Could not send the change request.');
     } finally {
       setRequestBusy(false);
+    }
+  };
+
+  const openLalamoveBooking = async(item) => {
+    try {
+      await Linking.openURL(lalamoveBookingUrl(item.delivery_address));
+    } catch {
+      setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: 'Could not open Lalamove. Copy the delivery address and open Lalamove manually.' }));
+    }
+  };
+
+  const openLalamoveAppStore = async(item) => {
+    try {
+      await Linking.openURL(LALAMOVE_APP_STORE_URL);
+    } catch {
+      setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: 'Could not open the app store. Search for “Lalamove - Fast & Affordable” in your device’s app store.' }));
+    }
+  };
+
+  const openSavedLalamoveLink = async(item) => {
+    try {
+      if (!isLalamoveShareUrl(item.delivery_booking_url)) throw new Error('This is not a valid Lalamove share link.');
+      await Linking.openURL(item.delivery_booking_url);
+    } catch (err) {
+      setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: err.message || 'Could not open the Lalamove booking link.' }));
+    }
+  };
+
+  const saveDeliveryBooking = async(item) => {
+    const input = deliveryBookingInputs[item.id] || {};
+    const reference = String(input.reference ?? item.delivery_booking_reference ?? '').trim();
+    const url = String(input.url ?? item.delivery_booking_url ?? '').trim();
+    if (!reference) {
+      setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: 'Enter the Lalamove booking reference.' }));
+      return;
+    }
+    if (url && !isLalamoveShareUrl(url)) {
+      setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: 'Use the HTTPS Lalamove share link, or leave this field blank.' }));
+      return;
+    }
+    setDeliveryBookingBusyId(item.id);
+    setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: '' }));
+    try {
+      await submitDeliveryBooking({ id: item.id }, { booking_reference: reference, ...(url ? { booking_url: url } : {}) });
+      await fetchData();
+    } catch (err) {
+      setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: err.message || 'Could not save the Lalamove booking details.' }));
+    } finally {
+      setDeliveryBookingBusyId(null);
     }
   };
 
@@ -225,12 +297,12 @@ export default function InquiryHistoryScreen({ navigation }) {
 
   const getStatusLabel = (item) => {
     const labels = COMPANY_DEMO
-      ? { pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Dispatched' : 'Ready for pickup' }
+      ? { pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? (item.delivery_booking_reference ? 'Lalamove booked' : 'Ready for courier pickup') : 'Ready for pickup' }
       : {
         pending: item.payment_method === 'qrph' && item.payment_status !== 'paid' ? 'Awaiting payment' : 'Order placed',
         approved: 'To prepare',
         preparing: 'Preparing',
-        fulfilled: item.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup',
+        fulfilled: item.fulfillment_method === 'courier' ? (item.delivery_booking_reference ? 'Lalamove booked' : 'Ready for courier pickup') : 'Ready for pickup',
         delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled',
       };
     return labels[item.status] || item.status;
@@ -334,8 +406,8 @@ export default function InquiryHistoryScreen({ navigation }) {
       events = [{ status: item.status, at: item.created_at }];
     }
     const labels = COMPANY_DEMO
-      ? { pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Dispatched' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }
-      : { pending: 'Placed', approved: 'To prepare', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' };
+      ? { pending: 'Review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Ready for courier pickup' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }
+      : { pending: 'Placed', approved: 'To prepare', preparing: 'Preparing', fulfilled: item.fulfillment_method === 'courier' ? 'Ready for courier pickup' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' };
     return (
       <View style={styles.timeline}>
         {events.map((e, idx) => (
@@ -453,7 +525,7 @@ export default function InquiryHistoryScreen({ navigation }) {
               Cost: P{Number(item.estimated_cost).toFixed(2)} ·{' '}
               Payment: {(item.payment_method || 'cod').toUpperCase()}
               {item.bulk_discount_amount ? ` · −P${Number(item.bulk_discount_amount).toFixed(2)} bulk discount` : ''}
-              {COMPANY_DEMO && item.fulfillment_method === 'courier' ? ` · P${Number(item.delivery_fee || 0).toFixed(2)} delivery` : ''}
+              {COMPANY_DEMO && item.fulfillment_method === 'courier' && Number(item.delivery_fee || 0) > 0 ? ` · P${Number(item.delivery_fee).toFixed(2)} delivery` : ''}
               {item.payment_status === 'paid' ? ' · ✅ PAID' : ''}
               {item.payment_status === 'partial' ? ` · Partial: P${Number(item.amount_paid || 0).toFixed(2)} paid` : ''}
               {item.payment_status === 'pending_verification' ? ' · ⌛ Payment submitted for review' : ''}
@@ -483,6 +555,57 @@ export default function InquiryHistoryScreen({ navigation }) {
               <Text style={styles.detail} numberOfLines={2}>
                 📍 {item.delivery_address}
               </Text>
+            ) : null}
+            {item.fulfillment_method === 'courier' ? (
+              <Text style={styles.detail}>After the store marks your order ready, book and pay Lalamove directly. Its courier fee is separate from your Sylver order payment.</Text>
+            ) : null}
+            {item.fulfillment_method === 'courier' && item.status === 'fulfilled' ? (
+              <View style={styles.deliveryBookingBox}>
+                <Text style={styles.deliveryBookingTitle}>Book your courier</Text>
+                <Text style={styles.detail}>Your order is ready at the store. Book and pay Lalamove directly; check the pickup and drop-off before confirming. The web link below keeps both addresses filled in.</Text>
+                <TouchableOpacity style={styles.requestBtn} onPress={() => openLalamoveBooking(item)} accessibilityRole="button">
+                  <Text style={styles.requestBtnText}>Open Lalamove Web with addresses</Text>
+                </TouchableOpacity>
+                {Platform.OS === 'android' || Platform.OS === 'ios' ? (
+                  <TouchableOpacity style={styles.requestBtn} onPress={() => openLalamoveAppStore(item)} accessibilityRole="button">
+                    <Text style={styles.requestBtnText}>Open / install the Lalamove app</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {item.delivery_booking_reference ? (
+                  <Text style={styles.detail}>Booking reference saved: {item.delivery_booking_reference}{item.delivery_booked_at ? ` · ${new Date(item.delivery_booked_at).toLocaleString()}` : ''}</Text>
+                ) : null}
+                <TextInput
+                  style={styles.deliveryBookingInput}
+                  value={deliveryBookingInputs[item.id]?.reference ?? item.delivery_booking_reference ?? ''}
+                  onChangeText={(value) => setDeliveryBookingInputs((previous) => ({ ...previous, [item.id]: { ...previous[item.id], reference: value } }))}
+                  placeholder="Lalamove booking reference"
+                  placeholderTextColor={colors.textSecondary}
+                  maxLength={120}
+                  autoCapitalize="characters"
+                  accessibilityLabel="Lalamove booking reference"
+                />
+                <TextInput
+                  style={styles.deliveryBookingInput}
+                  value={deliveryBookingInputs[item.id]?.url ?? item.delivery_booking_url ?? ''}
+                  onChangeText={(value) => setDeliveryBookingInputs((previous) => ({ ...previous, [item.id]: { ...previous[item.id], url: value } }))}
+                  placeholder="Lalamove share link (optional)"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="url"
+                  autoCapitalize="none"
+                  maxLength={2000}
+                  accessibilityLabel="Lalamove share link, optional"
+                />
+                <TouchableOpacity style={styles.paymentBtn} disabled={deliveryBookingBusyId === item.id} onPress={() => saveDeliveryBooking(item)} accessibilityRole="button">
+                  <Text style={styles.paymentBtnText}>{deliveryBookingBusyId === item.id ? 'Saving…' : item.delivery_booking_reference ? 'Update booking details' : 'Save booking details'}</Text>
+                </TouchableOpacity>
+                {item.delivery_booking_url && isLalamoveShareUrl(item.delivery_booking_url) ? (
+                  <TouchableOpacity style={styles.requestBtn} onPress={() => openSavedLalamoveLink(item)} accessibilityRole="button">
+                    <Text style={styles.requestBtnText}>Open Lalamove booking link</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {deliveryBookingErrors[item.id] ? <Text style={styles.deliveryBookingError}>{deliveryBookingErrors[item.id]}</Text> : null}
+                <Text style={styles.detail}>Lalamove status and delivery confirmation are handled separately; Sylver will update this order when delivery is confirmed.</Text>
+              </View>
             ) : null}
             {/* Why it was rejected / cancelled — never a bare status chip. */}
             {item.status === 'rejected' && item.rejection_reason ? (
@@ -692,6 +815,10 @@ export default function InquiryHistoryScreen({ navigation }) {
 
 const createStyles = (colors) => StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: 12, marginBottom: 12, padding: 14 },
+  deliveryBookingBox: { backgroundColor: colors.background, borderColor: colors.border, borderRadius: 10, borderWidth: 1, marginTop: 8, padding: 12 },
+  deliveryBookingTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '800', marginBottom: 5 },
+  deliveryBookingInput: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, color: colors.textPrimary, fontSize: 14, marginTop: 8, paddingHorizontal: 11, paddingVertical: 10 },
+  deliveryBookingError: { color: colors.error, fontSize: 12, marginTop: 6 },
   cardFooter: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
   cancelBtn: { borderColor: colors.error, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
   cancelBtnText: { color: colors.error, fontSize: 12, fontWeight: '700' },

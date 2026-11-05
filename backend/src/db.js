@@ -87,6 +87,15 @@ if (!inquiryColumns.some(c => c.name === 'customer_phone')) {
 if (!inquiryColumns.some(c => c.name === 'delivery_address')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN delivery_address TEXT');
 }
+if (!inquiryColumns.some(c => c.name === 'delivery_booking_reference')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN delivery_booking_reference TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'delivery_booking_url')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN delivery_booking_url TEXT');
+}
+if (!inquiryColumns.some(c => c.name === 'delivery_booked_at')) {
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN delivery_booked_at TEXT');
+}
 if (!inquiryColumns.some(c => c.name === 'payment_method')) {
   db.exec("ALTER TABLE order_inquiries ADD COLUMN payment_method TEXT DEFAULT 'cod'");
 }

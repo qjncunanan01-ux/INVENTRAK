@@ -8,11 +8,11 @@ import { ORDER_TERMS, ORDER_TERMS_VERSION } from '../../order-terms';
 import { showToast } from '../../toast';
 import { productTitle } from '../../product-enrichment';
 
-// How the order is received. A PREFERENCE, not a courier booking: the business
-// arranges delivery; nothing here promises a window or a live tracker.
+// How the order is received. Courier means the customer books Lalamove directly
+// after the store marks the goods ready; the app does not create a courier job.
 const FULFILLMENT_METHODS = [
   { id: 'pickup', label: 'Pickup', hint: 'Collect at the store' },
-  { id: 'courier', label: 'Courier', hint: 'Deliver to my address' },
+  { id: 'courier', label: 'Courier', hint: 'Book Lalamove when ready' },
 ];
 
 const COMPANY_DEMO = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true';
@@ -426,9 +426,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
           <View style={styles.fulfillmentNote}>
             <Text style={styles.fulfillmentNoteTitle}>Courier delivery</Text>
             <Text style={styles.fulfillmentNoteBody}>
-              {COMPANY_DEMO
-                ? 'Service areas: Marikina, Antipolo/Rizal, Pasig, selected Quezon City areas, and other Metro Manila areas by arrangement. Sylver confirms the fee and schedule before payment.'
-                : 'Delivery is arranged by the store; the schedule and any delivery charge are confirmed with you before dispatch.'}
+              After the store marks your goods ready, book and pay Lalamove directly. Lalamove confirms service availability, fee, and timing; its charge is separate from your order payment.
             </Text>
           </View>
         </>
@@ -436,7 +434,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
 
       <Text style={styles.sectionTitle}>3 · Payment method</Text>
       <View style={styles.paymentRow}>
-        {paymentMethods.filter((method) => fulfillment !== 'courier' || !['credit', 'card', 'qrph'].includes(method.id)).map((m) => {
+        {paymentMethods.filter((method) => fulfillment !== 'courier' || (!['credit', 'card', 'qrph'].includes(method.id) && !(COMPANY_DEMO && method.id === 'cash'))).map((m) => {
           const active = paymentMethod === m.id;
           const paymentLabel = m.id === 'cod'
             ? (fulfillment === 'pickup' ? 'Cash on pickup' : 'Cash on delivery')

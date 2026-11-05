@@ -351,6 +351,7 @@ export const createOrderInquiry = client.createOrderInquiry;
 // repeated cancel is idempotent on the server and returns the ORIGINAL
 // timestamp and reason rather than rewriting them.
 export const cancelOrderInquiry = client.cancelOrderInquiry;
+export const submitDeliveryBooking = client.submitDeliveryBooking;
 export const updateInquiryPayment = client.updateInquiryPayment;
 export const getOptimizationBulk = client.getOptimizationBulk;
 export const getOptimizationAbc = client.getOptimizationAbc;

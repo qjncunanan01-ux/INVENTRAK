@@ -22,7 +22,7 @@ const STATUS_FILTERS = [
   { key: 'pending', label: 'New / awaiting payment', demoLabel: 'Needs review' },
   { key: 'approved', label: 'To prepare', demoLabel: 'Confirmed' },
   { key: 'preparing', label: 'Preparing' },
-  { key: 'fulfilled', label: 'Ready / dispatched' },
+  { key: 'fulfilled', label: 'Ready / courier booking' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'cancelled', label: 'Cancelled' },
@@ -31,6 +31,17 @@ const STATUS_FILTERS = [
 // How the customer asked to receive the order. A preference only — nothing in
 // this system books a courier.
 const FULFILLMENT_LABELS = { pickup: 'PICKUP', courier: 'COURIER' };
+
+function isLalamoveShareUrl(value) {
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase();
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password &&
+      (host === 'lalamove.com' || host.endsWith('.lalamove.com'));
+  } catch {
+    return false;
+  }
+}
 
 // Parse an order's stored products JSON into an array of line items.
 // Handles the structured lines ({ name, qty, price, original_price, ... })
@@ -128,7 +139,7 @@ function parseStoredOrderObject(value) {
 const STANDARD_TIMELINE_STEPS = [
   { key: 'pending', label: 'Placed' },
   { key: 'preparing', label: 'Preparing' },
-  { key: 'fulfilled', label: 'Ready / dispatched' },
+  { key: 'fulfilled', label: 'Ready / courier booking' },
   { key: 'delivered', label: 'Delivered' },
 ];
 
@@ -200,7 +211,7 @@ export default function OrderInquiriesPage({ onLogout }) {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   // `reason` is the rejection reason. It is REQUIRED for a rejection (the
   // backend refuses a bare one) and ignored for every other action.
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', delivery_fee: '', delivery_schedule: '', order: null });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', order: null });
   const [receipt, setReceipt] = useState(null);
   const [details, setDetails] = useState(null);
   const [refundAmounts, setRefundAmounts] = useState({});
@@ -211,7 +222,7 @@ export default function OrderInquiriesPage({ onLogout }) {
       { key: 'pending', label: 'Review' },
       { key: 'approved', label: 'Confirmed' },
       { key: 'preparing', label: 'Preparing' },
-      { key: 'fulfilled', label: 'Ready / dispatched' },
+      { key: 'fulfilled', label: 'Ready / courier booking' },
       { key: 'delivered', label: 'Delivered' },
     ]
     : STANDARD_TIMELINE_STEPS;
@@ -245,18 +256,16 @@ export default function OrderInquiriesPage({ onLogout }) {
   }, [loadOrders]);
 
   const handleConfirmAction = (orderId, status) => {
-    setConfirmDialog({ open: true, id: orderId, status, reason: '', delivery_fee: '', delivery_schedule: '', order: orders.find((order) => Number(order.id) === Number(orderId)) || null });
+    setConfirmDialog({ open: true, id: orderId, status, reason: '', order: orders.find((order) => Number(order.id) === Number(orderId)) || null });
   };
 
-  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', delivery_fee: '', delivery_schedule: '', order: null });
+  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', order: null });
 
   // A rejection is only meaningful with a reason the customer can act on, so
   // the Confirm button stays disabled until one is typed. The backend enforces
   // the same rule — this is the affordance, not the guard.
   const isRejection = confirmDialog.status === 'rejected';
   const reasonMissing = isRejection && !confirmDialog.reason.trim();
-  const needsQuote = companyDemo && confirmDialog.status === 'approved' && confirmDialog.order?.fulfillment_method === 'courier';
-  const quoteMissing = needsQuote && (confirmDialog.delivery_fee === '' || !Number.isFinite(Number(confirmDialog.delivery_fee)) || Number(confirmDialog.delivery_fee) < 0 || !confirmDialog.delivery_schedule.trim());
 
   const executeAction = async() => {
     if (reasonMissing) return;
@@ -264,7 +273,6 @@ export default function OrderInquiriesPage({ onLogout }) {
       await apiPut(`/api/order-inquiries/${confirmDialog.id}`, {
         status: confirmDialog.status,
         ...(isRejection ? { rejection_reason: confirmDialog.reason.trim() } : {}),
-        ...(needsQuote ? { delivery_fee: Number(confirmDialog.delivery_fee), delivery_schedule: confirmDialog.delivery_schedule.trim() } : {}),
       });
       const actionMessage = confirmDialog.status === 'approved'
         ? 'Order confirmed and stock reserved'
@@ -355,7 +363,7 @@ export default function OrderInquiriesPage({ onLogout }) {
       return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}><Button size="small" onClick={() => setDetails(order)}>Details</Button><Button size="small" variant="contained" color="primary" onClick={() => handleConfirmAction(order.id, 'preparing')}>Start preparing</Button></Box>;
     }
     if (companyDemo && order.status === 'preparing') {
-      const label = order.fulfillment_method === 'courier' ? 'Dispatch order' : 'Ready for pickup';
+      const label = order.fulfillment_method === 'courier' ? 'Ready for courier pickup' : 'Ready for pickup';
       return <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}><Button size="small" onClick={() => setDetails(order)}>Details</Button><Button size="small" variant="contained" color="success" onClick={() => handleConfirmAction(order.id, 'fulfilled')}>{label}</Button></Box>;
     }
     if (order.status === 'approved') {
@@ -368,7 +376,7 @@ export default function OrderInquiriesPage({ onLogout }) {
       );
     }
     if (order.status === 'preparing') {
-      const label = order.fulfillment_method === 'courier' ? 'Dispatch order' : 'Ready for pickup';
+      const label = order.fulfillment_method === 'courier' ? 'Ready for courier pickup' : 'Ready for pickup';
       return (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           <Button size="small" onClick={() => setDetails(order)}>Details</Button>
@@ -486,6 +494,9 @@ export default function OrderInquiriesPage({ onLogout }) {
                         {companyDemo && order.payment_status === 'credit_pending' && <Chip size="small" label="CREDIT REVIEW" color="warning" />}
                         {companyDemo && order.payment_status === 'credit_approved' && <Chip size="small" label="CREDIT APPROVED" color="success" />}
                         {order.payment_status === 'unpaid' && order.payment_method !== 'cod' && order.payment_method !== 'cash' && <Chip size="small" label="UNPAID" variant="outlined" />}
+                        {order.fulfillment_method === 'courier' && order.status === 'fulfilled' && (
+                          <Chip size="small" label={order.delivery_booking_reference ? 'LALAMOVE BOOKED' : 'AWAITING LALAMOVE'} color={order.delivery_booking_reference ? 'success' : 'warning'} variant="outlined" />
+                        )}
                       </Box>
                       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                         {order.delivery_address || '—'}
@@ -496,8 +507,8 @@ export default function OrderInquiriesPage({ onLogout }) {
                     </TableCell>
                     <TableCell>
                       <Chip label={companyDemo
-                        ? ({ pending: 'Pending review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: order.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }[order.status] || order.status)
-        : ({ pending: ['qrph', 'gcash', 'other'].includes(order.payment_method) && order.payment_status !== 'paid' ? 'Awaiting payment' : 'New order', approved: 'To prepare', preparing: 'Preparing', fulfilled: order.fulfillment_method === 'courier' ? 'Out for delivery' : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }[order.status] || order.status)} color={STATUS_COLORS[order.status] || 'default'} size="small" />
+                        ? ({ pending: 'Pending review', approved: 'Confirmed', preparing: 'Preparing', fulfilled: order.fulfillment_method === 'courier' ? (order.delivery_booking_reference ? 'Lalamove booked' : 'Ready for courier pickup') : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }[order.status] || order.status)
+        : ({ pending: ['qrph', 'gcash', 'other'].includes(order.payment_method) && order.payment_status !== 'paid' ? 'Awaiting payment' : 'New order', approved: 'To prepare', preparing: 'Preparing', fulfilled: order.fulfillment_method === 'courier' ? (order.delivery_booking_reference ? 'Lalamove booked' : 'Ready for courier pickup') : 'Ready for pickup', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled' }[order.status] || order.status)} color={STATUS_COLORS[order.status] || 'default'} size="small" />
                       {/* A rejected order carries the reason the admin gave —
                           never just the red chip. Same for a cancellation. */}
                       {order.status === 'rejected' && order.rejection_reason && (
@@ -546,6 +557,11 @@ export default function OrderInquiriesPage({ onLogout }) {
               Stock will be allocated automatically from available locations.
             </Typography>
           )}
+          {confirmDialog.status === 'approved' && confirmDialog.order?.fulfillment_method === 'courier' && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              The customer will book and pay Lalamove directly after the order is ready. No courier fee is added to this order.
+            </Typography>
+          )}
           {isRejection && (
             <TextField
               fullWidth
@@ -561,28 +577,10 @@ export default function OrderInquiriesPage({ onLogout }) {
               autoFocus
             />
           )}
-          {needsQuote && (
-            <Box sx={{ display: 'grid', gap: 1.5, mt: 2 }}>
-              <Typography variant="body2">Set the delivery fee and schedule now so the customer can review them before paying.</Typography>
-              <TextField
-                fullWidth required type="number" label="Delivery fee (PHP)"
-                value={confirmDialog.delivery_fee}
-                onChange={(e) => setConfirmDialog((d) => ({ ...d, delivery_fee: e.target.value }))}
-                inputProps={{ min: 0, step: '0.01' }}
-              />
-              <TextField
-                fullWidth required label="Confirmed delivery schedule"
-                placeholder="e.g. Saturday, 10:00 AM–12:00 PM"
-                value={confirmDialog.delivery_schedule}
-                onChange={(e) => setConfirmDialog((d) => ({ ...d, delivery_schedule: e.target.value }))}
-                inputProps={{ maxLength: 200 }}
-              />
-            </Box>
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={closeConfirm}>Cancel</Button>
-          <Button onClick={executeAction} variant="contained" color="primary" disabled={reasonMissing || quoteMissing}>
+          <Button onClick={executeAction} variant="contained" color="primary" disabled={reasonMissing}>
             Confirm
           </Button>
         </DialogActions>
@@ -600,7 +598,7 @@ export default function OrderInquiriesPage({ onLogout }) {
                 {renderLineItems(parseLines(details))}
               </Box>
               <Typography variant="subtitle2">Cost</Typography>
-              <Typography variant="body2" mb={1}>P{details.estimated_cost} items{details.bulk_discount_amount ? ` · −P${details.bulk_discount_amount} bulk discount` : ''}{companyDemo && details.fulfillment_method === 'courier' ? ` · P${details.delivery_fee || 0} delivery` : ''} · {details.payment_method?.toUpperCase()} · {details.payment_status || 'unpaid'}</Typography>
+              <Typography variant="body2" mb={1}>P{details.estimated_cost} items{details.bulk_discount_amount ? ` · −P${details.bulk_discount_amount} bulk discount` : ''}{companyDemo && details.fulfillment_method === 'courier' && Number(details.delivery_fee || 0) > 0 ? ` · P${details.delivery_fee} delivery` : ''} · {details.payment_method?.toUpperCase()} · {details.payment_status || 'unpaid'}</Typography>
               {companyDemo && details.delivery_schedule ? <Typography variant="body2" mb={1}>Delivery schedule: {details.delivery_schedule}</Typography> : null}
               {companyDemo ? <Typography variant="body2" mb={1}>Paid P{Number(details.amount_paid || 0).toFixed(2)} · Due P{Math.max(0, Number(details.estimated_cost || 0) + Number(details.delivery_fee || 0) - Number(details.amount_paid || 0)).toFixed(2)}</Typography> : null}
               <Typography variant="subtitle2">Fulfilment</Typography>
@@ -610,6 +608,20 @@ export default function OrderInquiriesPage({ onLogout }) {
               </Typography>
               <Typography variant="subtitle2">Delivery address</Typography>
               <Typography variant="body2" mb={1}>{details.delivery_address || '—'}</Typography>
+              {details.fulfillment_method === 'courier' ? (
+                <>
+                  <Typography variant="caption" display="block" mb={1} color="text.secondary">The customer arranges and pays for Lalamove separately; its fee is not included in the Sylver order total.</Typography>
+                  <Typography variant="subtitle2">Customer Lalamove booking</Typography>
+                  <Typography variant="body2" mb={0.5}>{details.delivery_booking_reference || 'Booking reference not submitted yet'}</Typography>
+                  {details.delivery_booked_at ? <Typography variant="caption" display="block" mb={0.5}>Submitted {new Date(details.delivery_booked_at).toLocaleString()}</Typography> : null}
+                  {isLalamoveShareUrl(details.delivery_booking_url) ? (
+                    <Typography component="a" href={details.delivery_booking_url} target="_blank" rel="noopener noreferrer" variant="body2" display="block" mb={1} sx={{ color: 'primary.main', overflowWrap: 'anywhere' }}>
+                      Open Lalamove booking link
+                    </Typography>
+                  ) : null}
+                  <Typography variant="caption" display="block" mb={1} color="text.secondary">The customer booked this directly. Update the order to Delivered only after delivery is confirmed.</Typography>
+                </>
+              ) : null}
               {details.status === 'rejected' && (
                 <>
                   <Typography variant="subtitle2">Rejection reason</Typography>

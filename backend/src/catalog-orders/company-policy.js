@@ -1,6 +1,6 @@
 const SYLVER_POLICY_DEMO = process.env.SYLVER_POLICY_DEMO === 'true';
 
-const COMPANY_POLICY_VERSION = '2026-10-24-sylver-demo-v3';
+const COMPANY_POLICY_VERSION = '2026-11-05-sylver-demo-v4';
 const DISCOUNT_THRESHOLD = 5000;
 const DISCOUNT_RATE = 0.03;
 const PICKUP = {

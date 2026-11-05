@@ -23,6 +23,7 @@ const { audit } = require('../../audit');
 const { applyMovementEffect, restoreStockReservation } = require('../../stock-control/stock-movement-helpers');
 const { planOrderFulfillment, planAutomaticOrderFulfillment } = require('../../catalog-orders/order-fulfillment');
 const { currentOrderTerms } = require('../../catalog-orders/order-terms');
+const { normalizeDeliveryBooking } = require('../../catalog-orders/delivery-booking');
 const {
   SYLVER_POLICY_DEMO,
   PAYMENT_METHODS,
@@ -182,14 +183,18 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
   let deliverySchedule = existing.delivery_schedule || null;
 
   if (SYLVER_POLICY_DEMO && updatedStatus === 'approved' && existing.fulfillment_method === 'courier') {
-    if (req.body.delivery_fee === undefined || !Number.isFinite(Number(req.body.delivery_fee)) || Number(req.body.delivery_fee) < 0) {
-      return res.status(400).json({ error: 'Set the delivery fee (use 0 when no fee applies) before confirming a courier order' });
+    if (req.body.delivery_fee !== undefined) {
+      if (!Number.isFinite(Number(req.body.delivery_fee)) || Number(req.body.delivery_fee) < 0) {
+        return res.status(400).json({ error: 'Delivery fee must be a non-negative amount' });
+      }
+      deliveryFee = Math.round(Number(req.body.delivery_fee) * 100) / 100;
     }
-    if (typeof req.body.delivery_schedule !== 'string' || !req.body.delivery_schedule.trim() || req.body.delivery_schedule.trim().length > 200) {
-      return res.status(400).json({ error: 'Confirm the delivery schedule before confirming a courier order' });
+    if (req.body.delivery_schedule !== undefined) {
+      if (typeof req.body.delivery_schedule !== 'string' || !req.body.delivery_schedule.trim() || req.body.delivery_schedule.trim().length > 200) {
+        return res.status(400).json({ error: 'Delivery schedule must contain 1–200 characters' });
+      }
+      deliverySchedule = req.body.delivery_schedule.trim();
     }
-    deliveryFee = Math.round(Number(req.body.delivery_fee) * 100) / 100;
-    deliverySchedule = req.body.delivery_schedule.trim();
   }
 
   if (SYLVER_POLICY_DEMO && updatedStatus === 'fulfilled' && existing.fulfillment_method === 'courier' && existing.payment_status !== 'paid') {
@@ -365,6 +370,30 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
   if (updatedStatus !== 'pending') notifyInquiryStatus({ ...existing, delivery_fee: deliveryFee, delivery_schedule: deliverySchedule }, updatedStatus);
 
   res.json({ ok: true, message: `Inquiry ${updatedStatus}` });
+});
+
+// PUT /api/order-inquiries/:id/delivery-booking
+// The customer books and pays Lalamove directly. This endpoint only stores the
+// reference/share link so the customer and store can see the handoff details.
+router.put('/:id/delivery-booking', authenticateToken, (req, res) => {
+  const existing = db.prepare('SELECT * FROM order_inquiries WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Order inquiry not found' });
+  if (!ownedBy(req, existing)) return res.status(403).json({ error: 'Not your inquiry' });
+  if (existing.fulfillment_method !== 'courier') return res.status(409).json({ error: 'Lalamove booking details are only available for courier orders' });
+  if (existing.status !== 'fulfilled') return res.status(409).json({ error: 'You can add Lalamove booking details after the store marks the order ready for courier pickup' });
+
+  const booking = normalizeDeliveryBooking(req.body);
+  if (booking.error) return res.status(400).json({ error: booking.error });
+
+  const unchanged = existing.delivery_booking_reference === booking.reference && (existing.delivery_booking_url || null) === booking.url;
+  const now = unchanged && existing.delivery_booked_at ? existing.delivery_booked_at : new Date().toISOString();
+  db.prepare('UPDATE order_inquiries SET delivery_booking_reference = ?, delivery_booking_url = ?, delivery_booked_at = ? WHERE id = ?')
+    .run(booking.reference, booking.url, now, req.params.id);
+  if (!unchanged) audit('inquiry.delivery_booking_submitted', { userId: req.user.id, inquiryId: Number(req.params.id) });
+  return res.json({
+    ok: true,
+    delivery_booking: { reference: booking.reference, url: booking.url, booked_at: now },
+  });
 });
 
 // POST /api/order-inquiries/:id/cancel

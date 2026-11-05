@@ -2818,12 +2818,12 @@
                   "delivery_fee": {
                     "type": "number",
                     "minimum": 0,
-                    "description": "Required with delivery_schedule when confirming a courier order in the Sylver demo."
+                    "description": "Optional store-entered charge added to the Sylver order total. Omit for customer-booked Lalamove, whose fee is paid directly to the courier."
                   },
                   "delivery_schedule": {
                     "type": "string",
                     "maxLength": 200,
-                    "description": "Required when confirming a courier order in the Sylver demo."
+                    "description": "Optional store-confirmed delivery schedule. Not required when the customer books Lalamove directly."
                   }
                 },
                 "description": "Admin-only status change. Standard orders move from pending to preparing after payment checks, then to fulfilled and delivered; an unfulfillable order may be rejected with a reason. Stock is reserved when preparation begins and released on rejection. Illegal transitions are refused with 409. Customer cancellation uses POST /api/order-inquiries/{id}/cancel."
@@ -2926,6 +2926,69 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           }
+        }
+      }
+    },
+    "/api/order-inquiries/{id}/delivery-booking": {
+      "put": {
+        "tags": ["Order Inquiries"],
+        "operationId": "submitDeliveryBooking",
+        "summary": "Record a customer-booked Lalamove delivery",
+        "description": "The customer books with Lalamove directly after the store marks a courier order ready for pickup. INVENTRAK stores the reference and optional Lalamove share link; it does not create, pay for, or track the courier booking and does not change the order status.",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["booking_reference"],
+                "properties": {
+                  "booking_reference": { "type": "string", "minLength": 1, "maxLength": 120 },
+                  "booking_url": { "type": "string", "format": "uri", "maxLength": 2000, "nullable": true, "description": "Optional HTTPS share link hosted on lalamove.com or one of its subdomains." }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking reference recorded; order status is unchanged.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["ok", "delivery_booking"],
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "delivery_booking": {
+                      "type": "object",
+                      "required": ["reference", "booked_at"],
+                      "properties": {
+                        "reference": { "type": "string" },
+                        "url": { "type": "string", "format": "uri", "nullable": true },
+                        "booked_at": { "type": "string", "format": "date-time" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       }
     },
@@ -7163,7 +7226,7 @@
               "courier"
             ],
             "default": "pickup",
-            "description": "How the customer wants to receive the order. A PREFERENCE, not a courier booking — nothing here calls a courier API or promises a delivery window. Courier requires delivery_address."
+            "description": "How the customer wants to receive the order. Courier requires delivery_address; after the store marks the order ready, the customer can book Lalamove directly. This field itself does not book a courier or promise a delivery window."
           },
           "payment_method": {
             "type": "string",
@@ -7367,6 +7430,23 @@
           "delivery_address": {
             "type": "string",
             "nullable": true
+          },
+          "delivery_booking_reference": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer-submitted Lalamove booking reference; it does not mean the courier has collected the order."
+          },
+          "delivery_booking_url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Optional HTTPS Lalamove share link submitted by the customer."
+          },
+          "delivery_booked_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the customer submitted the Lalamove booking details."
           },
           "fulfillment_method": {
             "type": "string",
@@ -7580,12 +7660,12 @@
           },
           "delivery_fee": {
             "type": "number",
-            "description": "Demo delivery fee quoted by staff; courier orders require a quote before payment."
+            "description": "Optional delivery charge added to the order total. Customer-booked Lalamove fees are paid directly to the courier and are not included here."
           },
           "delivery_schedule": {
             "type": "string",
             "nullable": true,
-            "description": "Demo delivery schedule confirmed by staff."
+            "description": "Optional store-confirmed delivery schedule. Customer-booked Lalamove timing is arranged separately by the customer."
           },
           "payment_records": {
             "type": "string",

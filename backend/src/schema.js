@@ -124,6 +124,11 @@ CREATE TABLE IF NOT EXISTS order_inquiries (
   bulk_discount_eligible_subtotal REAL DEFAULT 0,
   delivery_fee REAL DEFAULT 0,
   delivery_schedule TEXT,
+  -- Customer-booked courier handoff details. These record the customer's own
+  -- Lalamove booking; they do not create a booking or change order status.
+  delivery_booking_reference TEXT,
+  delivery_booking_url TEXT,
+  delivery_booked_at TEXT,
   payment_records TEXT DEFAULT '[]',
   amount_paid REAL DEFAULT 0,
   return_requests TEXT DEFAULT '[]',

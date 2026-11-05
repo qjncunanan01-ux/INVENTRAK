@@ -28,6 +28,7 @@ const { skuForProductId, isSkuShape, handleQrProductLookup, handleTagPageLookup,
 const { normalizeLines, priceLinesFromCatalog } = require('./catalog-orders/product-lines');
 const { planOrderFulfillment, planAutomaticOrderFulfillment } = require('./catalog-orders/order-fulfillment');
 const { currentOrderTerms } = require('./catalog-orders/order-terms');
+const { normalizeDeliveryBooking } = require('./catalog-orders/delivery-booking');
 const {
   SYLVER_POLICY_DEMO, PAYMENT_METHODS, applyBulkDiscount,
   planStockReservation, availableOrderTerms,
@@ -4656,6 +4657,9 @@ const server = http.createServer((req, res) => {
         // Firestore stores null as '' — normalize back; payment_method defaults to
         // 'cod' for rows created before checkout existed (SQLite parity).
         delivery_address: o.delivery_address === undefined || o.delivery_address === '' ? null : o.delivery_address,
+        delivery_booking_reference: o.delivery_booking_reference === undefined || o.delivery_booking_reference === '' ? null : o.delivery_booking_reference,
+        delivery_booking_url: o.delivery_booking_url === undefined || o.delivery_booking_url === '' ? null : o.delivery_booking_url,
+        delivery_booked_at: o.delivery_booked_at === undefined || o.delivery_booked_at === '' ? null : o.delivery_booked_at,
         payment_method: o.payment_method === undefined || o.payment_method === '' ? 'cod' : o.payment_method,
         // Payment step (SQLite parity): status defaults to 'unpaid' for rows
         // created before checkout payment existed; reference/url/qr are null.
@@ -4754,14 +4758,18 @@ const server = http.createServer((req, res) => {
         let deliveryFee = Number(order.delivery_fee) || 0;
         let deliverySchedule = order.delivery_schedule || null;
         if (SYLVER_POLICY_DEMO && updatedStatus === 'approved' && order.fulfillment_method === 'courier') {
-          if (obj.delivery_fee === undefined || !Number.isFinite(Number(obj.delivery_fee)) || Number(obj.delivery_fee) < 0) {
-            return sendJson(res, 400, { error: 'Set the delivery fee (use 0 when no fee applies) before confirming a courier order' });
+          if (obj.delivery_fee !== undefined) {
+            if (!Number.isFinite(Number(obj.delivery_fee)) || Number(obj.delivery_fee) < 0) {
+              return sendJson(res, 400, { error: 'Delivery fee must be a non-negative amount' });
+            }
+            deliveryFee = Math.round(Number(obj.delivery_fee) * 100) / 100;
           }
-          if (typeof obj.delivery_schedule !== 'string' || !obj.delivery_schedule.trim() || obj.delivery_schedule.trim().length > 200) {
-            return sendJson(res, 400, { error: 'Confirm the delivery schedule before confirming a courier order' });
+          if (obj.delivery_schedule !== undefined) {
+            if (typeof obj.delivery_schedule !== 'string' || !obj.delivery_schedule.trim() || obj.delivery_schedule.trim().length > 200) {
+              return sendJson(res, 400, { error: 'Delivery schedule must contain 1–200 characters' });
+            }
+            deliverySchedule = obj.delivery_schedule.trim();
           }
-          deliveryFee = Math.round(Number(obj.delivery_fee) * 100) / 100;
-          deliverySchedule = obj.delivery_schedule.trim();
         }
         if (SYLVER_POLICY_DEMO && updatedStatus === 'fulfilled' && order.fulfillment_method === 'courier' && order.payment_status !== 'paid') {
           return sendJson(res, 409, { error: 'Courier delivery must be paid and verified before dispatch' });
@@ -4967,6 +4975,34 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 200, { ok: true, message: `Inquiry ${updatedStatus}` });
       });
     });
+  }
+
+  if (req.method === 'PUT' && /^\/api\/order-inquiries\/\d+\/delivery-booking$/.test(url.split('?')[0])) {
+    const id = Number(url.split('?')[0].split('/')[3]);
+    return requireAuth(req, res, false, (req, res) => parseBody(req, (err, obj) => {
+      if (err) return bodyError(res, err);
+      const orders = readJSON(orderFile) || [];
+      const order = orders.find((row) => Number(row.id) === id);
+      if (!order) return sendJson(res, 404, { error: 'Order inquiry not found' });
+      if (!orderOwner(req, order)) return sendJson(res, 403, { error: 'Not your inquiry' });
+      if (order.fulfillment_method !== 'courier') return sendJson(res, 409, { error: 'Lalamove booking details are only available for courier orders' });
+      if (order.status !== 'fulfilled') return sendJson(res, 409, { error: 'You can add Lalamove booking details after the store marks the order ready for courier pickup' });
+
+      const booking = normalizeDeliveryBooking(obj);
+      if (booking.error) return sendJson(res, 400, { error: booking.error });
+
+      const unchanged = order.delivery_booking_reference === booking.reference && (order.delivery_booking_url || null) === booking.url;
+      const now = unchanged && order.delivery_booked_at ? order.delivery_booked_at : new Date().toISOString();
+      order.delivery_booking_reference = booking.reference;
+      order.delivery_booking_url = booking.url;
+      order.delivery_booked_at = now;
+      writeJSON(orderFile, orders);
+      if (!unchanged) audit('inquiry.delivery_booking_submitted', { userId: req.user.id, inquiryId: id });
+      return sendJson(res, 200, {
+        ok: true,
+        delivery_booking: { reference: booking.reference, url: booking.url, booked_at: now },
+      });
+    }));
   }
 
   // Customer-initiated cancellation (SQLite parity). Same rules, same order of
@@ -5395,6 +5431,9 @@ const server = http.createServer((req, res) => {
         estimated_cost: storedCost,
         notes: obj.notes || '',
         delivery_address: obj.delivery_address || null,
+        delivery_booking_reference: null,
+        delivery_booking_url: null,
+        delivery_booked_at: null,
         fulfillment_method: fulfillment.method,
         payment_method: obj.payment_method || 'cod',
         payment_status: SYLVER_POLICY_DEMO && obj.payment_method === 'credit' ? 'credit_pending' : 'unpaid',
