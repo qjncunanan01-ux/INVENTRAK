@@ -1887,7 +1887,7 @@
                 "true"
               ]
             },
-            "description": "Only show items with total < 80"
+            "description": "Only show items below their movement-aware critical level"
           }
         ],
         "responses": {
@@ -1901,6 +1901,62 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/inventory/reorder-suggestions": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getInventoryReorderSuggestions",
+        "summary": "Get advisory low-stock reorder recommendations",
+        "description": "Admin-tier only. Suggestions use the higher of the movement-aware critical level and configured reorder point. EOQ quantities are estimates based on recent demand and configured demo assumptions; products without recent demand require manual quantity review. This endpoint never creates or places a supplier order.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current advisory reorder list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["generated_at", "count", "items"],
+                  "properties": {
+                    "generated_at": { "type": "string", "format": "date-time" },
+                    "count": { "type": "integer", "minimum": 0 },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["product_id", "product_name", "on_hand", "critical_level", "reorder_point", "trigger_level", "safety_stock", "economic_order_quantity", "annual_demand", "lead_time_days", "recommended_quantity", "recommendation_basis", "urgency"],
+                        "properties": {
+                          "product_id": { "type": "integer", "minimum": 1 },
+                          "product_name": { "type": "string" },
+                          "on_hand": { "type": "number", "minimum": 0 },
+                          "critical_level": { "type": "number", "minimum": 0 },
+                          "reorder_point": { "type": "number", "minimum": 0 },
+                          "trigger_level": { "type": "number", "minimum": 0 },
+                          "safety_stock": { "type": "number", "minimum": 0 },
+                          "economic_order_quantity": { "type": "number", "minimum": 0 },
+                          "annual_demand": { "type": "number", "minimum": 0 },
+                          "lead_time_days": { "type": "integer", "minimum": 1 },
+                          "recommended_quantity": { "type": "integer", "minimum": 1, "nullable": true },
+                          "recommendation_basis": { "type": "string", "enum": ["eoq", "manual_review"] },
+                          "urgency": { "type": "string", "enum": ["out_of_stock", "critical", "reorder"] }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },

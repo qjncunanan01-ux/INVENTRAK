@@ -1,4 +1,5 @@
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
+import DownloadOutlined from '@mui/icons-material/DownloadOutlined';
 import { Box, Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from '@mui/material';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
@@ -7,6 +8,7 @@ import usePageTitle from '../../hooks/usePageTitle';
 import { colors } from '../../theme';
 import AdminLayout from '../layout/AdminLayout';
 import FormulaBanner from '../../components/FormulaBanner';
+import { buildReorderCsv } from './reorder-csv';
 
 // Status badge per inventory row. The backend stamps each item with its
 // movement-aware critical_level (critical-level.js) + a stock_status badge;
@@ -84,6 +86,8 @@ export default function InventoryPage({ onLogout }) {
   const [expiryFilter, setExpiryFilter] = useState('');
   // Nearest open expiry per product id (from the FEFO stock-lot ledger).
   const [nearestExpiry, setNearestExpiry] = useState({});
+  const [reorderSuggestions, setReorderSuggestions] = useState({ generated_at: null, count: 0, items: [] });
+  const [reorderLoadFailed, setReorderLoadFailed] = useState(false);
 
   // Scan-to-stock deep link: a scanned product QR opens /inventory?product=<id>
   // and a scanned location tag opens /inventory?location=<name>. Both simply
@@ -133,7 +137,33 @@ export default function InventoryPage({ onLogout }) {
         setNearestExpiry(byProduct);
       })
       .catch(() => {});
+
+    apiGet('/api/inventory/reorder-suggestions')
+      .then((response) => {
+        const data = response.data || response;
+        setReorderSuggestions({
+          generated_at: data.generated_at || null,
+          count: Number(data.count) || 0,
+          items: Array.isArray(data.items) ? data.items : [],
+        });
+        setReorderLoadFailed(false);
+      })
+      .catch(() => setReorderLoadFailed(true));
   }, [lowStockOnly, selectedLocation]);
+
+  const downloadReorderList = () => {
+    if (!reorderSuggestions.items.length) return;
+    const csv = buildReorderCsv(reorderSuggestions.items);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `sylvers-reorder-suggestions-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const locs = (inventory.locations || []).map(loc => (typeof loc === 'object' ? loc : { id: loc, name: loc }));
   const items = (inventory.items || []).filter(item => {
@@ -329,6 +359,78 @@ export default function InventoryPage({ onLogout }) {
             </Typography>
           )}
         </Box>
+      </Paper>
+
+      <Paper sx={{ p: 3, mb: 3, backgroundColor: colors.surfaceAlt }} aria-label="Low stock reorder recommendations">
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap', mb: 1.5 }}>
+          <Box>
+            <Typography variant="h6">Reorder recommendations</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {reorderSuggestions.count} product{reorderSuggestions.count === 1 ? '' : 's'} at or below its reorder trigger.
+              {' '}This is a planning list — it does not place an order.
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadOutlined />}
+              onClick={downloadReorderList}
+              disabled={!reorderSuggestions.items.length}
+              aria-label="Download reorder suggestions CSV"
+            >
+              Download draft list
+            </Button>
+            <Button component={RouterLink} to="/stock-movement" variant="contained" sx={{ backgroundColor: colors.brandPrimary }}>
+              Record stock received
+            </Button>
+          </Box>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Trigger uses the higher of the existing critical level and the configurable reorder point. Suggested quantities use EOQ and the last 365 days of sales. Confirm supplier minimums, pack sizes, price, and availability before ordering. Products without recent sales need a manual quantity.
+        </Typography>
+        {reorderLoadFailed ? (
+          <Typography role="alert" color="error.main">Could not load reorder recommendations. Refresh this page or check your admin access.</Typography>
+        ) : reorderSuggestions.items.length === 0 ? (
+          <Typography color="text.secondary">No products currently meet their reorder trigger.</Typography>
+        ) : (
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Product</TableCell>
+                  <TableCell>On hand</TableCell>
+                  <TableCell>Trigger</TableCell>
+                  <TableCell>ROP</TableCell>
+                  <TableCell>Safety stock</TableCell>
+                  <TableCell>Suggested quantity</TableCell>
+                  <TableCell>Basis</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {reorderSuggestions.items.map((item) => (
+                  <TableRow key={item.product_id}>
+                    <TableCell>{item.product_name}</TableCell>
+                    <TableCell>{Number(item.on_hand).toLocaleString()}</TableCell>
+                    <TableCell>{Number(item.trigger_level).toLocaleString()}</TableCell>
+                    <TableCell>{Number(item.reorder_point).toLocaleString()}</TableCell>
+                    <TableCell>{Number(item.safety_stock).toLocaleString()}</TableCell>
+                    <TableCell>
+                      {item.recommended_quantity == null
+                        ? <Chip size="small" color="warning" label="Manual review" />
+                        : Number(item.recommended_quantity).toLocaleString()}
+                    </TableCell>
+                    <TableCell>{item.recommendation_basis === 'eoq' ? 'EOQ estimate' : 'No recent demand'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+        {reorderSuggestions.generated_at ? (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+            Calculated {new Date(reorderSuggestions.generated_at).toLocaleString()} using current inventory and sales history.
+          </Typography>
+        ) : null}
       </Paper>
 
       <Paper sx={{ p: 3, backgroundColor: colors.surfaceAlt }}>

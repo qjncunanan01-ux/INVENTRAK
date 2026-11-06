@@ -130,6 +130,8 @@ export function createApiClient({ baseUrl = "", getToken = () => null } = {}) {
   getIntegrity: (_) => request('GET', '/api/health/integrity', {  }),
   // GET /api/inventory — Get inventory levels per location
   getInventory: (params) => request('GET', '/api/inventory', { query: params }),
+  // GET /api/inventory/reorder-suggestions — Get advisory low-stock reorder recommendations
+  getInventoryReorderSuggestions: (_) => request('GET', '/api/inventory/reorder-suggestions', {  }),
   // POST /api/inventory/count — Record a stocktake count (staff or admin)
   recordInventoryCount: (body) => request('POST', '/api/inventory/count', { body }),
   // POST /api/inventory/counts — Record a shelf walk in one request (staff tier)

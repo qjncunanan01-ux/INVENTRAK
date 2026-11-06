@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { getInventory, imageUrl, listAllProducts } from '../../api';
-import { useCart } from '../../cart-context';
+import { MAX_UNITS_PER_PRODUCT, useCart } from '../../cart-context';
 import { MODAL_ANIMATION } from '../../Dialog';
 import { useLoginGate } from '../../login-gate';
 import { showToast } from '../../toast';
@@ -85,6 +85,10 @@ export default function ProductScreen({ route, navigation }) {
       return false;
     }
     const currentQty = cartItems.find((entry) => Number(entry.product.id) === Number(product.id))?.qty || 0;
+    if (currentQty >= MAX_UNITS_PER_PRODUCT) {
+      showToast(`Maximum ${MAX_UNITS_PER_PRODUCT.toLocaleString()} units per product.`);
+      return false;
+    }
     if (available < currentQty + 1) {
       showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
       return false;

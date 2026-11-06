@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { getInventory, imageUrl, listAllProducts } from '../../api';
 import BackButton from '../../BackButton';
-import { useCart } from '../../cart-context';
+import { MAX_UNITS_PER_PRODUCT, useCart } from '../../cart-context';
 import { useLoginGate } from '../../login-gate';
 import { useThemeColors } from '../../theme-context';
 import { showToast } from '../../toast';
@@ -118,6 +118,7 @@ export default function SearchScreen({ navigation }) {
                       const available = stockById[Number(item.id)];
                       const inCart = cartItems.find((entry) => Number(entry.product.id) === Number(item.id))?.qty || 0;
                       if (!Number.isFinite(Number(available))) return showToast('Stock is still loading. Refresh and try again.');
+                      if (inCart >= MAX_UNITS_PER_PRODUCT) return showToast(`Maximum ${MAX_UNITS_PER_PRODUCT.toLocaleString()} units per product.`);
                       if (available < inCart + 1) return showToast(available <= 0 ? 'This item is out of stock.' : `Only ${available} unit(s) are available.`);
                       if (!addItem(item, 1, available)) showToast('The cart is loading, stock changed, or the order limit was reached. Please try again.');
                     })}

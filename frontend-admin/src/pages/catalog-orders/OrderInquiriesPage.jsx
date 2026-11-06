@@ -32,6 +32,17 @@ const STATUS_FILTERS = [
 // this system books a courier.
 const FULFILLMENT_LABELS = { pickup: 'PICKUP', courier: 'COURIER' };
 
+const REJECTION_REASONS = [
+  'Insufficient stock',
+  'Product unavailable or discontinued',
+  'Requested quantity exceeds availability',
+  'Order details are incomplete or invalid',
+  'Payment could not be verified',
+  'Delivery address or service area unavailable',
+  'Requested timing cannot be met',
+  'Other',
+];
+
 function isLalamoveShareUrl(value) {
   try {
     const parsed = new URL(value);
@@ -209,9 +220,9 @@ export default function OrderInquiriesPage({ onLogout }) {
   const [companyDemo, setCompanyDemo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  // `reason` is the rejection reason. It is REQUIRED for a rejection (the
-  // backend refuses a bare one) and ignored for every other action.
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', order: null });
+  // Rejection reasons use a predictable category plus optional customer-facing
+  // detail. The backend stores the final human-readable explanation.
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, id: null, status: '', reason: '', reasonDetail: '', order: null });
   const [receipt, setReceipt] = useState(null);
   const [details, setDetails] = useState(null);
   const [refundAmounts, setRefundAmounts] = useState({});
@@ -256,23 +267,28 @@ export default function OrderInquiriesPage({ onLogout }) {
   }, [loadOrders]);
 
   const handleConfirmAction = (orderId, status) => {
-    setConfirmDialog({ open: true, id: orderId, status, reason: '', order: orders.find((order) => Number(order.id) === Number(orderId)) || null });
+    setConfirmDialog({ open: true, id: orderId, status, reason: '', reasonDetail: '', order: orders.find((order) => Number(order.id) === Number(orderId)) || null });
   };
 
-  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', order: null });
+  const closeConfirm = () => setConfirmDialog({ open: false, id: null, status: '', reason: '', reasonDetail: '', order: null });
 
-  // A rejection is only meaningful with a reason the customer can act on, so
-  // the Confirm button stays disabled until one is typed. The backend enforces
-  // the same rule — this is the affordance, not the guard.
+  // Require a category; require an explanation for "Other". The backend still
+  // enforces a non-empty final reason as the trust-boundary guard.
   const isRejection = confirmDialog.status === 'rejected';
-  const reasonMissing = isRejection && !confirmDialog.reason.trim();
+  const reasonMissing = isRejection && (!confirmDialog.reason ||
+    (confirmDialog.reason === 'Other' && !confirmDialog.reasonDetail.trim()));
+  const rejectionReason = confirmDialog.reason === 'Other'
+    ? `Other: ${confirmDialog.reasonDetail.trim()}`
+    : confirmDialog.reasonDetail.trim()
+      ? `${confirmDialog.reason} — ${confirmDialog.reasonDetail.trim()}`
+      : confirmDialog.reason;
 
   const executeAction = async() => {
     if (reasonMissing) return;
     try {
       await apiPut(`/api/order-inquiries/${confirmDialog.id}`, {
         status: confirmDialog.status,
-        ...(isRejection ? { rejection_reason: confirmDialog.reason.trim() } : {}),
+        ...(isRejection ? { rejection_reason: rejectionReason } : {}),
       });
       const actionMessage = confirmDialog.status === 'approved'
         ? 'Order confirmed and stock reserved'
@@ -563,19 +579,35 @@ export default function OrderInquiriesPage({ onLogout }) {
             </Typography>
           )}
           {isRejection && (
-            <TextField
-              fullWidth
-              required
-              multiline
-              minRows={2}
-              label="Why is this order being rejected?"
-              helperText="Required — the customer sees this. e.g. &quot;Out of stock until next week&quot;."
-              value={confirmDialog.reason}
-              onChange={(e) => setConfirmDialog((d) => ({ ...d, reason: e.target.value }))}
-              inputProps={{ maxLength: 500 }}
-              error={confirmDialog.reason.length > 500}
-              autoFocus
-            />
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              <FormControl fullWidth required>
+                <InputLabel id="order-rejection-reason-label">Rejection reason</InputLabel>
+                <Select
+                  labelId="order-rejection-reason-label"
+                  id="order-rejection-reason"
+                  label="Rejection reason"
+                  value={confirmDialog.reason}
+                  onChange={(e) => setConfirmDialog((d) => ({ ...d, reason: e.target.value, reasonDetail: '' }))}
+                  autoFocus
+                >
+                  <MenuItem value="" disabled>Select a reason</MenuItem>
+                  {REJECTION_REASONS.map((reason) => <MenuItem key={reason} value={reason}>{reason}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                required={confirmDialog.reason === 'Other'}
+                multiline
+                minRows={2}
+                label={confirmDialog.reason === 'Other' ? 'Explain why this order is rejected' : 'Additional detail (optional)'}
+                helperText={confirmDialog.reason === 'Other'
+                  ? 'Required — the customer will see this explanation.'
+                  : 'Add a short detail the customer can act on, if needed.'}
+                value={confirmDialog.reasonDetail}
+                onChange={(e) => setConfirmDialog((d) => ({ ...d, reasonDetail: e.target.value }))}
+                inputProps={{ maxLength: 450 }}
+              />
+            </Box>
           )}
         </DialogContent>
         <DialogActions>

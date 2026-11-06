@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { addCartItem } = require('../src/cart-item.cjs');
+const { addCartItem, setCartItemQty } = require('../src/cart-item.cjs');
 
 test('rapid repeated taps stop exactly at available stock without throwing', () => {
   const product = { id: 17, name: 'Test item', price: 24.5 };
@@ -31,6 +31,15 @@ test('per-product and per-order limits reject additions without mutating the pri
   }
   assert.equal(cart.length, 500);
   assert.equal(addCartItem({ previous: cart, product: { id: 501, name: 'Over limit', price: 1 } }), null);
+});
+
+test('quantity stepper rejects over-limit requests instead of silently capping them', () => {
+  const initial = [{ product: { id: 3, name: 'Bulk item' }, qty: 10000 }];
+  assert.equal(setCartItemQty({ previous: initial, productId: 3, qty: 10001 }), null);
+  assert.equal(initial[0].qty, 10000, 'failed edits do not mutate the basket');
+  const reduced = setCartItemQty({ previous: initial, productId: 3, qty: 9999 });
+  assert.equal(reduced[0].qty, 9999);
+  assert.equal(setCartItemQty({ previous: reduced, productId: 3, qty: 0 }).length, 0);
 });
 
 test('missing or malformed products fail safely instead of crashing the app', () => {

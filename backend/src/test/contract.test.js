@@ -321,6 +321,18 @@ test('contract: inventory list + low-stock + location filter', async () => {
   await both('GET /api/inventory?location=Showroom', '/api/inventory?location=Showroom');
 });
 
+test('contract: reorder suggestions are admin-only and match across both servers', async () => {
+  const unauthenticated = await both('GET /api/inventory/reorder-suggestions (no token)', '/api/inventory/reorder-suggestions');
+  assert.strictEqual(unauthenticated.a.status, 401);
+  const staff = await both('GET /api/inventory/reorder-suggestions (staff)', '/api/inventory/reorder-suggestions', { auth: 'staff' });
+  assert.strictEqual(staff.a.status, 403);
+  const admin = await both('GET /api/inventory/reorder-suggestions (admin)', '/api/inventory/reorder-suggestions', { auth: 'admin' });
+  assert.strictEqual(admin.a.status, 200);
+  assert.strictEqual(admin.a.json.count, admin.a.json.items.length);
+  assert.strictEqual(shapeOf(admin.a.json), shapeOf(admin.b.json));
+  assert.ok(admin.a.json.items.every(item => item.product_id && item.trigger_level >= item.on_hand));
+});
+
 test('contract: locations list/create/duplicate/delete', async () => {
   await both('GET /api/locations', '/api/locations');
   const name = `Contract Loc ${Date.now()}`;

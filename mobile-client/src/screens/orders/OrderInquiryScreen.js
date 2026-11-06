@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Button, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { apiGet, createOrderInquiry, getInventory, getMe, imageUrl, listAllProducts, useSessionUsername } from '../../api';
-import { useCart } from '../../cart-context';
+import { MAX_UNITS_PER_PRODUCT, useCart } from '../../cart-context';
 import { useThemeColors } from '../../theme-context';
 import Dialog, { MODAL_ANIMATION } from '../../Dialog';
 import { ORDER_TERMS, ORDER_TERMS_VERSION } from '../../order-terms';
@@ -313,7 +313,19 @@ export default function OrderInquiryScreen({ route, navigation }) {
       setShowSuccess(true);
     } catch (err) {
       setMessage('Could not place the order.');
-      setErrorMsg(err.message || 'Could not place your order. Please try again.');
+      const stockError = err.body
+        && Number.isFinite(Number(err.body.available))
+        && Number.isFinite(Number(err.body.requested))
+        ? (() => {
+          const product = selectedItems.find((item) => Number(item.id) === Number(err.body.product_id));
+          return `Only ${Number(err.body.available).toLocaleString()} unit(s) of ${product?.name || 'this product'} are available; `
+            + `your cart requests ${Number(err.body.requested).toLocaleString()}. Update the quantity and try again.`;
+        })()
+        : null;
+      const limitError = err.body?.details?.some((detail) => /quantity.*10000|10000.*quantity/i.test(String(detail)))
+        ? 'The limit is 10,000 units per product in one order. Reduce the quantity and try again.'
+        : null;
+      setErrorMsg(stockError || limitError || err.message || 'Could not place your order. Please try again.');
       setShowError(true);
     } finally {
       setSubmitting(false);
@@ -426,7 +438,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
           <View style={styles.fulfillmentNote}>
             <Text style={styles.fulfillmentNoteTitle}>Courier delivery</Text>
             <Text style={styles.fulfillmentNoteBody}>
-              After the store marks your goods ready, book and pay Lalamove directly. Lalamove confirms service availability, fee, and timing; its charge is separate from your order payment.
+              After the store marks your goods ready, book and pay Lalamove directly.
+              Lalamove confirms service availability, fee, and timing; its charge is separate from your order payment.
             </Text>
           </View>
         </>
@@ -458,7 +471,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
       {!COMPANY_DEMO && paymentMethod === 'qrph' ? (
         <View style={styles.fulfillmentNote}>
           <Text style={styles.fulfillmentNoteBody}>
-            PayMongo opens a single-use QR Ph checkout for pickup orders. The server confirms item prices before showing the final amount, then records payment automatically after provider confirmation.
+            PayMongo opens a single-use QR Ph checkout for pickup orders. The server confirms item prices
+            before showing the final amount, then records payment automatically after provider confirmation.
           </Text>
         </View>
       ) : null}
@@ -496,7 +510,9 @@ export default function OrderInquiryScreen({ route, navigation }) {
               <Text style={styles.cartAvailability}>
                 {stockById[Number(item.id)] === undefined
                   ? 'Availability will be confirmed when submitted.'
-                  : `${stockById[Number(item.id)]} available`}
+                  : item.qty > stockById[Number(item.id)]
+                    ? `Only ${stockById[Number(item.id)]} available — reduce quantity`
+                    : `${stockById[Number(item.id)]} available`}
               </Text>
               <View style={styles.stepper}>
                 <TouchableOpacity
@@ -508,25 +524,29 @@ export default function OrderInquiryScreen({ route, navigation }) {
                 </TouchableOpacity>
                 <Text style={styles.qtyText}>{item.qty}</Text>
                 <TouchableOpacity
-                  style={[
-                    styles.stepBtn,
-                    (
-                      stockById[Number(item.id)] === undefined
-                      || item.qty >= stockById[Number(item.id)]
-                      || (!COMPANY_DEMO && item.qty >= 10000)
-                    ) && styles.stepBtnDisabled,
-                  ]}
-                  disabled={
-                    stockById[Number(item.id)] === undefined
-                    || item.qty >= stockById[Number(item.id)]
-                    || (!COMPANY_DEMO && item.qty >= 10000)
-                  }
-                  onPress={() => setQty(item.id, item.qty + 1)}
+                  style={styles.stepBtn}
+                  accessibilityHint={item.qty >= MAX_UNITS_PER_PRODUCT
+                    ? `Maximum ${MAX_UNITS_PER_PRODUCT.toLocaleString()} units per product`
+                    : stockById[Number(item.id)] !== undefined && item.qty >= stockById[Number(item.id)]
+                      ? `Only ${stockById[Number(item.id)]} unit(s) are available`
+                      : undefined}
+                  onPress={() => {
+                    if (item.qty >= MAX_UNITS_PER_PRODUCT) return showToast(`Maximum ${MAX_UNITS_PER_PRODUCT.toLocaleString()} units per product.`);
+                    const available = stockById[Number(item.id)];
+                    if (available === undefined) return showToast('Stock is still loading. Refresh before adding more.');
+                    if (item.qty >= available) return showToast(`Only ${available} unit(s) are available.`);
+                    setQty(item.id, item.qty + 1);
+                  }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={styles.stepText}>+</Text>
                 </TouchableOpacity>
               </View>
+              {Number.isFinite(MAX_UNITS_PER_PRODUCT) && item.qty >= MAX_UNITS_PER_PRODUCT ? (
+                <Text style={styles.cartAvailability}>
+                  Maximum {MAX_UNITS_PER_PRODUCT.toLocaleString()} units per product
+                </Text>
+              ) : null}
             </View>
             <View style={styles.cartRight}>
               <Text style={styles.lineTotal}>P{(item.price * item.qty).toFixed(2)}</Text>

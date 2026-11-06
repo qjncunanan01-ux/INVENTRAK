@@ -3,6 +3,8 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { dailyDemandStats, calculateReplenishment, classifyAbc } = require('../insights/replenishment');
+const { buildReorderSuggestions } = require('../insights/reorder-suggestions');
+const { criticalLevelMap } = require('../inventory/critical-level');
 const { compareLots } = require('../stock-control/lot-allocation');
 const { convertQuantity } = require('../stock-control/unit-conversion');
 
@@ -68,6 +70,37 @@ test('safety stock uses demand variability and falls back to zero when there is 
   assert.equal(empty.EOQ, 0);
   assert.equal(empty.ROP, 0);
   assert.equal(empty.safetyStock, 0);
+});
+
+test('reorder suggestions trigger at the higher of ROP and critical level and estimate EOQ only with demand history', () => {
+  const products = [
+    { id: 1, name: 'Fast mover', cost: 10, price: 20 },
+    { id: 2, name: 'New product', cost: 10, price: 20 },
+    { id: 3, name: 'Healthy stock', cost: 10, price: 20 },
+  ];
+  const sales = Array.from({ length: 30 }, (_, index) => ({
+    product_id: 1,
+    qty: 1,
+    transaction_date: new Date(Date.UTC(2026, 9, 6) + index * 86400000).toISOString(),
+  }));
+  const result = buildReorderSuggestions({
+    products,
+    sales,
+    stockByProduct: new Map([[1, 10], [2, 0], [3, 1000]]),
+    criticalLevels: criticalLevelMap(products, sales, { now }),
+    settings: { reorder_lead_time_days: 7 },
+    now,
+  });
+  assert.equal(result.count, 2);
+  const fast = result.items.find(item => item.product_id === 1);
+  assert.equal(fast.urgency, 'critical');
+  assert.ok(fast.recommended_quantity >= Math.ceil(fast.trigger_level - fast.on_hand));
+  assert.equal(fast.recommendation_basis, 'eoq');
+  const noHistory = result.items.find(item => item.product_id === 2);
+  assert.equal(noHistory.urgency, 'out_of_stock');
+  assert.equal(noHistory.recommended_quantity, null, 'no sales history requires a human quantity decision');
+  assert.equal(noHistory.recommendation_basis, 'manual_review');
+  assert.equal(result.items[0].product_id, 2, 'out of stock sorts first');
 });
 
 test('ABC puts the dominant product in A and ignores sales outside the year', () => {

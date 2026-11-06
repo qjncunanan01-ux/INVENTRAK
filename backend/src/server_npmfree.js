@@ -47,6 +47,7 @@ const { stripCost, stripCostAll } = require('./catalog-orders/product-visibility
 const { resolveCustomer, summarize } = require('./catalog-orders/customers');
 const { reconcile } = require('./insights/reconciliation');
 const { calculateReplenishment, classifyAbc } = require('./insights/replenishment');
+const { buildReorderSuggestions } = require('./insights/reorder-suggestions');
 const { compareLots } = require('./stock-control/lot-allocation');
 const { schedule, shelfDetail } = require('./inventory/stocktake');
 const { buildEnvelope, envelopeError, restoreResult } = require('./governance/backup');
@@ -3165,6 +3166,31 @@ const server = http.createServer((req, res) => {
   }
 
   // ================= INVENTORY =================
+
+  if (req.method === 'GET' && url.split('?')[0] === '/api/inventory/reorder-suggestions') {
+    return requireAuth(req, res, true, (req, res) => {
+      const inventory = getInventory();
+      const rawProducts = readJSON(productsFile) || [];
+      const products = rawProducts.flatMap((product, index) =>
+        isProductActive(product) ? [formatProduct(product, index)] : [],
+      );
+      const sales = salesTransactions.length ? salesTransactions : readJSON('@sales') || [];
+      const stockByProduct = new Map(
+        (inventory.items || []).map(item => [
+          Number(item && item.product && item.product.id),
+          Number(item && item.total) || 0,
+        ]),
+      );
+      const result = buildReorderSuggestions({
+        products,
+        sales,
+        stockByProduct,
+        criticalLevels: criticalLevels(),
+        settings: settings.getInventoryAlgorithmSettings(),
+      });
+      return sendJson(res, 200, result);
+    });
+  }
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/inventory') {
     const inv =

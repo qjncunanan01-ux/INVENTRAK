@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { getInventory, imageUrl, listAllProducts, useSessionUsername } from '../../api';
-import { useCart } from '../../cart-context';
+import { MAX_UNITS_PER_PRODUCT, useCart } from '../../cart-context';
 import { useThemeColors } from '../../theme-context';
 import Dialog from '../../Dialog';
 import { productTitle } from '../../product-enrichment';
@@ -122,7 +122,14 @@ export default function CartScreen({ navigation }) {
                 <Text style={styles.meta} numberOfLines={1}>{product.category}</Text>
                 {stockById[Number(item.product.id)] !== undefined && (
                   <Text style={[styles.meta, item.qty > stockById[Number(item.product.id)] && styles.stockWarning]}>
-                    {stockById[Number(item.product.id)]} available
+                    {item.qty > stockById[Number(item.product.id)]
+                      ? `Only ${stockById[Number(item.product.id)]} available — reduce quantity`
+                      : `${stockById[Number(item.product.id)]} available`}
+                  </Text>
+                )}
+                {item.qty >= MAX_UNITS_PER_PRODUCT && Number.isFinite(MAX_UNITS_PER_PRODUCT) && (
+                  <Text style={styles.stockWarning}>
+                    Maximum {MAX_UNITS_PER_PRODUCT.toLocaleString()} units per product
                   </Text>
                 )}
                 <Text style={styles.price}>₱{price.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} each</Text>
@@ -145,10 +152,18 @@ export default function CartScreen({ navigation }) {
                       stockById[Number(item.product.id)] !== undefined
                         && item.qty >= stockById[Number(item.product.id)]
                         && styles.stepBtnDisabled,
+                      item.qty >= MAX_UNITS_PER_PRODUCT && styles.stepBtnDisabled,
                     ]}
-                    disabled={stockById[Number(item.product.id)] !== undefined
-                      && item.qty >= stockById[Number(item.product.id)]}
+                    accessibilityHint={
+                      item.qty >= MAX_UNITS_PER_PRODUCT
+                        ? `Maximum ${MAX_UNITS_PER_PRODUCT.toLocaleString()} units per product`
+                        : stockById[Number(item.product.id)] !== undefined
+                          && item.qty >= stockById[Number(item.product.id)]
+                          ? `Only ${stockById[Number(item.product.id)]} unit(s) are available`
+                          : undefined
+                    }
                     onPress={() => {
+                      if (item.qty >= MAX_UNITS_PER_PRODUCT) return showToast(`Maximum ${MAX_UNITS_PER_PRODUCT.toLocaleString()} units per product.`);
                       const available = stockById[Number(item.product.id)];
                       if (available === undefined) return showToast('Stock is still loading. Refresh before adding more.');
                       if (item.qty >= available) return showToast(`Only ${available} unit(s) are available.`);

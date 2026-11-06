@@ -15,12 +15,12 @@ const CART_STORAGE_PREFIX = 'inventrak_cart_v1:';
 // Retired pre-per-account global key — one-time cleanup on boot.
 const LEGACY_CART_STORAGE_KEY = 'inventrak_cart_v1';
 const MAX_CART_LINES = 500;
-const MAX_UNITS_PER_PRODUCT = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true'
+export const MAX_UNITS_PER_PRODUCT = process.env.EXPO_PUBLIC_SYLVER_POLICY_DEMO === 'true'
   ? Number.MAX_SAFE_INTEGER
   : 10000;
 
 const CartContext = createContext(null);
-const { addCartItem } = cartItems;
+const { addCartItem, setCartItemQty } = cartItems;
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState([]); // [{ product, qty }]
@@ -125,14 +125,11 @@ export function CartProvider({ children }) {
 
   // Sets an exact quantity; 0 removes the line (stepper minus at qty 1).
   const setQty = useCallback((productId, qty) => {
-    const id = Number(productId);
-    if (!Number.isInteger(id) || id < 1) return;
-    const q = Math.min(MAX_UNITS_PER_PRODUCT, Math.max(0, Math.floor(Number(qty) || 0)));
     const previous = itemsRef.current;
-    const next = q === 0
-      ? previous.filter((i) => Number(i.product.id) !== id)
-      : previous.map((i) => (Number(i.product.id) === id ? { ...i, qty: q } : i));
+    const next = setCartItemQty({ previous, productId, qty, maxUnits: MAX_UNITS_PER_PRODUCT });
+    if (next === null) return false;
     if (next !== previous) replaceItems(next);
+    return true;
   }, [replaceItems]);
 
   const removeItem = useCallback((productId) => {

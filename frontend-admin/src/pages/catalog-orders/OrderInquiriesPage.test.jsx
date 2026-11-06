@@ -105,7 +105,7 @@ function renderPage() {
   );
 }
 
-test('a rejection cannot be confirmed without a reason, and the typed reason is sent', async () => {
+test('a rejection cannot be confirmed without a category, and sends the selected reason plus detail', async () => {
   renderPage();
   await screen.findByText('Ana Reyes');
 
@@ -118,7 +118,9 @@ test('a rejection cannot be confirmed without a reason, and the typed reason is 
   expect(confirm.disabled).toBe(true);
   expect(apiPut).not.toHaveBeenCalled();
 
-  fireEvent.change(within(dialog).getByLabelText(/why is this order being rejected/i), {
+  fireEvent.mouseDown(within(dialog).getByRole('combobox', { name: /rejection reason/i }));
+  fireEvent.click(await screen.findByRole('option', { name: 'Insufficient stock' }));
+  fireEvent.change(within(dialog).getByLabelText(/additional detail/i), {
     target: { value: 'Supplier moved the delivery to November.' },
   });
   expect(within(dialog).getByRole('button', { name: /confirm/i }).disabled).toBe(false);
@@ -127,18 +129,20 @@ test('a rejection cannot be confirmed without a reason, and the typed reason is 
   await waitFor(() => expect(apiPut).toHaveBeenCalledTimes(1));
   expect(apiPut).toHaveBeenCalledWith('/api/order-inquiries/1', {
     status: 'rejected',
-    rejection_reason: 'Supplier moved the delivery to November.',
+    rejection_reason: 'Insufficient stock — Supplier moved the delivery to November.',
   });
 });
 
-test('whitespace is not a reason', async () => {
+test('Other requires a non-whitespace explanation', async () => {
   renderPage();
   await screen.findByText('Ana Reyes');
   const row = screen.getByText('Ana Reyes').closest('tr');
   fireEvent.click(within(row).getByRole('button', { name: /reject/i }));
 
   const dialog = await screen.findByRole('dialog');
-  fireEvent.change(within(dialog).getByLabelText(/why is this order being rejected/i), {
+  fireEvent.mouseDown(within(dialog).getByRole('combobox', { name: /rejection reason/i }));
+  fireEvent.click(await screen.findByRole('option', { name: 'Other' }));
+  fireEvent.change(within(dialog).getByLabelText(/explain why this order is rejected/i), {
     target: { value: '   ' },
   });
   expect(within(dialog).getByRole('button', { name: /confirm/i }).disabled).toBe(true);

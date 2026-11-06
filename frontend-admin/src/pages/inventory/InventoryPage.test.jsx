@@ -4,6 +4,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import InventoryPage from './InventoryPage';
 import { createAppTheme } from '../../theme';
 import { apiGet } from '../../api';
+import { buildReorderCsv } from './reorder-csv';
 
 // Best-before column + filter on the Inventory page. Regression suite for the
 // dated-lot visibility: the page aggregates /api/stock-lots per product and
@@ -75,8 +76,18 @@ const lots = [
   { id: 3, product_id: 2, product_name: 'Torani Vanilla Syrup', location_name: 'Showroom', qty: 6, received_at: '2026-06-01', expiry_date: iso(SOON_DAYS) },
 ];
 
+const reorderSuggestions = {
+  generated_at: '2026-11-06T00:00:00.000Z',
+  count: 2,
+  items: [
+    { product_id: 1, product_name: 'Reorder Milklab Milk 1L', on_hand: 35, critical_level: 120, reorder_point: 18, trigger_level: 120, safety_stock: 4, economic_order_quantity: 42, annual_demand: 365, lead_time_days: 7, recommended_quantity: 85, recommendation_basis: 'eoq', urgency: 'critical' },
+    { product_id: 4, product_name: 'New item', on_hand: 0, critical_level: 32, reorder_point: 0, trigger_level: 32, safety_stock: 0, economic_order_quantity: 0, annual_demand: 0, lead_time_days: 7, recommended_quantity: null, recommendation_basis: 'manual_review', urgency: 'out_of_stock' },
+  ],
+};
+
 function mockResponses() {
   apiGet.mockImplementation((url) => {
+    if (url === '/api/inventory/reorder-suggestions') return Promise.resolve(reorderSuggestions);
     if (url.startsWith('/api/inventory')) return Promise.resolve(inventory);
     if (url.startsWith('/api/stock-lots')) return Promise.resolve(lots);
     return Promise.resolve([]);
@@ -94,10 +105,16 @@ function renderPage() {
   );
 }
 
+function inventoryLevelsTable() {
+  return [...document.querySelectorAll('table')].find((table) =>
+    [...table.querySelectorAll('th')].some((cell) => cell.textContent.trim() === 'Best before'),
+  );
+}
+
 // The expiry chip hides its detail behind a hover tooltip — MUI renders it on
 // mouseOver (same pattern as the OptimizationPage "Why?" badge tests).
 function hoverChip(rowText) {
-  const rows = screen.getAllByRole('row');
+  const rows = [...inventoryLevelsTable().querySelectorAll('tbody tr')];
   const row = rows.find((r) => r.textContent.includes(rowText));
   expect(row).toBeTruthy();
   const chip = within(row).getByLabelText(new RegExp(`${rowText} best before`, 'i'));
@@ -165,7 +182,7 @@ test('Best-before filter narrows rows (expired / dated / undated)', async() => {
   fireEvent.mouseDown(bestBefore);
   fireEvent.click(within(await screen.findByRole('listbox')).getByText('No date recorded'));
   await waitFor(() => expect(screen.getByText('Beryls Compound')).toBeInTheDocument());
-  const table = document.querySelector('table');
+  const table = inventoryLevelsTable();
   expect(within(table).queryByLabelText(/best before/i)).not.toBeInTheDocument();
 });
 
@@ -186,7 +203,7 @@ test('search + expiry filter compose (AND)', async() => {
   fireEvent.change(screen.getByLabelText(/Search products/i), { target: { value: 'torani' } });
   await waitFor(() => expect(screen.queryByText('Milklab Milk 1L')).not.toBeInTheDocument());
   expect(screen.getByText('Torani Vanilla Syrup')).toBeInTheDocument();
-  const tableAfterSearch = document.querySelector('table');
+  const tableAfterSearch = inventoryLevelsTable();
   expect(
     within(tableAfterSearch).getByLabelText(new RegExp('Torani Vanilla Syrup best before', 'i')),
   ).toBeInTheDocument();
@@ -213,6 +230,7 @@ test('Expiring-within-30-days card aggregates the nearest lots and lists the pro
 
 test('Expiring-within-30-days card shows the empty state when nothing is dated', async() => {
   apiGet.mockImplementation((url) => {
+    if (url === '/api/inventory/reorder-suggestions') return Promise.resolve(reorderSuggestions);
     if (url.startsWith('/api/inventory')) return Promise.resolve(inventory);
     if (url.startsWith('/api/stock-lots')) return Promise.resolve([]); // no dated lots at all
     return Promise.resolve([]);
@@ -224,4 +242,30 @@ test('Expiring-within-30-days card shows the empty state when nothing is dated',
   expect(
     within(card).getByText(/Nothing dated expires in the next 30 days/),
   ).toBeInTheDocument();
+});
+
+test('reorder recommendations show EOQ and flag missing demand for manual review', async() => {
+  mockResponses();
+  renderPage();
+  const card = await screen.findByLabelText('Low stock reorder recommendations');
+  expect(within(card).getByText('Reorder Milklab Milk 1L')).toBeInTheDocument();
+  expect(within(card).getByText('85')).toBeInTheDocument();
+  expect(within(card).getByText('EOQ estimate')).toBeInTheDocument();
+  expect(within(card).getByText('Manual review')).toBeInTheDocument();
+  expect(within(card).getByText(/does not place an order/i)).toBeInTheDocument();
+  expect(within(card).getByRole('button', { name: /download reorder suggestions csv/i })).toBeEnabled();
+});
+
+test('reorder CSV escapes quotes and neutralizes spreadsheet formulas', () => {
+  const csv = buildReorderCsv([{
+    product_name: '=HYPERLINK("https://bad.example")',
+    on_hand: 0,
+    critical_level: 32,
+    reorder_point: 0,
+    safety_stock: 0,
+    recommended_quantity: null,
+    recommendation_basis: 'manual_review',
+  }]);
+  expect(csv).toContain(`"'=HYPERLINK(""https://bad.example"")"`);
+  expect(csv).toContain('Manual review required');
 });

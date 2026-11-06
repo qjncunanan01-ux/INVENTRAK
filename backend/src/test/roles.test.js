@@ -67,6 +67,7 @@ test('inventory staff are blocked from every money surface', async () => {
     ['/api/analytics/export/products', 'GET'],
     ['/api/sales', 'GET'],
     ['/api/alerts', 'GET'],
+    ['/api/inventory/reorder-suggestions', 'GET'],
     ['/api/users', 'GET'],
     ['/api/health/integrity', 'GET'],
   ];

@@ -5,6 +5,7 @@ const { authenticateToken, signToken } = require('../../auth-core');
 const { adminOnly, staffOrAdmin } = require('../../middleware');
 const { criticalLevels, criticalLevelFromMap, stockStatus } = require('../../inventory/critical-level');
 const { reconcile } = require('../../insights/reconciliation');
+const { buildReorderSuggestions } = require('../../insights/reorder-suggestions');
 const { schedule, shelfDetail } = require('../../inventory/stocktake');
 const { MAX_BATCH_LINES } = require('../../config');
 const { audit } = require('../../audit');
@@ -18,6 +19,23 @@ function resolveLocation(value) {
   const row = db.prepare('SELECT id FROM locations WHERE name = ?').get(value);
   return row ? row.id : null;
 }
+
+// GET /api/inventory/reorder-suggestions — advisory low-stock ordering list.
+// Admin-tier only. It does not place an order.
+router.get('/reorder-suggestions', authenticateToken, adminOnly, (req, res) => {
+  const products = db.prepare('SELECT id, name, price, cost FROM products WHERE status = ?').all('active');
+  const sales = db.prepare('SELECT product_id, qty, transaction_date FROM sales_transactions').all();
+  const stockRows = db.prepare('SELECT product_id, SUM(quantity) AS total FROM stock GROUP BY product_id').all();
+  const stockByProduct = new Map(stockRows.map(row => [Number(row.product_id), Number(row.total) || 0]));
+  const result = buildReorderSuggestions({
+    products,
+    sales,
+    stockByProduct,
+    criticalLevels: criticalLevels(),
+    settings: settings.getInventoryAlgorithmSettings(),
+  });
+  res.json(result);
+});
 
 // GET /api/inventory
 router.get('/', (req, res) => {

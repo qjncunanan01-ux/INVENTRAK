@@ -378,6 +378,7 @@ test('openapi: inventory list + low stock + location filter', async () => {
   await bothConform('inventory', 'GET', '/api/inventory');
   await bothConform('inventory low stock', 'GET', '/api/inventory?low_stock=true');
   await bothConform('inventory by location', 'GET', '/api/inventory?location=Showroom');
+  await bothConform('inventory reorder suggestions', 'GET', '/api/inventory/reorder-suggestions', { auth: 'admin' });
 });
 
 test('openapi: locations list/create/duplicate/delete', async () => {
