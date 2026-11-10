@@ -122,6 +122,13 @@ function MainTabsNavigator({ route }) {
       <MainTabs.Screen
         name="OrdersTab"
         component={OrdersNavigator}
+        // Returning to Orders should always land on order history. Deep-link
+        // flows such as Cart → Checkout → Payment can leave a nested checkout
+        // screen at the top of this stack; React Navigation otherwise restores
+        // that stale form when the customer comes back to the tab.
+        listeners={({ navigation }) => ({
+          tabPress: () => navigation.navigate('OrdersTab', { screen: 'InquiryHistory' }),
+        })}
         options={{ tabBarLabel: 'Orders', tabBarIcon: (p) => tabIcon('clipboard-text-outline', p) }}
       />
       <MainTabs.Screen
