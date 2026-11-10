@@ -108,7 +108,7 @@ router.post(
     email: { required: true, maxLength: 100 },
     phone: { required: true, maxLength: 20 },
   }),
-  async (req, res) => {
+  async(req, res) => {
     if (req.body.website) {
       return res.status(400).json({ error: 'Validation failed', details: ['Unexpected field: website'] });
     }
@@ -169,7 +169,7 @@ router.post(
         sms: !!(delivery && delivery[1] && delivery[1].sent),
       },
     });
-  }
+  },
 );
 
 // POST /api/auth/verify-email
@@ -201,7 +201,7 @@ router.post('/verify-email', validate({ code: { required: true, maxLength: 10 } 
 });
 
 // POST /api/auth/resend-verification
-router.post('/resend-verification', validate({ email: { required: true, maxLength: 100 } }), async (req, res) => {
+router.post('/resend-verification', validate({ email: { required: true, maxLength: 100 } }), async(req, res) => {
   const { email } = req.body;
   const sourceIp = req.socket?.remoteAddress || req.ip || '';
   const lock = loginLockout.check('resend-verification', sourceIp);
@@ -283,7 +283,7 @@ router.post('/login', validate({ username: { required: true }, password: { requi
   if (portal === 'admin' && !canAccessAdminPortal(user.role)) {
     audit('auth.login.portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
     return res.status(403).json({
-      error: "Inventory Staff accounts are mobile-only. Use Sylver's Staff app to scan QR tags and submit counts.",
+      error: 'Inventory Staff accounts are mobile-only. Use Sylver\'s Staff app to scan QR tags and submit counts.',
       code: 'portal_mobile_only',
     });
   }
@@ -299,7 +299,7 @@ router.post('/login', validate({ username: { required: true }, password: { requi
   if (portal === 'customer' && !canAccessCustomerPortal(user.role)) {
     audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
     return res.status(403).json({
-      error: "Inventory Staff accounts use Sylver's Staff app to scan and count stock.",
+      error: 'Inventory Staff accounts use Sylver\'s Staff app to scan and count stock.',
       code: 'customer_app_exclusive',
     });
   }
@@ -319,7 +319,7 @@ router.post('/login', validate({ username: { required: true }, password: { requi
 });
 
 // POST /api/auth/google
-router.post('/google', validate({ idToken: { required: true }, portal: { maxLength: 20 } }), async (req, res) => {
+router.post('/google', validate({ idToken: { required: true }, portal: { maxLength: 20 } }), async(req, res) => {
   const portal = req.body.portal || 'customer';
   if (portal !== 'customer') {
     return res.status(400).json({ error: 'Validation failed', details: ['portal must be customer'] });
@@ -339,12 +339,12 @@ router.post('/google', validate({ idToken: { required: true }, portal: { maxLeng
   if (user && !canAccessCustomerPortal(user.role)) {
     audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username });
     return res.status(403).json({
-      error: "Inventory Staff accounts use Sylver's Staff app to scan and count stock.",
+      error: 'Inventory Staff accounts use Sylver\'s Staff app to scan and count stock.',
       code: 'customer_app_exclusive',
     });
   }
   if (!user) {
-    let base = googleUsername(result.payload.name, email);
+    const base = googleUsername(result.payload.name, email);
     let username = base;
     let n = 1;
     while (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) username = `${base}${n++}`;
@@ -476,7 +476,7 @@ router.get('/google/start', (req, res) => {
 });
 
 // GET /api/auth/google/callback
-router.get('/google/callback', async (req, res) => {
+router.get('/google/callback', async(req, res) => {
   const consumed = consumeRelayState(req.query.state);
   if (!consumed.ok) {
     return res.status(400).json({ error: 'Invalid Google sign-in state', details: ['state missing, expired, or already used'] });
@@ -501,7 +501,7 @@ router.get('/google/callback', async (req, res) => {
     return res.redirect(`${webReturn}?error=customer_app_exclusive`);
   }
   if (!user) {
-    let base = googleUsername(result.payload.name, email);
+    const base = googleUsername(result.payload.name, email);
     let username = base;
     let n = 1;
     while (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) username = `${base}${n++}`;

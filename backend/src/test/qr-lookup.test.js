@@ -23,7 +23,7 @@ function parseQrPayload(raw) {
 }
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -95,21 +95,21 @@ describe('qr payload grammar', () => {
 });
 
 describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
-  test('requires authentication on both backends', async () => {
+  test('requires authentication on both backends', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/products/qr/1');
       assert.strictEqual(res.status, 401, 'no token -> 401');
     }
   });
 
-  test('customer token is forbidden — identifiers are not authorization', async () => {
+  test('customer token is forbidden — identifiers are not authorization', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/products/qr/1', { token: side.token.customer });
       assert.strictEqual(res.status, 403, 'customer token must not use the staff lookup');
     }
   });
 
-  test('staff token resolves a known product with stock + lots', async () => {
+  test('staff token resolves a known product with stock + lots', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/products/qr/1', { token: side.token.staff });
       assert.strictEqual(res.status, 200, 'known product id resolves');
@@ -129,7 +129,7 @@ describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
     }
   });
 
-  test('URL-encoded full-payload form resolves the same product', async () => {
+  test('URL-encoded full-payload form resolves the same product', async() => {
     // A scanner app may hand the lookup the verbatim tag payload;
     // HTTP clients may percent-encode it (':' -> %3A). Both backends must
     // accept both forms — the npm-free dispatcher previously skipped the
@@ -142,7 +142,7 @@ describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
     }
   });
 
-  test('sku-form code resolves the same product (case-insensitive)', async () => {
+  test('sku-form code resolves the same product (case-insensitive)', async() => {
     for (const code of ['PRD-000001', 'prd-000001']) {
       for (const side of [sqlite, npmfree]) {
         const res = await call(side.url, `/api/products/qr/${encodeURIComponent(code)}`, { token: side.token.staff });
@@ -152,7 +152,7 @@ describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
     }
   });
 
-  test('unknown code returns 404 with the documented error shape', async () => {
+  test('unknown code returns 404 with the documented error shape', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/products/qr/NOPE-404', { token: side.token.staff });
       assert.strictEqual(res.status, 404);
@@ -160,7 +160,7 @@ describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
     }
   });
 
-  test('inactive product returns 409', async () => {
+  test('inactive product returns 409', async() => {
     for (const side of [sqlite, npmfree]) {
       // Deactivate the product the tag points at. A partial PUT nulls the
       // unspecified columns on BOTH backends (a pinned contract), so round-trip
@@ -183,7 +183,7 @@ describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
     }
   });
 
-  test('camera-friendly tag URL resolves identically to the plain payload', async () => {
+  test('camera-friendly tag URL resolves identically to the plain payload', async() => {
     // Printed tags carry https://…/t/<id> so native phone cameras open the
     // public tag page. The app scanners unwrap it — and the server-side
     // lookup accepts the URL form directly, so either decoded value resolves.
@@ -200,7 +200,7 @@ describe('qr lookup endpoint (GET /api/products/qr/:code)', () => {
 });
 
 describe('public tag page (GET /t/:code — camera-friendly URL target)', () => {
-  test('serves HTML for a known tag WITHOUT any auth, on both backends', async () => {
+  test('serves HTML for a known tag WITHOUT any auth, on both backends', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/t/1');
       assert.strictEqual(res.status, 200, 'public tag page resolves');
@@ -210,7 +210,7 @@ describe('public tag page (GET /t/:code — camera-friendly URL target)', () => 
     }
   });
 
-  test('accepts the sku form and the raw payload form', async () => {
+  test('accepts the sku form and the raw payload form', async() => {
     for (const side of [sqlite, npmfree]) {
       const skuRes = await call(side.url, '/t/PRD-000001');
       assert.strictEqual(skuRes.status, 200);
@@ -221,7 +221,7 @@ describe('public tag page (GET /t/:code — camera-friendly URL target)', () => 
     }
   });
 
-  test('unknown tag renders a friendly 404 page (never a stack)', async () => {
+  test('unknown tag renders a friendly 404 page (never a stack)', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/t/999999');
       assert.strictEqual(res.status, 404);
@@ -230,7 +230,7 @@ describe('public tag page (GET /t/:code — camera-friendly URL target)', () => 
     }
   });
 
-  test('malformed codes 400, foreign QRs stay unknown — no resolution', async () => {
+  test('malformed codes 400, foreign QRs stay unknown — no resolution', async() => {
     for (const side of [sqlite, npmfree]) {
       const bad = await call(side.url, `/t/${encodeURIComponent('INVENTRAK:PROD:1; DROP TABLE products')}`);
       assert.strictEqual(bad.status, 400);
@@ -252,7 +252,7 @@ describe('public tag page (GET /t/:code — camera-friendly URL target)', () => 
           name: '<script>alert(1)</script>',
           category: 'Cats & Dogs',
           brand: 'A"B',
-          description: "It's <b>bold</b> & fun",
+          description: 'It\'s <b>bold</b> & fun',
           size: null,
           unit: null,
           image: null,
@@ -266,6 +266,6 @@ describe('public tag page (GET /t/:code — camera-friendly URL target)', () => 
     assert.ok(html.includes('&lt;script&gt;'), 'name escaped');
     assert.ok(html.includes('Cats &amp; Dogs'), 'category ampersand escaped');
     assert.ok(html.includes('&quot;'), 'brand quote escaped');
-    assert.ok(!html.includes("It's <b>"), 'description tags escaped');
+    assert.ok(!html.includes('It\'s <b>'), 'description tags escaped');
   });
 });

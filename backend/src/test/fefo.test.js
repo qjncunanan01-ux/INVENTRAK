@@ -39,7 +39,7 @@ async function move(side, body) {
 test.before(bootBoth);
 test.after(teardown);
 
-test('POST stock-movement validates expiry_date format on both backends', async () => {
+test('POST stock-movement validates expiry_date format on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     // '2027-02-31' is the calendar-rollout case: V8's Date constructor happily
     // parses it as Mar 3, so a plain isValidDate() check would ACCEPT it and
@@ -63,7 +63,7 @@ test('POST stock-movement validates expiry_date format on both backends', async 
   }
 });
 
-test('stock-in with expiry_date records a lot carrying that expiry on both backends', async () => {
+test('stock-in with expiry_date records a lot carrying that expiry on both backends', async() => {
   const longLife = day(365);
   for (const side of [sqlite, npmfree]) {
     await move(side, {
@@ -86,7 +86,7 @@ test('stock-in with expiry_date records a lot carrying that expiry on both backe
   }
 });
 
-test('FEFO: soonest-expiry lot is consumed first, FIFO lots untouched', async () => {
+test('FEFO: soonest-expiry lot is consumed first, FIFO lots untouched', async() => {
   const soon = day(1);
   for (const side of [sqlite, npmfree]) {
     const before = await lotQty(side, PROD, LOC_A);
@@ -114,12 +114,12 @@ test('FEFO: soonest-expiry lot is consumed first, FIFO lots untouched', async ()
     assert.ok(!lots.some(l => l.expiry_date === soon), 'soon-expiring lot fully consumed');
     assert.ok(
       lots.some(l => l.qty > 0),
-      'remaining lots still open'
+      'remaining lots still open',
     );
   }
 });
 
-test('FEFO: non-expiring lots are consumed last (after every expiring lot)', async () => {
+test('FEFO: non-expiring lots are consumed last (after every expiring lot)', async() => {
   // Drain everything at LOC_B, then build a controlled mix:
   //   lot 1: no expiry, arrived first (classic FIFO would pick this)
   //   lot 2: expires in 3 days
@@ -149,13 +149,13 @@ test('FEFO: non-expiring lots are consumed last (after every expiring lot)', asy
     const noExpiry = lots.find(l => l.expiry_date == null);
     assert.ok(
       noExpiry && Number(noExpiry.qty) === 5,
-      'non-expiring lot must NOT be consumed while an expiring lot exists'
+      'non-expiring lot must NOT be consumed while an expiring lot exists',
     );
     assert.ok(!lots.some(l => l.expiry_date === day(3)), 'expiring lot consumed first despite arriving later');
   }
 });
 
-test('transfer carries the expiry_date to the destination lot', async () => {
+test('transfer carries the expiry_date to the destination lot', async() => {
   const exp = day(60);
   for (const side of [sqlite, npmfree]) {
     await move(side, {
@@ -176,7 +176,7 @@ test('transfer carries the expiry_date to the destination lot', async () => {
   }
 });
 
-test('GET /api/stock-lots?expiring_within filters to lots expiring in the window', async () => {
+test('GET /api/stock-lots?expiring_within filters to lots expiring in the window', async() => {
   for (const side of [sqlite, npmfree]) {
     const { status, json } = await call(side.url, '/api/stock-lots?expiring_within=30', {
       token: side.token.admin,
@@ -193,7 +193,7 @@ test('GET /api/stock-lots?expiring_within filters to lots expiring in the window
   }
 });
 
-test('GET /api/stock-lots orders FEFO: dated lots first, then FIFO', async () => {
+test('GET /api/stock-lots orders FEFO: dated lots first, then FIFO', async() => {
   for (const side of [sqlite, npmfree]) {
     const { status, json } = await call(side.url, `/api/stock-lots?product_id=${PROD}`, {
       token: side.token.admin,
@@ -208,7 +208,7 @@ test('GET /api/stock-lots orders FEFO: dated lots first, then FIFO', async () =>
   }
 });
 
-test('FIFO setting is live and controls both lot display and stock-out allocation', async () => {
+test('FIFO setting is live and controls both lot display and stock-out allocation', async() => {
   const policyChange = (side, policy) => call(side.url, '/api/settings', {
     method: 'PUT',
     token: side.token.owner,
@@ -265,7 +265,7 @@ test('FIFO setting is live and controls both lot display and stock-out allocatio
   }
 });
 
-test('invalid expiring_within is rejected identically on both backends', async () => {
+test('invalid expiring_within is rejected identically on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     for (const bad of ['nope', '-1', '99999']) {
       const { status } = await call(side.url, `/api/stock-lots?expiring_within=${encodeURIComponent(bad)}`, {
@@ -276,7 +276,7 @@ test('invalid expiring_within is rejected identically on both backends', async (
   }
 });
 
-test('stock movements require valid locations before writing the ledger', async () => {
+test('stock movements require valid locations before writing the ledger', async() => {
   for (const side of [sqlite, npmfree]) {
     const noDestination = await call(side.url, '/api/stock-movement', {
       method: 'POST',

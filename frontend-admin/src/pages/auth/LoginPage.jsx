@@ -23,7 +23,7 @@ const DEMO_ACCOUNTS = [
 ];
 
 // Landing route per role. All portal roles land on the dashboard.
-function homeForRole(role) {
+function homeForRole() {
   return '/';
 }
 
@@ -124,7 +124,7 @@ export default function LoginPage({ onLogin }) {
       if (!data.user || !ADMIN_TIER.includes(data.user.role)) {
         setError(
           data.user && data.user.role === 'staff'
-            ? "Inventory Staff accounts are mobile-only — scan QR tags and submit counts from Sylver's mobile app instead."
+            ? 'Inventory Staff accounts are mobile-only — scan QR tags and submit counts from Sylver\'s mobile app instead.'
             : 'This account does not have web admin access.',
         );
         return;
@@ -140,7 +140,7 @@ export default function LoginPage({ onLogin }) {
         onLogin(data.user);
         // Always land on this role's home after login, regardless of which
         // page the user was on before (e.g. logged out from Products).
-        window.location.href = homeForRole(data.user.role);
+        window.location.href = homeForRole();
       }, 500);
     } catch (err) {
       setError('Network error — could not reach the server. Check your connection and try again.');
@@ -169,7 +169,7 @@ export default function LoginPage({ onLogin }) {
       setSnackbar({ open: true, message: 'MFA verified — login successful!', severity: 'success' });
       setTimeout(() => {
         onLogin(data.user);
-        window.location.href = homeForRole(data.user.role);
+        window.location.href = homeForRole();
       }, 500);
     } catch (err) {
       setError(err.status === 429 ? 'Too many attempts. Wait a moment and try again.' : (err.message || 'Invalid code'));
@@ -226,7 +226,7 @@ export default function LoginPage({ onLogin }) {
 
             <Box sx={{ mb: 3, p: 3, borderRadius: 3, backgroundColor: brandSidebar, color: '#fff' }}>
               <Typography variant="h5" component="div" gutterBottom>
-            {company.software} Admin
+                {company.software} Admin
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>
             Secure inventory controls and analytics.
@@ -295,7 +295,7 @@ export default function LoginPage({ onLogin }) {
               {showDemo ? 'Hide demo credentials' : 'Show demo credentials'} — one tap fills the account, then press Login.
             </Typography>
             <Typography variant="caption" sx={{ display: 'block', mb: 3, color: colors.textSecondary }}>
-          📱 Inventory Staff: sign in from Sylver's mobile app to scan QR tags and submit counts — this portal is desktop-only.
+          📱 Inventory Staff: sign in from Sylver&apos;s mobile app to scan QR tags and submit counts — this portal is desktop-only.
             </Typography>
 
             {error ? <Alert severity="error" sx={{ mb: 2 }} aria-live="polite">{error}</Alert> : null}

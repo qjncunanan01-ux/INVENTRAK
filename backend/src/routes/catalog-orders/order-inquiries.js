@@ -197,7 +197,7 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
     }
   }
 
-  if (SYLVER_POLICY_DEMO && updatedStatus === 'fulfilled' && existing.fulfillment_method === 'courier' && existing.payment_status !== 'paid') {
+  if (['fulfilled', 'delivered'].includes(updatedStatus) && existing.fulfillment_method === 'courier' && existing.payment_status !== 'paid') {
     return res.status(409).json({ error: 'Courier delivery must be paid and verified before dispatch' });
   }
   if (!SYLVER_POLICY_DEMO && updatedStatus === 'preparing' && ['qrph', 'gcash', 'other'].includes(existing.payment_method) && existing.payment_status !== 'paid') {
@@ -568,7 +568,7 @@ router.post('/', validate({
   customer_name: { required: true, min: 2, maxLength: 100 },
   customer_email: { required: true, maxLength: 100 },
   estimated_cost: { type: 'number', min: 0 },
-}), async (req, res) => {
+}), async(req, res) => {
   const { customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, payment_method, fulfillment_method } = req.body;
 
   if (typeof customer_name !== 'string' || typeof customer_email !== 'string') {
@@ -672,15 +672,13 @@ router.post('/', validate({
   if (fulfillment.error) {
     return res.status(400).json({ error: 'Validation failed', details: [fulfillment.error] });
   }
+  const selectedPaymentMethod = payment_method || (SYLVER_POLICY_DEMO ? 'cash' : 'cod');
+  if (fulfillment.method === 'courier' && ['cash', 'cod'].includes(selectedPaymentMethod)) {
+    return res.status(400).json({ error: 'Cash is available for pickup only. Courier orders must be paid and verified before collection.' });
+  }
   if (!SYLVER_POLICY_DEMO && payment_method === 'qrph') {
-    if (fulfillment.method !== 'pickup') {
-      return res.status(400).json({ error: 'QR Ph checkout is currently available for pickup orders while courier fees are confirmed separately' });
-    }
     const configError = payMongoConfigError();
     if (configError) return res.status(503).json({ error: configError });
-  }
-  if (SYLVER_POLICY_DEMO && payment_method === 'cash' && fulfillment.method === 'courier') {
-    return res.status(400).json({ error: 'Cash is available for pickup; courier orders must be paid and verified before dispatch' });
   }
   if (SYLVER_POLICY_DEMO && payment_method === 'credit' && fulfillment.method === 'courier') {
     return res.status(400).json({ error: 'Credit is available for pickup only; courier orders must be paid before dispatch' });
@@ -693,34 +691,24 @@ router.post('/', validate({
 
   const normalized = normalizeLines(products);
   let lines = normalized.lines;
-  let qrPhTotal = null;
   let discount = { total: normalized.total, discount_amount: 0, eligible_subtotal: 0 };
-  if (!SYLVER_POLICY_DEMO && payment_method === 'qrph') {
-    const catalog = db.prepare('SELECT id, name, price, status FROM products').all();
+  const hasCatalogLineIds = lines.some((line) => line.id != null);
+  if ((hasCatalogLineIds && lines.some((line) => line.id == null)) || (payment_method === 'qrph' && !hasCatalogLineIds)) {
+    return res.status(400).json({ error: 'Refresh the catalog before checkout; every item must match a current product' });
+  }
+  if (SYLVER_POLICY_DEMO && !hasCatalogLineIds) {
+    return res.status(400).json({ error: 'Refresh the catalog before placing a demo order; every item must match a current product' });
+  }
+  if (hasCatalogLineIds) {
+    const catalog = db.prepare('SELECT id, name, category, price, status FROM products').all();
     const pricing = priceLinesFromCatalog(lines, catalog);
     if (pricing.error) return res.status(409).json({ error: pricing.error });
     lines = pricing.lines;
-    qrPhTotal = pricing.total;
-  }
-  if (SYLVER_POLICY_DEMO) {
-    if (lines.some((line) => line.id == null)) {
-      return res.status(400).json({ error: 'Refresh the catalog before placing a demo order; every item must match a current product' });
-    }
-    const catalog = db.prepare('SELECT id, name, category, price, status FROM products').all();
     const productsById = new Map(catalog.map((product) => [Number(product.id), product]));
-    lines = lines.map((line) => {
-      const product = productsById.get(Number(line.id));
-      if (!product || product.status !== 'active') return line;
-      // Demo checkout uses the current server catalog price so a modified
-      // client payload cannot lower or raise the business price.
-      return { ...line, name: product.name, unit_price: Number(product.price) || 0 };
-    });
     discount = applyBulkDiscount(lines, (id) => productsById.get(Number(id)));
     lines = discount.lines;
   }
-  const storedCost = !SYLVER_POLICY_DEMO && payment_method === 'qrph'
-    ? qrPhTotal
-    : SYLVER_POLICY_DEMO
+  const storedCost = hasCatalogLineIds
     ? Number(discount.total) || 0
     : normalized.total !== null ? normalized.total : (estimated_cost || 0);
   if (!SYLVER_POLICY_DEMO && payment_method === 'qrph' && (!Number.isFinite(Number(storedCost)) || Number(storedCost) < 1)) {
@@ -803,7 +791,7 @@ router.post('/', validate({
 
   const acceptedTermsVersion = req.body.terms_accepted === true ? activeTerms.version : null;
   const inquiryId = db.prepare('INSERT INTO order_inquiries (customer_name, customer_email, customer_phone, products, estimated_cost, notes, delivery_address, fulfillment_method, payment_method, user_id, customer_id, status_history, status, terms_version, terms_accepted_at, bulk_discount_amount, bulk_discount_eligible_subtotal, delivery_fee, payment_records, return_requests, amount_paid, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, \'[]\', \'[]\', 0, ?)')
-    .run(cleanName, cleanEmail, cleanPhone, JSON.stringify(lines), storedCost, cleanNotes || '', fulfillment.address, fulfillment.method, payment_method || (SYLVER_POLICY_DEMO ? 'cash' : 'cod'), userId, customerId, JSON.stringify([{ status: 'pending', at: now }]), 'pending', acceptedTermsVersion, acceptedTermsVersion ? now : null, Number(discount.discount_amount) || 0, Number(discount.eligible_subtotal) || 0, now).lastInsertRowid;
+    .run(cleanName, cleanEmail, cleanPhone, JSON.stringify(lines), storedCost, cleanNotes || '', fulfillment.address, fulfillment.method, selectedPaymentMethod, userId, customerId, JSON.stringify([{ status: 'pending', at: now }]), 'pending', acceptedTermsVersion, acceptedTermsVersion ? now : null, Number(discount.discount_amount) || 0, Number(discount.eligible_subtotal) || 0, now).lastInsertRowid;
   if (SYLVER_POLICY_DEMO && payment_method === 'credit') {
     db.prepare('UPDATE order_inquiries SET payment_status = ? WHERE id = ?').run('credit_pending', inquiryId);
   }
@@ -830,7 +818,7 @@ router.post('/', validate({
 
   let payment = null;
   try {
-    payment = await buildPaymentStep({ id: inquiryId, amount: storedCost, description: `Sylver's order ${inquiryId} — ${cleanName}`, email: cleanEmail, paymentMethod: payment_method || 'cod' });
+    payment = await buildPaymentStep({ id: inquiryId, amount: storedCost, description: `Sylver's order ${inquiryId} — ${cleanName}`, email: cleanEmail, paymentMethod: selectedPaymentMethod });
   } catch (err) {
     console.error('[payments] buildPaymentStep failed:', err && err.message);
     if (!SYLVER_POLICY_DEMO && payment_method === 'qrph') {

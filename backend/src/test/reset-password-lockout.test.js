@@ -32,14 +32,14 @@ async function requestCode(side, email) {
   const code =
     idx > 0
       ? (() => {
-          try {
-            const text = JSON.parse(lines[0].slice(idx + 4)).text || '';
-            const m = text.match(/\n\s+(\d{6})\s*\n/);
-            return m && m[1];
-          } catch {
-            return null;
-          }
-        })()
+        try {
+          const text = JSON.parse(lines[0].slice(idx + 4)).text || '';
+          const m = text.match(/\n\s+(\d{6})\s*\n/);
+          return m && m[1];
+        } catch {
+          return null;
+        }
+      })()
       : null;
   assert.ok(/^\d{6}$/.test(code || ''), `expected a 6-digit code, got ${code}`);
   return code;
@@ -48,7 +48,7 @@ async function requestCode(side, email) {
 let user;
 const email = () => `${user}@example.com`;
 
-before(async () => {
+before(async() => {
   await bootBoth();
   user = `reset_lock_${Date.now().toString(36)}`;
 });
@@ -62,7 +62,7 @@ after(() => {
 // The lockout-clear test MUST run first — its successful reset clears the
 // bucket — and the brute-force test runs last (it ends with the bucket
 // deliberately locked, and nothing after it needs the endpoint).
-test('reset: a successful reset clears the account LOGIN lockout on BOTH backends', async () => {
+test('reset: a successful reset clears the account LOGIN lockout on BOTH backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const uname = `${user}_login_${side === sqlite ? 's' : 'n'}`;
     await call(side.url, '/api/auth/register', {
@@ -100,12 +100,12 @@ test('reset: a successful reset clears the account LOGIN lockout on BOTH backend
     assert.strictEqual(
       fresh.status,
       200,
-      `${side === sqlite ? 'sqlite' : 'npmfree'} login works after reset clears the lockout`
+      `${side === sqlite ? 'sqlite' : 'npmfree'} login works after reset clears the lockout`,
     );
   }
 });
 
-test('reset: wrong-code guessing is throttled to 429 on BOTH backends (brute-force protection)', async () => {
+test('reset: wrong-code guessing is throttled to 429 on BOTH backends (brute-force protection)', async() => {
   for (const side of [sqlite, npmfree]) {
     // Register a fresh account per side so the code belongs to it.
     const uname = `${user}_${side === sqlite ? 's' : 'n'}`;

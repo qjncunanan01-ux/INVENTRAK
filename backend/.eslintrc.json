@@ -32,9 +32,16 @@
     "max-len": ["warn", { "code": 120, "ignoreStrings": true, "ignoreTemplateLiterals": true }],
     "complexity": ["warn", 15],
     "max-depth": ["warn", 4],
-    "max-params": ["warn", 5]
+    "max-params": ["warn", 5],
+    "no-empty": ["error", { "allowEmptyCatch": true }]
   },
   "overrides": [
+    {
+      "files": ["src/insights/reconciliation.js", "src/inventory/stocktake.js"],
+      "parserOptions": {
+        "sourceType": "module"
+      }
+    },
     {
       "files": ["**/*.test.js"],
       "env": {

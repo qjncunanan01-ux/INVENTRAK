@@ -53,7 +53,7 @@ test('tampering a committed inventory quantity fails the check', () => {
   assert.strictEqual(result.ok, false);
   assert.ok(
     result.diffs.some(d => d.dataset === 'inventory.json' && d.path.includes('Showroom')),
-    JSON.stringify(result.diffs)
+    JSON.stringify(result.diffs),
   );
 });
 
@@ -72,9 +72,9 @@ test('adding a product to products.json without an inventory entry fails the che
   const expectedPlusOne = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'products.json'), 'utf8')).length + 1;
   assert.ok(
     result.diffs.some(
-      d => d.dataset === 'inventory.json' && d.path === '$.items' && d.actual === `array[${expectedPlusOne}]`
+      d => d.dataset === 'inventory.json' && d.path === '$.items' && d.actual === `array[${expectedPlusOne}]`,
     ),
-    JSON.stringify(result.diffs)
+    JSON.stringify(result.diffs),
   );
 });
 
@@ -103,6 +103,6 @@ test('normalizeProductRow maps a sparse committed row to the transform shape', (
   // '/images/<file>' paths that must survive the transform).
   assert.strictEqual(
     normalizeProductRow({ ...sparse, Image: '/images/butterscotch.jpg' }).Image,
-    '/images/butterscotch.jpg'
+    '/images/butterscotch.jpg',
   );
 });

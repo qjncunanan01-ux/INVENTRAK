@@ -32,7 +32,7 @@ export default function ApprovalsPage({ onLogout }) {
   // `silent` refreshes swap the data in place (no Loading… flicker, no error
   // snackbar spam while the backend briefly hiccups); the first load and
   // explicit reloads keep the original visible-loading behavior.
-  const loadData = useCallback(async (silent = false) => {
+  const loadData = useCallback(async(silent = false) => {
     if (inFlight.current) return;
     inFlight.current = true;
     if (!silent) setLoading(true);
@@ -50,7 +50,7 @@ export default function ApprovalsPage({ onLogout }) {
     }
   }, []);
 
-  const loadCorrections = useCallback(async () => {
+  const loadCorrections = useCallback(async() => {
     try {
       const rows = await apiGet('/api/correction-requests?status=open');
       setCorrections(Array.isArray(rows) ? rows : []);
@@ -93,7 +93,7 @@ export default function ApprovalsPage({ onLogout }) {
     }
   };
 
-  const resolveCorrection = async (id) => {
+  const resolveCorrection = async(id) => {
     try {
       await apiPost(`/api/correction-requests/${id}/resolve`, { status: 'closed' });
       setSnackbar({ open: true, message: 'Correction request closed.', severity: 'success' });

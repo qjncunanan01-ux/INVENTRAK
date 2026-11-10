@@ -46,7 +46,7 @@ export default function QrImage({ payload, size = 200, fallback = null, sx }) {
     return fallback ?? (
       <Box sx={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', ...sx }}>
         <CircularProgress size={Math.min(28, size / 4)} />
-    </Box>
+      </Box>
     );
   }
   return <Box component="img" src={dataUrl} alt="QR code" sx={{ width: size, height: size, display: 'block', ...sx }} />;

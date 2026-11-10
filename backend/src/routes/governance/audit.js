@@ -27,7 +27,7 @@ router.get('/', authenticateToken, managementOnly, (req, res) => {
       const lower = status.toLowerCase();
       logs = logs.filter((e) =>
         (e.details && typeof e.details === 'object' && e.details.status && String(e.details.status).toLowerCase() === lower) ||
-        (e.event || '').toLowerCase() === `order.status.${lower}`
+        (e.event || '').toLowerCase() === `order.status.${lower}`,
       );
     }
 

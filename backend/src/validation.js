@@ -32,7 +32,7 @@ function validate(schema) {
             errors.push(
               rules.type === 'number'
                 ? `${field} must be at least ${rules.min}`
-                : `${field} must be at least ${rules.min} characters`
+                : `${field} must be at least ${rules.min} characters`,
             );
           }
         }

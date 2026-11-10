@@ -39,7 +39,7 @@ export default function BackOrdersPage({ onLogout }) {
   const [note, setNote] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async() => {
     setLoading(true);
     try {
       const response = await apiGet('/api/back-orders');
@@ -53,7 +53,7 @@ export default function BackOrdersPage({ onLogout }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const save = async (body) => {
+  const save = async(body) => {
     setSaving(true);
     try {
       await apiPost('/api/back-orders', body);
@@ -68,7 +68,7 @@ export default function BackOrdersPage({ onLogout }) {
     }
   };
 
-  const handleCreate = async () => {
+  const handleCreate = async() => {
     const ok = await save({
       inquiry_id: Number(inquiryId),
       reason,

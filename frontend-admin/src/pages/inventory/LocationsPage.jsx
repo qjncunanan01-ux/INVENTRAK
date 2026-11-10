@@ -178,7 +178,7 @@ export default function LocationsPage({ onLogout }) {
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" mb={2}>
             Print and stick one tag on each storage area. Scanning a tag in the mobile app opens
-            that location's live stock view.
+            that location&apos;s live stock view.
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 2 }}>
             {locList.map(loc => (

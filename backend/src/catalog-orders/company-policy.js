@@ -1,6 +1,6 @@
 const SYLVER_POLICY_DEMO = process.env.SYLVER_POLICY_DEMO === 'true';
 
-const COMPANY_POLICY_VERSION = '2026-11-05-sylver-demo-v4';
+const COMPANY_POLICY_VERSION = '2026-11-10-sylver-demo-v5';
 const DISCOUNT_THRESHOLD = 5000;
 const DISCOUNT_RATE = 0.03;
 const PICKUP = {
@@ -20,23 +20,24 @@ const DELIVERY_AREAS = [
 // details or contacts a payment gateway.
 const PAYMENT_METHODS = ['cash', 'gcash', 'bank_transfer', 'card'];
 
-function isDiscountCategory(category) {
-  return /syrup|sauce/i.test(String(category || ''));
+function isDiscountCategory(category, name = '') {
+  return /syrup|sauce/i.test(`${String(category || '')} ${String(name || '')}`);
 }
 
 function applyBulkDiscount(lines, productForId) {
   const priced = lines.map((line) => {
     const product = line.id == null ? null : productForId(Number(line.id));
     const category = product && product.category;
+    const eligible = isDiscountCategory(category, (product && product.name) || line.name);
     const unitPrice = Number(line.unit_price);
     const subtotal = Number.isFinite(unitPrice) ? Math.round(unitPrice * Number(line.qty) * 100) / 100 : 0;
-    return { ...line, category, subtotal, gross_subtotal: subtotal, bulk_discount_amount: 0 };
+    return { ...line, category, discount_eligible: eligible, subtotal, gross_subtotal: subtotal, bulk_discount_amount: 0 };
   });
   const eligibleSubtotal = Math.round(priced.reduce((sum, line) =>
-    sum + (isDiscountCategory(line.category) ? line.gross_subtotal : 0), 0) * 100) / 100;
+    sum + (line.discount_eligible ? line.gross_subtotal : 0), 0) * 100) / 100;
   const qualifies = eligibleSubtotal >= DISCOUNT_THRESHOLD;
   let remainingDiscount = qualifies ? Math.round(eligibleSubtotal * DISCOUNT_RATE * 100) / 100 : 0;
-  const eligibleLines = priced.filter((line) => isDiscountCategory(line.category));
+  const eligibleLines = priced.filter((line) => line.discount_eligible);
   for (let index = 0; index < eligibleLines.length; index += 1) {
     const line = eligibleLines[index];
     const share = index === eligibleLines.length - 1

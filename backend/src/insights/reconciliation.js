@@ -196,9 +196,9 @@ export function reconcile({ counts, stock, sales, products } = {}) {
       shrinkage_units: losses.reduce((n, r) => n + r.unexplained_qty, 0),
       overage_units: overages.reduce((n, r) => n + Math.abs(r.unexplained_qty), 0),
       value_at_risk: losses.reduce((n, r) => n + r.value_at_risk, 0),
-  // A count whose sales could not be dated is a softer figure than one
-  // that is complete; the UI surfaces the count rather than hiding it.
-  incomplete_sales_rows: rows.filter(r => r.unparsed_sales > 0).length,
+      // A count whose sales could not be dated is a softer figure than one
+      // that is complete; the UI surfaces the count rather than hiding it.
+      incomplete_sales_rows: rows.filter(r => r.unparsed_sales > 0).length,
       // Counts with no usable timestamp cannot be reconciled against the sale
       // ledger at all; they are counted separately so the report never quietly
       // presents them as clean.

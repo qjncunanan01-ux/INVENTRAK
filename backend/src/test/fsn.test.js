@@ -80,7 +80,7 @@ test('fsn: monetary + rate stats are computed over the window only', () => {
     ],
     { id: 6, name: 'Priced', price: 2.5 },
     90,
-    { now: NOW }
+    { now: NOW },
   );
   // (4+1) * 2.5 = 12.5 revenue; 5 units / 90 days ~= 0.06/day.
   assert.strictEqual(r.valueSold, 12.5);
@@ -112,11 +112,11 @@ test('fsn: catalog sort puts Non-moving first, then Slow, then Fast', () => {
   const result = classifyFsnCatalog(products, sales, { now: NOW });
   assert.deepStrictEqual(
     result.map(r => r.classification),
-    ['N', 'S', 'F']
+    ['N', 'S', 'F'],
   );
   assert.deepStrictEqual(
     result.map(r => r.name),
-    ['Dead Product', 'Slow Product', 'Fast Product']
+    ['Dead Product', 'Slow Product', 'Fast Product'],
   );
 });
 
@@ -139,7 +139,7 @@ test('fsn: summarizeFsn reports counts and percentage mix', () => {
 
 // ===== Part 2: dual-backend endpoint parity =====
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -147,11 +147,11 @@ after(() => {
   teardown();
 });
 
-test('contract: GET /api/optimization/fsn returns identical shape on both backends', async () => {
+test('contract: GET /api/optimization/fsn returns identical shape on both backends', async() => {
   await both('GET /api/optimization/fsn', '/api/optimization/fsn', { auth: 'owner' });
 });
 
-test('contract: FSN endpoint returns all three classes on seeded data', async () => {
+test('contract: FSN endpoint returns all three classes on seeded data', async() => {
   for (const side of [sqlite, npmfree]) {
     const res = await call(side.url, '/api/optimization/fsn', { token: side.token.owner });
     assert.strictEqual(res.status, 200, `${side.url} should answer 200`);
@@ -173,7 +173,7 @@ test('contract: FSN endpoint returns all three classes on seeded data', async ()
     for (const key of required) {
       assert.ok(
         res.json.every(r => key in r),
-        `missing FsnItem key: ${key}`
+        `missing FsnItem key: ${key}`,
       );
     }
 
@@ -181,7 +181,7 @@ test('contract: FSN endpoint returns all three classes on seeded data', async ()
     assert.deepStrictEqual(
       [...classes].sort(),
       ['F', 'N', 'S'],
-      'seeded catalog should exercise all three FSN classes'
+      'seeded catalog should exercise all three FSN classes',
     );
     assert.ok(res.json.every(r => typeof r.name === 'string' && r.name.length > 0));
     assert.ok(res.json.every(r => r.windowDays === 90));
@@ -189,24 +189,24 @@ test('contract: FSN endpoint returns all three classes on seeded data', async ()
     const firstIdx = res.json.findIndex(r => r.classification !== 'N');
     assert.ok(
       firstIdx === -1 || res.json.slice(0, firstIdx).every(r => r.classification === 'N'),
-      'Non-moving items must sort first'
+      'Non-moving items must sort first',
     );
   }
 });
 
-test('contract: FSN window query param is honored identically (7-day window isolates recent sellers)', async () => {
+test('contract: FSN window query param is honored identically (7-day window isolates recent sellers)', async() => {
   await both('GET /api/optimization/fsn?window=7', '/api/optimization/fsn?window=7', { auth: 'owner' });
   for (const side of [sqlite, npmfree]) {
     const res = await call(side.url, '/api/optimization/fsn?window=7', { token: side.token.owner });
     assert.strictEqual(res.status, 200);
     assert.ok(
       res.json.every(r => r.windowDays === 7),
-      'windowDays must echo the clamped param'
+      'windowDays must echo the clamped param',
     );
   }
 });
 
-test('contract: FSN window clamping is identical on both backends', async () => {
+test('contract: FSN window clamping is identical on both backends', async() => {
   // 3 clamps up to 7; 99999 clamps down to 730.
   for (const w of ['3', '99999', 'abc']) {
     for (const side of [sqlite, npmfree]) {
@@ -221,7 +221,7 @@ test('contract: FSN window clamping is identical on both backends', async () => 
   assert.ok(huge.json.every(r => r.windowDays === 730));
 });
 
-test('contract: FSN classifications agree with ABC on the same catalog (same ids, both backends)', async () => {
+test('contract: FSN classifications agree with ABC on the same catalog (same ids, both backends)', async() => {
   // Cross-check consistency: every FSN row must reference a real catalog id
   // that also appears in the ABC output — the two analyses observe the same
   // active-product universe.

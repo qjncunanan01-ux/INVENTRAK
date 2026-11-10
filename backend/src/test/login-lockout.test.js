@@ -79,7 +79,7 @@ test('lockout: unit — lockout duration doubles per breach (exponential backoff
   const second = breach('10.0.0.3');
   assert.ok(
     second.retryAfterMs > 18_000 && second.retryAfterMs <= 20_000,
-    `second lockout ~2x: ${second.retryAfterMs}`
+    `second lockout ~2x: ${second.retryAfterMs}`,
   );
 
   // Let it expire again -> 4x, but capped at maxLockoutMs.
@@ -128,7 +128,7 @@ test('lockout: unit — expired lockout buckets are pruned (no unbounded growth)
 // ===== Integration: both backends behave identically under attack ==========
 
 let probeUser;
-before(async () => {
+before(async() => {
   await bootBoth();
   probeUser = `lockout_probe_${Date.now()}`;
 });
@@ -137,7 +137,7 @@ after(() => {
   teardown();
 });
 
-test('lockout: both backends lock the same account after the same number of failures', async () => {
+test('lockout: both backends lock the same account after the same number of failures', async() => {
   // 5 failures: 401s, not locked yet on either side.
   for (let i = 0; i < 5; i++) {
     const { a, b } = await both('lockout probe failure', '/api/auth/login', {
@@ -177,7 +177,7 @@ test('lockout: both backends lock the same account after the same number of fail
   assert.strictEqual(b2.status, 429);
 });
 
-test('lockout: other accounts and IPs stay usable while one account is locked', async () => {
+test('lockout: other accounts and IPs stay usable while one account is locked', async() => {
   // 'customer' (a real seeded account, distinct username) can still log in.
   for (const side of [sqlite, npmfree]) {
     const res = await call(side.url, '/api/auth/login', {
@@ -188,7 +188,7 @@ test('lockout: other accounts and IPs stay usable while one account is locked', 
   }
 });
 
-test('lockout: a successful login clears the counter (single typo then success is safe)', async () => {
+test('lockout: a successful login clears the counter (single typo then success is safe)', async() => {
   const user = `lockout_clear_${Date.now()}`;
   // Register the user on both backends, then log in.
   for (const side of [sqlite, npmfree]) {

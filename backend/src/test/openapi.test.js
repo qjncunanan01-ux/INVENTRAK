@@ -129,7 +129,7 @@ async function assertConform(label, side, method, pathname, { auth = null, body,
   // 1. The status code we got must be documented.
   assert.ok(
     op.responses && op.responses[String(res.status)],
-    `${label} (${side.name}): status ${res.status} for ${method} ${pathname} is NOT documented in openapi.json. Documented: ${Object.keys(op.responses || {}).join(', ')}`
+    `${label} (${side.name}): status ${res.status} for ${method} ${pathname} is NOT documented in openapi.json. Documented: ${Object.keys(op.responses || {}).join(', ')}`,
   );
 
   // 2. The request body we sent must conform to the documented requestBody.
@@ -148,7 +148,7 @@ async function assertConform(label, side, method, pathname, { auth = null, body,
     const ok = v(res.json);
     assert.ok(
       ok,
-      `${label} (${side.name}): response body violates ${method} ${pathname} [${res.status}] schema:\n${errorsText(v)}\n  body: ${JSON.stringify(res.json).slice(0, 400)}`
+      `${label} (${side.name}): response body violates ${method} ${pathname} [${res.status}] schema:\n${errorsText(v)}\n  body: ${JSON.stringify(res.json).slice(0, 400)}`,
     );
   }
   return res;
@@ -162,7 +162,7 @@ async function bothConform(label, method, pathname, opts = {}) {
   return { a, b };
 }
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -181,7 +181,7 @@ test('openapi: every operation in the spec has an operationId', () => {
   }
 });
 
-test('openapi: both servers serve the identical, valid spec document', async () => {
+test('openapi: both servers serve the identical, valid spec document', async() => {
   for (const side of [
     { ...sqlite, name: 'sqlite' },
     { ...npmfree, name: 'npmfree' },
@@ -197,7 +197,7 @@ test('openapi: both servers serve the identical, valid spec document', async () 
 
 // ===== Auth =====
 
-test('openapi: register validates request + response', async () => {
+test('openapi: register validates request + response', async() => {
   const username = `openapi_user_${Date.now()}`;
   await bothConform('register', 'POST', '/api/auth/register', {
     body: { username, password: 'Test123!', email: `${username}@example.com`, phone: '09171234567' },
@@ -211,7 +211,7 @@ test('openapi: register validates request + response', async () => {
   });
 });
 
-test('openapi: login happy path + failure', async () => {
+test('openapi: login happy path + failure', async() => {
   await bothConform('login admin', 'POST', '/api/auth/login', {
     body: { username: 'admin', password: 'admin123' },
   });
@@ -220,7 +220,7 @@ test('openapi: login happy path + failure', async () => {
   });
 });
 
-test('openapi: QR product lookup conforms on both backends (auth + unknown code)', async () => {
+test('openapi: QR product lookup conforms on both backends (auth + unknown code)', async() => {
   // 401 without a token (documented); QR tags are identifiers, not credentials.
   await bothConform('products/qr no token', 'GET', '/api/products/qr/1', {
     checkRequest: false,
@@ -241,7 +241,7 @@ test('openapi: QR product lookup conforms on both backends (auth + unknown code)
   });
 });
 
-test('openapi: google auth conforms on both backends (missing + garbage)', async () => {
+test('openapi: google auth conforms on both backends (missing + garbage)', async() => {
   // Missing idToken violates GoogleAuthInput -> 400; a garbage token when no
   // GOOGLE_CLIENT_IDS is set -> 501 (NotImplemented). Both documented.
   // checkRequest: false — the missing field is the point of the test.
@@ -255,7 +255,7 @@ test('openapi: google auth conforms on both backends (missing + garbage)', async
   });
 });
 
-test('openapi: login lockout 429 conforms to LockoutError on both backends', async () => {
+test('openapi: login lockout 429 conforms to LockoutError on both backends', async() => {
   // Brute-force lockout: 6 bad logins to a dedicated username trips the
   // 429 response, whose body must match the documented LockoutError schema.
   const user = `lockout_openapi_${Date.now()}`;
@@ -279,7 +279,7 @@ test('openapi: login lockout 429 conforms to LockoutError on both backends', asy
   assert.strictEqual(b.status, 429, 'npmfree lockout 429');
 });
 
-test('openapi: /api/auth/me for valid, missing, and invalid tokens', async () => {
+test('openapi: /api/auth/me for valid, missing, and invalid tokens', async() => {
   await bothConform('me valid', 'GET', '/api/auth/me', { auth: 'admin' });
   await bothConform('me no token', 'GET', '/api/auth/me');
   await bothConform('me invalid token', 'GET', '/api/auth/me', { auth: 'invalid' });
@@ -287,7 +287,7 @@ test('openapi: /api/auth/me for valid, missing, and invalid tokens', async () =>
 
 // ===== Products =====
 
-test('openapi: products list (array + paginated), categories, by-id, 404', async () => {
+test('openapi: products list (array + paginated), categories, by-id, 404', async() => {
   await bothConform('products list', 'GET', '/api/products');
   await bothConform('products paginated', 'GET', '/api/products?page=1&limit=3');
   await bothConform('products search', 'GET', '/api/products?search=a');
@@ -296,7 +296,7 @@ test('openapi: products list (array + paginated), categories, by-id, 404', async
   await bothConform('product 404', 'GET', '/api/products/99999');
 });
 
-test('openapi: product CRUD + auth enforcement', async () => {
+test('openapi: product CRUD + auth enforcement', async() => {
   const payload = { name: 'OpenAPI Widget', category: 'OpenAPI', price: 42 };
   const s = await assertConform('create product', { ...sqlite, name: 'sqlite' }, 'POST', '/api/products', {
     auth: 'admin',
@@ -319,7 +319,7 @@ test('openapi: product CRUD + auth enforcement', async () => {
 
 // ===== Bulk price update =====
 
-test('openapi: bulk price update conforms to spec on both backends', async () => {
+test('openapi: bulk price update conforms to spec on both backends', async() => {
   const uname = `BulkOpenapi ${Date.now().toString(36)}`;
   // Create a uniquely-named product so the name match is unambiguous, then
   // batch-update it by name and verify the response + resulting product
@@ -374,14 +374,14 @@ test('openapi: bulk price update conforms to spec on both backends', async () =>
 
 // ===== Inventory & Locations =====
 
-test('openapi: inventory list + low stock + location filter', async () => {
+test('openapi: inventory list + low stock + location filter', async() => {
   await bothConform('inventory', 'GET', '/api/inventory');
   await bothConform('inventory low stock', 'GET', '/api/inventory?low_stock=true');
   await bothConform('inventory by location', 'GET', '/api/inventory?location=Showroom');
   await bothConform('inventory reorder suggestions', 'GET', '/api/inventory/reorder-suggestions', { auth: 'admin' });
 });
 
-test('openapi: locations list/create/duplicate/delete', async () => {
+test('openapi: locations list/create/duplicate/delete', async() => {
   await bothConform('locations', 'GET', '/api/locations');
   const name = `OpenAPI Loc ${Date.now()}`;
   const s = await assertConform('create location', { ...sqlite, name: 'sqlite' }, 'POST', '/api/locations', {
@@ -401,7 +401,7 @@ test('openapi: locations list/create/duplicate/delete', async () => {
 
 // ===== Stock Movements =====
 
-test('openapi: stock movement + movements list + lots', async () => {
+test('openapi: stock movement + movements list + lots', async() => {
   await bothConform('stock-in', 'POST', '/api/stock-movement', {
     auth: 'admin',
     body: { product_id: 1, qty: 10, type: 'stock-in', dst_location: 1, notes: 'openapi' },
@@ -426,7 +426,7 @@ test('openapi: stock movement + movements list + lots', async () => {
 
 // ===== Order Inquiries =====
 
-test('openapi: order inquiries lifecycle', async () => {
+test('openapi: order inquiries lifecycle', async() => {
   const payload = {
     customer_name: 'OpenAPI Customer',
     customer_email: 'openapi@example.com',
@@ -466,14 +466,14 @@ test('openapi: order inquiries lifecycle', async () => {
 
 // ===== Optimization =====
 
-test('openapi: optimization bulk, abc, per-product, 404', async () => {
+test('openapi: optimization bulk, abc, per-product, 404', async() => {
   await bothConform('optimization bulk', 'GET', '/api/optimization', { auth: 'owner' });
   await bothConform('optimization abc', 'GET', '/api/optimization/abc', { auth: 'owner' });
   await bothConform('optimization per product', 'GET', '/api/optimization/1', { auth: 'owner' });
   await bothConform('optimization 404', 'GET', '/api/optimization/99999', { auth: 'owner' });
 });
 
-test('openapi: optimization fsn conforms (default + clamped window)', async () => {
+test('openapi: optimization fsn conforms (default + clamped window)', async() => {
   await bothConform('optimization fsn', 'GET', '/api/optimization/fsn', { auth: 'owner' });
   await bothConform('optimization fsn window=7', 'GET', '/api/optimization/fsn?window=7', { auth: 'owner' });
   await bothConform('optimization fsn window clamped', 'GET', '/api/optimization/fsn?window=3', { auth: 'owner' });
@@ -481,7 +481,7 @@ test('openapi: optimization fsn conforms (default + clamped window)', async () =
 
 // ===== Analytics =====
 
-test('openapi: analytics summary + exports', async () => {
+test('openapi: analytics summary + exports', async() => {
   await bothConform('analytics summary', 'GET', '/api/analytics/summary', { auth: 'admin' });
   await bothConform('export products', 'GET', '/api/analytics/export/products', { auth: 'admin' });
   await bothConform('export inventory', 'GET', '/api/analytics/export/inventory', { auth: 'admin' });
@@ -492,7 +492,7 @@ test('openapi: analytics summary + exports', async () => {
 
 // ===== Sales & Users =====
 
-test('openapi: sales + users', async () => {
+test('openapi: sales + users', async() => {
   await bothConform('create sale', 'POST', '/api/sales', {
     auth: 'admin',
     body: { product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer', idempotency_key: 'openapi-sale-0001' },
@@ -509,7 +509,7 @@ test('openapi: sales + users', async () => {
 
 // ===== Alerts =====
 
-test('openapi: alerts lifecycle conforms', async () => {
+test('openapi: alerts lifecycle conforms', async() => {
   await bothConform('alerts initial', 'GET', '/api/alerts', { auth: 'admin' });
 
   // Drive product 1 / location 1 below the 80-unit threshold on both backends.
@@ -533,7 +533,7 @@ test('openapi: alerts lifecycle conforms', async () => {
 
 // ===== 404s =====
 
-test('openapi: unknown routes return documented-ish JSON 404', async () => {
+test('openapi: unknown routes return documented-ish JSON 404', async() => {
   // Unknown routes are NOT documented operations; the contract suite covers
   // parity. Here we only assert both backends return the same JSON 404 shape.
   const s = await call(sqlite.url, '/api/does-not-exist');

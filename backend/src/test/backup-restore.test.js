@@ -14,7 +14,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-test.before(async () => {
+test.before(async() => {
   await bootBoth();
 });
 test.after(() => teardown());
@@ -38,7 +38,7 @@ async function restore(side, snapshot, extra = {}) {
   });
 }
 
-test('backup: the snapshot is self-describing and complete on both backends', async () => {
+test('backup: the snapshot is self-describing and complete on both backends', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
     const snapshot = await exportBackup(side);
@@ -63,7 +63,7 @@ test('backup: the snapshot is self-describing and complete on both backends', as
   }
 });
 
-test('backup: the drivers report themselves honestly (and differ)', async () => {
+test('backup: the drivers report themselves honestly (and differ)', async() => {
   const a = await exportBackup(sqlite);
   const b = await exportBackup(npmfree);
   assert.equal(a.driver, 'sqlite');
@@ -71,7 +71,7 @@ test('backup: the drivers report themselves honestly (and differ)', async () => 
   assert.notDeepEqual(Object.keys(a.tables).sort(), Object.keys(b.tables).sort());
 });
 
-test('backup and restore require Owner or Super Admin access', async () => {
+test('backup and restore require Owner or Super Admin access', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
     let r = await call(side.url, '/api/admin/backup');
@@ -95,7 +95,7 @@ test('backup and restore require Owner or Super Admin access', async () => {
   }
 });
 
-test('restore: a snapshot round-trips — the change made after it is gone', async () => {
+test('restore: a snapshot round-trips — the change made after it is gone', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
 
@@ -142,7 +142,7 @@ test('restore: a snapshot round-trips — the change made after it is gone', asy
   }
 });
 
-test('backup: runtime settings are included, restored, and older snapshots remain compatible', async () => {
+test('backup: runtime settings are included, restored, and older snapshots remain compatible', async() => {
   const side = npmfree;
   const setOrderingCost = (value) => call(side.url, '/api/settings', {
     method: 'PUT',
@@ -175,7 +175,7 @@ test('backup: runtime settings are included, restored, and older snapshots remai
   await setOrderingCost(50);
 });
 
-test('restore: refuses an unconfirmed, foreign-driver or malformed snapshot', async () => {
+test('restore: refuses an unconfirmed, foreign-driver or malformed snapshot', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
     const snapshot = await exportBackup(side);
@@ -213,7 +213,7 @@ test('restore: refuses an unconfirmed, foreign-driver or malformed snapshot', as
   }
 });
 
-test('restore: a rejected snapshot leaves the live database untouched', async () => {
+test('restore: a rejected snapshot leaves the live database untouched', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
     const before = await exportBackup(side);
@@ -228,7 +228,7 @@ test('restore: a rejected snapshot leaves the live database untouched', async ()
       assert.equal(
         after.tables[name].length,
         before.tables[name].length,
-        `${label} ${name} was not touched by the refused restore`
+        `${label} ${name} was not touched by the refused restore`,
       );
     }
   }

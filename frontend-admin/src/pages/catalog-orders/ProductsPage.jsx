@@ -95,7 +95,7 @@ export default function ProductsPage({ onLogout }) {
     const raw = scanValue.trim();
     const parsed = parseQrPayload(raw);
     if (!parsed) {
-      setSnackbar({ open: true, message: "Not a supported Sylver tag. Current printed tags use INVENTRAK:PROD:<id> or INVENTRAK:LOC:<id>:<name>.", severity: 'warning' });
+      setSnackbar({ open: true, message: 'Not a supported Sylver tag. Current printed tags use INVENTRAK:PROD:<id> or INVENTRAK:LOC:<id>:<name>.', severity: 'warning' });
       return;
     }
     setScanValue('');

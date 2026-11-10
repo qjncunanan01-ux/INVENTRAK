@@ -64,9 +64,9 @@ function normalizeLines(raw) {
   return { lines, total, hasPrices };
 }
 
-// Live QR Ph checkouts must be priced from the backend catalog. Mobile prices
-// are estimates and can be edited by a client, so never use them as the charge
-// amount for a real provider checkout.
+// Catalog-linked checkouts are priced from the backend catalog. Mobile prices
+// are display estimates and can be edited by a client, so do not use them as
+// the stored order total or provider charge amount.
 function priceLinesFromCatalog(lines, products) {
   const byId = new Map((Array.isArray(products) ? products : []).map((product) => [Number(product.id), product]));
   const pricedLines = [];
@@ -94,6 +94,7 @@ function priceLinesFromCatalog(lines, products) {
     pricedLines.push({
       ...line,
       name: product.name,
+      category: product.category || '',
       unit_price: unitPrice,
       original_price: null,
       subtotal: subtotalMinor / 100,

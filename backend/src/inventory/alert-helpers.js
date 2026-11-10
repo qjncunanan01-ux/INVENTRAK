@@ -20,10 +20,10 @@ function criticalLevelOf(productId) {
 function refreshLowStockAlerts() {
   const map = criticalLevels();
   const rows = db.prepare('SELECT product_id, location_id, quantity FROM stock').all();
-  const openFor = db.prepare("SELECT id, threshold, current_qty FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = 'low_stock' AND status = 'active'");
-  const insert = db.prepare("INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status) VALUES (?, ?, 'low_stock', ?, ?, 'active')");
+  const openFor = db.prepare('SELECT id, threshold, current_qty FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = \'low_stock\' AND status = \'active\'');
+  const insert = db.prepare('INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status) VALUES (?, ?, \'low_stock\', ?, ?, \'active\')');
   const refresh = db.prepare('UPDATE inventory_alerts SET threshold = ?, current_qty = ? WHERE id = ?');
-  const resolve = db.prepare("UPDATE inventory_alerts SET status = 'resolved', resolved_at = datetime('now') WHERE id = ?");
+  const resolve = db.prepare('UPDATE inventory_alerts SET status = \'resolved\', resolved_at = datetime(\'now\') WHERE id = ?');
 
   for (const row of rows) {
     const level = criticalLevelFromMap(map, row.product_id);
@@ -42,10 +42,10 @@ function refreshExpiryAlerts(now = new Date()) {
   today.setUTCHours(0, 0, 0, 0);
 
   const lots = db.prepare('SELECT product_id, location_id, SUM(qty) AS qty, expiry_date FROM stock_lots WHERE expiry_date IS NOT NULL AND qty > 0 GROUP BY product_id, location_id, expiry_date').all();
-  const openFor = db.prepare("SELECT id, threshold, current_qty FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = ? AND status = 'active'");
-  const insert = db.prepare("INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?, 'active')");
+  const openFor = db.prepare('SELECT id, threshold, current_qty FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = ? AND status = \'active\'');
+  const insert = db.prepare('INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, expiry_date, status) VALUES (?, ?, ?, ?, ?, ?, \'active\')');
   const refresh = db.prepare('UPDATE inventory_alerts SET threshold = ?, current_qty = ? WHERE id = ?');
-  const resolve = db.prepare("UPDATE inventory_alerts SET status = 'resolved', resolved_at = datetime('now') WHERE id = ?");
+  const resolve = db.prepare('UPDATE inventory_alerts SET status = \'resolved\', resolved_at = datetime(\'now\') WHERE id = ?');
 
   const live = new Set();
   for (const lot of lots) {
@@ -65,7 +65,7 @@ function refreshExpiryAlerts(now = new Date()) {
     else if (open.threshold !== daysLeft || open.current_qty !== lot.qty) refresh.run(daysLeft, lot.qty, open.id);
   }
 
-  const stale = db.prepare("SELECT id, product_id, location_id, alert_type FROM inventory_alerts WHERE status = 'active' AND alert_type IN ('expiring_soon', 'expired')").all();
+  const stale = db.prepare('SELECT id, product_id, location_id, alert_type FROM inventory_alerts WHERE status = \'active\' AND alert_type IN (\'expiring_soon\', \'expired\')').all();
   for (const row of stale) {
     if (!live.has(`${row.product_id}:${row.location_id}:${row.alert_type}`)) resolve.run(row.id);
   }
@@ -92,13 +92,13 @@ function refreshStocktakeAlerts(now = Date.now()) {
   const board = schedule({ locations, stock, counts, cycleDays, now });
 
   const openFor = db.prepare(
-    "SELECT id, threshold, current_qty FROM inventory_alerts WHERE location_id = ? AND alert_type = 'stale_count' AND status = 'active'",
+    'SELECT id, threshold, current_qty FROM inventory_alerts WHERE location_id = ? AND alert_type = \'stale_count\' AND status = \'active\'',
   );
   const insert = db.prepare(
-    "INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status) VALUES (NULL, ?, 'stale_count', ?, ?, 'active')",
+    'INSERT INTO inventory_alerts (product_id, location_id, alert_type, threshold, current_qty, status) VALUES (NULL, ?, \'stale_count\', ?, ?, \'active\')',
   );
   const refresh = db.prepare('UPDATE inventory_alerts SET threshold = ?, current_qty = ? WHERE id = ?');
-  const resolve = db.prepare("UPDATE inventory_alerts SET status = 'resolved', resolved_at = datetime('now') WHERE id = ?");
+  const resolve = db.prepare('UPDATE inventory_alerts SET status = \'resolved\', resolved_at = datetime(\'now\') WHERE id = ?');
 
   const live = new Set();
   for (const row of board.rows) {
@@ -118,7 +118,7 @@ function refreshStocktakeAlerts(now = Date.now()) {
   // deleted outright, which is why this is keyed on the live set rather than on
   // the board alone.
   const stale = db
-    .prepare("SELECT id, location_id FROM inventory_alerts WHERE status = 'active' AND alert_type = 'stale_count'")
+    .prepare('SELECT id, location_id FROM inventory_alerts WHERE status = \'active\' AND alert_type = \'stale_count\'')
     .all();
   for (const row of stale) {
     if (!live.has(Number(row.location_id))) resolve.run(row.id);

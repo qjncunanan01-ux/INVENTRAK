@@ -41,7 +41,7 @@ export default function NotificationsPage({ onLogout }) {
   const [status, setStatus] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'error' });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async() => {
     setLoading(true);
     try {
       const params = new URLSearchParams();

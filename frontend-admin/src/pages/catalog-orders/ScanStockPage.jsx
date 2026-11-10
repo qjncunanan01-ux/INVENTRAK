@@ -95,7 +95,7 @@ function QrScanner({ onDecode }) {
       rafRef.current = raf;
     };
 
-    (async () => {
+    (async() => {
       try {
         const s = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1280 } },
@@ -171,7 +171,7 @@ function QrScanner({ onDecode }) {
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       {err ? <Alert severity="warning" sx={{ mt: 1.5 }}>{err}</Alert> : null}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        Point the camera at a product's QR code — scanning pauses automatically once a tag is identified.
+        Point the camera at a product&apos;s QR code — scanning pauses automatically once a tag is identified.
       </Typography>
     </Box>
   );
@@ -230,7 +230,7 @@ export default function ScanStockPage({ onLogout }) {
   };
 
   // A decoded string from the live camera or the uploaded QR image.
-  const handleDecoded = async (raw) => {
+  const handleDecoded = async(raw) => {
     const rawCode = String(raw || '').trim();
     // Camera-friendly printed tags arrive as the tag URL (https://…/t/<code>):
     // unwrap to the plain payload so routing and the audit trail treat it
@@ -349,7 +349,7 @@ export default function ScanStockPage({ onLogout }) {
   const locs = top ? Object.keys(top.stock?.locations || {}) : [];
   const locationNames = Object.keys(locIdByName);
 
-  const submitTransaction = async () => {
+  const submitTransaction = async() => {
     if (!top) return;
     const changes = locs.filter((loc) => {
       const current = Number(top.stock?.locations?.[loc]) || 0;

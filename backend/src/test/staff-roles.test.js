@@ -8,7 +8,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
   // Log the demo staff account in on both backends and stash the tokens so
   // the `both` parity helper can use them.
@@ -35,7 +35,7 @@ async function sampleRefs(url) {
   return { product, src: locs[0], dst: locs[1] };
 }
 
-test('staff can create and list stock adjustments on both backends', async () => {
+test('staff can create and list stock adjustments on both backends', async() => {
   const { product, src } = await sampleRefs(sqlite.url);
   for (const side of [sqlite, npmfree]) {
     const created = await call(side.url, '/api/stock-adjustments', {
@@ -50,7 +50,7 @@ test('staff can create and list stock adjustments on both backends', async () =>
   }
 });
 
-test('staff can create and list stock transfers on both backends', async () => {
+test('staff can create and list stock transfers on both backends', async() => {
   const { product, src, dst } = await sampleRefs(sqlite.url);
   for (const side of [sqlite, npmfree]) {
     const created = await call(side.url, '/api/stock-transfers', {
@@ -64,7 +64,7 @@ test('staff can create and list stock transfers on both backends', async () => {
   }
 });
 
-test('reports require management; admin analytics exports remain operational', async () => {
+test('reports require management; admin analytics exports remain operational', async() => {
   // The role spec forbids Inventory Staff from viewing sales, prices,
   // customers, orders, reports or business analytics.
   const staffReports = await both('staff reports', '/api/reports?days=14', { auth: 'staff' });
@@ -84,7 +84,7 @@ test('reports require management; admin analytics exports remain operational', a
   assert.strictEqual(ownerReports.a.status, 200, 'owner reports must be 200');
 });
 
-test('staff can use Scan & Stock; customers cannot', async () => {
+test('staff can use Scan & Stock; customers cannot', async() => {
   // QR lookup is the scan surface: staff reaches product resolution (200),
   // while a customer token is role-blocked (403) — a QR tag is an
   // identifier, never authorization.
@@ -94,7 +94,7 @@ test('staff can use Scan & Stock; customers cannot', async () => {
   assert.strictEqual(customer.a.status, 403, 'customer is role-blocked from the staff QR lookup');
 });
 
-test('staff cannot approve, decide, or touch admin-only modules', async () => {
+test('staff cannot approve, decide, or touch admin-only modules', async() => {
   const { product, src } = await sampleRefs(sqlite.url);
   for (const side of [sqlite, npmfree]) {
     const created = await call(side.url, '/api/stock-adjustments', {
@@ -128,7 +128,7 @@ test('staff cannot approve, decide, or touch admin-only modules', async () => {
   }
 });
 
-test('staff login is rejected as a customer-grade account for admin writes', async () => {
+test('staff login is rejected as a customer-grade account for admin writes', async() => {
   // The admin dashboard gate (LoginPage) allows staff — but the backend still
   // refuses staff on the approve route that powers the Approvals page, so a
   // staff token can never change real data.

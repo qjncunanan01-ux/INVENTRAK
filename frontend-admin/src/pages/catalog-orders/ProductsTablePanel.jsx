@@ -27,7 +27,6 @@ export default function ProductsTablePanel({
   scanValue,
   onScanValue,
   onScanSubmit,
-  onShowSheet,
   editingCostId,
   onEditingCostIdChange,
   editingCostValue,
@@ -259,7 +258,7 @@ export default function ProductsTablePanel({
               </Typography>
               <Typography variant="body2" color="text.secondary" display="block" sx={{ mt: 1 }}>
                 Any phone camera can scan this tag — it opens the public product
-                page. Sylver's apps resolve it to the product's stock view.
+                page. Sylver&apos;s apps resolve it to the product&apos;s stock view.
                 Old plain-payload tags (INVENTRAK:PROD:id) still scan in the
                 apps; reprint to get camera-friendly tags.
               </Typography>

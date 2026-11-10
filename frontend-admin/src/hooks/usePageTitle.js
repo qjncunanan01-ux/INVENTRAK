@@ -23,9 +23,6 @@ const ROUTE_TITLES = {
   '/approvals': 'Approvals',
   '/optimization': 'Optimization',
   '/reports': 'Reports',
-  '/notifications': 'Notifications',
-  '/unit-conversions': 'Unit Conversions',
-  '/back-orders': 'Back Orders',
   '/backup': 'Backup & Restore',
   '/security': 'Security',
 };

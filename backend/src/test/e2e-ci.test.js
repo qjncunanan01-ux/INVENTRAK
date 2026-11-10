@@ -20,7 +20,7 @@ const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness')
 // Setup / Teardown
 // ============================================================
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -42,14 +42,14 @@ function testSide(side, label) {
 
 describe('Health & Connectivity', () => {
   for (const side of [sqlite, npmfree]) {
-    it(`${side.label || 'backend'}: GET /api/health returns 200 with correct shape`, async () => {
+    it(`${side.label || 'backend'}: GET /api/health returns 200 with correct shape`, async() => {
       const res = await call(side.url, '/api/health');
       assert.equal(res.status, 200);
       assert.equal(res.json.ok, true);
       assert.ok(typeof res.json.time === 'string');
     });
 
-    it(`${side.label || 'backend'}: GET /api/openapi.json returns valid OpenAPI spec`, async () => {
+    it(`${side.label || 'backend'}: GET /api/openapi.json returns valid OpenAPI spec`, async() => {
       const res = await call(side.url, '/api/openapi.json');
       assert.equal(res.status, 200);
       assert.ok(res.json.openapi);
@@ -57,7 +57,7 @@ describe('Health & Connectivity', () => {
       assert.ok(res.json.info);
     });
 
-    it(`${side.label || 'backend'}: security headers present`, async () => {
+    it(`${side.label || 'backend'}: security headers present`, async() => {
       const res = await call(side.url, '/api/health');
       // Node 18 fetch doesn't expose all headers; check via raw response
       assert.ok(res.status === 200);
@@ -72,7 +72,7 @@ describe('Health & Connectivity', () => {
 describe('Authentication Flow', () => {
   for (const side of [sqlite, npmfree]) {
     describe(side.label || 'backend', () => {
-      it('login with valid credentials returns token', async () => {
+      it('login with valid credentials returns token', async() => {
         const res = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'admin', password: 'admin123' },
@@ -83,7 +83,7 @@ describe('Authentication Flow', () => {
         assert.equal(res.json.user.username, 'admin');
       });
 
-      it('login with wrong password returns 401 generic error', async () => {
+      it('login with wrong password returns 401 generic error', async() => {
         const res = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'admin', password: 'wrongpassword' },
@@ -94,7 +94,7 @@ describe('Authentication Flow', () => {
         assert.ok(!res.json.error.includes('admin'));
       });
 
-      it('login with missing fields returns 400', async () => {
+      it('login with missing fields returns 400', async() => {
         const res = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'admin' },
@@ -102,7 +102,7 @@ describe('Authentication Flow', () => {
         assert.equal(res.status, 400);
       });
 
-      it('bot honeypot field rejected', async () => {
+      it('bot honeypot field rejected', async() => {
         const res = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'admin', password: 'admin123', website: 'http://spam.com' },
@@ -110,7 +110,7 @@ describe('Authentication Flow', () => {
         assert.equal(res.status, 400);
       });
 
-      it('GET /api/auth/me with valid token returns user', async () => {
+      it('GET /api/auth/me with valid token returns user', async() => {
         const loginRes = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'admin', password: 'admin123' },
@@ -123,19 +123,19 @@ describe('Authentication Flow', () => {
         assert.equal(res.json.role, 'admin');
       });
 
-      it('GET /api/auth/me without token returns 401', async () => {
+      it('GET /api/auth/me without token returns 401', async() => {
         const res = await call(side.url, '/api/auth/me');
         assert.equal(res.status, 401);
       });
 
-      it('GET /api/auth/me with invalid token returns 403', async () => {
+      it('GET /api/auth/me with invalid token returns 403', async() => {
         const res = await call(side.url, '/api/auth/me', {
           token: 'not-a-real-token',
         });
         assert.equal(res.status, 403);
       });
 
-      it('POST /api/auth/logout revokes token', async () => {
+      it('POST /api/auth/logout revokes token', async() => {
         const loginRes = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'customer', password: 'customer123' },
@@ -164,7 +164,7 @@ describe('Authentication Flow', () => {
 describe('Registration & Email Verification', () => {
   for (const side of [sqlite, npmfree]) {
     describe(side.label || 'backend', () => {
-      it('register creates new account with verification code', async () => {
+      it('register creates new account with verification code', async() => {
         const username = `e2e_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         const res = await call(side.url, '/api/auth/register', {
           method: 'POST',
@@ -180,7 +180,7 @@ describe('Registration & Email Verification', () => {
         assert.equal(res.json.user.email_verified, false);
       });
 
-      it('register rejects duplicate username', async () => {
+      it('register rejects duplicate username', async() => {
         const res = await call(side.url, '/api/auth/register', {
           method: 'POST',
           body: {
@@ -193,7 +193,7 @@ describe('Registration & Email Verification', () => {
         assert.equal(res.status, 409);
       });
 
-      it('register rejects weak password', async () => {
+      it('register rejects weak password', async() => {
         const res = await call(side.url, '/api/auth/register', {
           method: 'POST',
           body: {
@@ -206,7 +206,7 @@ describe('Registration & Email Verification', () => {
         assert.equal(res.status, 400);
       });
 
-      it('register rejects invalid phone', async () => {
+      it('register rejects invalid phone', async() => {
         const res = await call(side.url, '/api/auth/register', {
           method: 'POST',
           body: {
@@ -229,7 +229,7 @@ describe('Registration & Email Verification', () => {
 describe('Product Catalog', () => {
   for (const side of [sqlite, npmfree]) {
     describe(side.label || 'backend', () => {
-      it('GET /api/products returns array of products', async () => {
+      it('GET /api/products returns array of products', async() => {
         const res = await call(side.url, '/api/products');
         assert.equal(res.status, 200);
         assert.ok(Array.isArray(res.json));
@@ -242,7 +242,7 @@ describe('Product Catalog', () => {
         assert.ok(typeof p.price === 'number');
       });
 
-      it('GET /api/products supports pagination', async () => {
+      it('GET /api/products supports pagination', async() => {
         const res = await call(side.url, '/api/products?page=1&limit=10');
         assert.equal(res.status, 200);
         assert.ok(res.json.data);
@@ -252,7 +252,7 @@ describe('Product Catalog', () => {
         assert.equal(res.json.pagination.limit, 10);
       });
 
-      it('GET /api/products supports search', async () => {
+      it('GET /api/products supports search', async() => {
         const res = await call(side.url, '/api/products?search=chocolate');
         assert.equal(res.status, 200);
         const products = res.json.data || res.json;
@@ -262,11 +262,11 @@ describe('Product Catalog', () => {
           products.every(p => {
             const haystack = `${p.name} ${p.category} ${p.brand}`.toLowerCase();
             return haystack.includes('chocolate');
-          })
+          }),
         );
       });
 
-      it('GET /api/products/categories returns category list', async () => {
+      it('GET /api/products/categories returns category list', async() => {
         const res = await call(side.url, '/api/products/categories');
         assert.equal(res.status, 200);
         assert.ok(Array.isArray(res.json));
@@ -274,7 +274,7 @@ describe('Product Catalog', () => {
         assert.ok(res.json.includes('Torani'));
       });
 
-      it('GET /api/products/:id returns single product', async () => {
+      it('GET /api/products/:id returns single product', async() => {
         const listRes = await call(side.url, '/api/products');
         const firstId = listRes.json[0].id;
         const res = await call(side.url, `/api/products/${firstId}`);
@@ -283,7 +283,7 @@ describe('Product Catalog', () => {
         assert.ok(res.json.name);
       });
 
-      it('GET /api/products/99999 returns 404', async () => {
+      it('GET /api/products/99999 returns 404', async() => {
         const res = await call(side.url, '/api/products/99999');
         assert.equal(res.status, 404);
       });
@@ -298,7 +298,7 @@ describe('Product Catalog', () => {
 describe('Inventory', () => {
   for (const side of [sqlite, npmfree]) {
     describe(side.label || 'backend', () => {
-      it('GET /api/inventory returns locations and items', async () => {
+      it('GET /api/inventory returns locations and items', async() => {
         const res = await call(side.url, '/api/inventory');
         assert.equal(res.status, 200);
         assert.ok(Array.isArray(res.json.locations));
@@ -307,7 +307,7 @@ describe('Inventory', () => {
         assert.ok(res.json.items.length > 0);
       });
 
-      it('GET /api/locations returns location list', async () => {
+      it('GET /api/locations returns location list', async() => {
         const res = await call(side.url, '/api/locations');
         assert.equal(res.status, 200);
         assert.ok(Array.isArray(res.json));
@@ -328,7 +328,7 @@ describe('Role-Based Access Control', () => {
     describe(side.label || 'backend', () => {
       let adminToken, staffToken, customerToken;
 
-      before(async () => {
+      before(async() => {
         // Get admin token
         const adminRes = await call(side.url, '/api/auth/login', {
           method: 'POST',
@@ -351,23 +351,23 @@ describe('Role-Based Access Control', () => {
         staffToken = staffRes.json.token;
       });
 
-      it('admin can access /api/users', async () => {
+      it('admin can access /api/users', async() => {
         const res = await call(side.url, '/api/users', { token: adminToken });
         assert.equal(res.status, 200);
         assert.ok(Array.isArray(res.json));
       });
 
-      it('customer cannot access /api/users (403)', async () => {
+      it('customer cannot access /api/users (403)', async() => {
         const res = await call(side.url, '/api/users', { token: customerToken });
         assert.equal(res.status, 403);
       });
 
-      it('staff cannot access /api/users (403)', async () => {
+      it('staff cannot access /api/users (403)', async() => {
         const res = await call(side.url, '/api/users', { token: staffToken });
         assert.equal(res.status, 403);
       });
 
-      it('customer cannot create products (403)', async () => {
+      it('customer cannot create products (403)', async() => {
         const res = await call(side.url, '/api/products', {
           method: 'POST',
           token: customerToken,
@@ -376,17 +376,17 @@ describe('Role-Based Access Control', () => {
         assert.equal(res.status, 403);
       });
 
-      it('admin can access /api/sales', async () => {
+      it('admin can access /api/sales', async() => {
         const res = await call(side.url, '/api/sales', { token: adminToken });
         assert.equal(res.status, 200);
       });
 
-      it('customer cannot access /api/sales (403)', async () => {
+      it('customer cannot access /api/sales (403)', async() => {
         const res = await call(side.url, '/api/sales', { token: customerToken });
         assert.equal(res.status, 403);
       });
 
-      it('unauthenticated request to protected endpoint returns 401', async () => {
+      it('unauthenticated request to protected endpoint returns 401', async() => {
         const res = await call(side.url, '/api/users');
         assert.equal(res.status, 401);
       });
@@ -403,7 +403,7 @@ describe('Order Inquiry Flow', () => {
     describe(side.label || 'backend', () => {
       let customerToken, adminToken, inquiryId;
 
-      before(async () => {
+      before(async() => {
         const custRes = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'customer', password: 'customer123' },
@@ -417,7 +417,7 @@ describe('Order Inquiry Flow', () => {
         adminToken = adminRes.json.token;
       });
 
-      it('customer can create order inquiry', async () => {
+      it('customer can create order inquiry', async() => {
         const res = await call(side.url, '/api/order-inquiries', {
           method: 'POST',
           token: customerToken,
@@ -434,7 +434,7 @@ describe('Order Inquiry Flow', () => {
         inquiryId = res.json.id;
       });
 
-      it('customer can see own order in history', async () => {
+      it('customer can see own order in history', async() => {
         const res = await call(side.url, '/api/order-inquiries', {
           token: customerToken,
         });
@@ -444,7 +444,7 @@ describe('Order Inquiry Flow', () => {
         assert.ok(inquiries.some(i => i.id === inquiryId));
       });
 
-      it('admin can see all orders', async () => {
+      it('admin can see all orders', async() => {
         const res = await call(side.url, '/api/order-inquiries', {
           token: adminToken,
         });
@@ -454,7 +454,7 @@ describe('Order Inquiry Flow', () => {
         assert.ok(inquiries.length > 0);
       });
 
-      it('admin can approve order inquiry', async () => {
+      it('admin can approve order inquiry', async() => {
         const res = await call(side.url, `/api/order-inquiries/${inquiryId}`, {
           method: 'PUT',
           token: adminToken,
@@ -463,7 +463,7 @@ describe('Order Inquiry Flow', () => {
         assert.equal(res.status, 200);
       });
 
-      it('order status updates correctly', async () => {
+      it('order status updates correctly', async() => {
         const res = await call(side.url, '/api/order-inquiries', {
           token: adminToken,
         });
@@ -485,7 +485,7 @@ describe('Stock Movements', () => {
     describe(side.label || 'backend', () => {
       let adminToken;
 
-      before(async () => {
+      before(async() => {
         const res = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'admin', password: 'admin123' },
@@ -493,7 +493,7 @@ describe('Stock Movements', () => {
         adminToken = res.json.token;
       });
 
-      it('admin can record stock-in', async () => {
+      it('admin can record stock-in', async() => {
         const res = await call(side.url, '/api/stock-movement', {
           method: 'POST',
           token: adminToken,
@@ -509,7 +509,7 @@ describe('Stock Movements', () => {
         assert.equal(res.status, 200);
       });
 
-      it('stock movements are recorded', async () => {
+      it('stock movements are recorded', async() => {
         const res = await call(side.url, '/api/stock-movements', {
           token: adminToken,
         });
@@ -519,7 +519,7 @@ describe('Stock Movements', () => {
         assert.ok(movements.some(m => m.notes && m.notes.includes('E2E test')));
       });
 
-      it('customer cannot record stock movements (403)', async () => {
+      it('customer cannot record stock movements (403)', async() => {
         const custRes = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'customer', password: 'customer123' },
@@ -545,7 +545,7 @@ describe('Analytics & Reports', () => {
       let adminToken;
       let ownerToken;
 
-      before(async () => {
+      before(async() => {
         const res = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: { username: 'admin', password: 'admin123' },
@@ -558,7 +558,7 @@ describe('Analytics & Reports', () => {
         ownerToken = owner.json.token;
       });
 
-      it('GET /api/analytics/summary returns dashboard metrics', async () => {
+      it('GET /api/analytics/summary returns dashboard metrics', async() => {
         const res = await call(side.url, '/api/analytics/summary', {
           token: adminToken,
         });
@@ -569,7 +569,7 @@ describe('Analytics & Reports', () => {
         assert.ok(typeof res.json.totalLocations === 'number');
       });
 
-      it('GET /api/optimization returns ABC analysis', async () => {
+      it('GET /api/optimization returns ABC analysis', async() => {
         const res = await call(side.url, '/api/optimization', {
           token: ownerToken,
         });
@@ -577,7 +577,7 @@ describe('Analytics & Reports', () => {
         assert.ok(Array.isArray(res.json));
       });
 
-      it('GET /api/alerts returns low-stock alerts', async () => {
+      it('GET /api/alerts returns low-stock alerts', async() => {
         const res = await call(side.url, '/api/alerts', {
           token: adminToken,
         });
@@ -595,7 +595,7 @@ describe('Analytics & Reports', () => {
 describe('Error Handling', () => {
   for (const side of [sqlite, npmfree]) {
     describe(side.label || 'backend', () => {
-      it('invalid JSON body returns 400', async () => {
+      it('invalid JSON body returns 400', async() => {
         const res = await call(side.url, '/api/auth/login', {
           method: 'POST',
           body: 'not-json',
@@ -603,17 +603,17 @@ describe('Error Handling', () => {
         assert.equal(res.status, 400);
       });
 
-      it('non-existent route returns 404', async () => {
+      it('non-existent route returns 404', async() => {
         const res = await call(side.url, '/api/nonexistent');
         assert.equal(res.status, 404);
       });
 
-      it('GET on POST-only route returns 404', async () => {
+      it('GET on POST-only route returns 404', async() => {
         const res = await call(side.url, '/api/auth/login');
         assert.equal(res.status, 404);
       });
 
-      it('oversized payload rejected (413)', async () => {
+      it('oversized payload rejected (413)', async() => {
         const bigBody = { data: 'x'.repeat(200 * 1024) };
         const res = await call(side.url, '/api/auth/login', {
           method: 'POST',
@@ -630,25 +630,25 @@ describe('Error Handling', () => {
 // ============================================================
 
 describe('Cross-Backend Contract Parity', () => {
-  it('products list shape matches between SQLite and npm-free', async () => {
+  it('products list shape matches between SQLite and npm-free', async() => {
     const { a, b } = await both('products shape', '/api/products');
     assert.ok(Array.isArray(a.json));
     assert.ok(Array.isArray(b.json));
     assert.equal(a.json.length, b.json.length);
   });
 
-  it('categories list matches between backends', async () => {
+  it('categories list matches between backends', async() => {
     const { a, b } = await both('categories shape', '/api/products/categories');
     assert.deepEqual(a.json.sort(), b.json.sort());
   });
 
-  it('inventory shape matches between backends', async () => {
+  it('inventory shape matches between backends', async() => {
     const { a, b } = await both('inventory shape', '/api/inventory');
     assert.equal(a.json.locations.length, b.json.locations.length);
     assert.equal(a.json.items.length, b.json.items.length);
   });
 
-  it('locations list matches between backends', async () => {
+  it('locations list matches between backends', async() => {
     const { a, b } = await both('locations shape', '/api/locations');
     assert.equal(a.json.length, b.json.length);
   });
@@ -661,7 +661,7 @@ describe('Cross-Backend Contract Parity', () => {
 describe('Security', () => {
   for (const side of [sqlite, npmfree]) {
     describe(side.label || 'backend', () => {
-      it('health endpoint is well-formed', async () => {
+      it('health endpoint is well-formed', async() => {
         const res = await call(side.url, '/api/health');
         assert.equal(res.status, 200);
         assert.ok(res.json.ok);
@@ -679,7 +679,7 @@ describe('Security', () => {
 describe('Rate Limiting', () => {
   for (const side of [sqlite, npmfree]) {
     describe(side.label || 'backend', () => {
-      it('multiple failed logins trigger lockout', async () => {
+      it('multiple failed logins trigger lockout', async() => {
         const username = `lockout_${Date.now()}`;
         // Register first
         await call(side.url, '/api/auth/register', {

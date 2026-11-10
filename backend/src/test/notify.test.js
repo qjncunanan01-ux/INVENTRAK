@@ -32,7 +32,7 @@ const KEYS = [
   'SMTP_SECURE',
 ];
 
-test('notify: unconfigured email and SMS resolve to { sent: false } without throwing', async () => {
+test('notify: unconfigured email and SMS resolve to { sent: false } without throwing', async() => {
   KEYS.forEach(k => {
     SAVED[k] = process.env[k];
     delete process.env[k];
@@ -49,7 +49,7 @@ test('notify: unconfigured email and SMS resolve to { sent: false } without thro
   }
 });
 
-test('notify: inquiry status notification never throws, even with no contacts', async () => {
+test('notify: inquiry status notification never throws, even with no contacts', async() => {
   KEYS.forEach(k => {
     SAVED[k] = process.env[k];
     delete process.env[k];
@@ -62,7 +62,7 @@ test('notify: inquiry status notification never throws, even with no contacts', 
         customer_phone: '+639171234567',
         products: 'Widget x2',
       },
-      'approved'
+      'approved',
     );
     assert.ok(Array.isArray(result) || result === undefined, 'resolves with an array or undefined');
   } finally {
@@ -72,7 +72,7 @@ test('notify: inquiry status notification never throws, even with no contacts', 
   }
 });
 
-test('notify: welcome email resolves to { sent: false } when unconfigured', async () => {
+test('notify: welcome email resolves to { sent: false } when unconfigured', async() => {
   KEYS.forEach(k => {
     SAVED[k] = process.env[k];
     delete process.env[k];
@@ -87,7 +87,7 @@ test('notify: welcome email resolves to { sent: false } when unconfigured', asyn
   }
 });
 
-test('notify: inquiry without an email/phone skips both channels cleanly', async () => {
+test('notify: inquiry without an email/phone skips both channels cleanly', async() => {
   KEYS.forEach(k => {
     SAVED[k] = process.env[k];
     delete process.env[k];
@@ -109,9 +109,9 @@ test('notify: inquiry without an email/phone skips both channels cleanly', async
 function stubFetch() {
   const calls = [];
   const original = global.fetch;
-  global.fetch = async (url, opts) => {
+  global.fetch = async(url, opts) => {
     calls.push({ url: String(url), opts });
-    return { ok: true, text: async () => '' };
+    return { ok: true, text: async() => '' };
   };
   return {
     calls,
@@ -121,7 +121,7 @@ function stubFetch() {
   };
 }
 
-test('notify: email posts to Resend with Bearer auth and a correct body', async () => {
+test('notify: email posts to Resend with Bearer auth and a correct body', async() => {
   KEYS.forEach(k => {
     delete process.env[k];
   });
@@ -148,7 +148,7 @@ test('notify: email posts to Resend with Bearer auth and a correct body', async 
   }
 });
 
-test('notify: semaphore SMS uses a 0-prefixed PH number', async () => {
+test('notify: semaphore SMS uses a 0-prefixed PH number', async() => {
   KEYS.forEach(k => {
     delete process.env[k];
   });
@@ -173,7 +173,7 @@ test('notify: semaphore SMS uses a 0-prefixed PH number', async () => {
   }
 });
 
-test('notify: twilio SMS uses an E.164 PH number with basic auth', async () => {
+test('notify: twilio SMS uses an E.164 PH number with basic auth', async() => {
   KEYS.forEach(k => {
     delete process.env[k];
   });
@@ -199,7 +199,7 @@ test('notify: twilio SMS uses an E.164 PH number with basic auth', async () => {
   }
 });
 
-test('notify: unparseable SMS numbers are skipped, not sent', async () => {
+test('notify: unparseable SMS numbers are skipped, not sent', async() => {
   KEYS.forEach(k => {
     delete process.env[k];
   });
@@ -288,7 +288,7 @@ function startFakeSmtp() {
   });
 }
 
-test('notify: SMTP runs the full protocol (EHLO/AUTH/MAIL/RCPT/DATA/QUIT) and delivers', async () => {
+test('notify: SMTP runs the full protocol (EHLO/AUTH/MAIL/RCPT/DATA/QUIT) and delivers', async() => {
   const fake = await startFakeSmtp();
   KEYS.forEach(k => {
     delete process.env[k];
@@ -323,7 +323,7 @@ test('notify: SMTP runs the full protocol (EHLO/AUTH/MAIL/RCPT/DATA/QUIT) and de
   }
 });
 
-test('notify: SMTP without credentials skips AUTH and still delivers', async () => {
+test('notify: SMTP without credentials skips AUTH and still delivers', async() => {
   const fake = await startFakeSmtp();
   KEYS.forEach(k => {
     delete process.env[k];
@@ -356,7 +356,7 @@ test('notify: SMTP without credentials skips AUTH and still delivers', async () 
   }
 });
 
-test('notify: SMTP failure (bad recipient code) resolves { sent: false } without throwing', async () => {
+test('notify: SMTP failure (bad recipient code) resolves { sent: false } without throwing', async() => {
   // A fake server that rejects RCPT TO with 550.
   const server = await new Promise(resolve => {
     const srv = net.createServer(sock => {
@@ -371,7 +371,7 @@ test('notify: SMTP failure (bad recipient code) resolves { sent: false } without
       });
     });
     srv.listen(0, '127.0.0.1', () =>
-      resolve({ port: srv.address().port, close: () => new Promise(r => srv.close(r)) })
+      resolve({ port: srv.address().port, close: () => new Promise(r => srv.close(r)) }),
     );
   });
   try {
@@ -393,13 +393,13 @@ test('notify: SMTP failure (bad recipient code) resolves { sent: false } without
   }
 });
 
-test('notify: provider failure (non-ok) resolves { sent: false } and logs', async () => {
+test('notify: provider failure (non-ok) resolves { sent: false } and logs', async() => {
   KEYS.forEach(k => {
     delete process.env[k];
   });
   process.env.RESEND_API_KEY = 're_test_123';
   const original = global.fetch;
-  global.fetch = async () => ({ ok: false, status: 401, text: async () => 'unauthorized' });
+  global.fetch = async() => ({ ok: false, status: 401, text: async() => 'unauthorized' });
   try {
     const r = await sendEmail({ to: 'a@b.com', subject: 'S', text: 'T' });
     assert.deepStrictEqual(r, { sent: false });

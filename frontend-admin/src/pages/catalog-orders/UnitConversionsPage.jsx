@@ -33,7 +33,7 @@ export default function UnitConversionsPage({ onLogout }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async() => {
     setLoading(true);
     try {
       const response = await apiGet('/api/unit-conversions');
@@ -57,7 +57,7 @@ export default function UnitConversionsPage({ onLogout }) {
     { from_unit: 'pack', to_unit: 'pcs', rate: 12 },
   ];
 
-  const submit = async (body) => {
+  const submit = async(body) => {
     setSaving(true);
     try {
       await apiPost('/api/unit-conversions', body);
@@ -72,7 +72,7 @@ export default function UnitConversionsPage({ onLogout }) {
     }
   };
 
-  const handleCreate = async () => {
+  const handleCreate = async() => {
     const ok = await submit({
       from_unit: fromUnit,
       to_unit: toUnit,
@@ -87,7 +87,7 @@ export default function UnitConversionsPage({ onLogout }) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async() => {
     if (confirmDelete == null) return;
     setSaving(true);
     try {

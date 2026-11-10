@@ -36,7 +36,7 @@ export const company = {
   name: 'Sylver Restaurant and Coffee Supplies',
   brand: 'SYLVER',
   tagline: 'YOUR PARTNER IN EVERY CREATION',
-  software: "Sylver's",
+  software: 'Sylver\'s',
   // Public assets (frontend-admin/public/). The supplied artwork is opaque
   // white, so it is always placed on a white/cream surface — never recoloured
   // or cropped, which would damage the official mark.

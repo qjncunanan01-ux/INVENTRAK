@@ -65,7 +65,7 @@ function renderPage() {
       <ThemeProvider theme={THEME}>
         <ReportsPage onLogout={() => {}} />
       </ThemeProvider>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 

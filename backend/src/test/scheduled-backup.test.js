@@ -176,7 +176,7 @@ function clearStoreEnv() {
   setEnv(Object.fromEntries(ENV_KEYS.map((k) => [k, undefined])));
 }
 
-before(async () => {
+before(async() => {
   savedEnv = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
   await bootBoth();
 });
@@ -193,7 +193,7 @@ after(() => {
 // A live store on the default table (BACKUP_REMOTE_TABLE unset) with the
 // schedule off, so a test that wants the timer must ask for it.
 let store;
-beforeEach(async () => {
+beforeEach(async() => {
   remote.stopScheduler();
   if (!store) store = await startDurableStore();
   store.rows.length = 0;
@@ -215,7 +215,7 @@ function auditLines() {
 }
 
 describe('scheduled snapshots reach the durable store', () => {
-  test('a snapshot can be pushed on demand, and it is complete and self-describing', async () => {
+  test('a snapshot can be pushed on demand, and it is complete and self-describing', async() => {
     for (const [label, get] of SIDES) {
       const side = get();
       store.rows.length = 0;
@@ -240,7 +240,7 @@ describe('scheduled snapshots reach the durable store', () => {
     }
   });
 
-  test('the timer pushes one by itself, with nobody pressing anything, and stops when stopped', async () => {
+  test('the timer pushes one by itself, with nobody pressing anything, and stops when stopped', async() => {
     store.rows.length = 0;
     // everyMs rather than an hour: a timer that is only ever pointed at by a
     // 60-minute env value is a timer no test ever runs.
@@ -286,7 +286,7 @@ describe('scheduled snapshots reach the durable store', () => {
     assert.equal(remote.stopScheduler(), false, 'nothing was left running');
   });
 
-  test('a store that mis-pages the retention sweep cannot make a push delete itself', async () => {
+  test('a store that mis-pages the retention sweep cannot make a push delete itself', async() => {
     // The sweep decides what to delete from a listing ordered newest-first with
     // an offset, so a store that ignores `offset` would hand back the newest row
     // as "older than the window" — and the backup taken a moment ago would be
@@ -305,7 +305,7 @@ describe('scheduled snapshots reach the durable store', () => {
     }
   });
 
-  test('retention keeps the newest N and prunes the rest', async () => {
+  test('retention keeps the newest N and prunes the rest', async() => {
     setEnv({ BACKUP_KEEP: '2' });
     for (let i = 0; i < 3; i++) {
       const res = await push(sqlite);
@@ -318,7 +318,7 @@ describe('scheduled snapshots reach the durable store', () => {
 });
 
 describe('recovery without a downloaded file', () => {
-  test('a snapshot restored from the store rolls the database back, on both backends', async () => {
+  test('a snapshot restored from the store rolls the database back, on both backends', async() => {
     for (const [label, get] of SIDES) {
       const side = get();
       store.rows.length = 0;
@@ -361,7 +361,7 @@ describe('recovery without a downloaded file', () => {
     }
   });
 
-  test('a stored snapshot is validated exactly like an uploaded one — another driver is refused', async () => {
+  test('a stored snapshot is validated exactly like an uploaded one — another driver is refused', async() => {
     store.rows.length = 0;
     // Take one from the json side...
     const pushed = await push(npmfree);
@@ -380,7 +380,7 @@ describe('recovery without a downloaded file', () => {
     assert.equal(list.status, 200);
   });
 
-  test('a restore names its source and refuses a request that names nothing', async () => {
+  test('a restore names its source and refuses a request that names nothing', async() => {
     store.rows.length = 0;
     for (const [label, get] of SIDES) {
       const side = get();
@@ -394,7 +394,7 @@ describe('recovery without a downloaded file', () => {
     }
   });
 
-  test('restore requires management through the durable-store path', async () => {
+  test('restore requires management through the durable-store path', async() => {
     store.rows.length = 0;
     await push(npmfree);
     for (const [label, get] of SIDES) {
@@ -423,7 +423,7 @@ describe('recovery without a downloaded file', () => {
     assert.equal(listing.status, 200);
   });
 
-  test('what the store holds can be listed, newest first, without shipping the bodies or the key', async () => {
+  test('what the store holds can be listed, newest first, without shipping the bodies or the key', async() => {
     store.rows.length = 0;
     const first = await push(npmfree);
     // Give the two snapshots distinct timestamps (created_at is second/ms
@@ -451,7 +451,7 @@ describe('recovery without a downloaded file', () => {
 });
 
 describe('a backup that cannot happen says so', () => {
-  test('with no durable store configured, a push explains what would fix it', async () => {
+  test('with no durable store configured, a push explains what would fix it', async() => {
     clearStoreEnv();
     for (const [label, get] of SIDES) {
       const side = get();
@@ -468,7 +468,7 @@ describe('a backup that cannot happen says so', () => {
     }
   });
 
-  test('a store that refuses the write surfaces the reason rather than a 200', async () => {
+  test('a store that refuses the write surfaces the reason rather than a 200', async() => {
     const failing = await startDurableStore({ failWrites: true });
     try {
       setEnv({ BACKUP_REMOTE_URL: failing.rest(), BACKUP_REMOTE_KEY: 'k' });
@@ -482,7 +482,7 @@ describe('a backup that cannot happen says so', () => {
     }
   });
 
-  test('an oversized snapshot is refused with the limit named, not truncated', async () => {
+  test('an oversized snapshot is refused with the limit named, not truncated', async() => {
     setEnv({ BACKUP_MAX_BYTES: '100' });
     const res = await push(sqlite);
     assert.equal(res.status, 503);
@@ -491,7 +491,7 @@ describe('a backup that cannot happen says so', () => {
     assert.equal(store.rows.length, 0, 'nothing partial was written');
   });
 
-  test('a listing against an unreachable store reports the failure instead of an empty list', async () => {
+  test('a listing against an unreachable store reports the failure instead of an empty list', async() => {
     setEnv({ BACKUP_REMOTE_URL: 'http://127.0.0.1:1/rest/v1', BACKUP_REMOTE_KEY: 'k' });
     const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     assert.equal(res.status, 200);
@@ -501,7 +501,7 @@ describe('a backup that cannot happen says so', () => {
 });
 
 describe('the schedule is visible where an operator looks', () => {
-  test('/api/meta publishes the sink shape (never the key) on both backends', async () => {
+  test('/api/meta publishes the sink shape (never the key) on both backends', async() => {
     for (const [label, get] of SIDES) {
       const side = get();
       const res = await call(side.url, '/api/meta');
@@ -518,7 +518,7 @@ describe('the schedule is visible where an operator looks', () => {
     }
   });
 
-  test('the last successful backup is read from the store, not from this process\'s memory', async () => {
+  test('the last successful backup is read from the store, not from this process\'s memory', async() => {
     // The whole reason this is a durable read: a redeploy empties the process,
     // so an in-memory "last pushed" cannot answer "when was the last backup?"
     // at the one moment the question is asked.
@@ -558,7 +558,7 @@ describe('the schedule is visible where an operator looks', () => {
     assert.deepEqual(Object.keys(a.json).sort(), Object.keys(b.json).sort(), 'and the same envelope keys');
   });
 
-  test('an aging snapshot is reported as stale against a named threshold', async () => {
+  test('an aging snapshot is reported as stale against a named threshold', async() => {
     const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
     store.rows.push({ id: 99, created_at: threeHoursAgo, driver: 'sqlite', bytes: 2048, counts: { products: 5 } });
 
@@ -574,7 +574,7 @@ describe('the schedule is visible where an operator looks', () => {
     assert.equal(last.last_attempt_error, null);
   });
 
-  test('a store holding nothing says so, instead of claiming "not stale"', async () => {
+  test('a store holding nothing says so, instead of claiming "not stale"', async() => {
     store.rows.length = 0;
     const res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
     assert.equal(res.json.ok, true, 'the store answered — it is simply empty');
@@ -585,7 +585,7 @@ describe('the schedule is visible where an operator looks', () => {
     assert.equal(last.stale_after_minutes, 120);
   });
 
-  test('a failed push does not erase the last successful backup', async () => {
+  test('a failed push does not erase the last successful backup', async() => {
     store.rows.length = 0;
     const good = await push(sqlite);
     assert.equal(good.status, 200);
@@ -605,7 +605,7 @@ describe('the schedule is visible where an operator looks', () => {
     store.failWrites(false);
   });
 
-  test('with no store, or an unreachable one, the verdict is unknown rather than "fine"', async () => {
+  test('with no store, or an unreachable one, the verdict is unknown rather than "fine"', async() => {
     // No store configured at all: there is nothing to measure.
     clearStoreEnv();
     let res = await call(sqlite.url, '/api/admin/backups', { token: sqlite.token.owner });
@@ -623,7 +623,7 @@ describe('the schedule is visible where an operator looks', () => {
     assert.match(last.reason, /cannot reach|refused|fetch/i);
   });
 
-  test('the last backup is only visible to management', async () => {
+  test('the last backup is only visible to management', async() => {
     for (const [label, get] of SIDES) {
       const side = get();
       const anon = await call(side.url, '/api/admin/backups');

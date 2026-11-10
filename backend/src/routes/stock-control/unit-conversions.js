@@ -47,7 +47,7 @@ router.post('/', authenticateToken, adminOnly, (req, res) => {
   const existing = db.prepare('SELECT id FROM unit_conversions WHERE from_unit = ? AND to_unit = ?').get(from_unit, to_unit);
   let id;
   if (existing) {
-    db.prepare("UPDATE unit_conversions SET rate = ?, note = ?, updated_at = datetime('now') WHERE id = ?").run(rate, note, existing.id);
+    db.prepare('UPDATE unit_conversions SET rate = ?, note = ?, updated_at = datetime(\'now\') WHERE id = ?').run(rate, note, existing.id);
     id = existing.id;
   } else {
     const info = db

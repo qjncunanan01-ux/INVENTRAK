@@ -5,14 +5,14 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
   teardown();
 });
 
-test('logout revokes the token on both backends', async () => {
+test('logout revokes the token on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const label = side === sqlite ? 'sqlite' : 'npmfree';
 
@@ -52,7 +52,7 @@ test('logout revokes the token on both backends', async () => {
   }
 });
 
-test('logout without a token is rejected', async () => {
+test('logout without a token is rejected', async() => {
   for (const side of [sqlite, npmfree]) {
     const r = await call(side.url, '/api/auth/logout', { method: 'POST' });
     assert.strictEqual(r.status, 401);

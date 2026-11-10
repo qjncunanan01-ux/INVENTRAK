@@ -29,7 +29,7 @@ const FIXTURES = [
   'bulk-cost-audit-b',
 ];
 
-before(async () => {
+before(async() => {
   await bootBoth();
   // Dedicated fixture products rather than seeded catalog rows: each test needs
   // a name it can cost freely without disturbing the shared 205-row catalog the
@@ -52,7 +52,7 @@ after(() => {
 
 // A row each side can cost independently, so a test that writes cannot leak
 // into the next. Names are chosen to be unique across the whole suite.
-const costOne = async (side, name, cost) =>
+const costOne = async(side, name, cost) =>
   call(side.url, '/api/products/bulk-costs', {
     method: 'POST',
     token: side.token.admin,
@@ -90,7 +90,7 @@ describe('parseCostEntry — the three states of a cost cell', () => {
 });
 
 describe('POST /api/products/bulk-costs — both backends', () => {
-  test('admin sets a cost and it is readable on the admin cost sheet', async () => {
+  test('admin sets a cost and it is readable on the admin cost sheet', async() => {
     for (const side of [sqlite, npmfree]) {
       await costOne(side, 'bulk-cost-alpha', 300);
       const res = await call(side.url, '/api/products/costs', { token: side.token.admin });
@@ -100,7 +100,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('a null cost clears the product back to "not costed"', async () => {
+  test('a null cost clears the product back to "not costed"', async() => {
     for (const side of [sqlite, npmfree]) {
       await costOne(side, 'bulk-cost-clear', 250);
       const cleared = await costOne(side, 'bulk-cost-clear', null);
@@ -114,7 +114,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('an entry with no cost key is skipped and leaves the product untouched', async () => {
+  test('an entry with no cost key is skipped and leaves the product untouched', async() => {
     for (const side of [sqlite, npmfree]) {
       await costOne(side, 'bulk-cost-untouched', 175);
       const res = await call(side.url, '/api/products/bulk-costs', {
@@ -131,7 +131,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('a blank cost cell CLEARS, unlike a blank price cell which is rejected', async () => {
+  test('a blank cost cell CLEARS, unlike a blank price cell which is rejected', async() => {
     // The deliberate asymmetry: for prices a blank is a parsing accident, for
     // costs it is an instruction. Assert both so the difference cannot drift.
     for (const side of [sqlite, npmfree]) {
@@ -152,7 +152,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('matches by id first, then by case-insensitive name', async () => {
+  test('matches by id first, then by case-insensitive name', async() => {
     for (const side of [sqlite, npmfree]) {
       const sheet = await call(side.url, '/api/products/costs', { token: side.token.admin });
       const target = sheet.json[0];
@@ -169,7 +169,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('reports unknown products and bad values as skipped, never silently', async () => {
+  test('reports unknown products and bad values as skipped, never silently', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/products/bulk-costs', {
         method: 'POST',
@@ -193,7 +193,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('a mixed sheet sets and clears in one call and reports both counts', async () => {
+  test('a mixed sheet sets and clears in one call and reports both counts', async() => {
     for (const side of [sqlite, npmfree]) {
       await costOne(side, 'bulk-cost-mix-set', 400);
       await costOne(side, 'bulk-cost-mix-clear', 400);
@@ -213,7 +213,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('rejects an empty or oversized sheet', async () => {
+  test('rejects an empty or oversized sheet', async() => {
     for (const side of [sqlite, npmfree]) {
       const empty = await call(side.url, '/api/products/bulk-costs', {
         method: 'POST',
@@ -238,7 +238,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('is admin-only — staff and customers are refused, the admin tier is not', async () => {
+  test('is admin-only — staff and customers are refused, the admin tier is not', async() => {
     // Cost is business-confidential, so the bulk sheet must be exactly as
     // locked down as the read endpoint. `adminOnly` is the ADMIN_TIER gate
     // (admin, super_admin, owner), so the Business Owner and Super Admin are
@@ -271,7 +271,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('setting a cost does not leak it onto the public catalog', async () => {
+  test('setting a cost does not leak it onto the public catalog', async() => {
     // The point of pairing costing with product-visibility.js: making cost
     // writable must not make it readable. The public catalog is unauthenticated
     // and cacheable, so this is checked as an anonymous caller.
@@ -285,7 +285,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('the audit event names the products it changed, and is flat', async () => {
+  test('the audit event names the products it changed, and is flat', async() => {
     // The admin cost history reads these entries. Two shapes of bug are
     // locked here: a summary that never says WHICH products changed (not a
     // change log), and the payload nesting. audit() spreads details at the top
@@ -307,7 +307,7 @@ describe('POST /api/products/bulk-costs — both backends', () => {
     }
   });
 
-  test('both backends agree on the response shape', async () => {
+  test('both backends agree on the response shape', async() => {
     // Contract parity: the admin console calls this endpoint against whichever
     // driver is deployed, so the two must not drift.
     const body = {

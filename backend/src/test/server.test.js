@@ -19,7 +19,7 @@ let baseUrl;
 let adminToken;
 let ownerToken;
 
-before(async () => {
+before(async() => {
   seedDatabase();
   server = app.listen(0);
   const port = server.address().port;
@@ -63,7 +63,7 @@ async function managementRequest(path, options = {}) {
 
 // ===== Auth =====
 
-test('POST /api/auth/login returns a token for the seeded admin user', async () => {
+test('POST /api/auth/login returns a token for the seeded admin user', async() => {
   const { status, body } = await request('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username: 'admin', password: 'admin123' }),
@@ -75,7 +75,7 @@ test('POST /api/auth/login returns a token for the seeded admin user', async () 
   adminToken = body.token;
 });
 
-test('POST /api/auth/login rejects invalid credentials', async () => {
+test('POST /api/auth/login rejects invalid credentials', async() => {
   const { status } = await request('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username: 'admin', password: 'wrong-password' }),
@@ -83,7 +83,7 @@ test('POST /api/auth/login rejects invalid credentials', async () => {
   assert.strictEqual(status, 401);
 });
 
-test('POST /api/auth/register creates a new customer user', async () => {
+test('POST /api/auth/register creates a new customer user', async() => {
   const username = `newuser_${Date.now()}`;
   const { status, body } = await request('/api/auth/register', {
     method: 'POST',
@@ -96,7 +96,7 @@ test('POST /api/auth/register creates a new customer user', async () => {
   assert.ok(body.token);
 });
 
-test('POST /api/auth/register rejects duplicate usernames', async () => {
+test('POST /api/auth/register rejects duplicate usernames', async() => {
   const { status } = await request('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify({
@@ -109,7 +109,7 @@ test('POST /api/auth/register rejects duplicate usernames', async () => {
   assert.strictEqual(status, 409);
 });
 
-test('POST /api/auth/register validates required fields', async () => {
+test('POST /api/auth/register validates required fields', async() => {
   const { status } = await request('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify({ username: 'nofielduser', password: 'Test123!' }),
@@ -119,15 +119,15 @@ test('POST /api/auth/register validates required fields', async () => {
 
 // ===== Products =====
 
-test('GET /api/products returns products list', async () => {
+test('GET /api/products returns products list', async() => {
   const { status, body } = await request('/api/products');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body), 'expected body to be an array');
   assert.ok(body.length > 0, 'expected at least one product');
-  assert.ok(body[0].hasOwnProperty('name'));
+  assert.ok(Object.prototype.hasOwnProperty.call(body[0], 'name'));
 });
 
-test('GET /api/products with pagination', async () => {
+test('GET /api/products with pagination', async() => {
   const { status, body } = await request('/api/products?page=1&limit=5');
   assert.strictEqual(status, 200);
   assert.ok(body.data);
@@ -136,31 +136,31 @@ test('GET /api/products with pagination', async () => {
   assert.strictEqual(body.pagination.limit, 5);
 });
 
-test('GET /api/products with search', async () => {
+test('GET /api/products with search', async() => {
   const { status, body } = await request('/api/products?search=test');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body.data || body));
 });
 
-test('GET /api/products/categories returns category list', async () => {
+test('GET /api/products/categories returns category list', async() => {
   const { status, body } = await request('/api/products/categories');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('GET /api/products/:id returns a single product', async () => {
+test('GET /api/products/:id returns a single product', async() => {
   const { status, body } = await request('/api/products/1');
   assert.strictEqual(status, 200);
   assert.ok(body.name);
 });
 
-test('GET /api/products/9999 returns 404', async () => {
+test('GET /api/products/9999 returns 404', async() => {
   const { status, body } = await request('/api/products/9999');
   assert.strictEqual(status, 404);
   assert.ok(body.error);
 });
 
-test('POST /api/products creates a product (admin only)', async () => {
+test('POST /api/products creates a product (admin only)', async() => {
   const { status, body } = await authRequest('/api/products', {
     method: 'POST',
     body: JSON.stringify({ name: 'New Prod', category: 'Widgets', price: 100 }),
@@ -169,7 +169,7 @@ test('POST /api/products creates a product (admin only)', async () => {
   assert.ok(body.id);
 });
 
-test('POST /api/products returns 401 without token', async () => {
+test('POST /api/products returns 401 without token', async() => {
   const { status } = await request('/api/products', {
     method: 'POST',
     body: JSON.stringify({ name: 'New Prod', category: 'Widgets', price: 100 }),
@@ -177,7 +177,7 @@ test('POST /api/products returns 401 without token', async () => {
   assert.strictEqual(status, 401);
 });
 
-test('PUT /api/products/:id updates a product', async () => {
+test('PUT /api/products/:id updates a product', async() => {
   const { status, body } = await authRequest('/api/products/1', {
     method: 'PUT',
     body: JSON.stringify({ name: 'Updated Name', category: 'Updated', price: 250, status: 'active' }),
@@ -186,7 +186,7 @@ test('PUT /api/products/:id updates a product', async () => {
   assert.strictEqual(body.ok, true);
 });
 
-test('DELETE /api/products/:id soft-deletes a product', async () => {
+test('DELETE /api/products/:id soft-deletes a product', async() => {
   const created = await authRequest('/api/products', {
     method: 'POST',
     body: JSON.stringify({ name: 'To Delete', category: 'Widgets', price: 10 }),
@@ -198,14 +198,14 @@ test('DELETE /api/products/:id soft-deletes a product', async () => {
 
 // ===== Inventory =====
 
-test('GET /api/inventory returns inventory data', async () => {
+test('GET /api/inventory returns inventory data', async() => {
   const { status, body } = await request('/api/inventory');
   assert.strictEqual(status, 200);
   assert.ok(body.locations);
   assert.ok(body.items);
 });
 
-test('GET /api/inventory?low_stock=true filters low stock', async () => {
+test('GET /api/inventory?low_stock=true filters low stock', async() => {
   const { status, body } = await request('/api/inventory?low_stock=true');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body.items));
@@ -213,7 +213,7 @@ test('GET /api/inventory?low_stock=true filters low stock', async () => {
 
 // ===== Stock Movements =====
 
-test('POST /api/stock-movement records a movement (auth required)', async () => {
+test('POST /api/stock-movement records a movement (auth required)', async() => {
   const postRes = await authRequest('/api/stock-movement', {
     method: 'POST',
     body: JSON.stringify({ product_id: 1, qty: 5, type: 'stock-in', dst_location: 1, notes: 'Test movement' }),
@@ -226,7 +226,7 @@ test('POST /api/stock-movement records a movement (auth required)', async () => 
   assert.ok(Array.isArray(getRes.body));
 });
 
-test('POST /api/stock-movement returns 401 without token', async () => {
+test('POST /api/stock-movement returns 401 without token', async() => {
   const { status } = await request('/api/stock-movement', {
     method: 'POST',
     body: JSON.stringify({ product_id: 1, qty: 5, type: 'stock-in', dst_location: 1 }),
@@ -234,7 +234,7 @@ test('POST /api/stock-movement returns 401 without token', async () => {
   assert.strictEqual(status, 401);
 });
 
-test('POST /api/stock-movement rejects invalid type', async () => {
+test('POST /api/stock-movement rejects invalid type', async() => {
   const { status } = await authRequest('/api/stock-movement', {
     method: 'POST',
     body: JSON.stringify({ product_id: 1, qty: 5, type: 'not-a-type', dst_location: 1 }),
@@ -242,13 +242,13 @@ test('POST /api/stock-movement rejects invalid type', async () => {
   assert.strictEqual(status, 400);
 });
 
-test('GET /api/stock-lots returns FIFO lot data', async () => {
+test('GET /api/stock-lots returns FIFO lot data', async() => {
   const { status, body } = await request('/api/stock-lots');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('stock-ins accumulate without duplicating stock rows', async () => {
+test('stock-ins accumulate without duplicating stock rows', async() => {
   // Regression: stock table must enforce UNIQUE(product_id, location_id).
   // Without it, INSERT OR IGNORE inserted a duplicate row per movement, which
   // then absorbed the same UPDATE — corrupting per-location counts and totals.
@@ -278,7 +278,7 @@ test('stock-ins accumulate without duplicating stock rows', async () => {
   assert.strictEqual(afterItem.locations.Showroom, beforeQty + 6);
 });
 
-test('adjustment keeps FIFO lots consistent with stock (no double-decrement)', async () => {
+test('adjustment keeps FIFO lots consistent with stock (no double-decrement)', async() => {
   // Regression: adjusting a location's stock must reset its FIFO lots to a
   // single lot of the new quantity. Without that, lots drift from stock and
   // consumeStockLots' overflow path decrements stock twice on a later
@@ -306,7 +306,7 @@ test('adjustment keeps FIFO lots consistent with stock (no double-decrement)', a
   assert.strictEqual(Object.values(item.locations)[0], 15, 'stock must be 15, not negative');
 });
 
-test('garbage pagination params return page 1 instead of a 500', async () => {
+test('garbage pagination params return page 1 instead of a 500', async() => {
   const { status, body } = await request('/api/products?page=abc');
   assert.strictEqual(status, 200);
   assert.strictEqual(body.pagination.page, 1);
@@ -315,7 +315,7 @@ test('garbage pagination params return page 1 instead of a 500', async () => {
   assert.strictEqual(m.body.pagination.page, 1);
 });
 
-test('malformed JSON body returns 400 (client error), not 500', async () => {
+test('malformed JSON body returns 400 (client error), not 500', async() => {
   const res = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -326,7 +326,7 @@ test('malformed JSON body returns 400 (client error), not 500', async () => {
 
 // ===== Locations =====
 
-test('POST /api/locations creates a location (admin only)', async () => {
+test('POST /api/locations creates a location (admin only)', async() => {
   const name = `Test Location ${Date.now()}`;
   const createRes = await authRequest('/api/locations', {
     method: 'POST',
@@ -340,7 +340,7 @@ test('POST /api/locations creates a location (admin only)', async () => {
   assert.ok(getRes.body.some(l => l.name === name));
 });
 
-test('POST /api/locations returns 409 for duplicates', async () => {
+test('POST /api/locations returns 409 for duplicates', async() => {
   const name = `Dup Location ${Date.now()}`;
   await authRequest('/api/locations', {
     method: 'POST',
@@ -353,7 +353,7 @@ test('POST /api/locations returns 409 for duplicates', async () => {
   assert.strictEqual(status, 409);
 });
 
-test('GET /api/locations returns 401 without token check via protected create', async () => {
+test('GET /api/locations returns 401 without token check via protected create', async() => {
   const { status } = await request('/api/locations', {
     method: 'POST',
     body: JSON.stringify({ name: 'No Auth Loc' }),
@@ -363,7 +363,7 @@ test('GET /api/locations returns 401 without token check via protected create', 
 
 // ===== Order Inquiries =====
 
-test('POST /api/order-inquiries stores inquiry and GET returns it', async () => {
+test('POST /api/order-inquiries stores inquiry and GET returns it', async() => {
   const payload = {
     customer_name: 'Test User',
     customer_email: 'test@example.com',
@@ -387,7 +387,7 @@ test('POST /api/order-inquiries stores inquiry and GET returns it', async () => 
   assert.ok(getResponse.body.some(item => item.customer_email === payload.customer_email));
 });
 
-test('POST /api/order-inquiries validates required fields', async () => {
+test('POST /api/order-inquiries validates required fields', async() => {
   const { status } = await request('/api/order-inquiries', {
     method: 'POST',
     body: JSON.stringify({ products: [] }),
@@ -395,7 +395,7 @@ test('POST /api/order-inquiries validates required fields', async () => {
   assert.strictEqual(status, 400);
 });
 
-test('PUT /api/order-inquiries/:id updates status (auth required)', async () => {
+test('PUT /api/order-inquiries/:id updates status (auth required)', async() => {
   const getRes = await request('/api/order-inquiries');
   if (getRes.body.length > 0) {
     const id = getRes.body[0].id;
@@ -408,7 +408,7 @@ test('PUT /api/order-inquiries/:id updates status (auth required)', async () => 
   }
 });
 
-test('PUT /api/order-inquiries/9999 returns 404', async () => {
+test('PUT /api/order-inquiries/9999 returns 404', async() => {
   const { status } = await authRequest('/api/order-inquiries/9999', {
     method: 'PUT',
     body: JSON.stringify({ status: 'approved' }),
@@ -418,7 +418,7 @@ test('PUT /api/order-inquiries/9999 returns 404', async () => {
 
 // ===== Optimization =====
 
-test('GET /api/optimization/:id returns EOQ data', async () => {
+test('GET /api/optimization/:id returns EOQ data', async() => {
   const { status, body } = await managementRequest('/api/optimization/1');
   assert.strictEqual(status, 200);
   assert.ok(body.EOQ);
@@ -426,7 +426,7 @@ test('GET /api/optimization/:id returns EOQ data', async () => {
   assert.ok(body.safetyStock);
 });
 
-test('GET /api/optimization/abc returns ABC classification', async () => {
+test('GET /api/optimization/abc returns ABC classification', async() => {
   const { status, body } = await managementRequest('/api/optimization/abc');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
@@ -435,7 +435,7 @@ test('GET /api/optimization/abc returns ABC classification', async () => {
   }
 });
 
-test('GET /api/optimization returns bulk metrics', async () => {
+test('GET /api/optimization returns bulk metrics', async() => {
   const { status, body } = await managementRequest('/api/optimization');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
@@ -443,7 +443,7 @@ test('GET /api/optimization returns bulk metrics', async () => {
 
 // ===== Analytics =====
 
-test('GET /api/analytics/summary returns dashboard data (admin tier only)', async () => {
+test('GET /api/analytics/summary returns dashboard data (admin tier only)', async() => {
   const unauth = await request('/api/analytics/summary');
   assert.strictEqual(unauth.status, 401, 'revenue aggregate is not public');
 
@@ -455,30 +455,30 @@ test('GET /api/analytics/summary returns dashboard data (admin tier only)', asyn
   assert.ok(Array.isArray(body.topProducts));
 });
 
-test('GET /api/analytics/export/products returns product data (admin only)', async () => {
+test('GET /api/analytics/export/products returns product data (admin only)', async() => {
   const { status } = await authRequest('/api/analytics/export/products');
   assert.strictEqual(status, 200);
 });
 
-test('GET /api/analytics/export/bogus returns 404', async () => {
+test('GET /api/analytics/export/bogus returns 404', async() => {
   const { status } = await authRequest('/api/analytics/export/bogus');
   assert.strictEqual(status, 404);
 });
 
 // ===== Users & Alerts =====
 
-test('GET /api/users returns user list (admin only)', async () => {
+test('GET /api/users returns user list (admin only)', async() => {
   const { status, body } = await authRequest('/api/users');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('GET /api/users returns 401 without token', async () => {
+test('GET /api/users returns 401 without token', async() => {
   const { status } = await request('/api/users');
   assert.strictEqual(status, 401);
 });
 
-test('GET /api/alerts returns alerts for authenticated user', async () => {
+test('GET /api/alerts returns alerts for authenticated user', async() => {
   const { status, body } = await authRequest('/api/alerts');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
@@ -486,7 +486,7 @@ test('GET /api/alerts returns alerts for authenticated user', async () => {
 
 // ===== 404 =====
 
-test('GET /api/nonexistent returns 404', async () => {
+test('GET /api/nonexistent returns 404', async() => {
   const { status } = await request('/api/nonexistent');
   assert.strictEqual(status, 404);
 });

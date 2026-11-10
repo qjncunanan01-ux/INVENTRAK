@@ -36,6 +36,7 @@
 // The npm-free JSON-file mode is an ephemeral fallback and is not synced.
 const path = require('path');
 const fs = require('fs');
+const Database = require('better-sqlite3');
 const { isHashed } = require('./auth/password-hash');
 
 // Datasets: canonical key + timestamp used for last-write-wins. Inventory is
@@ -120,7 +121,7 @@ function canonicalFromSqlite(snap) {
       status: canonStatus(p.status),
       image: p.image || null,
       updated_at: p.updated_at,
-    })
+    }),
   );
 
   const productById = new Map((s.products || []).map(p => [p.id, p]));
@@ -150,7 +151,7 @@ function canonicalFromSqlite(snap) {
         notes: m.notes,
         created_at: m.created_at,
         user: m.user,
-      })
+      }),
     ),
     'stock_adjustments.json': (s.stock_adjustments || []).map(a =>
       unset({
@@ -163,7 +164,7 @@ function canonicalFromSqlite(snap) {
         created_at: a.created_at,
         decided_at: a.decided_at,
         decided_by: a.decided_by,
-      })
+      }),
     ),
     'stock_transfers.json': (s.stock_transfers || []).map(t =>
       unset({
@@ -177,7 +178,7 @@ function canonicalFromSqlite(snap) {
         created_at: t.created_at,
         decided_at: t.decided_at,
         decided_by: t.decided_by,
-      })
+      }),
     ),
     'order_inquiries.json': (s.order_inquiries || []).map(o =>
       unset({
@@ -200,7 +201,7 @@ function canonicalFromSqlite(snap) {
         status_history: o.status_history,
         status: o.status,
         created_at: o.created_at,
-      })
+      }),
     ),
     '@users': (s.users || []).map(u =>
       unset({
@@ -212,7 +213,7 @@ function canonicalFromSqlite(snap) {
         email_verified: u.email_verified === 0 ? false : true,
         phone: u.phone,
         created_at: u.created_at,
-      })
+      }),
     ),
     '@sales': (s.sales_transactions || []).map(t =>
       unset({
@@ -223,7 +224,7 @@ function canonicalFromSqlite(snap) {
         total_amount: t.total_amount,
         transaction_date: t.transaction_date,
         customer_name: t.customer_name,
-      })
+      }),
     ),
     // product_name/location_name are derived via JOIN on SQLite; keep them in
     // the canonical so Firestore rows stay comparable, and drop them on the
@@ -241,7 +242,7 @@ function canonicalFromSqlite(snap) {
         resolved_at: a.resolved_at,
         product_name: (productById.get(a.product_id) || {}).name,
         location_name: locationNameById.get(a.location_id),
-      })
+      }),
     ),
   };
 }
@@ -262,7 +263,7 @@ function canonicalFromFirestore(read) {
       status: canonStatus(r.status),
       image: r['Image'] || r.image || null,
       updated_at: r.updated_at,
-    })
+    }),
   );
 
   const inv = read['inventory.json'] || { locations: [], items: [] };
@@ -378,7 +379,7 @@ function inventoryToRows(inv, updatedById) {
       id: Number(pid),
       locations: v.locations,
       updated_at: (updatedById.get(Number(pid)) || {}).updated_at,
-    })
+    }),
   );
 }
 
@@ -392,29 +393,29 @@ function rowsToInventory(locations, rows) {
 
 function resolveConflict(localRow, remoteRow, { conflict, updated, preferHashed = false }) {
   switch (conflict) {
-    case 'keep-sqlite':
-      return localRow;
-    case 'keep-firestore':
-      return remoteRow;
-    case 'skip':
-      return null; // signal: keep each side as-is
-    case 'last-write-wins':
-    default: {
-      // @users: a login-time password upgrade re-hashes without touching
-      // created_at, so equal timestamps must not let a legacy plaintext row
-      // overwrite the hashed side (or vice versa) — the hashed row wins.
-      if (preferHashed) {
-        const lh = isHashed(localRow.password);
-        const rh = isHashed(remoteRow.password);
-        if (lh && !rh) return localRow;
-        if (rh && !lh) return remoteRow;
-      }
-      const lt = typeof updated === 'function' ? updated(localRow) : localRow[updated];
-      const rt = typeof updated === 'function' ? updated(remoteRow) : remoteRow[updated];
-      if (lt && rt) return lt >= rt ? localRow : remoteRow;
-      if (rt) return remoteRow; // remote has a timestamp, local does not → remote is newer
-      return localRow; // neither has one (or only local does) → local wins
+  case 'keep-sqlite':
+    return localRow;
+  case 'keep-firestore':
+    return remoteRow;
+  case 'skip':
+    return null; // signal: keep each side as-is
+  case 'last-write-wins':
+  default: {
+    // @users: a login-time password upgrade re-hashes without touching
+    // created_at, so equal timestamps must not let a legacy plaintext row
+    // overwrite the hashed side (or vice versa) — the hashed row wins.
+    if (preferHashed) {
+      const lh = isHashed(localRow.password);
+      const rh = isHashed(remoteRow.password);
+      if (lh && !rh) return localRow;
+      if (rh && !lh) return remoteRow;
     }
+    const lt = typeof updated === 'function' ? updated(localRow) : localRow[updated];
+    const rt = typeof updated === 'function' ? updated(remoteRow) : remoteRow[updated];
+    if (lt && rt) return lt >= rt ? localRow : remoteRow;
+    if (rt) return remoteRow; // remote has a timestamp, local does not → remote is newer
+    return localRow; // neither has one (or only local does) → local wins
+  }
   }
 }
 
@@ -594,7 +595,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        name=excluded.name, category=excluded.category, brand=excluded.brand,
        description=excluded.description, size=excluded.size, unit=excluded.unit,
        price=excluded.price, status=excluded.status, image=excluded.image,
-       updated_at=excluded.updated_at`
+       updated_at=excluded.updated_at`,
   );
   for (const p of byId(canonical['products.json'])) {
     upsertProduct.run(
@@ -608,7 +609,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
       p.price,
       p.status,
       p.image || null,
-      p.updated_at
+      p.updated_at,
     );
   }
 
@@ -640,7 +641,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
      ON CONFLICT(id) DO UPDATE SET
        product_id=excluded.product_id, qty=excluded.qty, type=excluded.type,
        src_location=excluded.src_location, dst_location=excluded.dst_location,
-       notes=excluded.notes, created_at=excluded.created_at, user=excluded.user`
+       notes=excluded.notes, created_at=excluded.created_at, user=excluded.user`,
   );
   for (const m of byId(canonical['stock_movements.json'])) {
     upsertMovement.run(
@@ -652,7 +653,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
       m.dst_location,
       m.notes,
       m.created_at,
-      m.user
+      m.user,
     );
   }
 
@@ -664,7 +665,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        product_id=excluded.product_id, location_id=excluded.location_id,
        new_qty=excluded.new_qty, reason=excluded.reason, status=excluded.status,
        created_at=excluded.created_at, decided_at=excluded.decided_at,
-       decided_by=excluded.decided_by`
+       decided_by=excluded.decided_by`,
   );
   for (const a of byId(canonical['stock_adjustments.json'])) {
     upsertAdjustment.run(
@@ -676,7 +677,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
       a.status,
       a.created_at,
       a.decided_at || null,
-      a.decided_by || null
+      a.decided_by || null,
     );
   }
 
@@ -687,7 +688,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        product_id=excluded.product_id, src_location=excluded.src_location,
        dst_location=excluded.dst_location, qty=excluded.qty, reason=excluded.reason,
        status=excluded.status, created_at=excluded.created_at,
-       decided_at=excluded.decided_at, decided_by=excluded.decided_by`
+       decided_at=excluded.decided_at, decided_by=excluded.decided_by`,
   );
   for (const t of byId(canonical['stock_transfers.json'])) {
     upsertTransfer.run(
@@ -700,7 +701,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
       t.status,
       t.created_at,
       t.decided_at || null,
-      t.decided_by || null
+      t.decided_by || null,
     );
   }
 
@@ -717,7 +718,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        payment_provider=excluded.payment_provider,
        user_id=excluded.user_id, customer_id=excluded.customer_id,
        status_history=excluded.status_history,
-       status=excluded.status, created_at=excluded.created_at`
+       status=excluded.status, created_at=excluded.created_at`,
   );
   for (const o of byId(canonical['order_inquiries.json'])) {
     upsertInquiry.run(
@@ -739,7 +740,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
       o.customer_id || null,
       o.status_history || null,
       o.status,
-      o.created_at
+      o.created_at,
     );
   }
 
@@ -749,7 +750,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
      ON CONFLICT(id) DO UPDATE SET
        username=excluded.username, password=excluded.password, role=excluded.role,
        email=excluded.email, email_verified=excluded.email_verified,
-       phone=excluded.phone, created_at=excluded.created_at`
+       phone=excluded.phone, created_at=excluded.created_at`,
   );
   for (const u of byId(canonical['@users'])) {
     upsertUser.run(u.id, u.username, u.password, u.role, u.email, u.email_verified ? 1 : 0, u.phone, u.created_at);
@@ -761,7 +762,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
      ON CONFLICT(id) DO UPDATE SET
        product_id=excluded.product_id, qty=excluded.qty, unit_price=excluded.unit_price,
        total_amount=excluded.total_amount, transaction_date=excluded.transaction_date,
-       customer_name=excluded.customer_name`
+       customer_name=excluded.customer_name`,
   );
   for (const t of byId(canonical['@sales'])) {
     upsertSale.run(t.id, t.product_id, t.qty, t.unit_price, t.total_amount, t.transaction_date, t.customer_name);
@@ -774,7 +775,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
        product_id=excluded.product_id, location_id=excluded.location_id,
        alert_type=excluded.alert_type, threshold=excluded.threshold,
        current_qty=excluded.current_qty, status=excluded.status,
-       created_at=excluded.created_at, resolved_at=excluded.resolved_at`
+       created_at=excluded.created_at, resolved_at=excluded.resolved_at`,
   );
   for (const a of byId(canonical['@alerts'])) {
     upsertAlert.run(
@@ -786,7 +787,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
       a.current_qty,
       a.status,
       a.created_at,
-      a.resolved_at
+      a.resolved_at,
     );
   }
 
@@ -813,7 +814,7 @@ function applyToSqlite(db, canonical, { deleteMissing = false } = {}) {
     delNotIn('inventory_alerts', canonical['@alerts']);
     const productIds = byId(canonical['products.json']).map(r => r.id);
     if (productIds.length === 0) {
-      db.prepare("UPDATE products SET status = 'inactive'").run();
+      db.prepare('UPDATE products SET status = \'inactive\'').run();
       db.prepare('DELETE FROM stock').run();
     } else {
       const ph = productIds.map(() => '?').join(',');
@@ -872,7 +873,7 @@ function printReport(report) {
   console.log('Per dataset  (removed = rows present only on the other side):');
   for (const [ds, r] of Object.entries(report.perDataset)) {
     console.log(
-      `  ${ds.padEnd(22)} added=${r.added} updated=${r.updated} conflicts=${r.conflicts} removed=${r.removed} unchanged=${r.unchanged}`
+      `  ${ds.padEnd(22)} added=${r.added} updated=${r.updated} conflicts=${r.conflicts} removed=${r.removed} unchanged=${r.unchanged}`,
     );
   }
   if (report.conflicts.length) {
@@ -886,7 +887,7 @@ function printReport(report) {
   }
   if (report.deleted.length) {
     console.log(
-      `\nPresence-only rows (${report.deleted.length}): pulled by default; dropped from the target with --deletions=propagate`
+      `\nPresence-only rows (${report.deleted.length}): pulled by default; dropped from the target with --deletions=propagate`,
     );
     report.deleted.slice(0, 10).forEach(d => console.log(`  ${d.dataset} id=${d.id} (${d.side})`));
     if (report.deleted.length > 10) console.log(`  … and ${report.deleted.length - 10} more`);
@@ -934,7 +935,7 @@ async function main() {
   const { report, toLocal, toRemote } = diffAndMerge(local, remote, { conflict, deletions });
 
   console.log(
-    `Sync plan (${direction}, conflict=${conflict}, deletions=${deletions})${dryRun ? ' — DRY RUN, nothing written' : ''}`
+    `Sync plan (${direction}, conflict=${conflict}, deletions=${deletions})${dryRun ? ' — DRY RUN, nothing written' : ''}`,
   );
   printReport(report);
 

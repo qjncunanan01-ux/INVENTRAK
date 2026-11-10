@@ -126,7 +126,7 @@ export default function BackupPage({ onLogout }) {
 
   // Load what the store holds. A failure here is information, not a crash: the
   // server reports "no durable store configured" as a readable reason.
-  const loadStore = useCallback(async () => {
+  const loadStore = useCallback(async() => {
     setStoreBusy(true);
     try {
       const listing = await apiGet('/api/admin/backups');
@@ -161,7 +161,7 @@ export default function BackupPage({ onLogout }) {
       ? { label: 'stale', color: 'error' }
       : { label: 'fresh', color: 'success' };
 
-  const download = useCallback(async () => {
+  const download = useCallback(async() => {
     setDownloading(true);
     try {
       const snapshot = await apiGet('/api/admin/backup');
@@ -189,7 +189,7 @@ export default function BackupPage({ onLogout }) {
 
   // Take one now — the manual half of the schedule, so a freshly configured
   // deployment can be verified on the spot instead of waiting a full interval.
-  const pushNow = useCallback(async () => {
+  const pushNow = useCallback(async() => {
     setPushing(true);
     try {
       const response = await apiPost('/api/admin/backup', {});
@@ -203,7 +203,7 @@ export default function BackupPage({ onLogout }) {
     }
   }, [loadStore]);
 
-  const pickFile = useCallback(async (event) => {
+  const pickFile = useCallback(async(event) => {
     const file = event.target.files && event.target.files[0];
     setResult(null);
     if (!file) return;
@@ -217,7 +217,7 @@ export default function BackupPage({ onLogout }) {
     }
   }, []);
 
-  const restore = useCallback(async () => {
+  const restore = useCallback(async() => {
     setRestoring(true);
     try {
       const response = await apiPost('/api/admin/restore', { confirm: true, snapshot: candidate });
@@ -232,7 +232,7 @@ export default function BackupPage({ onLogout }) {
 
   // Restore a copy the server took itself. Same destructive action as the file
   // path, so the same second confirmation: naming a snapshot id is not consent.
-  const restoreFromStore = useCallback(async () => {
+  const restoreFromStore = useCallback(async() => {
     if (!target) return;
     setRestoring(true);
     try {

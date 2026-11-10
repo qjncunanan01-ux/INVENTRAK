@@ -15,7 +15,7 @@ const SIDES = [
   ['npmfree', npmfree],
 ];
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -57,7 +57,7 @@ async function readInquiry(side, id, { tokenKey = 'admin' } = {}) {
   return rows.find((o) => Number(o.id) === Number(id));
 }
 
-test('terms: submissions require acceptance of the current ordering terms', async () => {
+test('terms: submissions require acceptance of the current ordering terms', async() => {
   for (const [label, side] of SIDES) {
     const declined = await place(side, { terms_accepted: false });
     assert.strictEqual(declined.status, 400, `${label}: declined terms are refused`);
@@ -69,7 +69,7 @@ test('terms: submissions require acceptance of the current ordering terms', asyn
   }
 });
 
-test('fulfilment: pickup is the recorded default on both backends', async () => {
+test('fulfilment: pickup is the recorded default on both backends', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);
     assert.strictEqual(placed.status, 201, `${label}: inquiry submitted`);
@@ -82,7 +82,7 @@ test('fulfilment: pickup is the recorded default on both backends', async () => 
   }
 });
 
-test('fulfilment: courier is recorded and requires a delivery address', async () => {
+test('fulfilment: courier is recorded and requires a delivery address', async() => {
   for (const [label, side] of SIDES) {
     const nowhere = await place(side, { fulfillment_method: 'courier' });
     assert.strictEqual(nowhere.status, 400, `${label}: courier without an address is refused`);
@@ -94,6 +94,7 @@ test('fulfilment: courier is recorded and requires a delivery address', async ()
     const placed = await place(side, {
       fulfillment_method: 'courier',
       delivery_address: '12 Mabini St, Quezon City',
+      payment_method: 'gcash',
     });
     assert.strictEqual(placed.status, 201, `${label}: courier with an address is accepted`);
     const row = await readInquiry(side, placed.json.id);
@@ -102,14 +103,14 @@ test('fulfilment: courier is recorded and requires a delivery address', async ()
   }
 });
 
-test('fulfilment: an unknown method is refused rather than silently defaulted', async () => {
+test('fulfilment: an unknown method is refused rather than silently defaulted', async() => {
   for (const [label, side] of SIDES) {
     const res = await place(side, { fulfillment_method: 'drone' });
     assert.strictEqual(res.status, 400, `${label}: unknown method refused`);
   }
 });
 
-test('production checkout refuses the no-charge demo card option', async () => {
+test('production checkout refuses the no-charge demo card option', async() => {
   for (const [label, side] of SIDES) {
     const response = await place(side, { payment_method: 'card' });
     assert.strictEqual(response.status, 400, `${label}: card demo is unavailable without Sylver demo mode`);
@@ -117,19 +118,29 @@ test('production checkout refuses the no-charge demo card option', async () => {
   }
 });
 
-test('production QR Ph is pickup-only until the courier charge is confirmed', async () => {
+test('production courier orders reject cash and require a paid online method', async() => {
   for (const [label, side] of SIDES) {
-    const response = await place(side, {
+    const cash = await place(side, {
+      payment_method: 'cod',
+      fulfillment_method: 'courier',
+      delivery_address: '12 Mabini St, Quezon City',
+    });
+    assert.strictEqual(cash.status, 400, `${label}: cash on delivery is refused for courier orders`);
+    assert.match(cash.json.error || '', /cash is available for pickup only/i);
+
+    const qrph = await place(side, {
       payment_method: 'qrph',
       fulfillment_method: 'courier',
       delivery_address: '12 Mabini St, Quezon City',
     });
-    assert.strictEqual(response.status, 400, `${label}: QR Ph checkout is refused before courier pricing`);
-    assert.match(response.json.error || '', /pickup orders/i);
+    // The harness removes provider secrets, so this proves the request passed
+    // the courier policy and stopped before any external checkout or order.
+    assert.strictEqual(qrph.status, 503, `${label}: QR Ph is allowed but safely stops without provider configuration`);
+    assert.match(qrph.json.error || '', /QR Ph checkout is not configured/i);
   }
 });
 
-test('rejection: a reason is mandatory and is stored with the actor', async () => {
+test('rejection: a reason is mandatory and is stored with the actor', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);
     const id = placed.json.id;
@@ -169,7 +180,7 @@ test('rejection: a reason is mandatory and is stored with the actor', async () =
   }
 });
 
-test('rejection: a reason that is only whitespace does not count', async () => {
+test('rejection: a reason that is only whitespace does not count', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);
     const res = await call(side.url, `/api/order-inquiries/${placed.json.id}`, {
@@ -181,7 +192,7 @@ test('rejection: a reason that is only whitespace does not count', async () => {
   }
 });
 
-test('transitions: a decided inquiry cannot be reopened, and cancel is not a PUT status', async () => {
+test('transitions: a decided inquiry cannot be reopened, and cancel is not a PUT status', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);
     const id = placed.json.id;
@@ -208,7 +219,7 @@ test('transitions: a decided inquiry cannot be reopened, and cancel is not a PUT
   }
 });
 
-test('cancellation: the customer cancels their own pending inquiry, once', async () => {
+test('cancellation: the customer cancels their own pending inquiry, once', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);
     const id = placed.json.id;
@@ -247,7 +258,7 @@ test('cancellation: the customer cancels their own pending inquiry, once', async
   }
 });
 
-test('cancellation: an approved inquiry can still be cancelled', async () => {
+test('cancellation: an approved inquiry can still be cancelled', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);
     const id = placed.json.id;
@@ -266,7 +277,7 @@ test('cancellation: an approved inquiry can still be cancelled', async () => {
   }
 });
 
-test('cancellation: a fulfilled inquiry cannot be cancelled', async () => {
+test('cancellation: a fulfilled inquiry cannot be cancelled', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side, {
       products: [{ id: 23, name: 'Essse Cafe Selezione Speciale Coffee Beans 1kg', qty: 1, price: 10 }],
@@ -291,7 +302,7 @@ test('cancellation: a fulfilled inquiry cannot be cancelled', async () => {
   }
 });
 
-test('cancellation: a customer cannot cancel somebody else’s inquiry', async () => {
+test('cancellation: a customer cannot cancel somebody else’s inquiry', async() => {
   for (const [label, side] of SIDES) {
     // Placed with the ADMIN's token: the customer is not the owner.
     const placed = await place(side, { tokenKey: 'admin', customer_email: 'someone-else@example.com' });
@@ -306,7 +317,7 @@ test('cancellation: a customer cannot cancel somebody else’s inquiry', async (
   }
 });
 
-test('cancellation: anonymous callers and unknown ids are refused', async () => {
+test('cancellation: anonymous callers and unknown ids are refused', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);
     const anon = await call(side.url, `/api/order-inquiries/${placed.json.id}/cancel`, { method: 'POST' });
@@ -320,7 +331,7 @@ test('cancellation: anonymous callers and unknown ids are refused', async () => 
   }
 });
 
-test('cancellation: an admin may cancel on the customer’s behalf', async () => {
+test('cancellation: an admin may cancel on the customer’s behalf', async() => {
   for (const [label, side] of SIDES) {
     const placed = await place(side);
     const res = await call(side.url, `/api/order-inquiries/${placed.json.id}/cancel`, {

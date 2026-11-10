@@ -19,7 +19,7 @@ test('summarizeProducts renders canonical line objects readably (the [object Obj
 test('summarizeProducts handles the JSON-string storage shape', () => {
   assert.strictEqual(
     summarizeProducts('[{"name":"Widget","qty":3}]'),
-    'Widget x3'
+    'Widget x3',
   );
 });
 
@@ -50,17 +50,18 @@ test('normalizeLines derives totals only from priced lines (locked contract)', (
   assert.strictEqual(unpriced.total, null);
 });
 
-test('QR Ph prices every line from the active server catalog, not client fields', () => {
+test('catalog pricing replaces client fields with the active server catalog', () => {
   const priced = priceLinesFromCatalog([
     { id: 7, name: 'Edited name', qty: 2, unit_price: 0.01, subtotal: 0.02, original_price: 0.01 },
   ], [
-    { id: 7, name: 'Server product name', price: 125.5, status: 'active' },
+    { id: 7, name: 'Server product name', category: 'Sauces', price: 125.5, status: 'active' },
   ]);
   assert.equal(priced.error, undefined);
   assert.equal(priced.total, 251);
   assert.deepEqual(priced.lines[0], {
     id: 7,
     name: 'Server product name',
+    category: 'Sauces',
     qty: 2,
     unit_price: 125.5,
     original_price: null,

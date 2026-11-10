@@ -270,7 +270,7 @@ export default function OptimizationPage({ onLogout }) {
                 <TableRow><TableCell colSpan={3}>Loading…</TableCell></TableRow>
               ) : abcList.length === 0 ? (
                 <TableRow><TableCell colSpan={3}>No optimization data available</TableCell></TableRow>
-              ) : abcList.map((item, idx) => (
+              ) : abcList.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{item.name}</TableCell>
                   <TableCell>{item.value}</TableCell>

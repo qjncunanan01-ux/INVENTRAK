@@ -92,7 +92,7 @@ function renderPage() {
 }
 
 describe('the board says what a shelf-walker needs to know', () => {
-  test('the shelf to walk today is at the top of the table', async () => {
+  test('the shelf to walk today is at the top of the table', async() => {
     apiGet.mockResolvedValue(board());
     renderPage();
     await screen.findByText('Showroom');
@@ -100,7 +100,7 @@ describe('the board says what a shelf-walker needs to know', () => {
     expect(cells.indexOf('Showroom')).toBeLessThan(cells.indexOf('Warehouse'), 'worst shelf first');
   });
 
-  test('a partially-walked shelf does NOT read as fully counted', async () => {
+  test('a partially-walked shelf does NOT read as fully counted', async() => {
     apiGet.mockResolvedValue(board());
     renderPage();
     const row = (await screen.findByText('Showroom')).closest('tr');
@@ -110,19 +110,19 @@ describe('the board says what a shelf-walker needs to know', () => {
     expect(within(row).queryByText('100%')).toBeNull();
   });
 
-  test('an overdue shelf says how far past due it is, in words', async () => {
+  test('an overdue shelf says how far past due it is, in words', async() => {
     apiGet.mockResolvedValue(board());
     renderPage();
     expect(await screen.findByText('10 days overdue')).toBeTruthy();
   });
 
-  test('a shelf inside its cycle says when it is next due', async () => {
+  test('a shelf inside its cycle says when it is next due', async() => {
     apiGet.mockResolvedValue(board());
     renderPage();
     expect(await screen.findByText('Due in 25 days')).toBeTruthy();
   });
 
-  test('a fully counted shelf shows 100%', async () => {
+  test('a fully counted shelf shows 100%', async() => {
     apiGet.mockResolvedValue(board());
     renderPage();
     const row = (await screen.findByText('Warehouse')).closest('tr');
@@ -130,7 +130,7 @@ describe('the board says what a shelf-walker needs to know', () => {
     expect(within(row).getByText('0')).toBeTruthy(); // nothing to walk
   });
 
-  test('an empty shelf is listed but never nagged about', async () => {
+  test('an empty shelf is listed but never nagged about', async() => {
     apiGet.mockResolvedValue(board());
     renderPage();
     const row = (await screen.findByText('Office Store')).closest('tr');
@@ -138,14 +138,14 @@ describe('the board says what a shelf-walker needs to know', () => {
     expect(within(row).queryByText(/overdue/i)).toBeNull();
   });
 
-  test('the rule that makes a partial walk count as partial is printed on the page', async () => {
+  test('the rule that makes a partial walk count as partial is printed on the page', async() => {
     apiGet.mockResolvedValue(board());
     renderPage();
     // If this text ever disappears, the screen can start lying quietly.
     expect(await screen.findByText(/EVERY line stocked on it/i)).toBeTruthy();
   });
 
-  test('the summary names the shelves and lines at stake', async () => {
+  test('the summary names the shelves and lines at stake', async() => {
     apiGet.mockResolvedValue(board());
     const { container } = renderPage();
     await screen.findByText('Showroom');
@@ -156,7 +156,7 @@ describe('the board says what a shelf-walker needs to know', () => {
     expect(container.textContent).toContain('6 lines past due');
   });
 
-  test('an all-clear board says there is nothing to do', async () => {
+  test('an all-clear board says there is nothing to do', async() => {
     apiGet.mockResolvedValue({
       ...board(),
       rows: board().rows.filter(r => r.status === 'ok'),
@@ -166,13 +166,13 @@ describe('the board says what a shelf-walker needs to know', () => {
     expect(await screen.findByText(/Every shelf is inside its 30-day cycle/)).toBeTruthy();
   });
 
-  test('a server error is surfaced rather than swallowed into an empty table', async () => {
+  test('a server error is surfaced rather than swallowed into an empty table', async() => {
     apiGet.mockRejectedValue(new Error('Stocktake board unavailable'));
     renderPage();
     expect(await screen.findByText('Stocktake board unavailable')).toBeTruthy();
   });
 
-  test('refresh re-reads the board', async () => {
+  test('refresh re-reads the board', async() => {
     apiGet.mockResolvedValue(board());
     renderPage();
     await screen.findByText('Showroom');

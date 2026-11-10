@@ -124,7 +124,7 @@ function decideAdjustment(req, res, action) {
         .run(row.product_id, row.new_qty, 'adjustment', null, row.location_id, `Adjustment #${row.id}: ${row.reason || 'approved correction'}`, now, actor);
       // The decision stamps decided_by (the approver); created_by keeps the
       // original submitter untouched.
-      return db.prepare("UPDATE stock_adjustments SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ? AND status = 'pending'").run(now, actor, row.id);
+      return db.prepare('UPDATE stock_adjustments SET status = \'approved\', decided_at = ?, decided_by = ? WHERE id = ? AND status = \'pending\'').run(now, actor, row.id);
     })();
     if (applied.changes === 0) return res.status(400).json({ error: 'Adjustment already decided' });
 
@@ -132,7 +132,7 @@ function decideAdjustment(req, res, action) {
     return res.json({ ok: true, message: 'Adjustment approved and applied to stock' });
   }
 
-  db.prepare("UPDATE stock_adjustments SET status = 'rejected', decided_at = ?, decided_by = ? WHERE id = ?").run(now, actor, row.id);
+  db.prepare('UPDATE stock_adjustments SET status = \'rejected\', decided_at = ?, decided_by = ? WHERE id = ?').run(now, actor, row.id);
   audit('stock.adjustment.rejected', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
   const correction = recordRejectComment(req, SUBMISSION_TYPE.ADJUSTMENT, row.id);
   res.json({
@@ -196,13 +196,13 @@ function decideTransfer(req, res, action) {
       applyMovementEffect({ product_id: row.product_id, qty: row.qty, type: 'transfer', srcId: row.src_location, dstId: row.dst_location, now });
       db.prepare('INSERT INTO stock_movements (product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .run(row.product_id, row.qty, 'transfer', row.src_location, row.dst_location, `Transfer #${row.id}: ${row.reason || 'approved transfer'}`, now, actor);
-      return db.prepare("UPDATE stock_transfers SET status = 'approved', decided_at = ?, decided_by = ? WHERE id = ? AND status = 'pending'").run(now, actor, row.id);
+      return db.prepare('UPDATE stock_transfers SET status = \'approved\', decided_at = ?, decided_by = ? WHERE id = ? AND status = \'pending\'').run(now, actor, row.id);
     })();
     if (applied.changes === 0) return res.status(400).json({ error: 'Transfer already decided' });
     return res.json({ ok: true, message: 'Transfer approved and applied to stock' });
   }
 
-  db.prepare("UPDATE stock_transfers SET status = 'rejected', decided_at = ?, decided_by = ? WHERE id = ?").run(now, actor, row.id);
+  db.prepare('UPDATE stock_transfers SET status = \'rejected\', decided_at = ?, decided_by = ? WHERE id = ?').run(now, actor, row.id);
   const correction = recordRejectComment(req, SUBMISSION_TYPE.TRANSFER, row.id);
   res.json({
     ok: true,

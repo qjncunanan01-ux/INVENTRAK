@@ -193,7 +193,7 @@ async function postgrest(method, cfg, query, body) {
     const hint =
       res.status === 404 || /does not exist|relation/i.test(detail)
         ? ' — does the snapshot table exist? (run src/supabase-backup-migration.sql once in the Supabase SQL editor)' +
-          ` or set BACKUP_REMOTE_TABLE / SUPABASE_URL`
+          ' or set BACKUP_REMOTE_TABLE / SUPABASE_URL'
         : '';
     return { ok: false, reason: `durable store refused the ${method} (HTTP ${res.status}): ${detail}${hint}` };
   }
@@ -340,14 +340,14 @@ async function pushSnapshot(envelope, { trigger = 'manual' } = {}) {
   const posted = await postgrest('POST', cfg, '', row);
   const result = posted.ok
     ? {
-        ok: true,
-        id: posted.rows[0] ? posted.rows[0].id : null,
-        created_at: envelope.created_at,
-        driver: envelope.driver,
-        bytes,
-        tables: Object.keys(envelope.tables || {}).length,
-        rows: Object.values(envelope.counts || {}).reduce((sum, n) => sum + Number(n || 0), 0),
-      }
+      ok: true,
+      id: posted.rows[0] ? posted.rows[0].id : null,
+      created_at: envelope.created_at,
+      driver: envelope.driver,
+      bytes,
+      tables: Object.keys(envelope.tables || {}).length,
+      rows: Object.values(envelope.counts || {}).reduce((sum, n) => sum + Number(n || 0), 0),
+    }
     : { ok: false, reason: posted.reason };
 
   if (result.ok) {

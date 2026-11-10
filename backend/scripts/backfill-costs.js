@@ -79,7 +79,7 @@ function parseCostCell(cell) {
   const raw = String(cell === undefined || cell === null ? '' : cell).trim();
   if (raw === '') return 'skip';
   if (CLEAR_TOKENS.has(raw.toLowerCase())) return 'clear';
-  const cleaned = raw.replace(/[^0-9.\-]/g, '');
+  const cleaned = raw.replace(/[^0-9.-]/g, '');
   // Number('') is 0 — an unreduced cell is junk, not a free product.
   if (cleaned === '' || cleaned === '-' || cleaned === '.') return 'junk';
   const n = Number(cleaned);
@@ -150,7 +150,7 @@ function sqliteTarget() {
     label: `SQLite (${process.env.INVENTRAK_DB_PATH || 'default'})`,
     rows: db.prepare('SELECT id, name, price, cost FROM products').all(),
     write(id, cost) {
-      db.prepare("UPDATE products SET cost = ?, updated_at = datetime('now') WHERE id = ?").run(cost, id);
+      db.prepare('UPDATE products SET cost = ?, updated_at = datetime(\'now\') WHERE id = ?').run(cost, id);
     },
   };
 }

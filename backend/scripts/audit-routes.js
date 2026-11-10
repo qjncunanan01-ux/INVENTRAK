@@ -146,7 +146,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    `✓ audit: ${apiExpress.length} Express API routes + ${npmfree.length} npm-free matchers ↔ ${specPaths.length} documented paths all covered`
+    `✓ audit: ${apiExpress.length} Express API routes + ${npmfree.length} npm-free matchers ↔ ${specPaths.length} documented paths all covered`,
   );
 }
 

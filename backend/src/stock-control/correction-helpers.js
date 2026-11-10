@@ -43,14 +43,14 @@ function createCorrectionRequest({ submission_id, submission_type, comment, requ
   if (!text) return { error: 'comment is required' };
   const info = db
     .prepare(
-      'INSERT INTO correction_requests (submission_id, submission_type, comment, requested_by, status) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO correction_requests (submission_id, submission_type, comment, requested_by, status) VALUES (?, ?, ?, ?, ?)',
     )
     .run(
       Number(submission_id),
       String(submission_type || '').trim(),
       text,
       requested_by == null ? null : String(requested_by || '').trim(),
-      'open'
+      'open',
     );
   return { correctionRequest: rowFromDb(db.prepare('SELECT * FROM correction_requests WHERE id = ?').get(info.lastInsertRowid)) };
 }

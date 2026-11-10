@@ -214,10 +214,10 @@ export default function OrderInquiryScreen({ route, navigation }) {
   );
 
   const checkoutSubtotal = selectedItems.reduce((sum, item) => sum + item.subtotal, 0);
-  const eligibleSubtotal = COMPANY_DEMO
-    ? selectedItems.reduce((sum, item) => (/syrup|sauce/i.test(item.category) ? sum + item.subtotal : sum), 0)
-    : 0;
-  const bulkDiscount = COMPANY_DEMO && eligibleSubtotal >= 5000 ? Math.round(eligibleSubtotal * 0.03 * 100) / 100 : 0;
+  const eligibleSubtotal = selectedItems.reduce((sum, item) => (
+    /syrup|sauce/i.test(`${item.category} ${item.name}`) ? sum + item.subtotal : sum
+  ), 0);
+  const bulkDiscount = eligibleSubtotal >= 5000 ? Math.round(eligibleSubtotal * 0.03 * 100) / 100 : 0;
   const estimatedCost = Math.round((checkoutSubtotal - bulkDiscount) * 100) / 100;
 
   const submit = async() => {
@@ -398,7 +398,7 @@ export default function OrderInquiryScreen({ route, navigation }) {
               onPress={() => {
                 setFulfillment(m.id);
                 if (COMPANY_DEMO && m.id === 'courier' && ['cash', 'credit', 'card'].includes(paymentMethod)) setPaymentMethod('gcash');
-                if (!COMPANY_DEMO && m.id === 'courier' && paymentMethod === 'qrph') setPaymentMethod('cod');
+                if (!COMPANY_DEMO && m.id === 'courier' && paymentMethod === 'cod') setPaymentMethod('qrph');
               }}
               activeOpacity={0.7}
               accessibilityRole="radio"
@@ -438,8 +438,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
           <View style={styles.fulfillmentNote}>
             <Text style={styles.fulfillmentNoteTitle}>Courier delivery</Text>
             <Text style={styles.fulfillmentNoteBody}>
-              After the store marks your goods ready, book and pay Lalamove directly.
-              Lalamove confirms service availability, fee, and timing; its charge is separate from your order payment.
+              Pay the Sylver goods total and wait for payment verification before courier collection. After the store
+              marks your goods ready, book and pay Lalamove directly; Lalamove confirms its fee and timing separately.
             </Text>
           </View>
         </>
@@ -447,14 +447,10 @@ export default function OrderInquiryScreen({ route, navigation }) {
 
       <Text style={styles.sectionTitle}>3 · Payment method</Text>
       <View style={styles.paymentRow}>
-        {paymentMethods.filter((method) => fulfillment !== 'courier' || (!['credit', 'card', 'qrph'].includes(method.id) && !(COMPANY_DEMO && method.id === 'cash'))).map((m) => {
+        {paymentMethods.filter((method) => fulfillment !== 'courier' || !['cash', 'cod', 'credit', 'card'].includes(method.id)).map((m) => {
           const active = paymentMethod === m.id;
-          const paymentLabel = m.id === 'cod'
-            ? (fulfillment === 'pickup' ? 'Cash on pickup' : 'Cash on delivery')
-            : m.label;
-          const paymentHint = m.id === 'cod'
-            ? (fulfillment === 'pickup' ? 'Pay when you collect' : 'Pay when your order arrives')
-            : m.hint;
+          const paymentLabel = m.id === 'cod' ? 'Cash at pickup' : m.label;
+          const paymentHint = m.id === 'cod' ? 'Pay when you collect' : m.hint;
           return (
             <TouchableOpacity
               key={m.id}
@@ -471,8 +467,8 @@ export default function OrderInquiryScreen({ route, navigation }) {
       {!COMPANY_DEMO && paymentMethod === 'qrph' ? (
         <View style={styles.fulfillmentNote}>
           <Text style={styles.fulfillmentNoteBody}>
-            PayMongo opens a single-use QR Ph checkout for pickup orders. The server confirms item prices
-            before showing the final amount, then records payment automatically after provider confirmation.
+            PayMongo opens a single-use QR Ph checkout for your Sylver order. The server confirms catalog prices and any
+            eligible bulk discount; the store records payment after provider confirmation. Lalamove fees are separate.
           </Text>
         </View>
       ) : null}

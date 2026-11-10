@@ -9,7 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
@@ -32,13 +32,13 @@ async function captureAudit(fn) {
   return lines.filter(l => l.startsWith('[audit] ')).map(l => JSON.parse(l.slice('[audit] '.length)));
 }
 
-test('failed and successful logins are audited on both backends', async () => {
+test('failed and successful logins are audited on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const failed = await captureAudit(() =>
       call(side.url, '/api/auth/login', {
         method: 'POST',
         body: { username: 'nobody-here', password: 'Wrong!Pass1' },
-      })
+      }),
     );
     const failEvent = failed.find(e => e.event === 'auth.login.failed');
     assert.ok(failEvent, 'failed login emits auth.login.failed');
@@ -49,7 +49,7 @@ test('failed and successful logins are audited on both backends', async () => {
       call(side.url, '/api/auth/login', {
         method: 'POST',
         body: { username: 'customer', password: 'customer123' },
-      })
+      }),
     );
     const okEvent = ok.find(e => e.event === 'auth.login.success');
     assert.ok(okEvent, 'successful login emits auth.login.success');

@@ -117,7 +117,7 @@ test('customer backfill: SQLite table names are mapped from plan kinds', () => {
   assert.deepStrictEqual(SQLITE_TABLES, { sales: 'sales_transactions', inquiries: 'order_inquiries' });
 });
 
-test('customer backfill: writes only the intended rows, on a throwaway copy', async () => {
+test('customer backfill: writes only the intended rows, on a throwaway copy', async() => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-backfill-'));
   tmpDirs.push(dir);
   const dbPath = path.join(dir, 'test.db');

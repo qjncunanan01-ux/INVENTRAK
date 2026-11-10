@@ -60,7 +60,7 @@ router.get('/backup', authenticateToken, managementOnly, (req, res) => {
 // schedule can be verified the moment it is configured instead of an hour
 // later. It is additive: a snapshot is a NEW row, so this can never overwrite
 // the copy an Owner or Super Admin is relying on.
-router.post('/backup', authenticateToken, managementOnly, async (req, res) => {
+router.post('/backup', authenticateToken, managementOnly, async(req, res) => {
   try {
     const result = await remote.pushSnapshot(snapshotNow(req.user.username), {
       trigger: 'manual',
@@ -90,7 +90,7 @@ router.post('/backup', authenticateToken, managementOnly, async (req, res) => {
 // to?") before anything destructive is attempted. It reports rather than
 // throws: "the schedule is off" and "the store is unreachable" are states an
 // operator needs to read, not errors to be swallowed by a console.
-router.get('/backups', authenticateToken, managementOnly, async (req, res) => {
+router.get('/backups', authenticateToken, managementOnly, async(req, res) => {
   try {
     const listed = await remote.listSnapshots(20);
     res.json({
@@ -121,7 +121,7 @@ router.get('/backups', authenticateToken, managementOnly, async (req, res) => {
 // is what makes recovery possible after the container — and with it the
 // downloaded file — is gone. Both are validated by the same envelopeError(),
 // so a snapshot from another driver is refused however it arrives.
-router.post('/restore', authenticateToken, managementOnly, async (req, res) => {
+router.post('/restore', authenticateToken, managementOnly, async(req, res) => {
   try {
     const body = req.body || {};
     if (body.confirm !== true) {

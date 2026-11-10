@@ -55,7 +55,7 @@ function smsConfigured() {
   return Boolean(
     process.env.PHILSMS_API_TOKEN ||
     process.env.SEMAPHORE_API_KEY ||
-    (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
+    (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
   );
 }
 function deliveryStatus(result, configured) {
@@ -175,71 +175,71 @@ function smtpSendMail({ host, port, secure, user, pass, from, to, subject, text,
 
     function onReply(code, all) {
       switch (stage) {
-        case 'greeting':
-          if (code !== 220) return fail(new Error(`greeting ${code}`));
-          stage = 'ehlo';
-          writeLine('EHLO inventrak.local');
-          return;
-        case 'ehlo': {
-          if (code !== 250) return fail(new Error(`EHLO ${code}`));
-          const canStartTls = !secure && /STARTTLS/i.test(all);
-          const canAuth = !!user && /AUTH/i.test(all);
-          if (canStartTls) {
-            stage = 'starttls';
-            writeLine('STARTTLS');
-          } else if (canAuth) {
-            stage = 'auth';
-            writeLine(`AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`).toString('base64')}`);
-          } else {
-            stage = 'mail';
-            writeLine(`MAIL FROM:<${from}>`);
-          }
-          return;
-        }
-        case 'starttls': {
-          if (code !== 220) return fail(new Error(`STARTTLS ${code}`));
-          // Upgrade the existing connection to TLS, then re-EHLO.
-          socket.removeListener('data', onData);
-          const tlsSocket = tls.connect({ socket, servername: host });
-          socket = tlsSocket;
-          buffer = '';
-          replyLines = [];
-          attach(tlsSocket);
-          stage = 'ehlo';
-          writeLine('EHLO inventrak.local');
-          return;
-        }
-        case 'auth':
-          if (code !== 235) return fail(new Error(`AUTH ${code}`));
+      case 'greeting':
+        if (code !== 220) return fail(new Error(`greeting ${code}`));
+        stage = 'ehlo';
+        writeLine('EHLO inventrak.local');
+        return;
+      case 'ehlo': {
+        if (code !== 250) return fail(new Error(`EHLO ${code}`));
+        const canStartTls = !secure && /STARTTLS/i.test(all);
+        const canAuth = !!user && /AUTH/i.test(all);
+        if (canStartTls) {
+          stage = 'starttls';
+          writeLine('STARTTLS');
+        } else if (canAuth) {
+          stage = 'auth';
+          writeLine(`AUTH PLAIN ${Buffer.from(`\u0000${user}\u0000${pass}`).toString('base64')}`);
+        } else {
           stage = 'mail';
           writeLine(`MAIL FROM:<${from}>`);
-          return;
-        case 'mail':
-          if (code !== 250) return fail(new Error(`MAIL FROM ${code}`));
-          stage = 'rcpt';
-          writeLine(`RCPT TO:<${to}>`);
-          return;
-        case 'rcpt':
-          if (code !== 250) return fail(new Error(`RCPT TO ${code}`));
-          stage = 'data';
-          writeLine('DATA');
-          return;
-        case 'data':
-          if (code !== 354) return fail(new Error(`DATA ${code}`));
-          stage = 'body';
-          socket.write(buildMessage(from, to, subject, text, html) + '\r\n.\r\n');
-          return;
-        case 'body':
-          if (code !== 250) return fail(new Error(`message ${code}`));
-          stage = 'quit';
-          writeLine('QUIT');
-          return;
-        case 'quit':
-          if (code !== 221) return fail(new Error(`QUIT ${code}`));
-          done();
-          return;
-        default:
-          fail(new Error(`unexpected stage ${stage}`));
+        }
+        return;
+      }
+      case 'starttls': {
+        if (code !== 220) return fail(new Error(`STARTTLS ${code}`));
+        // Upgrade the existing connection to TLS, then re-EHLO.
+        socket.removeListener('data', onData);
+        const tlsSocket = tls.connect({ socket, servername: host });
+        socket = tlsSocket;
+        buffer = '';
+        replyLines = [];
+        attach(tlsSocket);
+        stage = 'ehlo';
+        writeLine('EHLO inventrak.local');
+        return;
+      }
+      case 'auth':
+        if (code !== 235) return fail(new Error(`AUTH ${code}`));
+        stage = 'mail';
+        writeLine(`MAIL FROM:<${from}>`);
+        return;
+      case 'mail':
+        if (code !== 250) return fail(new Error(`MAIL FROM ${code}`));
+        stage = 'rcpt';
+        writeLine(`RCPT TO:<${to}>`);
+        return;
+      case 'rcpt':
+        if (code !== 250) return fail(new Error(`RCPT TO ${code}`));
+        stage = 'data';
+        writeLine('DATA');
+        return;
+      case 'data':
+        if (code !== 354) return fail(new Error(`DATA ${code}`));
+        stage = 'body';
+        socket.write(buildMessage(from, to, subject, text, html) + '\r\n.\r\n');
+        return;
+      case 'body':
+        if (code !== 250) return fail(new Error(`message ${code}`));
+        stage = 'quit';
+        writeLine('QUIT');
+        return;
+      case 'quit':
+        if (code !== 221) return fail(new Error(`QUIT ${code}`));
+        done();
+        return;
+      default:
+        fail(new Error(`unexpected stage ${stage}`));
       }
     }
 
@@ -314,7 +314,7 @@ async function sendEmail({ to, subject, text, html }) {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || "Sylver's <onboarding@resend.dev>",
+        from: process.env.EMAIL_FROM || 'Sylver\'s <onboarding@resend.dev>',
         to: recipients,
         subject,
         text: text || '',
@@ -356,6 +356,7 @@ async function sendSms({ to, message }) {
         body: JSON.stringify({
           recipient: number,
           sender_id: senderId,
+          // eslint-disable-next-line no-control-regex -- classify Unicode SMS text for the provider.
           type: /[^\x00-\x7F]/.test(String(message || '')) ? 'unicode' : 'plain',
           message: String(message || ''),
         }),
@@ -538,12 +539,12 @@ function notifyWelcome(email, username) {
   if (!email) return Promise.resolve({ sent: false });
   return sendEmail({
     to: email,
-    subject: "Welcome to Sylver's",
+    subject: 'Welcome to Sylver\'s',
     text: `Hi ${username},\n\nYour Sylver's account is ready. Browse supplies, send order inquiries, and track their status.\n\n— Sylver's`,
     html: htmlBody({
       title: `Welcome, ${esc(username)}!`,
       bodyText:
-        "Your Sylver's account is ready. Browse supplies, send order inquiries, and track their status right from the app.",
+        'Your Sylver\'s account is ready. Browse supplies, send order inquiries, and track their status right from the app.',
     }),
   })
     .then(res => {
@@ -551,7 +552,7 @@ function notifyWelcome(email, username) {
         event: 'welcome',
         channel: 'email',
         recipient: email,
-        subject: "Welcome to Sylver's",
+        subject: 'Welcome to Sylver\'s',
         status: deliveryStatus(res, emailConfigured()),
         detail: username,
       });
@@ -574,7 +575,7 @@ function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 
     code,
   });
   const emailP = email
-    ? sendEmail({ to: email, subject: "Your Sylver's verification code", text, html })
+    ? sendEmail({ to: email, subject: 'Your Sylver\'s verification code', text, html })
     : Promise.resolve({ sent: false });
   const smsP = phone
     ? sendSms({ to: phone, message: `Sylver's: Your verification code is ${code}.` })
@@ -586,7 +587,7 @@ function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 
           event: 'verification',
           channel: 'email',
           recipient: email,
-          subject: "Your Sylver's verification code",
+          subject: 'Your Sylver\'s verification code',
           status: deliveryStatus(emailRes, emailConfigured()),
           detail: username,
         });
@@ -596,7 +597,7 @@ function notifyVerificationCode({ email, username, code, phone, ttlMinutes = 30 
           event: 'verification',
           channel: 'sms',
           recipient: phone,
-          subject: "Sylver's verification code",
+          subject: 'Sylver\'s verification code',
           status: deliveryStatus(smsRes, smsConfigured()),
           detail: username,
         });
@@ -616,7 +617,7 @@ function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
   if (!email) return Promise.resolve({ sent: false });
   return sendEmail({
     to: email,
-    subject: "Your Sylver's password reset code",
+    subject: 'Your Sylver\'s password reset code',
     text: `Hi ${username},\n\nUse this code to reset your Sylver's password:\n\n  ${code}\n\nIt expires in ${ttlMinutes} minutes. If you didn't request this, you can safely ignore this email.\n\n— Sylver's`,
     html: htmlBody({
       title: 'Reset your password',
@@ -629,7 +630,7 @@ function notifyPasswordReset(email, username, code, ttlMinutes = 30) {
         event: 'password_reset',
         channel: 'email',
         recipient: email,
-        subject: "Your Sylver's password reset code",
+        subject: 'Your Sylver\'s password reset code',
         status: deliveryStatus(res, emailConfigured()),
         detail: username,
       });

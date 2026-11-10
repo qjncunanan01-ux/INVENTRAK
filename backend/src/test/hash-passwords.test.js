@@ -23,13 +23,13 @@ db.prepare('INSERT INTO users (username, password, role, email) VALUES (?, ?, ?,
   'legacy',
   'plaintextpw',
   'customer',
-  'legacy@example.com'
+  'legacy@example.com',
 );
 db.prepare('INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)').run(
   'modern',
   hashPassword('Modern1!'),
   'customer',
-  'modern@example.com'
+  'modern@example.com',
 );
 
 after(() => {
@@ -55,19 +55,19 @@ test('migrateSqliteUsers re-hashes legacy plaintext and leaves hashes alone', ()
   assert.strictEqual(
     modern.password,
     before.find(u => u.username === 'modern').password,
-    'already-hashed rows untouched'
+    'already-hashed rows untouched',
   );
 
   // Idempotent: a second run re-hashes nothing.
   assert.strictEqual(migrateSqliteUsers(db).rehashed, 0);
 });
 
-test('SQLite login upgrades a legacy plaintext user in place', async () => {
+test('SQLite login upgrades a legacy plaintext user in place', async() => {
   db.prepare('INSERT INTO users (username, password, role, email) VALUES (?, ?, ?, ?)').run(
     'late',
     'latepw123',
     'customer',
-    'late@example.com'
+    'late@example.com',
   );
 
   const { app } = require('../app');
@@ -94,7 +94,7 @@ test('seedDatabase creates users as bcrypt hashes (never plaintext)', () => {
   // admin/customer do not exist in this temp DB, so seedDatabase inserts them.
   seedDatabase();
   const rows = db
-    .prepare("SELECT username, password FROM users WHERE username IN ('admin','customer') ORDER BY username")
+    .prepare('SELECT username, password FROM users WHERE username IN (\'admin\',\'customer\') ORDER BY username')
     .all();
   assert.strictEqual(rows.length, 2);
   rows.forEach(r => {
@@ -104,7 +104,7 @@ test('seedDatabase creates users as bcrypt hashes (never plaintext)', () => {
   assert.strictEqual(verifyPassword('customer123', rows[1].password).ok, true);
 });
 
-test('migrateFirestoreUsers re-hashes plaintext rows in the cloud dataset', async () => {
+test('migrateFirestoreUsers re-hashes plaintext rows in the cloud dataset', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);
@@ -124,7 +124,7 @@ test('migrateFirestoreUsers re-hashes plaintext rows in the cloud dataset', asyn
   assert.strictEqual(users.find(u => u.username === 'cloud-hashed').password.startsWith('$2'), true);
 });
 
-test('npm-free server upgrades a legacy plaintext user on login (Firestore mode)', async () => {
+test('npm-free server upgrades a legacy plaintext user on login (Firestore mode)', async() => {
   const store = require('../store-firestore');
   const fake = makeFakeDb();
   store._setDb(fake);

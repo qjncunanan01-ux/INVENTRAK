@@ -64,7 +64,7 @@ async function fetchJwks(fetchImpl) {
     return jwksCache.keys;
   }
   if (!jwksFetchPromise) {
-    jwksFetchPromise = (async () => {
+    jwksFetchPromise = (async() => {
       const res = await fetchImpl(GOOGLE_JWKS_URL);
       if (!res.ok) throw new Error(`Google JWKS request failed: HTTP ${res.status}`);
       const body = await res.json();
@@ -92,7 +92,7 @@ async function fetchJwks(fetchImpl) {
 //   { ok: false, reason: 'unavailable' }       JWKS fetch failed (network/5xx)
 async function verifyGoogleIdToken(
   idToken,
-  { clientIds = googleClientIds(), fetchImpl = u => fetch(u), now = Date.now() } = {}
+  { clientIds = googleClientIds(), fetchImpl = u => fetch(u), now = Date.now() } = {},
 ) {
   if (!clientIds || clientIds.length === 0) {
     return { ok: false, reason: 'unconfigured' };
@@ -272,7 +272,7 @@ function buildGoogleAuthUrl({ clientId, redirectUri, state, scope = 'openid emai
 // secret. Injectable fetch so tests never touch the network.
 async function exchangeCodeForTokens(
   code,
-  { clientId, clientSecret, redirectUri, fetchImpl = (u, init) => fetch(u, init) }
+  { clientId, clientSecret, redirectUri, fetchImpl = (u, init) => fetch(u, init) },
 ) {
   if (!code || !clientId || !clientSecret) {
     return { ok: false, reason: 'missing-params' };

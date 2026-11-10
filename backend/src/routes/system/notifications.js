@@ -10,7 +10,7 @@ const { setNotificationRecorder } = require('../../notify');
 function insertNotificationRecord({ event, channel, recipient, subject, status, detail, related_id, related_type }) {
   db.prepare(
     `INSERT INTO notification_records (event, channel, recipient, subject, status, detail, related_id, related_type)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     String(event || ''),
     String(channel || ''),
@@ -19,7 +19,7 @@ function insertNotificationRecord({ event, channel, recipient, subject, status, 
     status == null ? 'attempted' : String(status),
     detail == null ? null : String(detail),
     related_id == null ? null : Number(related_id) || null,
-    related_type == null ? null : String(related_type)
+    related_type == null ? null : String(related_type),
   );
 }
 

@@ -67,7 +67,7 @@ function sqliteTarget() {
       db.prepare(`UPDATE ${table} SET customer_id = ? WHERE id = ? AND customer_id IS NULL`).run(customerId, id);
     },
     // SQLite reads through on every call, so there is nothing to refresh.
-    reload: async () => {},
+    reload: async() => {},
     close: () => { try { db.close(); } catch {} },
   };
 }
@@ -81,7 +81,7 @@ async function supabaseTarget() {
   // The JSONB row IS the record, exactly as the npm-free server reads it, so
   // the same resolveCustomer call handles it unchanged.
   const cache = {};
-  const reload = async () => {
+  const reload = async() => {
     cache.customers = await readAll(rest, headers, 'customers');
     cache.sales = await readAll(rest, headers, 'sales');
     cache.inquiries = await readAll(rest, headers, 'inquiries');
@@ -103,7 +103,7 @@ async function supabaseTarget() {
       const { id, ...data } = c;
       await insertRows(rest, headers, 'customers', [{ id, idx: id, data }]);
     },
-    link: async (table, id, customerId) => {
+    link: async(table, id, customerId) => {
       // Read-then-write rather than a JSONB merge: the row is small, and this
       // keeps the script working on any Supabase version without the jsonb_set
       // syntax varying underneath us.

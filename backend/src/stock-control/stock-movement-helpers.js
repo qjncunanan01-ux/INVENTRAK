@@ -146,7 +146,7 @@ function restoreStockReservation({ product_id, qty, locationId, manifest = [], n
   if (updated) {
     const alert = db.prepare('SELECT id FROM inventory_alerts WHERE product_id = ? AND location_id = ? AND alert_type = ? AND status = ?').get(product_id, locationId, 'low_stock', 'active');
     if (alert && updated.quantity >= threshold) {
-      db.prepare("UPDATE inventory_alerts SET status = 'resolved', resolved_at = datetime('now'), current_qty = ? WHERE id = ?").run(updated.quantity, alert.id);
+      db.prepare('UPDATE inventory_alerts SET status = \'resolved\', resolved_at = datetime(\'now\'), current_qty = ? WHERE id = ?').run(updated.quantity, alert.id);
     } else if (alert) {
       db.prepare('UPDATE inventory_alerts SET current_qty = ? WHERE id = ?').run(updated.quantity, alert.id);
     }

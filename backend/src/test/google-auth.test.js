@@ -32,7 +32,7 @@ function makeToken(overrides = {}) {
   return `${signingInput}.${sig}`;
 }
 
-const fetchJwks = async () => ({ ok: true, json: async () => JWKS });
+const fetchJwks = async() => ({ ok: true, json: async() => JWKS });
 
 test('googleClientIds parses the comma-separated env var and ignores empties', () => {
   assert.deepStrictEqual(googleClientIds({ GOOGLE_CLIENT_IDS: ' a ,,b ' }), ['a', 'b']);
@@ -41,7 +41,7 @@ test('googleClientIds parses the comma-separated env var and ignores empties', (
   assert.strictEqual(isConfigured({}), false);
 });
 
-test('verifyGoogleIdToken accepts a valid token from a known client', async () => {
+test('verifyGoogleIdToken accepts a valid token from a known client', async() => {
   const res = await verifyGoogleIdToken(makeToken(), { clientIds: ['test-client'], fetchImpl: fetchJwks });
   assert.strictEqual(res.ok, true);
   assert.strictEqual(res.payload.email, 'google.user@gmail.com');
@@ -49,12 +49,12 @@ test('verifyGoogleIdToken accepts a valid token from a known client', async () =
   assert.strictEqual(res.payload.sub, '1234567890');
 });
 
-test('verifyGoogleIdToken returns unconfigured when no client IDs are set', async () => {
+test('verifyGoogleIdToken returns unconfigured when no client IDs are set', async() => {
   const res = await verifyGoogleIdToken(makeToken(), { clientIds: [], fetchImpl: fetchJwks });
   assert.deepStrictEqual(res, { ok: false, reason: 'unconfigured' });
 });
 
-test('verifyGoogleIdToken rejects a token minted for a different client', async () => {
+test('verifyGoogleIdToken rejects a token minted for a different client', async() => {
   const res = await verifyGoogleIdToken(makeToken({ aud: 'some-other-app' }), {
     clientIds: ['test-client'],
     fetchImpl: fetchJwks,
@@ -62,7 +62,7 @@ test('verifyGoogleIdToken rejects a token minted for a different client', async 
   assert.strictEqual(res.reason, 'audience');
 });
 
-test('verifyGoogleIdToken rejects expired tokens (and honors nbf)', async () => {
+test('verifyGoogleIdToken rejects expired tokens (and honors nbf)', async() => {
   const expired = await verifyGoogleIdToken(makeToken({ exp: Math.floor(Date.now() / 1000) - 600 }), {
     clientIds: ['test-client'],
     fetchImpl: fetchJwks,
@@ -75,7 +75,7 @@ test('verifyGoogleIdToken rejects expired tokens (and honors nbf)', async () => 
   assert.strictEqual(future.reason, 'expired');
 });
 
-test('verifyGoogleIdToken rejects a tampered signature', async () => {
+test('verifyGoogleIdToken rejects a tampered signature', async() => {
   const token = makeToken();
   const parts = token.split('.');
   const forged = `${parts[0]}.${parts[1]}.${Buffer.from('forged').toString('base64url')}`;
@@ -83,7 +83,7 @@ test('verifyGoogleIdToken rejects a tampered signature', async () => {
   assert.strictEqual(res.reason, 'signature');
 });
 
-test('verifyGoogleIdToken rejects tokens not issued by Google', async () => {
+test('verifyGoogleIdToken rejects tokens not issued by Google', async() => {
   const res = await verifyGoogleIdToken(makeToken({ iss: 'evil.example.com' }), {
     clientIds: ['test-client'],
     fetchImpl: fetchJwks,
@@ -91,7 +91,7 @@ test('verifyGoogleIdToken rejects tokens not issued by Google', async () => {
   assert.strictEqual(res.reason, 'issuer');
 });
 
-test('verifyGoogleIdToken rejects malformed and non-RS256 tokens', async () => {
+test('verifyGoogleIdToken rejects malformed and non-RS256 tokens', async() => {
   assert.strictEqual((await verifyGoogleIdToken('not.a.jwt', { clientIds: ['x'] })).reason, 'malformed');
   const hs256 = makeToken();
   const parts = hs256.split('.');
@@ -103,19 +103,19 @@ test('verifyGoogleIdToken rejects malformed and non-RS256 tokens', async () => {
   assert.strictEqual(res.reason, 'signature');
 });
 
-test('verifyGoogleIdToken reports unavailable when the JWKS fetch fails', async () => {
-  const failFetch = async () => {
+test('verifyGoogleIdToken reports unavailable when the JWKS fetch fails', async() => {
+  const failFetch = async() => {
     throw new Error('network down');
   };
   const res = await verifyGoogleIdToken(makeToken(), { clientIds: ['test-client'], fetchImpl: failFetch });
   assert.strictEqual(res.reason, 'unavailable');
 });
 
-test('verifyGoogleIdToken caches the JWKS across calls (single fetch)', async () => {
+test('verifyGoogleIdToken caches the JWKS across calls (single fetch)', async() => {
   let calls = 0;
-  const countingFetch = async () => {
+  const countingFetch = async() => {
     calls += 1;
-    return { ok: true, json: async () => JWKS };
+    return { ok: true, json: async() => JWKS };
   };
   await verifyGoogleIdToken(makeToken(), { clientIds: ['test-client'], fetchImpl: countingFetch });
   await verifyGoogleIdToken(makeToken(), { clientIds: ['test-client'], fetchImpl: countingFetch });

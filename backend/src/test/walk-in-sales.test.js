@@ -37,7 +37,7 @@ const QTY = 2;
 let saleKeySequence = 0;
 const SIDE_LABEL = side => (side === sqlite ? 'sqlite' : 'npmfree');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -67,7 +67,7 @@ async function lotQty(side, productId, locationId) {
   const { status, json } = await call(
     side.url,
     `/api/stock-lots?product_id=${productId}&location_id=${locationId}`,
-    { token: side.token.admin }
+    { token: side.token.admin },
   );
   assert.strictEqual(status, 200);
   return json.reduce((sum, lot) => sum + Number(lot.qty), 0);
@@ -78,7 +78,7 @@ async function lots(side, productId, locationId) {
   const { json } = await call(
     side.url,
     `/api/stock-lots?product_id=${productId}&location_id=${locationId}`,
-    { token: side.token.admin }
+    { token: side.token.admin },
   );
   return json
     .filter(l => Number(l.qty) > 0)
@@ -118,7 +118,7 @@ function stockIn(side, qty, expiry) {
 // ---- the regression this suite exists for ----------------------------------
 
 describe('a counter sale moves inventory', () => {
-  test('stock at the sold location falls by exactly the quantity sold', async () => {
+  test('stock at the sold location falls by exactly the quantity sold', async() => {
     for (const side of [sqlite, npmfree]) {
       const before = await stockAt(side, PROD, LOC);
       assert.ok(before > QTY, `${SIDE_LABEL(side)}: fixture has stock to sell`);
@@ -133,7 +133,7 @@ describe('a counter sale moves inventory', () => {
     }
   });
 
-  test('the sale is reported against the catalog price, not a client-supplied one', async () => {
+  test('the sale is reported against the catalog price, not a client-supplied one', async() => {
     // A till device is the least trustworthy number in the chain. If the total
     // came from the request body anyone could post price: 1.
     for (const side of [sqlite, npmfree]) {
@@ -143,12 +143,12 @@ describe('a counter sale moves inventory', () => {
       assert.strictEqual(
         res.json.total,
         QTY * Number(product.json.price),
-        `${SIDE_LABEL(side)}: total recomputed from the catalog`
+        `${SIDE_LABEL(side)}: total recomputed from the catalog`,
       );
     }
   });
 
-  test('configured package units convert stock-in and sale quantities to the product unit', async () => {
+  test('configured package units convert stock-in and sale quantities to the product unit', async() => {
     for (const side of [sqlite, npmfree]) {
       const productRes = await call(side.url, `/api/products/${PROD}`);
       assert.strictEqual(productRes.status, 200, `${SIDE_LABEL(side)} product loads`);
@@ -185,7 +185,7 @@ describe('a counter sale moves inventory', () => {
 // ---- FEFO on the counter path ----------------------------------------------
 
 describe('a counter sale consumes the expiring lot first', () => {
-  test('the soonest-expiry lot is the one that empties', async () => {
+  test('the soonest-expiry lot is the one that empties', async() => {
     for (const side of [sqlite, npmfree]) {
       // Two dated lots plus whatever undated stock is already there. The
       // undated lot must survive untouched: FEFO is expiring-first, not
@@ -212,7 +212,7 @@ describe('a counter sale consumes the expiring lot first', () => {
       assert.strictEqual(
         gone[0].before - gone[0].after,
         2,
-        `${SIDE_LABEL(side)}: the whole qty came out of that lot`
+        `${SIDE_LABEL(side)}: the whole qty came out of that lot`,
       );
 
       // And the lot ledger and the stock column agree — the two cannot drift.
@@ -222,7 +222,7 @@ describe('a counter sale consumes the expiring lot first', () => {
     }
   });
 
-  test('reading the lot ledger twice never inflates it', async () => {
+  test('reading the lot ledger twice never inflates it', async() => {
     // The npm-free ledger lazily synthesises lots for stock that predates it.
     // That backfill runs on every read, so it has to be idempotent — otherwise
     // simply looking at the page doubles the apparent stock.
@@ -234,7 +234,7 @@ describe('a counter sale consumes the expiring lot first', () => {
     }
   });
 
-  test('stock that predates the ledger still has a lot to consume from', async () => {
+  test('stock that predates the ledger still has a lot to consume from', async() => {
     // Regression: the old backfill bailed as soon as ANY lot existed, so once
     // a single stock-in happened the untouched seeded quantities were
     // lot-less. FEFO then ignored them and the shortfall fell through the
@@ -246,7 +246,7 @@ describe('a counter sale consumes the expiring lot first', () => {
       assert.strictEqual(
         await lotQty(side, PROD, LOC),
         stockNow,
-        `${SIDE_LABEL(side)}: every unit on the shelf is on the ledger`
+        `${SIDE_LABEL(side)}: every unit on the shelf is on the ledger`,
       );
     }
   });
@@ -255,7 +255,7 @@ describe('a counter sale consumes the expiring lot first', () => {
 // ---- refusing the impossible -----------------------------------------------
 
 describe('a counter sale cannot oversell', () => {
-  test('asking for more than the location holds is refused with 409', async () => {
+  test('asking for more than the location holds is refused with 409', async() => {
     for (const side of [sqlite, npmfree]) {
       const available = await stockAt(side, PROD, LOC);
       const res = await sell(side, { qty: available + 50, customer_name: 'Greedy' });
@@ -268,12 +268,12 @@ describe('a counter sale cannot oversell', () => {
       assert.strictEqual(
         await stockAt(side, PROD, LOC),
         available,
-        `${SIDE_LABEL(side)}: stock untouched by the refusal`
+        `${SIDE_LABEL(side)}: stock untouched by the refusal`,
       );
     }
   });
 
-  test('an unknown location is refused rather than silently falling back to one', async () => {
+  test('an unknown location is refused rather than silently falling back to one', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await sell(side, { location_id: 999 });
       assert.strictEqual(res.status, 404, `${SIDE_LABEL(side)}: unknown location 404s`);
@@ -283,7 +283,7 @@ describe('a counter sale cannot oversell', () => {
 });
 
 describe('counter sale retries are idempotent', () => {
-  test('replaying one key returns the original sale without a second stock deduction', async () => {
+  test('replaying one key returns the original sale without a second stock deduction', async() => {
     for (const side of [sqlite, npmfree]) {
       const key = `replay-sale-${SIDE_LABEL(side)}-0001`;
       const before = await stockAt(side, PROD, LOC);
@@ -304,7 +304,7 @@ describe('counter sale retries are idempotent', () => {
     }
   });
 
-  test('parallel retries with one key record and deduct only one sale', async () => {
+  test('parallel retries with one key record and deduct only one sale', async() => {
     for (const side of [sqlite, npmfree]) {
       const key = `parallel-retry-${SIDE_LABEL(side)}-0001`;
       const before = await stockAt(side, PROD, LOC);
@@ -320,7 +320,7 @@ describe('counter sale retries are idempotent', () => {
     }
   });
 
-  test('a sale without an idempotency key is rejected', async () => {
+  test('a sale without an idempotency key is rejected', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/sales', {
         method: 'POST',
@@ -336,7 +336,7 @@ describe('counter sale retries are idempotent', () => {
 // ---- the location is a question, not a default -----------------------------
 
 describe('location_id is required', () => {
-  test('omitting it is a 400 on both backends', async () => {
+  test('omitting it is a 400 on both backends', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/sales', {
         method: 'POST',
@@ -347,7 +347,7 @@ describe('location_id is required', () => {
     }
   });
 
-  test('a non-numeric location_id is a 400, not a silent 0', async () => {
+  test('a non-numeric location_id is a 400, not a silent 0', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/sales', {
         method: 'POST',
@@ -362,7 +362,7 @@ describe('location_id is required', () => {
 // ---- telling the customer which batch left ---------------------------------
 
 describe('the sale reports which lot left', () => {
-  test('lots_consumed names the batch, its expiry and the quantity taken', async () => {
+  test('lots_consumed names the batch, its expiry and the quantity taken', async() => {
     // This is what makes FEFO demonstrable. Without it the till can say "sold"
     // but never "this one, the batch expiring in 12 days" — the rule stays
     // invisible exactly where someone would ask to see it.
@@ -382,7 +382,7 @@ describe('the sale reports which lot left', () => {
       assert.strictEqual(
         consumed.reduce((n, c) => n + Number(c.qty), 0),
         2,
-        `${SIDE_LABEL(side)}: the manifest accounts for the whole quantity`
+        `${SIDE_LABEL(side)}: the manifest accounts for the whole quantity`,
       );
       assert.strictEqual(consumed[0].lot_id, target.id, `${SIDE_LABEL(side)}: it is the expiring lot`);
       assert.strictEqual(consumed[0].expiry_date, target.expiry_date, `${SIDE_LABEL(side)}: carries the expiry`);
@@ -390,7 +390,7 @@ describe('the sale reports which lot left', () => {
     }
   });
 
-  test('the manifest splits when the sale spans two batches', async () => {
+  test('the manifest splits when the sale spans two batches', async() => {
     // Real baskets do not respect lot boundaries. The manifest has to add up
     // across lots rather than reporting only the first one.
     //
@@ -430,18 +430,18 @@ describe('the sale reports which lot left', () => {
       assert.strictEqual(
         consumed.reduce((n, c) => n + Number(c.qty), 0),
         5,
-        `${SIDE_LABEL(side)}: the pieces sum to the quantity sold`
+        `${SIDE_LABEL(side)}: the pieces sum to the quantity sold`,
       );
       assert.deepStrictEqual(
         consumed.map(c => c.expiry_date),
         [soon, later],
-        `${SIDE_LABEL(side)}: expiring-first, even though the later lot was the bigger one`
+        `${SIDE_LABEL(side)}: expiring-first, even though the later lot was the bigger one`,
       );
       assert.deepStrictEqual(consumed.map(c => Number(c.qty)), [2, 3]);
     }
   });
 
-  test('both backends return the same manifest for the same sale', async () => {
+  test('both backends return the same manifest for the same sale', async() => {
     const manifests = [];
     for (const side of [sqlite, npmfree]) {
       const res = await sell(side, { qty: 2, customer_name: 'Manifest Parity' });
@@ -450,11 +450,11 @@ describe('the sale reports which lot left', () => {
     assert.deepStrictEqual(
       manifests[0].map(c => ({ expiry_date: c.expiry_date, qty: c.qty })),
       manifests[1].map(c => ({ expiry_date: c.expiry_date, qty: c.qty })),
-      'same lots, same quantities, in the same order'
+      'same lots, same quantities, in the same order',
     );
   });
 
-  test('a low-stock sale reports the alert it raised', async () => {
+  test('a low-stock sale reports the alert it raised', async() => {
     // Selling the shelf down past the critical level has to surface, or the
     // till cheerfully takes an order that should have triggered a reorder.
     // Uses its own fixture product and re-stocks afterwards, so draining a
@@ -474,7 +474,7 @@ describe('the sale reports which lot left', () => {
           token: side.token.admin,
           body: { product_id: pid, qty: 5, type: 'stock-in', dst_location: LOC },
         })).status,
-        200
+        200,
       );
 
       const res = await call(side.url, '/api/sales', {
@@ -488,7 +488,7 @@ describe('the sale reports which lot left', () => {
       assert.strictEqual(res.json.low_stock_alert.current_qty, 0);
       assert.ok(
         res.json.low_stock_alert.threshold > 0,
-        `${SIDE_LABEL(side)}: the threshold is carried so the UI can explain it`
+        `${SIDE_LABEL(side)}: the threshold is carried so the UI can explain it`,
       );
     }
   });
@@ -497,7 +497,7 @@ describe('the sale reports which lot left', () => {
 // ---- the trail ------------------------------------------------------------
 
 describe('a sale is audited', () => {
-  test('the entry names the product, quantity, location and buyer', async () => {
+  test('the entry names the product, quantity, location and buyer', async() => {
     const logPath = process.env.AUDIT_LOG_FILE;
     for (const side of [sqlite, npmfree]) {
       fs.writeFileSync(logPath, '');
@@ -518,7 +518,7 @@ describe('a sale is audited', () => {
     }
   });
 
-  test('a refused oversell is not audited as a sale', async () => {
+  test('a refused oversell is not audited as a sale', async() => {
     const logPath = process.env.AUDIT_LOG_FILE;
     for (const side of [sqlite, npmfree]) {
       fs.writeFileSync(logPath, '');
@@ -527,7 +527,7 @@ describe('a sale is audited', () => {
       assert.strictEqual(
         entries.filter(e => e.event === 'sale.recorded').length,
         0,
-        `${SIDE_LABEL(side)}: nothing recorded for a sale that never happened`
+        `${SIDE_LABEL(side)}: nothing recorded for a sale that never happened`,
       );
     }
   });
@@ -536,7 +536,7 @@ describe('a sale is audited', () => {
 // ---- both backends agree ---------------------------------------------------
 
 describe('both backends behave identically', () => {
-  test('the same sale leaves the same stock on both', async () => {
+  test('the same sale leaves the same stock on both', async() => {
     const before = [];
     for (const side of [sqlite, npmfree]) before.push(await stockAt(side, PROD, LOC));
 
@@ -548,12 +548,12 @@ describe('both backends behave identically', () => {
     assert.strictEqual(
       results[0].stock_remaining,
       results[1].stock_remaining,
-      'the two backends end on the same number'
+      'the two backends end on the same number',
     );
     assert.strictEqual(results[0].total, results[1].total, 'and the same revenue');
   });
 
-  test('a customer still cannot ring up a sale', async () => {
+  test('a customer still cannot ring up a sale', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await sell(side, { qty: 1 }, 'customer');
       assert.strictEqual(res.status, 403, `${SIDE_LABEL(side)}: the till is staff-tier`);

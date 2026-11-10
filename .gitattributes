@@ -1,1 +1,6 @@
 /mobile-client/src/**/*.js text eol=lf
+/backend/src/**/*.js text eol=lf
+/backend/scripts/**/*.js text eol=lf
+/frontend-admin/src/** text eol=lf
+/frontend-admin/src/api.generated.js text eol=lf
+/staff-client/src/api.generated.js text eol=lf

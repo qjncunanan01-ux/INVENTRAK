@@ -19,7 +19,7 @@ const http = require('node:http');
 
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -29,7 +29,7 @@ after(() => {
 
 describe('GET /api/meta — build identity', () => {
   for (const side of [sqlite, npmfree]) {
-    test(`${side.label || 'backend'}: public (no token), same shape, sane values`, async () => {
+    test(`${side.label || 'backend'}: public (no token), same shape, sane values`, async() => {
       const res = await call(side.url, '/api/meta');
       assert.equal(res.status, 200);
       assert.equal(res.json.ok, true);
@@ -43,7 +43,7 @@ describe('GET /api/meta — build identity', () => {
       assert.ok(['sqlite', 'json', 'firestore', 'supabase'].includes(res.json.driver));
     });
 
-    test(`${side.label || 'backend'}: GIT_COMMIT env is surfaced`, async () => {
+    test(`${side.label || 'backend'}: GIT_COMMIT env is surfaced`, async() => {
       // The handler reads the env at request time; set + restore around the call.
       const prev = process.env.GIT_COMMIT;
       process.env.GIT_COMMIT = 'abc1234def5678';
@@ -58,7 +58,7 @@ describe('GET /api/meta — build identity', () => {
     });
   }
 
-  test('sqlite and npm-free meta shapes match', async () => {
+  test('sqlite and npm-free meta shapes match', async() => {
     const a = await call(sqlite.url, '/api/meta');
     const b = await call(npmfree.url, '/api/meta');
     assert.equal(a.status, b.status);
@@ -146,7 +146,7 @@ describe('durable audit trail — remote sink + re-seed', () => {
     return out;
   }
 
-  test('audit() mirrors entries to the remote sink and reSeedFromRemote() restores them into the file (dedup by t)', async () => {
+  test('audit() mirrors entries to the remote sink and reSeedFromRemote() restores them into the file (dedup by t)', async() => {
     const { server, port, rows } = await startFakeSupabase();
     const isolatedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-durability-'));
     const isolatedFile = path.join(isolatedDir, 'audit.log');
@@ -188,7 +188,7 @@ describe('durable audit trail — remote sink + re-seed', () => {
     }
   });
 
-  test('without AUDIT_REMOTE_* everything behaves exactly as before (file only)', async () => {
+  test('without AUDIT_REMOTE_* everything behaves exactly as before (file only)', async() => {
     const prev = snapshotAuditEnv();
     try {
       const auditModule = freshAuditModule({ remoteUrl: undefined, remoteKey: undefined, logFile: undefined });
@@ -209,7 +209,7 @@ describe('durable audit trail — remote sink + re-seed', () => {
   // The whole point of the change: a deploy that already talks to Supabase (it
   // has SUPABASE_URL + SUPABASE_KEY to run the driver) must get a durable audit
   // trail with NO new env vars and no new secret pasted into a dashboard.
-  test('derives the remote sink from SUPABASE_URL/SUPABASE_KEY when AUDIT_REMOTE_* is unset', async () => {
+  test('derives the remote sink from SUPABASE_URL/SUPABASE_KEY when AUDIT_REMOTE_* is unset', async() => {
     const { server, port, rows } = await startFakeSupabase();
     const prev = snapshotAuditEnv();
     const isolatedFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'audit-derived-')), 'audit.log');
@@ -271,7 +271,7 @@ describe('durable audit trail — remote sink + re-seed', () => {
     }
   });
 
-  test('/api/meta reports the durable audit status on both backends', async () => {
+  test('/api/meta reports the durable audit status on both backends', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/meta');
       assert.equal(res.status, 200);
@@ -283,7 +283,7 @@ describe('durable audit trail — remote sink + re-seed', () => {
     }
   });
 
-  test('/api/meta reports the margin policy on both backends', async () => {
+  test('/api/meta reports the margin policy on both backends', async() => {
     // The admin margin panel grades against this. If the server hardcoded it
     // there instead of reading COSTING_TARGET_MARGIN, changing the env var
     // would leave the panel quietly flagging healthy products.
@@ -302,7 +302,7 @@ describe('durable audit trail — remote sink + re-seed', () => {
     }
   });
 
-  test('the margin policy falls back to the 30% default when the env var is junk', async () => {
+  test('the margin policy falls back to the 30% default when the env var is junk', async() => {
     const prev = process.env.COSTING_TARGET_MARGIN;
     process.env.COSTING_TARGET_MARGIN = 'not-a-number';
     try {

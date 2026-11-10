@@ -9,7 +9,7 @@ const crypto = require('node:crypto');
 const { sqlite, npmfree, bootBoth, teardown, call, db } = require('./harness');
 const { totp } = require('../auth/totp');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
@@ -60,7 +60,7 @@ async function challenge(side) {
 const verifyWith = (side, mfaToken, code) =>
   call(side.url, '/api/auth/mfa/verify', { method: 'POST', body: { mfaToken, code } });
 
-test('enrollment returns 10 well-formed one-time codes on both backends', async () => {
+test('enrollment returns 10 well-formed one-time codes on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const { secret, recoveryCodes } = await enroll(side);
     assert.strictEqual(recoveryCodes.length, 10);
@@ -71,7 +71,7 @@ test('enrollment returns 10 well-formed one-time codes on both backends', async 
   }
 });
 
-test('SQLite stores only hashes of recovery codes — never the plaintext', async () => {
+test('SQLite stores only hashes of recovery codes — never the plaintext', async() => {
   const { secret, recoveryCodes } = await enroll(sqlite);
   const row = db.prepare('SELECT mfa_recovery FROM users WHERE id = 1').get();
   const stored = JSON.parse(row.mfa_recovery);
@@ -85,7 +85,7 @@ test('SQLite stores only hashes of recovery codes — never the plaintext', asyn
   assert.strictEqual(disable.status, 200, 'cleanup disable');
 });
 
-test('a recovery code logs the admin in exactly once (both backends)', async () => {
+test('a recovery code logs the admin in exactly once (both backends)', async() => {
   for (const side of [sqlite, npmfree]) {
     const { secret, recoveryCodes } = await enroll(side);
     const code = recoveryCodes[0];
@@ -113,7 +113,7 @@ test('a recovery code logs the admin in exactly once (both backends)', async () 
   }
 });
 
-test('wrong recovery codes are rejected (401), real codes untouched', async () => {
+test('wrong recovery codes are rejected (401), real codes untouched', async() => {
   for (const side of [sqlite, npmfree]) {
     const { secret, recoveryCodes } = await enroll(side);
     const bad = await verifyWith(side, await challenge(side), 'ZZZZ-ZZZZ-ZZZZ');
@@ -125,7 +125,7 @@ test('wrong recovery codes are rejected (401), real codes untouched', async () =
   }
 });
 
-test('regenerating recovery codes invalidates the old set (both backends)', async () => {
+test('regenerating recovery codes invalidates the old set (both backends)', async() => {
   for (const side of [sqlite, npmfree]) {
     const { secret, recoveryCodes: oldCodes } = await enroll(side);
     const regen = await call(side.url, '/api/auth/mfa/recovery-codes', { method: 'POST', token: side.token.admin });
@@ -144,7 +144,7 @@ test('regenerating recovery codes invalidates the old set (both backends)', asyn
   }
 });
 
-test('recovery-codes endpoint is admin-only on both backends', async () => {
+test('recovery-codes endpoint is admin-only on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const customer = await call(side.url, '/api/auth/mfa/recovery-codes', {
       method: 'POST',

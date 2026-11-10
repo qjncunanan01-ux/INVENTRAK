@@ -109,7 +109,7 @@ export function parseSizeText(text) {
   // "APPROX 250 ML", "(750ML)". The quantity itself is what matters; anything
   // left over that is not a quantity+unit is a reason to decline, not a reason
   // to invent.
-  const cleaned = raw.toLowerCase().replace(/[()\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+  const cleaned = raw.toLowerCase().replace(/[()]/g, ' ').replace(/\[/g, ' ').replace(/\]/g, ' ').replace(/\s+/g, ' ').trim();
 
   const m = cleaned.match(MULTIPACK);
   if (!m) return null;
@@ -127,15 +127,6 @@ export function parseSizeText(text) {
   // recognised when the token itself says pcs ("50PCS").
   if (token === 'pcs' || token === 'pc' || token === 'pieces' || token === 'piece') {
     return { dimension: 'count', amount: amount * pack, unitLabel: 'pcs' };
-  }
-  return null;
-
-  // A bare number with no unit letter ("6", "12") is a piece count, but only if
-  // it is plausible: a "size" of 400 bottles is a case description, and the
-  // safe reading is that we do not know.
-  const bare = num(m[2]);
-  if (bare !== null && bare > 0 && bare <= 1000 && Number.isInteger(bare)) {
-    return { dimension: 'count', amount: bare, unitLabel: 'pcs' };
   }
   return null;
 }
@@ -228,10 +219,10 @@ export function buildRateSheet(products, { dimension, rate, basisAmount } = {}) 
   const list = Array.isArray(products) ? products : [];
   const base = Number(basisAmount) > 0 ? Number(basisAmount) : BASIS_AMOUNT[dimension] || 100;
   // Number('') is 0, so an empty rate box would otherwise cost the entire
-// catalog at zero and report success. Zero typed deliberately is a real rate
-// (free goods); nothing typed is not a rate at all.
-const r = (rate === null || rate === undefined || String(rate).trim() === '') ? NaN : Number(rate);
-const usable = Number.isFinite(r) && r >= 0;
+  // catalog at zero and report success. Zero typed deliberately is a real rate
+  // (free goods); nothing typed is not a rate at all.
+  const r = (rate === null || rate === undefined || String(rate).trim() === '') ? NaN : Number(rate);
+  const usable = Number.isFinite(r) && r >= 0;
 
   const rows = [];
   let priced = 0;

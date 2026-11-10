@@ -1,4 +1,4 @@
-import { Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { apiGet } from '../../api';
 import { colors } from '../../theme';

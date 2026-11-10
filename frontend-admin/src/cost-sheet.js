@@ -136,7 +136,7 @@ function parseCostCell(cell) {
   if (CLEAR_TOKENS.has(raw.toLowerCase())) return null;
   // Strip currency symbols and thousands separators; keep the first decimal
   // point only. '1,250.50' -> 1250.50, 'P1,250' -> 1250.
-  const cleaned = raw.replace(/[^0-9.\-]/g, '');
+  const cleaned = raw.replace(/[^0-9.-]/g, '');
   // Number('') is 0 — the same trap costing.js guards against, where an
   // uncosted product would silently become a zero-cost product. A non-blank
   // cell that reduces to no digits at all is junk, not a free item.

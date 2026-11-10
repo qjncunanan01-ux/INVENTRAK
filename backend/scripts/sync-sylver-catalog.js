@@ -39,7 +39,7 @@ const BRAND_PREFIXES = [
   'Torani',
   'Dripp',
   'Monin',
-  "Beryl's",
+  'Beryl\'s',
   'Acc',
   'DLA',
   'Lotus Biscoff',
@@ -113,7 +113,7 @@ function normalizeSize(s) {
       .replace(/liter/g, 'l')
       .replace(/milliliter/g, 'ml')
       .replace(/ounce/g, 'oz')
-      .replace(/pieces/g, 'pcs')
+      .replace(/pieces/g, 'pcs'),
   );
 }
 

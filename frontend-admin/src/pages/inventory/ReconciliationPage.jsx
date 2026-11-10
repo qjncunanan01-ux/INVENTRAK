@@ -37,7 +37,7 @@ export default function ReconciliationPage({ onLogout }) {
   const [onlyVariance, setOnlyVariance] = useState(true);
   const [form, setForm] = useState({ product_id: '', location_id: '', counted_qty: '', note: '' });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async() => {
     setLoading(true);
     try {
       const inv = await apiGet('/api/inventory');
@@ -70,7 +70,7 @@ export default function ReconciliationPage({ onLogout }) {
     return Number(item.locations[loc.name] ?? 0);
   })();
 
-  const recordCount = async () => {
+  const recordCount = async() => {
     if (!form.product_id || !form.location_id || form.counted_qty === '') {
       setError('Pick a product, a shelf and the quantity you counted.');
       return;
@@ -94,7 +94,7 @@ export default function ReconciliationPage({ onLogout }) {
         `Counted ${res.counted_qty}; the system said ${res.system_qty}. ` +
         (delta === 0
           ? 'It matched.'
-          : `Difference of ${Math.abs(delta)} unit${Math.abs(delta) === 1 ? '' : 's'} ${delta < 0 ? 'missing' : 'over'}.`)
+          : `Difference of ${Math.abs(delta)} unit${Math.abs(delta) === 1 ? '' : 's'} ${delta < 0 ? 'missing' : 'over'}.`),
       );
       setForm({ product_id: '', location_id: '', counted_qty: '', note: '' });
       await load();
@@ -184,17 +184,17 @@ export default function ReconciliationPage({ onLogout }) {
           ) : (
             <>
               <FormulaBanner
-                  dense
-                  title="The math behind every number below"
-                  items={[
-                    RECONCILIATION_FORMULA,
-                    'counted              what a person physically saw on the shelf',
-                    'recorded sales       what the till says left since that count',
-                    'unaccounted > 0      the system believes stock that is NOT there',
-                    'unaccounted < 0      more found than expected (not a loss)',
-                  ]}
-                  note="Sales carry no location, so a count at one shelf is checked against every recorded sale of that product. The report does not say WHY a unit is missing — breakage, a till error and theft look identical in the data."
-                />
+                dense
+                title="The math behind every number below"
+                items={[
+                  RECONCILIATION_FORMULA,
+                  'counted              what a person physically saw on the shelf',
+                  'recorded sales       what the till says left since that count',
+                  'unaccounted > 0      the system believes stock that is NOT there',
+                  'unaccounted < 0      more found than expected (not a loss)',
+                ]}
+                note="Sales carry no location, so a count at one shelf is checked against every recorded sale of that product. The report does not say WHY a unit is missing — breakage, a till error and theft look identical in the data."
+              />
 
               <Typography variant="body2" sx={{ mt: 2, mb: 2 }}>{headline(summary, countedLocations)}</Typography>
 

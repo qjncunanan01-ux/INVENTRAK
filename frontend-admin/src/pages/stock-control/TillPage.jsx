@@ -44,7 +44,7 @@ export default function TillPage({ onLogout }) {
   const [error, setError] = useState(null);
   const pendingSaleRef = useRef(null);
 
-  const loadCatalog = useCallback(async () => {
+  const loadCatalog = useCallback(async() => {
     setLoading(true);
     try {
       const [prodRes, locRes] = await Promise.all([apiGet('/api/products'), apiGet('/api/locations')]);
@@ -84,7 +84,7 @@ export default function TillPage({ onLogout }) {
 
   const reset = () => setForm({ product: null, qty: '', location_id: '', customer_name: '' });
 
-  const recordSale = async () => {
+  const recordSale = async() => {
     if (!form.product || !form.location_id || !qtyValid) return;
     const saleBody = {
       product_id: Number(form.product.id),

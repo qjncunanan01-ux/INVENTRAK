@@ -28,6 +28,10 @@ process.env.AUDIT_LOG_FILE = path.join(tmpDir, 'audit.log');
 // are present in the environment (which now auto-selects Firestore), the
 // suites must run both backends locally against these isolated temp files.
 process.env.DB_DRIVER = 'json';
+// Tests must never inherit a developer's provider credentials and accidentally
+// create a real checkout. Gateway behavior is covered with isolated stubs.
+delete process.env.PAYMONGO_SECRET_KEY;
+delete process.env.PAYMONGO_WEBHOOK_SECRET;
 fs.mkdirSync(process.env.INVENTRAK_DATA_DIR, { recursive: true });
 // Share the same product catalog with the SQLite seeder.
 fs.copyFileSync(path.join(dataDir, 'products.json'), path.join(process.env.INVENTRAK_DATA_DIR, 'products.json'));

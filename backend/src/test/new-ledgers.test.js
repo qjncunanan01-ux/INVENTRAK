@@ -17,7 +17,7 @@ function useRecorderFor(label) {
   setNotificationRecorder(label === 'sqlite' ? notificationsRouter.insertNotificationRecord : npmfreeRecordNotification);
 }
 
-test.before(async () => {
+test.before(async() => {
   await bootBoth();
 });
 test.after(() => teardown());
@@ -27,7 +27,7 @@ const SIDES = [
   ['npmfree', () => npmfree],
 ];
 
-test('unit conversions: admin CRUD, validation, and RBAC', async () => {
+test('unit conversions: admin CRUD, validation, and RBAC', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
 
@@ -86,7 +86,7 @@ test('unit conversions: admin CRUD, validation, and RBAC', async () => {
   }
 });
 
-test('back orders: admin manages them, a customer reads only their own order', async () => {
+test('back orders: admin manages them, a customer reads only their own order', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
 
@@ -160,7 +160,7 @@ test('back orders: admin manages them, a customer reads only their own order', a
   }
 });
 
-test('correction requests: create, list, get, resolve; admin only', async () => {
+test('correction requests: create, list, get, resolve; admin only', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
 
@@ -207,7 +207,7 @@ test('correction requests: create, list, get, resolve; admin only', async () => 
   }
 });
 
-test('approver reject comment becomes a correction request on the submitter\'s row', async () => {
+test('approver reject comment becomes a correction request on the submitter\'s row', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
 
@@ -304,7 +304,7 @@ test('approver reject comment becomes a correction request on the submitter\'s r
   }
 });
 
-test('notification ledger records real attempts and is admin-only', async () => {
+test('notification ledger records real attempts and is admin-only', async() => {
   for (const [label, get] of SIDES) {
     const side = get();
 

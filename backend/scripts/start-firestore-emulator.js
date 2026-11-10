@@ -35,7 +35,7 @@ function emulatorUp(host, portNum) {
   });
 }
 
-(async () => {
+(async() => {
   const [host, portStr] = (process.env.FIRESTORE_EMULATOR_HOST || `localhost:${port}`).split(':');
   if (!(await emulatorUp(host, Number(portStr)))) {
     console.error(`Firestore emulator not reachable at ${host}:${portStr}.`);

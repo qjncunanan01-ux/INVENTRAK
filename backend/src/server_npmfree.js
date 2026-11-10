@@ -233,7 +233,7 @@ let salesTransactions = [];
 let nextSaleId = 1;
 let nextInquiryId = 1;
 // Stocktake counts (mirrors the SQLite inventory_counts table).
-let inventoryCounts = [];
+const inventoryCounts = [];
 let nextCountId = 1;
 function persistCounts() {
   writeJSON(countsFile, inventoryCounts);
@@ -470,7 +470,7 @@ function persistVerificationCodes() {
       code_hash: codeHash,
       user_id: t.user_id,
       expires_at: t.expires_at,
-    }))
+    })),
   );
 }
 
@@ -485,7 +485,7 @@ function persistResetTokens() {
       code_hash: codeHash,
       user_id: t.user_id,
       expires_at: t.expires_at,
-    }))
+    })),
   );
 }
 
@@ -503,7 +503,7 @@ if (!process.env.NPMFREE_TOKEN_SECRET) {
   console.warn(
     '[security] NPMFREE_TOKEN_SECRET is not set — using the PUBLIC fallback secret. ' +
       'Set NPMFREE_TOKEN_SECRET on the deployed server (Render: Service → Environment), ' +
-      'or anyone who reads this repo can forge admin tokens.'
+      'or anyone who reads this repo can forge admin tokens.',
   );
 
   // In production, fail fast if NPMFREE_TOKEN_SECRET is not configured
@@ -683,7 +683,7 @@ function bootstrap() {
     const persistedVerifications = readJSON('@verificationCodes');
     if (Array.isArray(persistedVerifications)) {
       verificationCodes = new Map(
-        persistedVerifications.map(t => [t.code_hash, { user_id: t.user_id, expires_at: t.expires_at }])
+        persistedVerifications.map(t => [t.code_hash, { user_id: t.user_id, expires_at: t.expires_at }]),
       );
     }
   }
@@ -931,7 +931,7 @@ function consumeLots(productId, locationId, qty) {
   const manifest = [];
   const candidates = stockLots
     .filter(
-      l => Number(l.product_id) === Number(productId) && Number(l.location_id) === Number(locationId) && l.qty > 0
+      l => Number(l.product_id) === Number(productId) && Number(l.location_id) === Number(locationId) && l.qty > 0,
     )
     .sort((a, b) => compareLots(a, b, settings.getInventoryAlgorithmSettings().lot_allocation_policy));
   for (const lot of candidates) {
@@ -1007,7 +1007,7 @@ function upsertLowStockAlert(productId, locationId, qty) {
       a.product_id === Number(productId) &&
       a.location_id === Number(locationId) &&
       a.alert_type === 'low_stock' &&
-      a.status === 'active'
+      a.status === 'active',
   );
   if (existing) {
     existing.current_qty = qty;
@@ -1058,7 +1058,7 @@ function refreshLowStockAlerts() {
           a.product_id === productId &&
           a.location_id === locationId &&
           a.alert_type === 'low_stock' &&
-          a.status === 'active'
+          a.status === 'active',
       );
       if (existing) {
         existing.current_qty = quantity;
@@ -1146,7 +1146,7 @@ function convertUnit(fromUnit, toUnit, value) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
   if (normalizeUnit(fromUnit) === normalizeUnit(toUnit)) return value;
   const row = unitConversions.find(
-    (c) => c.from_unit === normalizeUnit(fromUnit) && c.to_unit === normalizeUnit(toUnit)
+    (c) => c.from_unit === normalizeUnit(fromUnit) && c.to_unit === normalizeUnit(toUnit),
   );
   if (row) {
     const rate = Number(row.rate);
@@ -1154,7 +1154,7 @@ function convertUnit(fromUnit, toUnit, value) {
     return Number.isFinite(rate) && rate > 0 && Number.isFinite(converted) ? converted : null;
   }
   const reverse = unitConversions.find(
-    (c) => c.from_unit === normalizeUnit(toUnit) && c.to_unit === normalizeUnit(fromUnit)
+    (c) => c.from_unit === normalizeUnit(toUnit) && c.to_unit === normalizeUnit(fromUnit),
   );
   if (!reverse || !(Number(reverse.rate) > 0)) return null;
   const converted = value / Number(reverse.rate);
@@ -1257,7 +1257,7 @@ function listCorrectionRequests({ submission_id, status } = {}) {
 // the staff app that already polls those endpoints.
 function openCorrectionFor(submissionId, submissionType) {
   const matches = correctionRequests.filter(
-    (c) => c.status === 'open' && c.submission_type === submissionType && Number(c.submission_id) === Number(submissionId)
+    (c) => c.status === 'open' && c.submission_type === submissionType && Number(c.submission_id) === Number(submissionId),
   );
   return matches.length ? matches[matches.length - 1] : null;
 }
@@ -1303,7 +1303,7 @@ function refreshExpiryAlerts(now = new Date()) {
         a.product_id === productId &&
         a.location_id === locationId &&
         a.alert_type === (type === 'expired' ? 'expiring_soon' : 'expired') &&
-        a.status === 'active'
+        a.status === 'active',
     );
     if (flipped) {
       flipped.status = 'resolved';
@@ -1311,7 +1311,7 @@ function refreshExpiryAlerts(now = new Date()) {
     }
 
     const existing = alerts.find(
-      a => a.product_id === productId && a.location_id === locationId && a.alert_type === type && a.status === 'active'
+      a => a.product_id === productId && a.location_id === locationId && a.alert_type === type && a.status === 'active',
     );
     if (existing) {
       existing.threshold = daysLeft;
@@ -1491,7 +1491,7 @@ function sendJson(res, status, payload, cacheControl) {
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
-    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+    'Content-Security-Policy': 'default-src \'none\'; frame-ancestors \'none\'',
   };
   if (cacheControl) headers['Cache-Control'] = cacheControl;
   res.writeHead(status, headers);
@@ -1661,8 +1661,8 @@ const server = http.createServer((req, res) => {
     });
   }
 
-// Public build/driver identity — mirrors routes/meta.js on the SQLite
-// backend (same shape; the contract test asserts both stay identical).
+  // Public build/driver identity — mirrors routes/meta.js on the SQLite
+  // backend (same shape; the contract test asserts both stay identical).
   // Nothing sensitive: name, version, deploy commit, storage driver, uptime.
   if (req.method === 'GET' && url.split('?')[0] === '/api/meta') {
     let commit = null;
@@ -1723,7 +1723,7 @@ const server = http.createServer((req, res) => {
         const html = renderTagPageHtml(result);
         // The API's default CSP blocks everything; the tag page needs images
         // + inline styles. Still frame-ancestors 'none' (no embedding).
-        res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https:; style-src 'unsafe-inline'; frame-ancestors 'none'");
+        res.setHeader('Content-Security-Policy', 'default-src \'self\'; img-src \'self\' https:; style-src \'unsafe-inline\'; frame-ancestors \'none\'');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.writeHead(result.status);
         res.end(html);
@@ -1783,7 +1783,7 @@ const server = http.createServer((req, res) => {
                 typeof e.details === 'object' &&
                 e.details.status &&
                 String(e.details.status).toLowerCase() === lower) ||
-              (e.event || '').toLowerCase() === `order.status.${lower}`
+              (e.event || '').toLowerCase() === `order.status.${lower}`,
           );
         }
         const total = logs.length;
@@ -1931,7 +1931,7 @@ const server = http.createServer((req, res) => {
         audit('auth.login.portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
         return sendJson(res, 403, {
           error:
-            "Inventory Staff accounts are mobile-only. Use Sylver's Staff app to scan QR tags and submit counts.",
+            'Inventory Staff accounts are mobile-only. Use Sylver\'s Staff app to scan QR tags and submit counts.',
           code: 'portal_mobile_only',
         });
       }
@@ -1949,7 +1949,7 @@ const server = http.createServer((req, res) => {
       if (portal === 'customer' && !canAccessCustomerPortal(user.role)) {
         audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username, ip: sourceIp });
         return sendJson(res, 403, {
-          error: "Inventory Staff accounts use Sylver's Staff app to scan and count stock.",
+          error: 'Inventory Staff accounts use Sylver\'s Staff app to scan and count stock.',
           code: 'customer_app_exclusive',
         });
       }
@@ -1977,7 +1977,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/google') {
-    return parseBody(req, async (err, obj) => {
+    return parseBody(req, async(err, obj) => {
       if (err) return bodyError(res, err);
       if (!obj.idToken) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['idToken is required'] });
@@ -2007,7 +2007,7 @@ const server = http.createServer((req, res) => {
       if (user && !canAccessCustomerPortal(user.role)) {
         audit('auth.login.customer_portal_denied', { userId: user.id, username: user.username });
         return sendJson(res, 403, {
-          error: "Inventory Staff accounts use Sylver's Staff app to scan and count stock.",
+          error: 'Inventory Staff accounts use Sylver\'s Staff app to scan and count stock.',
           code: 'customer_app_exclusive',
         });
       }
@@ -2165,7 +2165,7 @@ const server = http.createServer((req, res) => {
           message: 'MFA enabled',
           recovery_codes: recoveryCodes,
         });
-      })
+      }),
     );
   }
 
@@ -2204,7 +2204,7 @@ const server = http.createServer((req, res) => {
         if (useFirestore || useSupabase) writeJSON('@users', users);
         audit('auth.mfa.disabled', { userId: req.user.id, username: req.user.username });
         return sendJson(res, 200, { ok: true, message: 'MFA disabled' });
-      })
+      }),
     );
   }
 
@@ -2222,7 +2222,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/register') {
-    return parseBody(req, async (err, obj) => {
+    return parseBody(req, async(err, obj) => {
       if (err) return bodyError(res, err);
       // Bot honeypot: real clients never send `website`; bots that fill every
       // form field trip this and get rejected before any account work.
@@ -2355,7 +2355,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/auth/resend-verification') {
-    return parseBody(req, async (err, obj) => {
+    return parseBody(req, async(err, obj) => {
       if (err) return bodyError(res, err);
       if (!obj.email) {
         return sendJson(res, 400, { error: 'Validation failed', details: ['email is required'] });
@@ -2375,7 +2375,7 @@ const server = http.createServer((req, res) => {
       loginLockout.recordFailure('resend-verification', sourceIp);
       // Only UNVERIFIED accounts get a new code (still 200 either way).
       const user = users.find(
-        u => u.email && u.email.toLowerCase() === String(obj.email).toLowerCase() && u.email_verified === false
+        u => u.email && u.email.toLowerCase() === String(obj.email).toLowerCase() && u.email_verified === false,
       );
       let notifyDelivery = null;
       if (user) {
@@ -2539,7 +2539,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'GET' && url.split('?')[0] === '/api/auth/google/callback') {
-    return (async () => {
+    return (async() => {
       const params = new URL(url, 'http://localhost').searchParams;
       const consumed = consumeRelayState(params.get('state'));
       if (!consumed.ok) {
@@ -2647,7 +2647,7 @@ const server = http.createServer((req, res) => {
             products
               .filter(isProductActive)
               .map(p => p['Category'] || p.category)
-              .filter(Boolean)
+              .filter(Boolean),
           ),
         ].sort();
         cache.set('categories:all', c);
@@ -2704,7 +2704,7 @@ const server = http.createServer((req, res) => {
             totalPages: Math.ceil(formatted.length / limitNum),
           },
         },
-        READ_CACHE_TTL
+        READ_CACHE_TTL,
       );
     }
     return sendJson(res, 200, formatted, READ_CACHE_TTL);
@@ -2763,7 +2763,7 @@ const server = http.createServer((req, res) => {
     const byId = new Map(inv.items.map(i => [Number(i.product && i.product.id), i]));
     const stockLookup = productId => {
       const item = byId.get(Number(productId));
-      return item ? { locations: item.locations || {}, total: item.total || 0 } : { locations: {}, total: 0 }; 
+      return item ? { locations: item.locations || {}, total: item.total || 0 } : { locations: {}, total: 0 };
     };
     const lotsFor = productId => {
       ensureLotsFromSnapshot(inv);
@@ -2774,7 +2774,7 @@ const server = http.createServer((req, res) => {
         .map(l => ({ ...l, location_name: inv.locations[Number(l.location_id) - 1] || `Location ${l.location_id}` }));
     };
     return requireAuth(req, res, STAFF_TIER, (req, res) =>
-      handleQrProductLookup(req, res, sendJson, { code, products, stockLookup, lotsFor })
+      handleQrProductLookup(req, res, sendJson, { code, products, stockLookup, lotsFor }),
     );
   }
 
@@ -2967,7 +2967,7 @@ const server = http.createServer((req, res) => {
               p =>
                 String(p['Product Name'] || p.name || '')
                   .trim()
-                  .toLowerCase() === name.toLowerCase()
+                  .toLowerCase() === name.toLowerCase(),
             );
           }
           if (idx === -1) {
@@ -3545,7 +3545,7 @@ const server = http.createServer((req, res) => {
     return sendJson(
       res,
       200,
-      inv.locations.map((name, index) => ({ id: index + 1, name }))
+      inv.locations.map((name, index) => ({ id: index + 1, name })),
     );
   }
 
@@ -3913,7 +3913,7 @@ const server = http.createServer((req, res) => {
     return rows;
   }
 
-// End of loadRows helpers
+  // End of loadRows helpers
 
   const pathPart = url.split('?')[0];
 
@@ -3998,7 +3998,7 @@ const server = http.createServer((req, res) => {
           decided_at: null,
           decided_by: null,
         };
-        audit('stock.adjustment.created', { userId: req.user.id, username: req.user.username, adjustmentId: row.id, productId: productId, locationId: locationId, newQty: newQty, expiryDate: expiryDate || null });
+        audit('stock.adjustment.created', { userId: req.user.id, username: req.user.username, adjustmentId: row.id, productId, locationId, newQty, expiryDate: expiryDate || null });
         rows.unshift(row);
         writeJSON(adjustmentsFile, rows);
         return sendJson(res, 201, { ok: true, id: row.id, message: 'Adjustment created (pending approval)' });
@@ -4016,102 +4016,102 @@ const server = http.createServer((req, res) => {
       // The body carries the approver's OPTIONAL reject comment; an empty body
       // parses to {} (parseBody) so approve/reject stay one-click calls.
       return parseBody(req, (err, obj) => {
-      if (err) return bodyError(res, err);
-      const id = Number(pathPart.split('/')[3]);
-      const action = pathPart.split('/')[4];
-      const rows = readJSON(adjustmentsFile) || [];
-      const row = rows.find(r => Number(r.id) === id);
-      if (!row) return sendJson(res, 404, { error: 'Adjustment not found' });
-      if (row.status !== 'pending') return sendJson(res, 400, { error: 'Adjustment already decided' });
+        if (err) return bodyError(res, err);
+        const id = Number(pathPart.split('/')[3]);
+        const action = pathPart.split('/')[4];
+        const rows = readJSON(adjustmentsFile) || [];
+        const row = rows.find(r => Number(r.id) === id);
+        if (!row) return sendJson(res, 404, { error: 'Adjustment not found' });
+        if (row.status !== 'pending') return sendJson(res, 400, { error: 'Adjustment already decided' });
 
-      const now = new Date().toISOString();
-      const actor = (req.user && req.user.username) || 'admin';
+        const now = new Date().toISOString();
+        const actor = (req.user && req.user.username) || 'admin';
 
-      if (action === 'approve') {
+        if (action === 'approve') {
         // Staleness guards (mirror SQLite): the product may have been
         // soft-deleted or the location removed since the request was created.
-        const products = readJSON(productsFile) || [];
-        if (!products[Number(row.product_id) - 1] || !isProductActive(products[Number(row.product_id) - 1])) {
-          return sendJson(res, 400, { error: 'Product is no longer active' });
-        }
-        const invNow = getInventory();
-        if (!invNow.locations[Number(row.location_id) - 1]) {
-          return sendJson(res, 400, { error: 'Location no longer exists' });
-        }
-        // Apply the correction: set the location's stock to the proposed qty.
-        const inv = getInventory();
-        const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
-        if (item) {
-          const locName = row.location_name || inv.locations[Number(row.location_id) - 1];
-          item.locations[locName] = Number(row.new_qty);
-          item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
-          writeJSON(inventoryFile, inv);
-          // Keep the FEFO lot ledger consistent (mirrors SQLite: an approved
-          // adjustment replaces the location's lots with one lot of new_qty).
-          // The recorded best-before travels with it so FEFO consumption and
-          // best-before alerts track the stock automatically.
-          stockLots = stockLots.filter(
-            l => !(Number(l.product_id) === Number(row.product_id) && Number(l.location_id) === Number(row.location_id))
-          );
-          if (Number(row.new_qty) > 0)
-            recordLot(
-              Number(row.product_id),
-              Number(row.location_id),
-              Number(row.new_qty),
-              now,
-              row.expiry_date || null
+          const products = readJSON(productsFile) || [];
+          if (!products[Number(row.product_id) - 1] || !isProductActive(products[Number(row.product_id) - 1])) {
+            return sendJson(res, 400, { error: 'Product is no longer active' });
+          }
+          const invNow = getInventory();
+          if (!invNow.locations[Number(row.location_id) - 1]) {
+            return sendJson(res, 400, { error: 'Location no longer exists' });
+          }
+          // Apply the correction: set the location's stock to the proposed qty.
+          const inv = getInventory();
+          const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
+          if (item) {
+            const locName = row.location_name || inv.locations[Number(row.location_id) - 1];
+            item.locations[locName] = Number(row.new_qty);
+            item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
+            writeJSON(inventoryFile, inv);
+            // Keep the FEFO lot ledger consistent (mirrors SQLite: an approved
+            // adjustment replaces the location's lots with one lot of new_qty).
+            // The recorded best-before travels with it so FEFO consumption and
+            // best-before alerts track the stock automatically.
+            stockLots = stockLots.filter(
+              l => !(Number(l.product_id) === Number(row.product_id) && Number(l.location_id) === Number(row.location_id)),
             );
+            if (Number(row.new_qty) > 0)
+              recordLot(
+                Number(row.product_id),
+                Number(row.location_id),
+                Number(row.new_qty),
+                now,
+                row.expiry_date || null,
+              );
+          }
+          // Record the movement in the ledger (mirrors SQLite).
+          const movements = readJSON(movementsFile) || [];
+          movements.unshift({
+            id: movements.length + 1,
+            product_id: Number(row.product_id),
+            qty: Number(row.new_qty),
+            type: 'adjustment',
+            src_location: null,
+            dst_location: Number(row.location_id),
+            notes: `Adjustment #${row.id}: ${row.reason || 'approved correction'}`,
+            created_at: now,
+            user: actor,
+          });
+          writeJSON(movementsFile, movements);
+          row.status = 'approved';
+          row.decided_at = now;
+          row.decided_by = actor;
+          writeJSON(adjustmentsFile, rows);
+          audit('stock.adjustment.approved', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
+          return sendJson(res, 200, { ok: true, message: 'Adjustment approved and applied to stock' });
         }
-        // Record the movement in the ledger (mirrors SQLite).
-        const movements = readJSON(movementsFile) || [];
-        movements.unshift({
-          id: movements.length + 1,
-          product_id: Number(row.product_id),
-          qty: Number(row.new_qty),
-          type: 'adjustment',
-          src_location: null,
-          dst_location: Number(row.location_id),
-          notes: `Adjustment #${row.id}: ${row.reason || 'approved correction'}`,
-          created_at: now,
-          user: actor,
-        });
-        writeJSON(movementsFile, movements);
-        row.status = 'approved';
+
+        row.status = 'rejected';
         row.decided_at = now;
         row.decided_by = actor;
         writeJSON(adjustmentsFile, rows);
-        audit('stock.adjustment.approved', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
-        return sendJson(res, 200, { ok: true, message: 'Adjustment approved and applied to stock' });
-      }
-
-      row.status = 'rejected';
-      row.decided_at = now;
-      row.decided_by = actor;
-      writeJSON(adjustmentsFile, rows);
-      audit('stock.adjustment.rejected', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
-      const comment = obj && obj.comment;
-      if (comment && String(comment).trim()) {
-        const created = createCorrectionRequest({
-          submission_id: row.id,
-          submission_type: 'stock_adjustment',
-          comment,
-          requested_by: actor,
-        });
-        if (created.correctionRequest) {
-          audit('correction_request.created', {
-            userId: req.user.id,
-            correctionId: created.correctionRequest.id,
-            submissionId: created.correctionRequest.submission_id,
-            submissionType: 'stock_adjustment',
+        audit('stock.adjustment.rejected', { userId: req.user.id, username: req.user.username, adjustmentId: row.id });
+        const comment = obj && obj.comment;
+        if (comment && String(comment).trim()) {
+          const created = createCorrectionRequest({
+            submission_id: row.id,
+            submission_type: 'stock_adjustment',
+            comment,
+            requested_by: actor,
           });
-          return sendJson(res, 200, {
-            ok: true,
-            message: 'Adjustment rejected (stock unchanged); correction request sent to the submitter',
-          });
+          if (created.correctionRequest) {
+            audit('correction_request.created', {
+              userId: req.user.id,
+              correctionId: created.correctionRequest.id,
+              submissionId: created.correctionRequest.submission_id,
+              submissionType: 'stock_adjustment',
+            });
+            return sendJson(res, 200, {
+              ok: true,
+              message: 'Adjustment rejected (stock unchanged); correction request sent to the submitter',
+            });
+          }
         }
-      }
-      return sendJson(res, 200, { ok: true, message: 'Adjustment rejected (stock unchanged)' });
-    });
+        return sendJson(res, 200, { ok: true, message: 'Adjustment rejected (stock unchanged)' });
+      });
     });
   }
 
@@ -4190,98 +4190,98 @@ const server = http.createServer((req, res) => {
       // The body carries the approver's OPTIONAL reject comment; an empty body
       // parses to {} (parseBody) so approve/reject stay one-click calls.
       return parseBody(req, (err, obj) => {
-      if (err) return bodyError(res, err);
-      const id = Number(pathPart.split('/')[3]);
-      const action = pathPart.split('/')[4];
-      const rows = readJSON(transfersFile) || [];
-      const row = rows.find(r => Number(r.id) === id);
-      if (!row) return sendJson(res, 404, { error: 'Transfer not found' });
-      if (row.status !== 'pending') return sendJson(res, 400, { error: 'Transfer already decided' });
+        if (err) return bodyError(res, err);
+        const id = Number(pathPart.split('/')[3]);
+        const action = pathPart.split('/')[4];
+        const rows = readJSON(transfersFile) || [];
+        const row = rows.find(r => Number(r.id) === id);
+        if (!row) return sendJson(res, 404, { error: 'Transfer not found' });
+        if (row.status !== 'pending') return sendJson(res, 400, { error: 'Transfer already decided' });
 
-      const now = new Date().toISOString();
-      const actor = (req.user && req.user.username) || 'admin';
+        const now = new Date().toISOString();
+        const actor = (req.user && req.user.username) || 'admin';
 
-      if (action === 'approve') {
+        if (action === 'approve') {
         // Staleness guards (mirror SQLite): product active + both locations
         // still exist.
-        const products = readJSON(productsFile) || [];
-        if (!products[Number(row.product_id) - 1] || !isProductActive(products[Number(row.product_id) - 1])) {
-          return sendJson(res, 400, { error: 'Product is no longer active' });
-        }
-        const inv = getInventory();
-        if (!inv.locations[Number(row.src_location) - 1] || !inv.locations[Number(row.dst_location) - 1]) {
-          return sendJson(res, 400, { error: 'Location no longer exists' });
-        }
-        const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
-        const srcName = row.src_location_name || inv.locations[Number(row.src_location) - 1];
-        const dstName = row.dst_location_name || inv.locations[Number(row.dst_location) - 1];
-        const available = item ? item.locations[srcName] || 0 : 0;
-        if (available < Number(row.qty)) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
-        if (item) {
-          item.locations[srcName] = (item.locations[srcName] || 0) - Number(row.qty);
-          item.locations[dstName] = (item.locations[dstName] || 0) + Number(row.qty);
-          item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
-          writeJSON(inventoryFile, inv);
-          upsertLowStockAlert(item.product.id, Number(row.src_location), item.locations[srcName] || 0);
-          // Keep the FEFO lot ledger consistent (mirrors SQLite: an approved
-          // transfer consumes at the source and appends one lot at the
-          // destination).
-          // FEFO: destination lots mirror the consumed source lots (grouped
-          // by expiry) — mirrors the SQLite approval applier.
-          const approvalManifest = groupManifestByExpiry(
-            consumeLots(Number(row.product_id), Number(row.src_location), Number(row.qty))
-          );
-          for (const g of approvalManifest) {
-            recordLot(Number(row.product_id), Number(row.dst_location), g.qty, now, g.expiry_date);
+          const products = readJSON(productsFile) || [];
+          if (!products[Number(row.product_id) - 1] || !isProductActive(products[Number(row.product_id) - 1])) {
+            return sendJson(res, 400, { error: 'Product is no longer active' });
           }
+          const inv = getInventory();
+          if (!inv.locations[Number(row.src_location) - 1] || !inv.locations[Number(row.dst_location) - 1]) {
+            return sendJson(res, 400, { error: 'Location no longer exists' });
+          }
+          const item = inv.items.find(i => i.product && Number(i.product.id) === Number(row.product_id));
+          const srcName = row.src_location_name || inv.locations[Number(row.src_location) - 1];
+          const dstName = row.dst_location_name || inv.locations[Number(row.dst_location) - 1];
+          const available = item ? item.locations[srcName] || 0 : 0;
+          if (available < Number(row.qty)) return sendJson(res, 400, { error: 'Insufficient stock at source location' });
+          if (item) {
+            item.locations[srcName] = (item.locations[srcName] || 0) - Number(row.qty);
+            item.locations[dstName] = (item.locations[dstName] || 0) + Number(row.qty);
+            item.total = Object.values(item.locations).reduce((sum, q) => sum + q, 0);
+            writeJSON(inventoryFile, inv);
+            upsertLowStockAlert(item.product.id, Number(row.src_location), item.locations[srcName] || 0);
+            // Keep the FEFO lot ledger consistent (mirrors SQLite: an approved
+            // transfer consumes at the source and appends one lot at the
+            // destination).
+            // FEFO: destination lots mirror the consumed source lots (grouped
+            // by expiry) — mirrors the SQLite approval applier.
+            const approvalManifest = groupManifestByExpiry(
+              consumeLots(Number(row.product_id), Number(row.src_location), Number(row.qty)),
+            );
+            for (const g of approvalManifest) {
+              recordLot(Number(row.product_id), Number(row.dst_location), g.qty, now, g.expiry_date);
+            }
+          }
+          const movements = readJSON(movementsFile) || [];
+          movements.unshift({
+            id: movements.length + 1,
+            product_id: Number(row.product_id),
+            qty: Number(row.qty),
+            type: 'transfer',
+            src_location: Number(row.src_location),
+            dst_location: Number(row.dst_location),
+            notes: `Transfer #${row.id}: ${row.reason || 'approved transfer'}`,
+            created_at: now,
+            user: actor,
+          });
+          writeJSON(movementsFile, movements);
+          row.status = 'approved';
+          row.decided_at = now;
+          row.decided_by = actor;
+          writeJSON(transfersFile, rows);
+          return sendJson(res, 200, { ok: true, message: 'Transfer approved and applied to stock' });
         }
-        const movements = readJSON(movementsFile) || [];
-        movements.unshift({
-          id: movements.length + 1,
-          product_id: Number(row.product_id),
-          qty: Number(row.qty),
-          type: 'transfer',
-          src_location: Number(row.src_location),
-          dst_location: Number(row.dst_location),
-          notes: `Transfer #${row.id}: ${row.reason || 'approved transfer'}`,
-          created_at: now,
-          user: actor,
-        });
-        writeJSON(movementsFile, movements);
-        row.status = 'approved';
+
+        row.status = 'rejected';
         row.decided_at = now;
         row.decided_by = actor;
         writeJSON(transfersFile, rows);
-        return sendJson(res, 200, { ok: true, message: 'Transfer approved and applied to stock' });
-      }
-
-      row.status = 'rejected';
-      row.decided_at = now;
-      row.decided_by = actor;
-      writeJSON(transfersFile, rows);
-      const comment = obj && obj.comment;
-      if (comment && String(comment).trim()) {
-        const created = createCorrectionRequest({
-          submission_id: row.id,
-          submission_type: 'stock_transfer',
-          comment,
-          requested_by: actor,
-        });
-        if (created.correctionRequest) {
-          audit('correction_request.created', {
-            userId: req.user.id,
-            correctionId: created.correctionRequest.id,
-            submissionId: created.correctionRequest.submission_id,
-            submissionType: 'stock_transfer',
+        const comment = obj && obj.comment;
+        if (comment && String(comment).trim()) {
+          const created = createCorrectionRequest({
+            submission_id: row.id,
+            submission_type: 'stock_transfer',
+            comment,
+            requested_by: actor,
           });
-          return sendJson(res, 200, {
-            ok: true,
-            message: 'Transfer rejected (stock unchanged); correction request sent to the submitter',
-          });
+          if (created.correctionRequest) {
+            audit('correction_request.created', {
+              userId: req.user.id,
+              correctionId: created.correctionRequest.id,
+              submissionId: created.correctionRequest.submission_id,
+              submissionType: 'stock_transfer',
+            });
+            return sendJson(res, 200, {
+              ok: true,
+              message: 'Transfer rejected (stock unchanged); correction request sent to the submitter',
+            });
+          }
         }
-      }
-      return sendJson(res, 200, { ok: true, message: 'Transfer rejected (stock unchanged)' });
-    });
+        return sendJson(res, 200, { ok: true, message: 'Transfer rejected (stock unchanged)' });
+      });
     });
   }
 
@@ -4365,9 +4365,9 @@ const server = http.createServer((req, res) => {
           .filter(
             i =>
               Number(i.user_id) === Number(req.user.id) ||
-              (req.user.email && String(i.customer_email || '').toLowerCase() === String(req.user.email).toLowerCase())
+              (req.user.email && String(i.customer_email || '').toLowerCase() === String(req.user.email).toLowerCase()),
           )
-          .map(i => Number(i.id))
+          .map(i => Number(i.id)),
       );
       return sendJson(res, 200, listBackOrders().filter(b => mine.has(Number(b.inquiry_id))));
     });
@@ -4460,7 +4460,7 @@ const server = http.createServer((req, res) => {
           to: parsed.searchParams.get('to'),
           days: parsed.searchParams.get('days'),
         },
-        { defaultDays: 14 }
+        { defaultDays: 14 },
       );
       const days = rangeDays({ from, to });
       const generated_at = new Date().toISOString();
@@ -4722,7 +4722,7 @@ const server = http.createServer((req, res) => {
         const owner = users.find(u => u.id === req.user.id);
         const myEmail = ((owner && owner.email) || '').toLowerCase();
         orders = orders.filter(
-          o => Number(o.user_id) === req.user.id || (o.customer_email || '').toLowerCase() === myEmail
+          o => Number(o.user_id) === req.user.id || (o.customer_email || '').toLowerCase() === myEmail,
         );
       }
       if (status) orders = orders.filter(o => o.status === status);
@@ -4797,7 +4797,7 @@ const server = http.createServer((req, res) => {
             deliverySchedule = obj.delivery_schedule.trim();
           }
         }
-        if (SYLVER_POLICY_DEMO && updatedStatus === 'fulfilled' && order.fulfillment_method === 'courier' && order.payment_status !== 'paid') {
+        if (['fulfilled', 'delivered'].includes(updatedStatus) && order.fulfillment_method === 'courier' && order.payment_status !== 'paid') {
           return sendJson(res, 409, { error: 'Courier delivery must be paid and verified before dispatch' });
         }
         if (!SYLVER_POLICY_DEMO && updatedStatus === 'preparing' && ['qrph', 'gcash', 'other'].includes(order.payment_method) && order.payment_status !== 'paid') {
@@ -5221,7 +5221,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'POST' && url.split('?')[0] === '/api/order-inquiries') {
-    return parseBody(req, async (err, obj) => {
+    return parseBody(req, async(err, obj) => {
       if (err) return bodyError(res, err);
       if (typeof obj.customer_name !== 'string' || typeof obj.customer_email !== 'string' || !obj.customer_name.trim() || !obj.customer_email.trim()) {
         return sendJson(res, 400, {
@@ -5337,15 +5337,13 @@ const server = http.createServer((req, res) => {
       if (fulfillment.error) {
         return sendJson(res, 400, { error: 'Validation failed', details: [fulfillment.error] });
       }
+      const selectedPaymentMethod = obj.payment_method || (SYLVER_POLICY_DEMO ? 'cash' : 'cod');
+      if (fulfillment.method === 'courier' && ['cash', 'cod'].includes(selectedPaymentMethod)) {
+        return sendJson(res, 400, { error: 'Cash is available for pickup only. Courier orders must be paid and verified before collection.' });
+      }
       if (!SYLVER_POLICY_DEMO && obj.payment_method === 'qrph') {
-        if (fulfillment.method !== 'pickup') {
-          return sendJson(res, 400, { error: 'QR Ph checkout is currently available for pickup orders while courier fees are confirmed separately' });
-        }
         const configError = payMongoConfigError();
         if (configError) return sendJson(res, 503, { error: configError });
-      }
-      if (SYLVER_POLICY_DEMO && obj.payment_method === 'cash' && fulfillment.method === 'courier') {
-        return sendJson(res, 400, { error: 'Cash is available for pickup; courier orders must be paid and verified before dispatch' });
       }
       if (SYLVER_POLICY_DEMO && obj.payment_method === 'credit' && fulfillment.method === 'courier') {
         return sendJson(res, 400, { error: 'Credit is available for pickup only; courier orders must be paid and verified before dispatch' });
@@ -5370,7 +5368,6 @@ const server = http.createServer((req, res) => {
       // always matches what the customer was charged (SQLite parity).
       const normalized = normalizeLines(obj.products);
       let lines = normalized.lines;
-      let qrPhTotal = null;
       let discount = { total: normalized.total, discount_amount: 0, eligible_subtotal: 0 };
       const catalog = (readJSON(productsFile) || []).map((product, index) => ({
         ...product, id: index + 1,
@@ -5380,25 +5377,21 @@ const server = http.createServer((req, res) => {
         status: product.status || 'active',
       }));
       const productsById = new Map(catalog.map((product) => [Number(product.id), product]));
-      if (!SYLVER_POLICY_DEMO && obj.payment_method === 'qrph') {
+      const hasCatalogLineIds = lines.some((line) => line.id != null);
+      if ((hasCatalogLineIds && lines.some((line) => line.id == null)) || (obj.payment_method === 'qrph' && !hasCatalogLineIds)) {
+        return sendJson(res, 400, { error: 'Refresh the catalog before checkout; every item must match a current product' });
+      }
+      if (SYLVER_POLICY_DEMO && !hasCatalogLineIds) {
+        return sendJson(res, 400, { error: 'Refresh the catalog before placing a demo order; every item must match a current product' });
+      }
+      if (hasCatalogLineIds) {
         const pricing = priceLinesFromCatalog(lines, catalog);
         if (pricing.error) return sendJson(res, 409, { error: pricing.error });
         lines = pricing.lines;
-        qrPhTotal = pricing.total;
-      }
-      if (SYLVER_POLICY_DEMO) {
-        if (lines.some((line) => line.id == null)) return sendJson(res, 400, { error: 'Refresh the catalog before placing a demo order; every item must match a current product' });
-        lines = lines.map((line) => {
-          const product = productsById.get(Number(line.id));
-          if (!product || !isProductActive(product)) return line;
-          return { ...line, name: product.name, unit_price: product.price };
-        });
         discount = applyBulkDiscount(lines, (productId) => productsById.get(Number(productId)));
         lines = discount.lines;
       }
-      const storedCost = !SYLVER_POLICY_DEMO && obj.payment_method === 'qrph'
-        ? qrPhTotal
-        : SYLVER_POLICY_DEMO
+      const storedCost = hasCatalogLineIds
         ? Number(discount.total) || 0
         : normalized.total !== null ? normalized.total : obj.estimated_cost || 0;
       if (!SYLVER_POLICY_DEMO && obj.payment_method === 'qrph' && (!Number.isFinite(Number(storedCost)) || Number(storedCost) < 1)) {
@@ -5508,7 +5501,7 @@ const server = http.createServer((req, res) => {
           amount: storedCost,
           description: `Sylver's order ${id} — ${obj.customer_name}`,
           email: obj.customer_email,
-          paymentMethod: obj.payment_method || (SYLVER_POLICY_DEMO ? 'cash' : 'cod'),
+          paymentMethod: selectedPaymentMethod,
         });
       } catch (err) {
         console.error('[payments] buildPaymentStep failed:', err && err.message);
@@ -5552,16 +5545,16 @@ const server = http.createServer((req, res) => {
         bulk_discount_amount: Number(discount.discount_amount) || 0,
         ...(payment
           ? {
-              payment: {
-                payment_method: payment.payment_method,
-                payment_status: payment.payment_status,
-                payment_reference: payment.payment_reference,
-                payment_url: payment.payment_url,
-                payment_qr: payment.payment_qr,
-                payment_provider: payment.payment_provider,
-                amount_due: storedCost,
-              },
-            }
+            payment: {
+              payment_method: payment.payment_method,
+              payment_status: payment.payment_status,
+              payment_reference: payment.payment_reference,
+              payment_url: payment.payment_url,
+              payment_qr: payment.payment_qr,
+              payment_provider: payment.payment_provider,
+              amount_due: storedCost,
+            },
+          }
           : {}),
       });
     });
@@ -5835,7 +5828,7 @@ const server = http.createServer((req, res) => {
         price: p['Price'] || p.price || 0,
       }));
       const sales = (salesTransactions.length ? salesTransactions : readJSON('@sales') || []).filter(
-        s => new Date(s.transaction_date).getTime() >= now.getTime() - windowDays * 86400000
+        s => new Date(s.transaction_date).getTime() >= now.getTime() - windowDays * 86400000,
       );
       const result = classifyFsnCatalog(catalog, sales, { windowDays, now });
       return sendJson(res, 200, result);
@@ -5922,7 +5915,7 @@ const server = http.createServer((req, res) => {
         // backends reported different numbers on the dashboard.
         const levelMap = criticalLevels();
         const lowStockItems = inv.items.filter(
-          i => i.product && Object.keys(i.locations || {}).length > 0 && i.total < criticalLevelFromMap(levelMap, i.product.id)
+          i => i.product && Object.keys(i.locations || {}).length > 0 && i.total < criticalLevelFromMap(levelMap, i.product.id),
         ).length;
         const totalLocations = inv.locations.length;
         const pendingInquiries = orders.filter(o => o.status === 'pending').length;
@@ -6011,10 +6004,10 @@ const server = http.createServer((req, res) => {
         // Real customers: accounts that placed an order (mirrors the SQLite
         // backend). Distinct payers stay available for the Reports page.
         const customerAccountIds = new Set(
-          orders.map(o => Number(o.user_id)).filter(id => Number.isFinite(id) && id > 0)
+          orders.map(o => Number(o.user_id)).filter(id => Number.isFinite(id) && id > 0),
         );
         const customersServed = new Set(
-          users.filter(u => u.role === 'customer' && customerAccountIds.has(Number(u.id)))
+          users.filter(u => u.role === 'customer' && customerAccountIds.has(Number(u.id))),
         ).size;
         const customersPaid = new Set(salesTransactions.map(t => t.customer_name).filter(Boolean)).size;
         // The account base: every registered customer account (see /api/reports).
@@ -6080,7 +6073,7 @@ const server = http.createServer((req, res) => {
           inv.items.forEach(item =>
             inv.locations.forEach(loc => {
               data.push({ product: item.product.name, location: loc, quantity: item.locations[loc] || 0 });
-            })
+            }),
           );
         } else if (type === 'movements') data = readJSON(movementsFile) || [];
         else return sendJson(res, 404, { error: 'Export type not found. Use: products, inventory, movements' });
@@ -6091,7 +6084,7 @@ const server = http.createServer((req, res) => {
             .map(row =>
               Object.values(row)
                 .map(v => `"${v}"`)
-                .join(',')
+                .join(','),
             )
             .join('\n');
           res.writeHead(200, {
@@ -6325,7 +6318,7 @@ const server = http.createServer((req, res) => {
           email_verified: u.email_verified !== false,
           google_sub: u.google_sub || null,
           created_at: u.created_at,
-        }))
+        })),
       );
     });
   }
@@ -6412,7 +6405,7 @@ const server = http.createServer((req, res) => {
   // spot instead of waiting an hour for the first timer tick. Additive: a push
   // is a new row, never an overwrite of the copy an admin relies on.
   if (req.method === 'POST' && url.split('?')[0] === '/api/admin/backup') {
-    return requireAuth(req, res, MANAGEMENT_TIER, async (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, async(req, res) => {
       try {
         const result = await backupRemote.pushSnapshot(
           buildEnvelope({ driver: backupDriverName(), tables: backupDatasets(), generatedBy: req.user.username }),
@@ -6446,7 +6439,7 @@ const server = http.createServer((req, res) => {
   // Reports state — “schedule off” and “store unreachable” are things an operator
   // needs to read, not errors a status page should swallow.
   if (req.method === 'GET' && url.split('?')[0] === '/api/admin/backups') {
-    return requireAuth(req, res, MANAGEMENT_TIER, async (req, res) => {
+    return requireAuth(req, res, MANAGEMENT_TIER, async(req, res) => {
       try {
         const listed = await backupRemote.listSnapshots(20);
         return sendJson(res, 200, {
@@ -6469,7 +6462,7 @@ const server = http.createServer((req, res) => {
     return requireAuth(req, res, MANAGEMENT_TIER, (req, res) => {
       // A snapshot is far bigger than the normal body cap, so this one route
       // gets the backup limit (mirrors the Express body-parser mount).
-      return parseBodyWithLimit(req, BACKUP_MAX_BODY_BYTES, async (err, obj) => {
+      return parseBodyWithLimit(req, BACKUP_MAX_BODY_BYTES, async(err, obj) => {
         if (err) return bodyError(res, err);
         const body = obj || {};
         if (body.confirm !== true) {
@@ -6621,7 +6614,7 @@ function createServer(port = process.env.PORT || 4001) {
   // calling createServer() directly and serving an empty cache.
   if (useFirestore && !store.isReady()) {
     throw new Error(
-      'Firestore store is not initialized — use start() (which awaits store.init()) instead of createServer().'
+      'Firestore store is not initialized — use start() (which awaits store.init()) instead of createServer().',
     );
   }
   return server.listen(port);
@@ -6704,7 +6697,7 @@ if (require.main === module) {
             if (req.url === '/api/openapi.json') {
               try {
                 const spec = JSON.parse(
-                  require('fs').readFileSync(require('path').join(__dirname, '..', 'openapi.json'), 'utf8')
+                  require('fs').readFileSync(require('path').join(__dirname, '..', 'openapi.json'), 'utf8'),
                 );
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 return res.end(JSON.stringify(spec));

@@ -1,7 +1,11 @@
 function csvCell(value) {
   let text = String(value ?? '');
   // Prevent spreadsheet formula injection from catalog names or text fields.
-  if (/^[\s\u0000-\u001f]*[=+\-@]/.test(text)) text = `'${text}`;
+  let firstVisible = 0;
+  while (firstVisible < text.length && (text[firstVisible].trim() === '' || text.charCodeAt(firstVisible) <= 0x1f)) {
+    firstVisible += 1;
+  }
+  if ('=+-@'.includes(text[firstVisible])) text = `'${text}`;
   return `"${text.replace(/"/g, '""')}"`;
 }
 

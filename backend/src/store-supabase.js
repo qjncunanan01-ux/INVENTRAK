@@ -145,7 +145,7 @@ function write(file, rows) {
   if (!table) return;
 
   writeChain = writeChain
-    .then(async () => {
+    .then(async() => {
       if (!client) return;
 
       if (file === 'inventory.json') {

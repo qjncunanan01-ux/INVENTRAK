@@ -46,7 +46,7 @@ function db() {
 // bookkeeping (including the AUTOINCREMENT counter), never business data.
 function sqliteTableNames() {
   return db()
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+    .prepare('SELECT name FROM sqlite_master WHERE type = \'table\' AND name NOT LIKE \'sqlite_%\' ORDER BY name')
     .all()
     .map((r) => r.name);
 }

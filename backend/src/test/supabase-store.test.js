@@ -90,7 +90,7 @@ const drain = () => new Promise((r) => setTimeout(r, 25));
 
 // ---- Driver behavior -------------------------------------------------------
 
-test('supabase driver roundtrips rows and preserves order via idx', async () => {
+test('supabase driver roundtrips rows and preserves order via idx', async() => {
   const fake = makeFakeSupabase({
     products: [
       { id: 3, idx: 2, data: { 'Product Name': 'third' } },
@@ -122,7 +122,7 @@ test('supabase driver roundtrips rows and preserves order via idx', async () => 
   assert.ok(!t.has('2') && !t.has('3'), 'old rows deleted');
 });
 
-test('supabase driver normalizes inventory: locations meta -> string[], items ordered', async () => {
+test('supabase driver normalizes inventory: locations meta -> string[], items ordered', async() => {
   const fake = makeFakeSupabase({
     // A products row keeps the auto-seeder dormant so the local catalog can't
     // pollute this test's inventory tables.
@@ -156,7 +156,7 @@ test('supabase driver normalizes inventory: locations meta -> string[], items or
   assert.strictEqual(fake._tables.get('inventory_meta').get('_meta').data.length, 3, 'meta flushed');
 });
 
-test('supabase driver maps the QR-flow datasets to real tables', async () => {
+test('supabase driver maps the QR-flow datasets to real tables', async() => {
   // The QR scan flow reads products and @lots (FEFO ledger) and the approval
   // flow writes adjustments — the driver must map every dataset the servers
   // touch to a named table (regression lock for silent data loss).
@@ -182,7 +182,7 @@ test('supabase driver maps the QR-flow datasets to real tables', async () => {
   assert.strictEqual(store.read('unknown-file.json'), null, 'unmapped file reads null');
 });
 
-test('supabase driver persists runtime settings and reloads them after re-init', async () => {
+test('supabase driver persists runtime settings and reloads them after re-init', async() => {
   const fake = makeFakeSupabase({
     products: [{ id: 1, idx: 0, data: { 'Product Name': 'P1' } }],
   });
@@ -199,7 +199,7 @@ test('supabase driver persists runtime settings and reloads them after re-init',
   assert.deepStrictEqual(store.read('@systemSettings'), rows, 'the next process loads the same settings');
 });
 
-test('supabase driver auto-seeds products from local JSON when the table is empty', async () => {
+test('supabase driver auto-seeds products from local JSON when the table is empty', async() => {
   const fake = makeFakeSupabase();
   const store = await freshStore(fake);
 
@@ -213,7 +213,7 @@ test('supabase driver auto-seeds products from local JSON when the table is empt
   assert.strictEqual(fake._tables.get('products').size, local.length, 'seed flushed to the table');
 });
 
-test('supabase driver agrees with the JSON driver on stored shapes', async () => {
+test('supabase driver agrees with the JSON driver on stored shapes', async() => {
   // Same interface contract as store-json: whatever you write roundtrips
   // identically (value parity, mirroring the contract tests' philosophy).
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-jsonparity-'));

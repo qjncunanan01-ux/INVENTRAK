@@ -13,7 +13,7 @@ const assert = require('node:assert');
 const { resolveCustomer, findCustomer, summarize } = require('../catalog-orders/customers');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -106,7 +106,7 @@ describe('customer identity rule (pure)', () => {
 });
 
 describe('customer linkage end to end (both backends)', () => {
-  test('two orders from the same person resolve to ONE customer', async () => {
+  test('two orders from the same person resolve to ONE customer', async() => {
     for (const side of [sqlite, npmfree]) {
       const tag = stamp();
       const email = `${tag}@cafe.ph`;
@@ -138,7 +138,7 @@ describe('customer linkage end to end (both backends)', () => {
     }
   });
 
-  test('a recorded sale links to the same customer as their orders', async () => {
+  test('a recorded sale links to the same customer as their orders', async() => {
     for (const side of [sqlite, npmfree]) {
       const tag = stamp();
       const name = `Sale Buyer ${tag}`;
@@ -157,7 +157,7 @@ describe('customer linkage end to end (both backends)', () => {
     }
   });
 
-  test('customer detail returns that person\'s orders and purchases', async () => {
+  test('customer detail returns that person\'s orders and purchases', async() => {
     for (const side of [sqlite, npmfree]) {
       const tag = stamp();
       const name = `History Buyer ${tag}`;
@@ -175,7 +175,7 @@ describe('customer linkage end to end (both backends)', () => {
     }
   });
 
-  test('the customer surface is admin-only', async () => {
+  test('the customer surface is admin-only', async() => {
     for (const side of [sqlite, npmfree]) {
       const asCustomer = await call(side.url, '/api/customers', { token: side.token.customer });
       assert.strictEqual(asCustomer.status, 403, `customer blocked on ${side.url}`);
@@ -186,7 +186,7 @@ describe('customer linkage end to end (both backends)', () => {
     }
   });
 
-  test('a guest order (no account) still gets a Customer Record', async () => {
+  test('a guest order (no account) still gets a Customer Record', async() => {
     for (const side of [sqlite, npmfree]) {
       const tag = stamp();
       const created = await call(side.url, '/api/order-inquiries', {

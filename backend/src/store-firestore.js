@@ -105,7 +105,7 @@ function normalizedDatabaseId() {
   if (id === '(default)') return null;
   if (!/^[a-z][a-z0-9-]{3,}$/.test(id)) {
     throw new Error(
-      `Invalid FIREBASE_DATABASE_ID "${id}" — use '(default)' or lowercase letters/digits/hyphens (e.g. 'inventrak').`
+      `Invalid FIREBASE_DATABASE_ID "${id}" — use '(default)' or lowercase letters/digits/hyphens (e.g. 'inventrak').`,
     ); // >= 4 chars per Firestore's database-id rules
   }
   return id;
@@ -223,7 +223,7 @@ async function init() {
         admin = require('firebase-admin');
       } catch {
         throw new Error(
-          'firebase-admin is not installed — run `npm install firebase-admin` (only needed for the Firestore driver).'
+          'firebase-admin is not installed — run `npm install firebase-admin` (only needed for the Firestore driver).',
         );
       }
       const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
@@ -251,7 +251,7 @@ async function init() {
           }
           if (!saJson && !credPath) {
             throw new Error(
-              'Firestore driver needs FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS (path to a service-account JSON).'
+              'Firestore driver needs FIREBASE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS (path to a service-account JSON).',
             );
           }
           let cred;

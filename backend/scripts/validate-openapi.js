@@ -34,7 +34,7 @@ async function main() {
 
   console.log(`✓ openapi.json is a valid OpenAPI ${api.openapi} document`);
   console.log(
-    `  ${Object.keys(api.paths).length} paths, ${Object.keys(api.components.schemas || {}).length} schemas, ${missing.length === 0 ? 'all operationIds present' : ''}`
+    `  ${Object.keys(api.paths).length} paths, ${Object.keys(api.components.schemas || {}).length} schemas, ${missing.length === 0 ? 'all operationIds present' : ''}`,
   );
 }
 
@@ -43,5 +43,5 @@ main().then(
   err => {
     console.error(`✗ INVALID: ${err.message}`);
     process.exit(1);
-  }
+  },
 );

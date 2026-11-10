@@ -90,7 +90,7 @@ function csrfMiddleware(req, res, next) {
     const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
     res.setHeader(
       'Set-Cookie',
-      `${CSRF_COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Strict${secure}; Max-Age=3600`
+      `${CSRF_COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Strict${secure}; Max-Age=3600`,
     );
   }
 

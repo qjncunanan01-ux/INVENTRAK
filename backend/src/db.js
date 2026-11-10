@@ -21,7 +21,7 @@ db.exec(SCHEMA);
 // duplicate row that then absorbed the same UPDATE — corrupting per-location
 // counts and totals. Rebuild the table with the constraint, merging any
 // duplicate rows by summing their quantities.
-const stockIndexes = db.prepare("PRAGMA index_list('stock')").all();
+const stockIndexes = db.prepare('PRAGMA index_list(\'stock\')').all();
 const hasUniqueStockPair = stockIndexes.some(i => i.origin === 'u');
 
 if (!hasUniqueStockPair) {
@@ -97,7 +97,7 @@ if (!inquiryColumns.some(c => c.name === 'delivery_booked_at')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN delivery_booked_at TEXT');
 }
 if (!inquiryColumns.some(c => c.name === 'payment_method')) {
-  db.exec("ALTER TABLE order_inquiries ADD COLUMN payment_method TEXT DEFAULT 'cod'");
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_method TEXT DEFAULT \'cod\'');
 }
 // Checkout ownership + progress timeline: user_id links an inquiry to the
 // account that placed it (per-account history scoping); status_history is the
@@ -112,7 +112,7 @@ if (!inquiryColumns.some(c => c.name === 'status_history')) {
 // Payment step (GCash/card): payment_status/reference/url/qr/provider are
 // added by the checkout handler after the inquiry is inserted. Additive.
 if (!inquiryColumns.some(c => c.name === 'payment_status')) {
-  db.exec("ALTER TABLE order_inquiries ADD COLUMN payment_status TEXT DEFAULT 'unpaid'");
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_status TEXT DEFAULT \'unpaid\'');
 }
 if (!inquiryColumns.some(c => c.name === 'payment_reference')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN payment_reference TEXT');
@@ -152,7 +152,7 @@ if (!productColumns.some(c => c.name === 'sku')) {
   // uniqueness with a dedicated index (also speeds the QR lookup by sku).
   db.exec('ALTER TABLE products ADD COLUMN sku TEXT');
   const { skuForProductId } = require('./catalog-orders/qr-codes');
-  const backfill = db.prepare("UPDATE products SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = '')");
+  const backfill = db.prepare('UPDATE products SET sku = ? WHERE id = ? AND (sku IS NULL OR sku = \'\')');
   db.transaction(() => {
     for (const row of db.prepare('SELECT id FROM products ORDER BY id').all()) {
       backfill.run(skuForProductId(row.id), row.id);
@@ -225,7 +225,7 @@ if (!inquiryColumns.some(c => c.name === 'customer_id')) {
 // existing inquiries keep working and read back as 'pickup' with no reason —
 // which is the truth for rows created before these fields existed.
 if (!inquiryColumns.some(c => c.name === 'fulfillment_method')) {
-  db.exec("ALTER TABLE order_inquiries ADD COLUMN fulfillment_method TEXT DEFAULT 'pickup'");
+  db.exec('ALTER TABLE order_inquiries ADD COLUMN fulfillment_method TEXT DEFAULT \'pickup\'');
 }
 if (!inquiryColumns.some(c => c.name === 'rejection_reason')) {
   db.exec('ALTER TABLE order_inquiries ADD COLUMN rejection_reason TEXT');
@@ -262,9 +262,9 @@ for (const [name, ddl] of [
   ['bulk_discount_eligible_subtotal', 'REAL DEFAULT 0'],
   ['delivery_fee', 'REAL DEFAULT 0'],
   ['delivery_schedule', 'TEXT'],
-  ['payment_records', "TEXT DEFAULT '[]'"],
+  ['payment_records', 'TEXT DEFAULT \'[]\''],
   ['amount_paid', 'REAL DEFAULT 0'],
-  ['return_requests', "TEXT DEFAULT '[]'"],
+  ['return_requests', 'TEXT DEFAULT \'[]\''],
   ['change_request', 'TEXT'],
 ]) {
   if (!inquiryColumns.some(c => c.name === name)) {

@@ -68,7 +68,7 @@ async function main() {
   else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) cred = require(process.env.GOOGLE_APPLICATION_CREDENTIALS);
   else {
     console.error(
-      'No credentials — pass --sa <path> or set FIREBASE_SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS.'
+      'No credentials — pass --sa <path> or set FIREBASE_SERVICE_ACCOUNT_JSON / GOOGLE_APPLICATION_CREDENTIALS.',
     );
     process.exit(1);
   }
@@ -96,7 +96,7 @@ async function main() {
       continue;
     }
     console.log(
-      `${APPLY ? 'DELETING' : 'would delete'}  ${target.col}/${target.id}  (${(data[target.field] && data[target.field].name) || data[target.field] || ''})`
+      `${APPLY ? 'DELETING' : 'would delete'}  ${target.col}/${target.id}  (${(data[target.field] && data[target.field].name) || data[target.field] || ''})`,
     );
     if (APPLY) {
       await ref.delete();

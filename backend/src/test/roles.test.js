@@ -14,7 +14,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
@@ -27,7 +27,7 @@ const ADMIN_TIER = ['admin', 'super_admin', 'owner'];
 // login, so tests must map between them.
 const TOKEN_KEY = { admin: 'admin', super_admin: 'superadmin', owner: 'owner', staff: 'staff', customer: 'customer' };
 
-test('every seeded role can log in and reports its role', async () => {
+test('every seeded role can log in and reports its role', async() => {
   const cases = [
     ['admin', 'admin'],
     ['super_admin', 'superadmin'],
@@ -46,7 +46,7 @@ test('every seeded role can log in and reports its role', async () => {
   }
 });
 
-test('the admin tier keeps daily operations while reports require management', async () => {
+test('the admin tier keeps daily operations while reports require management', async() => {
   for (const role of ADMIN_TIER) {
     const auth = TOKEN_KEY[role];
     const summary = await both(`${role} analytics summary`, '/api/analytics/summary', { auth });
@@ -60,7 +60,7 @@ test('the admin tier keeps daily operations while reports require management', a
   }
 });
 
-test('inventory staff are blocked from every money surface', async () => {
+test('inventory staff are blocked from every money surface', async() => {
   const blocked = [
     ['/api/analytics/summary', 'GET'],
     ['/api/reports?days=14', 'GET'],
@@ -77,7 +77,7 @@ test('inventory staff are blocked from every money surface', async () => {
   }
 });
 
-test('inventory staff keep the daily inventory + scanning modules', async () => {
+test('inventory staff keep the daily inventory + scanning modules', async() => {
   const allowed = [
     ['/api/inventory', 'GET'],
     ['/api/stock-movements', 'GET'],
@@ -91,7 +91,7 @@ test('inventory staff keep the daily inventory + scanning modules', async () => 
   }
 });
 
-test('portal flags keep staff accounts on the dedicated staff app', async () => {
+test('portal flags keep staff accounts on the dedicated staff app', async() => {
   for (const side of [sqlite, npmfree]) {
     // Portal login (portal: 'admin' — what the web admin sends): refused with
     // a specific, actionable code, never a session.
@@ -139,7 +139,7 @@ test('portal flags keep staff accounts on the dedicated staff app', async () => 
   }
 });
 
-test('the staff-app flag is staff-exclusive: admins/owners refused, customers refused, staff passes', async () => {
+test('the staff-app flag is staff-exclusive: admins/owners refused, customers refused, staff passes', async() => {
   for (const side of [sqlite, npmfree]) {
     // Admin-tier accounts are refused from the staff app — they work in the
     // web admin; a shared shift device must never hold their broader session.
@@ -177,7 +177,7 @@ test('the staff-app flag is staff-exclusive: admins/owners refused, customers re
   }
 });
 
-test('management tier may grant privileged roles; a plain admin may not', async () => {
+test('management tier may grant privileged roles; a plain admin may not', async() => {
   // A plain admin can grant staff/admin …
   const ownerRole = await both('admin grants staff', '/api/admin/promote', {
     method: 'POST',
@@ -218,7 +218,7 @@ test('management tier may grant privileged roles; a plain admin may not', async 
   });
 });
 
-test('role changes are audited', async () => {
+test('role changes are audited', async() => {
   const promote = await both('audited promote', '/api/admin/promote', {
     method: 'POST',
     auth: 'owner',
@@ -234,11 +234,11 @@ test('role changes are audited', async () => {
   const logs = trail.a.json.data || trail.a.json;
   assert.ok(
     logs.some(entry => entry.event === 'auth.role_change'),
-    'a role change must appear in the audit trail'
+    'a role change must appear in the audit trail',
   );
 });
 
-test('scan events are recorded on both backends (parity)', async () => {
+test('scan events are recorded on both backends (parity)', async() => {
   const body = { payload: 'INVENTRAK:PROD:7', kind: 'product', target_id: 7, location: null };
   const okRes = await both('scan event product', '/api/scan-events', { method: 'POST', auth: 'staff', body });
   assert.strictEqual(okRes.a.status, 201, 'staff may record a scan');
@@ -267,7 +267,7 @@ test('scan events are recorded on both backends (parity)', async () => {
   assert.strictEqual(unknown.a.json.event.target_id, null);
 });
 
-test('scan events validate input and enforce role', async () => {
+test('scan events validate input and enforce role', async() => {
   const empty = await both('scan empty payload', '/api/scan-events', {
     method: 'POST',
     auth: 'staff',
@@ -296,7 +296,7 @@ test('scan events validate input and enforce role', async () => {
   assert.strictEqual(noToken.a.status, 401);
 });
 
-test('a recorded scan shows up in the audit trail', async () => {
+test('a recorded scan shows up in the audit trail', async() => {
   const marker = `INVENTRAK:PROD:${Date.now()}`;
   const res = await both('scan for audit', '/api/scan-events', {
     method: 'POST',
@@ -314,7 +314,7 @@ test('a recorded scan shows up in the audit trail', async () => {
   }
 });
 
-test('management tier is required for the health integrity report', async () => {
+test('management tier is required for the health integrity report', async() => {
   for (const role of ['super_admin', 'owner']) {
     const res = await both(`${role} integrity`, '/api/health/integrity', { auth: TOKEN_KEY[role] });
     assert.strictEqual(res.a.status, 200, `${role} may read integrity`);

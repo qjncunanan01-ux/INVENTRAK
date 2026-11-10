@@ -1,14 +1,14 @@
 const { SYLVER_POLICY_DEMO, COMPANY_POLICY_VERSION } = require('./company-policy');
 
-const ORDER_TERMS_VERSION = '2026-11-05-v3';
+const ORDER_TERMS_VERSION = '2026-11-10-v4';
 const ORDER_TERMS = [
-  'Check item quantities and catalog prices before placing your order. Current stock is checked at checkout, and QRPh totals use the current product catalog. Online payments must be verified before preparation; cash orders may proceed when staff start processing them and are paid at pickup or delivery.',
+  'Check quantities and catalog prices before placing your order. Regular products have no minimum quantity; orders are limited to available stock. Syrups and sauces receive 3% off when their combined eligible subtotal reaches PHP 5,000. The discount applies only to eligible syrup and sauce items.',
   'Stock is held for your order when the store starts preparing it. The reservation becomes a completed sale when the order is ready for pickup or dispatch. Availability is checked again before preparation.',
   'Bulk quantities are subject to available stock. The system allows up to 10,000 units of one product per order; larger requests must be discussed with the store.',
-  'For courier orders, the store prepares the items and marks them ready for pickup. You then book and pay Lalamove directly; Lalamove sets the fee and timing, which are separate from your store order.',
+  'Cash is due at store pickup. For courier orders, pay the Sylver goods total and wait for payment verification before courier collection. After the store marks the goods ready, book and pay Lalamove directly. Lalamove sets its fee and timing, which are separate from your store order.',
   'An unpaid order may be cancelled while it is waiting to be prepared. Paid orders must be cancelled with the store because refunds are not automated.',
-  'GCash payments are checked by the store using the receipt reference you submit. Card checkout is a demo transaction only; it does not charge a card or collect card details.',
-  'The app does not place, pay for, or track your Lalamove booking. The courier fee is charged by Lalamove separately from your store order. Confirm return and refund arrangements with Sylver.',
+  'QR Ph checkout uses the payment environment configured for the app. A test-mode checkout does not move real money. The store must verify payment before preparation or courier collection.',
+  'The app does not place, pay for, or track your Lalamove booking. Confirm return and refund arrangements with Sylver; refunds are handled by the store and are not automatic.',
 ];
 
 const COMPANY_ORDER_TERMS = [

@@ -7,7 +7,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call, shapeOf, both } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -17,7 +17,7 @@ after(() => {
 
 // ===== QR product lookup (the scan surface's API) =====
 
-test('contract: products/qr enforces auth and validates identically', async () => {
+test('contract: products/qr enforces auth and validates identically', async() => {
   // No token -> 401 on both backends; QR tags are identifiers, not credentials.
   await both('GET /api/products/qr/1 (no token)', '/api/products/qr/1');
   // Customer token -> 403 on both (staff-only lookup).
@@ -33,7 +33,7 @@ test('contract: products/qr enforces auth and validates identically', async () =
   });
 });
 
-test('contract: products/qr returns the product + per-location stock on both backends', async () => {
+test('contract: products/qr returns the product + per-location stock on both backends', async() => {
   // A seeded product id — shape must match the documented QrProductLookup:
   // { product, qr, stock: { total, status, locations }, lots? }.
   const a = await call(sqlite.url, '/api/products/qr/1', { token: sqlite.token.staff });
@@ -46,7 +46,7 @@ test('contract: products/qr returns the product + per-location stock on both bac
 
 // ===== Auth =====
 
-test('contract: login admin + customer return identical shapes', async () => {
+test('contract: login admin + customer return identical shapes', async() => {
   await both('POST /api/auth/login (admin)', '/api/auth/login', {
     method: 'POST',
     body: { username: 'admin', password: 'admin123' },
@@ -57,7 +57,7 @@ test('contract: login admin + customer return identical shapes', async () => {
   });
 });
 
-test('contract: login rejects bad credentials identically', async () => {
+test('contract: login rejects bad credentials identically', async() => {
   await both('POST /api/auth/login (bad pw)', '/api/auth/login', {
     method: 'POST',
     body: { username: 'admin', password: 'wrong' },
@@ -68,7 +68,7 @@ test('contract: login rejects bad credentials identically', async () => {
   });
 });
 
-test('contract: google auth responds identically (missing token, unconfigured, garbage)', async () => {
+test('contract: google auth responds identically (missing token, unconfigured, garbage)', async() => {
   // Test env has no GOOGLE_CLIENT_IDS, so both backends must answer 501 with
   // the same body for any token when unconfigured, and 400 for a missing one.
   await both('POST /api/auth/google (missing token)', '/api/auth/google', {
@@ -85,7 +85,7 @@ test('contract: google auth responds identically (missing token, unconfigured, g
   });
 });
 
-test('contract: register happy path + duplicates + validation', async () => {
+test('contract: register happy path + duplicates + validation', async() => {
   const username = `contract_user_${Date.now()}`;
   await both('POST /api/auth/register', '/api/auth/register', {
     method: 'POST',
@@ -119,7 +119,7 @@ test('contract: register happy path + duplicates + validation', async () => {
   });
 });
 
-test('contract: /api/auth/me identical for valid, missing, and invalid tokens', async () => {
+test('contract: /api/auth/me identical for valid, missing, and invalid tokens', async() => {
   await both('GET /api/auth/me (admin)', '/api/auth/me', { auth: 'admin' });
   await both('GET /api/auth/me (no token)', '/api/auth/me');
   await both('GET /api/auth/me (invalid token)', '/api/auth/me', { auth: 'invalid' });
@@ -137,7 +137,7 @@ test('contract: /api/auth/me identical for valid, missing, and invalid tokens', 
 
 // ===== Products =====
 
-test('contract: products list, pagination, search, categories, by-id, 404', async () => {
+test('contract: products list, pagination, search, categories, by-id, 404', async() => {
   await both('GET /api/products', '/api/products');
   await both('GET /api/products?page=1&limit=3', '/api/products?page=1&limit=3');
   await both('GET /api/products?search=a', '/api/products?search=a');
@@ -146,7 +146,7 @@ test('contract: products list, pagination, search, categories, by-id, 404', asyn
   await both('GET /api/products/99999', '/api/products/99999');
 });
 
-test('contract: product CRUD lifecycle', async () => {
+test('contract: product CRUD lifecycle', async() => {
   const payload = { name: 'Contract Widget', category: 'Contract', price: 42 };
   const s = await call(sqlite.url, '/api/products', {
     method: 'POST',
@@ -202,7 +202,7 @@ test('contract: product CRUD lifecycle', async () => {
   assert.strictEqual(shapeOf(sGet.json), shapeOf(nGet.json), 'fetch deleted product shapes');
 });
 
-test('contract: product auth enforcement (401 without token, 403 for customer)', async () => {
+test('contract: product auth enforcement (401 without token, 403 for customer)', async() => {
   await both('POST /api/products (no token)', '/api/products', {
     method: 'POST',
     body: { name: 'X', category: 'Y', price: 1 },
@@ -214,7 +214,7 @@ test('contract: product auth enforcement (401 without token, 403 for customer)',
   });
 });
 
-test('contract: bulk price update matches by name and id identically on both backends', async () => {
+test('contract: bulk price update matches by name and id identically on both backends', async() => {
   // Create a uniquely-named product on both backends so the name match is
   // unambiguous (the seeded catalog has thousands of rows on the shared files).
   const uname = `Bulk ${Date.now().toString(36)}`;
@@ -302,7 +302,7 @@ test('contract: bulk price update matches by name and id identically on both bac
 
 // ===== Inventory & Locations =====
 
-test('contract: inventory list + low-stock + location filter', async () => {
+test('contract: inventory list + low-stock + location filter', async() => {
   await both('GET /api/inventory', '/api/inventory');
   // A freshly created product has 0 stock, so low_stock is non-empty on both.
   const s = await call(sqlite.url, '/api/products', {
@@ -321,7 +321,7 @@ test('contract: inventory list + low-stock + location filter', async () => {
   await both('GET /api/inventory?location=Showroom', '/api/inventory?location=Showroom');
 });
 
-test('contract: reorder suggestions are admin-only and match across both servers', async () => {
+test('contract: reorder suggestions are admin-only and match across both servers', async() => {
   const unauthenticated = await both('GET /api/inventory/reorder-suggestions (no token)', '/api/inventory/reorder-suggestions');
   assert.strictEqual(unauthenticated.a.status, 401);
   const staff = await both('GET /api/inventory/reorder-suggestions (staff)', '/api/inventory/reorder-suggestions', { auth: 'staff' });
@@ -333,7 +333,7 @@ test('contract: reorder suggestions are admin-only and match across both servers
   assert.ok(admin.a.json.items.every(item => item.product_id && item.trigger_level >= item.on_hand));
 });
 
-test('contract: locations list/create/duplicate/delete', async () => {
+test('contract: locations list/create/duplicate/delete', async() => {
   await both('GET /api/locations', '/api/locations');
   const name = `Contract Loc ${Date.now()}`;
   const s = await call(sqlite.url, '/api/locations', { method: 'POST', token: sqlite.token.admin, body: { name } });
@@ -358,7 +358,7 @@ test('contract: locations list/create/duplicate/delete', async () => {
 
 // ===== Stock Movements =====
 
-test('contract: stock movements + lots', async () => {
+test('contract: stock movements + lots', async() => {
   await both('POST /api/stock-movement (stock-in)', '/api/stock-movement', {
     method: 'POST',
     auth: 'admin',
@@ -384,7 +384,7 @@ test('contract: stock movements + lots', async () => {
   await both('GET /api/stock-lots?product_id=1', '/api/stock-lots?product_id=1');
 });
 
-test('contract: rejected stock-out leaves no movement record on either backend', async () => {
+test('contract: rejected stock-out leaves no movement record on either backend', async() => {
   // Regression: a stock-out that fails the availability check must not leave a
   // phantom entry in the movement ledger (it would skew analytics + demand).
   for (const side of [sqlite, npmfree]) {
@@ -402,7 +402,7 @@ test('contract: rejected stock-out leaves no movement record on either backend',
 
 // ===== Order Inquiries =====
 
-test('contract: order inquiries lifecycle', async () => {
+test('contract: order inquiries lifecycle', async() => {
   const payload = {
     customer_name: 'Contract Customer',
     customer_email: 'contract@example.com',
@@ -470,7 +470,7 @@ test('contract: order inquiries lifecycle', async () => {
     assert.strictEqual(
       otherList.json.length,
       0,
-      `${side === sqlite ? 'sqlite' : 'npmfree'}: a different account sees no orders`
+      `${side === sqlite ? 'sqlite' : 'npmfree'}: a different account sees no orders`,
     );
   }
 
@@ -509,13 +509,13 @@ test('contract: order inquiries lifecycle', async () => {
     const history = JSON.parse(row.status_history);
     assert.ok(
       Array.isArray(history) && history.length >= 2,
-      `${side === sqlite ? 'sqlite' : 'npmfree'} timeline has placed + approved`
+      `${side === sqlite ? 'sqlite' : 'npmfree'} timeline has placed + approved`,
     );
     assert.strictEqual(history[0].status, 'pending');
     assert.strictEqual(history[history.length - 1].status, 'approved');
     assert.ok(
       history.every(h => h.at && !Number.isNaN(Date.parse(h.at))),
-      'every timeline step has a timestamp'
+      'every timeline step has a timestamp',
     );
   }
 
@@ -532,7 +532,7 @@ test('contract: order inquiries lifecycle', async () => {
 
 // ===== Optimization =====
 
-test('contract: optimization bulk, abc, per-product, 404', async () => {
+test('contract: optimization bulk, abc, per-product, 404', async() => {
   await both('GET /api/optimization', '/api/optimization', { auth: 'owner' });
   await both('GET /api/optimization/abc', '/api/optimization/abc', { auth: 'owner' });
   await both('GET /api/optimization/1', '/api/optimization/1', { auth: 'owner' });
@@ -543,7 +543,7 @@ test('contract: optimization bulk, abc, per-product, 404', async () => {
 
 // ===== Analytics =====
 
-test('contract: analytics summary + exports', async () => {
+test('contract: analytics summary + exports', async() => {
   // Revenue aggregate → ADMIN TIER only (see roles.js).
   await both('GET /api/analytics/summary', '/api/analytics/summary', { auth: 'admin' });
   await both('GET /api/analytics/summary (no token)', '/api/analytics/summary');
@@ -557,7 +557,7 @@ test('contract: analytics summary + exports', async () => {
 
 // ===== Sales & Users =====
 
-test('contract: sales + users', async () => {
+test('contract: sales + users', async() => {
   await both('POST /api/sales', '/api/sales', {
     method: 'POST',
     auth: 'admin',
@@ -576,7 +576,7 @@ test('contract: sales + users', async () => {
 
 // ===== Validation & edge-case parity =====
 
-test('contract: input validation + edge cases behave identically', async () => {
+test('contract: input validation + edge cases behave identically', async() => {
   // Requests the SQLite schema rejects (or handles specially) that the
   // npm-free fallback must mirror exactly.
   const cases = [
@@ -650,7 +650,7 @@ test('contract: input validation + edge cases behave identically', async () => {
 
 // ===== Alerts =====
 
-test('contract: alerts are empty, then created by low-stock movement, then resolvable', async () => {
+test('contract: alerts are empty, then created by low-stock movement, then resolvable', async() => {
   await both('GET /api/alerts (initial)', '/api/alerts', { auth: 'admin' });
 
   // Drive product 1 / location 1 below the 80-unit threshold on both backends.
@@ -692,7 +692,7 @@ test('contract: alerts are empty, then created by low-stock movement, then resol
 
 // ===== Deep-path 404 parity =====
 
-test('contract: deeper paths on list endpoints 404 identically on both backends', async () => {
+test('contract: deeper paths on list endpoints 404 identically on both backends', async() => {
   // The npm-free fallback matches list endpoints by prefix; without exact
   // matching, /api/order-inquiries/5 (etc.) would wrongly return the full
   // list. Express 404s these, so both must.
@@ -717,7 +717,7 @@ test('contract: deeper paths on list endpoints 404 identically on both backends'
 
 // ===== Value parity (deterministic seed) =====
 
-test('contract: deterministic seed means VALUES match, not just shapes', async () => {
+test('contract: deterministic seed means VALUES match, not just shapes', async() => {
   // Both backends seed from the same products.json with the same fixed-seed
   // PRNG and draw order, so fresh boots produce IDENTICAL stock and sales.
   // This guards the documented analytics/optimization divergence.
@@ -762,7 +762,7 @@ test('contract: deterministic seed means VALUES match, not just shapes', async (
 
 // ===== Integrity endpoint =====
 
-test('contract: health/integrity is management-only and reports clean data identically', async () => {
+test('contract: health/integrity is management-only and reports clean data identically', async() => {
   await both('GET /api/health/integrity (no token)', '/api/health/integrity');
   await both('GET /api/health/integrity (customer)', '/api/health/integrity', { auth: 'customer' });
   const admin = await both('GET /api/health/integrity (admin)', '/api/health/integrity', { auth: 'admin' });
@@ -778,7 +778,7 @@ test('contract: health/integrity is management-only and reports clean data ident
 
 // ===== Docs & 404s =====
 
-test('contract: Swagger UI + identical OpenAPI document', async () => {
+test('contract: Swagger UI + identical OpenAPI document', async() => {
   const s = await call(sqlite.url, '/api/docs');
   const n = await call(npmfree.url, '/api/docs');
   assert.strictEqual(s.status, 200, 'sqlite serves docs');
@@ -793,12 +793,12 @@ test('contract: Swagger UI + identical OpenAPI document', async () => {
   assert.deepStrictEqual(sSpec.json, nSpec.json, 'both servers serve the identical OpenAPI document');
 });
 
-test('contract: unknown routes return the same JSON 404', async () => {
+test('contract: unknown routes return the same JSON 404', async() => {
   await both('GET /api/does-not-exist', '/api/does-not-exist');
   await both('DELETE /api/does-not-exist', '/api/does-not-exist', { auth: 'admin' });
 });
 
-test('contract: product images serve on both backends without crashing the server', async () => {
+test('contract: product images serve on both backends without crashing the server', async() => {
   // Regression lock for the ERR_HTTP_HEADERS_SENT crash: the npm-free server
   // used to write the 404 headers BEFORE the /images handler, so every image
   // request threw and killed the whole process. Both backends must serve a
@@ -823,7 +823,7 @@ test('contract: product images serve on both backends without crashing the serve
   assert.notStrictEqual(evil.status, 200, 'traversal must not serve a file');
 });
 
-test('contract: unpaginated list endpoints return the FULL catalog on both backends', async () => {
+test('contract: unpaginated list endpoints return the FULL catalog on both backends', async() => {
   // Regression lock for the hidden-LIMIT parity bug: /api/sales and
   // /api/products used to apply a default LIMIT 50 even on the unpaginated
   // path, so with a 192-product catalog the SQLite side returned 50 rows
@@ -841,7 +841,7 @@ test('contract: unpaginated list endpoints return the FULL catalog on both backe
   assert.strictEqual(ss.json.length, ns.json.length, 'same sales count on both backends');
 });
 
-test('contract: admin-only write routes reject a CUSTOMER token with 403 on both backends', async () => {
+test('contract: admin-only write routes reject a CUSTOMER token with 403 on both backends', async() => {
   // A customer account can never create an admin (register hardcodes role
   // 'customer'), so its token must not be able to mutate store data.
   const uname = `cust_${Date.now().toString(36)}`;
@@ -899,7 +899,7 @@ test('contract: admin-only write routes reject a CUSTOMER token with 403 on both
   }
 });
 
-test('contract: deal-priced line items are recorded with prices on both backends', async () => {
+test('contract: deal-priced line items are recorded with prices on both backends', async() => {
   // The mobile checkout sends structured lines: the unit price actually
   // charged (the DEAL price for a flash pick) + the pre-discount original.
   // Both backends must normalize them identically, recompute the total from
@@ -982,7 +982,46 @@ test('contract: deal-priced line items are recorded with prices on both backends
   }
 });
 
-test('contract: checkout fields (delivery_address + payment_method) are stored and returned identically', async () => {
+test('contract: catalog orders use server prices and apply the syrup bulk discount in production', async() => {
+  const posted = await both('POST catalog-priced bulk order', '/api/order-inquiries', {
+    method: 'POST',
+    auth: 'customer',
+    body: {
+      customer_name: 'Bulk Policy Customer',
+      customer_email: 'bulk-policy@example.com',
+      products: [
+        { id: 9, name: 'Tampered name', qty: 30, price: 0.01 },
+        { id: 6, name: 'Tampered cup', qty: 1, price: 0.01 },
+      ],
+      estimated_cost: 0.30,
+      payment_method: 'cod',
+    },
+  });
+  assert.strictEqual(posted.a.status, 201);
+  assert.strictEqual(posted.b.status, 201);
+
+  for (const side of [sqlite, npmfree]) {
+    const list = await call(side.url, '/api/order-inquiries?limit=50', { token: side.token.customer });
+    const order = (list.json.data || list.json).find((row) => row.customer_email === 'bulk-policy@example.com');
+    assert.ok(order, 'bulk order is returned');
+    assert.strictEqual(order.estimated_cost, 5203.2, '5,358 gross minus the 3% eligible discount');
+    assert.strictEqual(order.bulk_discount_eligible_subtotal, 5160);
+    assert.strictEqual(order.bulk_discount_amount, 154.8);
+    const lines = JSON.parse(order.products);
+    const line = lines.find((item) => item.id === 9);
+    const nonEligible = lines.find((item) => item.id === 6);
+    assert.strictEqual(line.name, 'Acc Caramel Syrup (1KG)', 'server catalog name wins');
+    assert.strictEqual(line.unit_price, 172, 'server catalog price wins');
+    assert.strictEqual(line.discount_eligible, true, 'syrup product is eligible even though its category is the brand');
+    assert.strictEqual(line.bulk_discount_amount, 154.8);
+    assert.strictEqual(line.net_subtotal, 5005.2);
+    assert.strictEqual(nonEligible.discount_eligible, false);
+    assert.strictEqual(nonEligible.bulk_discount_amount, 0, 'non-syrup/sauce lines are not discounted');
+    assert.strictEqual(nonEligible.net_subtotal, 198);
+  }
+});
+
+test('contract: checkout fields (delivery_address + payment_method) are stored and returned identically', async() => {
   const uname = `addr_${Date.now().toString(36)}`;
   await both('register for checkout test', '/api/auth/register', {
     method: 'POST',
@@ -1036,7 +1075,7 @@ test('contract: checkout fields (delivery_address + payment_method) are stored a
   });
 });
 
-test('contract: promote is admin-only and promotes a customer identically on both backends', async () => {
+test('contract: promote is admin-only and promotes a customer identically on both backends', async() => {
   const uname = `promo_${Date.now().toString(36)}`;
   await both('register user to promote', '/api/auth/register', {
     method: 'POST',
@@ -1087,7 +1126,7 @@ test('contract: promote is admin-only and promotes a customer identically on bot
 
 // ===== QR Ph gateway / legacy GCash / delivered status =====
 
-test('contract: production GCash orders never receive a fake QR payment step', async () => {
+test('contract: production GCash orders never receive a fake QR payment step', async() => {
   const res = await both('POST /api/order-inquiries (gcash)', '/api/order-inquiries', {
     method: 'POST',
     auth: 'customer',
@@ -1121,7 +1160,7 @@ test('contract: production GCash orders never receive a fake QR payment step', a
   }
 });
 
-test('contract: COD checkout returns no payment step', async () => {
+test('contract: COD checkout returns no payment step', async() => {
   const res = await both('POST /api/order-inquiries (cod)', '/api/order-inquiries', {
     method: 'POST',
     body: { customer_name: 'Cod Test', customer_email: 'cod@test.com', products: ['x1'], payment_method: 'cod' },
@@ -1130,7 +1169,7 @@ test('contract: COD checkout returns no payment step', async () => {
   assert.strictEqual(res.b.json.payment, undefined);
 });
 
-test('contract: customer submits GCash receipt and admin verifies payment identically', async () => {
+test('contract: customer submits GCash receipt and admin verifies payment identically', async() => {
   const created = await both('create for payment', '/api/order-inquiries', {
     method: 'POST',
     auth: 'customer',
@@ -1171,7 +1210,7 @@ test('contract: customer submits GCash receipt and admin verifies payment identi
   }
 });
 
-test('contract: delivered status accepted after the preparation lifecycle', async () => {
+test('contract: delivered status accepted after the preparation lifecycle', async() => {
   for (const side of [sqlite, npmfree]) {
     const created = await call(side.url, '/api/order-inquiries', {
       method: 'POST',
@@ -1204,7 +1243,7 @@ test('contract: delivered status accepted after the preparation lifecycle', asyn
 
 // ===== QR scan-event logging (parity) =====
 
-test('contract: scan-events logs accepted QR payloads identically', async () => {
+test('contract: scan-events logs accepted QR payloads identically', async() => {
   // The audit trail of what was pointed at the scanner — same shape on both
   // backends, and an unknown payload must still be loggable.
   await both('POST /api/scan-events (valid product payload)', '/api/scan-events', {
@@ -1221,7 +1260,7 @@ test('contract: scan-events logs accepted QR payloads identically', async () => 
 
 // ===== Stock adjustments / transfers + approvals + reports =====
 
-test('contract: stock adjustments + transfers approval workflow is identical', async () => {
+test('contract: stock adjustments + transfers approval workflow is identical', async() => {
   // Create a pending adjustment on both backends.
   const adj = await both('POST /api/stock-adjustments', '/api/stock-adjustments', {
     method: 'POST',
@@ -1237,11 +1276,11 @@ test('contract: stock adjustments + transfers approval workflow is identical', a
   assert.strictEqual(shapeOf(q1.a.json), shapeOf(q1.b.json), 'approvals shape parity');
   assert.ok(
     Array.isArray(q1.a.json.adjustments) && q1.a.json.adjustments.length >= 1,
-    'sqlite has a pending adjustment'
+    'sqlite has a pending adjustment',
   );
   assert.ok(
     Array.isArray(q1.b.json.adjustments) && q1.b.json.adjustments.length >= 1,
-    'npmfree has a pending adjustment'
+    'npmfree has a pending adjustment',
   );
 
   // Create a pending transfer on both backends.
@@ -1331,7 +1370,7 @@ test('contract: stock adjustments + transfers approval workflow is identical', a
   await both('GET /api/approvals (empty pending)', '/api/approvals', { auth: 'admin' });
 });
 
-test('contract: approving a stale request (inactive product / gone location) 400s identically', async () => {
+test('contract: approving a stale request (inactive product / gone location) 400s identically', async() => {
   // Deactivate product 1 on both backends (contract parity of the soft delete),
   // then a pending adjustment created earlier would fail to approve.
   await call(sqlite.url, '/api/products/1', { method: 'DELETE', token: sqlite.token.admin });
@@ -1372,7 +1411,7 @@ test('contract: approving a stale request (inactive product / gone location) 400
   assert.strictEqual(shapeOf(apprA.json), shapeOf(apprB.json), 'stale approve error shapes');
 });
 
-test('contract: deleting a location referenced by adjustments/transfers 400s identically', async () => {
+test('contract: deleting a location referenced by adjustments/transfers 400s identically', async() => {
   // Create an adjustment on location 1, then attempt to delete location 1.
   await both('POST /api/stock-adjustments (loc guard)', '/api/stock-adjustments', {
     method: 'POST',
@@ -1386,7 +1425,7 @@ test('contract: deleting a location referenced by adjustments/transfers 400s ide
   assert.strictEqual(shapeOf(delA.json), shapeOf(delB.json), 'location-delete guard shapes');
 });
 
-test('contract: reports endpoint exposes the printable report shape identically', async () => {
+test('contract: reports endpoint exposes the printable report shape identically', async() => {
   const res = await both('GET /api/reports', '/api/reports', { auth: 'owner' });
   assert.strictEqual(res.a.status, 200);
   assert.strictEqual(shapeOf(res.a.json), shapeOf(res.b.json), 'reports shape parity');
@@ -1411,7 +1450,7 @@ test('contract: reports endpoint exposes the printable report shape identically'
 
 // ===== Analytics extensions =====
 
-test('contract: analytics summary exposes the new dashboard data identically', async () => {
+test('contract: analytics summary exposes the new dashboard data identically', async() => {
   const res = await both('analytics summary', '/api/analytics/summary', { auth: 'admin' });
   for (const side of [sqlite, npmfree]) {
     const body = side === sqlite ? res.a.json : res.b.json;

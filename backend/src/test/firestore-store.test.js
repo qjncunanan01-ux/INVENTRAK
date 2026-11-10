@@ -18,7 +18,7 @@ async function freshFirestoreStore() {
 
 // ---- Driver behavior ----
 
-test('firestore driver roundtrips rows and preserves array order', async () => {
+test('firestore driver roundtrips rows and preserves array order', async() => {
   const store = await freshFirestoreStore();
   const rows = [
     { id: 3, name: 'third' },
@@ -35,7 +35,7 @@ test('firestore driver roundtrips rows and preserves array order', async () => {
   assert.deepStrictEqual(store.read('stock_movements.json'), [{ id: 1, name: 'only' }]);
 });
 
-test('firestore driver persists the approval-workflow datasets (adjustments + transfers)', async () => {
+test('firestore driver persists the approval-workflow datasets (adjustments + transfers)', async() => {
   // Regression lock for the redeploy data-loss bug: stock_adjustments.json /
   // stock_transfers.json must be mapped to real collections so approved
   // adjustments survive a restart. Before the fix, write() early-returned
@@ -94,7 +94,7 @@ test('firestore driver persists the approval-workflow datasets (adjustments + tr
   assert.strictEqual(readTrf[0].status, 'pending');
 });
 
-test('firestore driver persists verification + password-reset codes so they survive a redeploy', async () => {
+test('firestore driver persists verification + password-reset codes so they survive a redeploy', async() => {
   // Regression lock for the same redeploy data-loss bug as adjustments: the
   // '@verificationCodes' / '@resetTokens' in-memory maps must be mapped to
   // real collections, or an issued code dies with the process on restart
@@ -131,7 +131,7 @@ test('firestore driver persists verification + password-reset codes so they surv
   assert.strictEqual(resets[0].code_hash, 'rhash456');
 });
 
-test('firestore driver persists runtime settings and reloads them after re-init', async () => {
+test('firestore driver persists runtime settings and reloads them after re-init', async() => {
   const fake = makeFakeDb();
   fsStore._setDb(fake);
   await fsStore.init();
@@ -148,7 +148,7 @@ test('firestore driver persists runtime settings and reloads them after re-init'
   assert.deepStrictEqual(fsStore.read('@systemSettings'), rows, 'settings survive a driver restart');
 });
 
-test('firestore driver sanitizes nulls to empty strings (Firestore rejects null)', async () => {
+test('firestore driver sanitizes nulls to empty strings (Firestore rejects null)', async() => {
   const fake = makeFakeDb();
   fsStore._setDb(fake);
   await fsStore.init();
@@ -168,7 +168,7 @@ test('firestore driver sanitizes nulls to empty strings (Firestore rejects null)
   assert.strictEqual(fsStore.read('stock_movements.json')[0].src_location, null);
 });
 
-test('firestore driver persists product arrays with position-based ids', async () => {
+test('firestore driver persists product arrays with position-based ids', async() => {
   const store = await freshFirestoreStore();
   const products = [
     { 'Product Name': 'A', Price: 10 },
@@ -180,7 +180,7 @@ test('firestore driver persists product arrays with position-based ids', async (
   assert.deepStrictEqual(store.read('products.json'), products);
 });
 
-test('firestore driver splits and merges the inventory meta + items shape', async () => {
+test('firestore driver splits and merges the inventory meta + items shape', async() => {
   const store = await freshFirestoreStore();
   const inv = {
     locations: ['Main', 'Backup'],
@@ -194,12 +194,12 @@ test('firestore driver splits and merges the inventory meta + items shape', asyn
   assert.deepStrictEqual(store.read('inventory.json'), inv);
 });
 
-test('firestore driver reads an absent dataset as null (like a missing file)', async () => {
+test('firestore driver reads an absent dataset as null (like a missing file)', async() => {
   const store = await freshFirestoreStore();
   assert.strictEqual(store.read('order_inquiries.json'), null);
 });
 
-test('firestore driver survives a fresh boot by re-reading persisted docs', async () => {
+test('firestore driver survives a fresh boot by re-reading persisted docs', async() => {
   // Simulate a restart: new db instance, same underlying fake storage.
   const db = makeFakeDb();
   fsStore._setDb(db);
@@ -214,7 +214,7 @@ test('firestore driver survives a fresh boot by re-reading persisted docs', asyn
   assert.deepStrictEqual(fsStore.read('@users'), [{ id: 1, username: 'admin', role: 'admin' }]);
 });
 
-test('firestore driver auto-seeds an empty project from the local JSON catalog', async () => {
+test('firestore driver auto-seeds an empty project from the local JSON catalog', async() => {
   // Point INVENTRAK_DATA_DIR at a temp dir with a products.json, then init a
   // brand-new (empty) fake Firestore: the driver should copy the catalog up.
   const os = require('node:os');
@@ -235,7 +235,7 @@ test('firestore driver auto-seeds an empty project from the local JSON catalog',
   }
 });
 
-test('json and firestore drivers agree on the stored shape (value parity)', async () => {
+test('json and firestore drivers agree on the stored shape (value parity)', async() => {
   const firestore = await freshFirestoreStore();
   const rows = [
     { id: 1, customer_name: 'A', status: 'pending' },
@@ -250,14 +250,14 @@ test('json and firestore drivers agree on the stored shape (value parity)', asyn
   const shapes = v =>
     Array.isArray(v)
       ? v
-          .map(r => Object.keys(r).sort().join(','))
-          .sort()
-          .join(';')
+        .map(r => Object.keys(r).sort().join(','))
+        .sort()
+        .join(';')
       : 'null';
   assert.deepStrictEqual(
     shapes(firestore.read('order_inquiries.json')),
     shapes(rows),
-    'firestore roundtrip shape should equal the written rows'
+    'firestore roundtrip shape should equal the written rows',
   );
   assert.ok(json !== null, 'json driver should read the existing repo file');
 });
@@ -277,7 +277,7 @@ test('normalizedDatabaseId accepts named databases and rejects invalid ids', () 
     assert.throws(
       () => fsStore.normalizedDatabaseId(),
       /FIREBASE_DATABASE_ID.*lowercase/,
-      'uppercase ids must be rejected loudly'
+      'uppercase ids must be rejected loudly',
     );
     process.env.FIREBASE_DATABASE_ID = 'inv';
     assert.throws(() => fsStore.normalizedDatabaseId(), /FIREBASE_DATABASE_ID/);
@@ -289,7 +289,7 @@ test('normalizedDatabaseId accepts named databases and rejects invalid ids', () 
 
 // ---- Error paths (no credentials / no package) ----
 
-test('firestore driver throws a clear error when Firebase is not configured', async () => {
+test('firestore driver throws a clear error when Firebase is not configured', async() => {
   // Fresh require of the driver (its state is per-process; re-init with no
   // fake and no env -> must throw a useful message).
   const clean = require('../store-firestore');
@@ -307,7 +307,7 @@ test('firestore driver throws a clear error when Firebase is not configured', as
     await assert.rejects(
       () => clean.init(),
       err => /FIREBASE|Firestore|firebase-admin/i.test(err.message),
-      'should throw a clear message about missing Firebase config'
+      'should throw a clear message about missing Firebase config',
     );
   } finally {
     if (prevProject !== undefined) process.env.FIREBASE_PROJECT_ID = prevProject;

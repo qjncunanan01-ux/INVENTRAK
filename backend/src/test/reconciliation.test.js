@@ -321,13 +321,13 @@ describe('reconcile — edges that could hide a finding', () => {
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 const { test: httpTest, before, after } = require('node:test');
 
-before(async () => { await bootBoth(); });
-after(() => { teardown() });
+before(async() => { await bootBoth(); });
+after(() => { teardown(); });
 
 for (const side of [sqlite, npmfree]) {
   const tag = side === sqlite ? 'sqlite' : 'npmfree';
 
-  httpTest(`${tag}: recording a count snapshots what the system believed`, async () => {
+  httpTest(`${tag}: recording a count snapshots what the system believed`, async() => {
     const res = await call(side.url, '/api/inventory/count', {
       method: 'POST', token: side.token.admin,
       body: { product_id: 1, location_id: 1, counted_qty: 100, note: 'walk check' },
@@ -340,7 +340,7 @@ for (const side of [sqlite, npmfree]) {
     assert.ok(res.json.count_id > 0);
   });
 
-  httpTest(`${tag}: the reconciliation reports the count back`, async () => {
+  httpTest(`${tag}: the reconciliation reports the count back`, async() => {
     const res = await call(side.url, '/api/inventory/reconciliation', { token: side.token.admin });
     assert.strictEqual(res.status, 200, `${tag} serves the report`);
     assert.ok(res.json.rows.length > 0, `${tag} has at least one row`);
@@ -352,7 +352,7 @@ for (const side of [sqlite, npmfree]) {
     assert.ok(typeof res.json.summary.value_at_risk === 'number');
   });
 
-  httpTest(`${tag}: a count is staff-tier, the reconciliation is admin-tier`, async () => {
+  httpTest(`${tag}: a count is staff-tier, the reconciliation is admin-tier`, async() => {
     // Counting the shelf is the staff role; reading money at risk is not.
     const asStaff = await call(side.url, '/api/inventory/count', {
       method: 'POST', token: side.token.staff,
@@ -367,7 +367,7 @@ for (const side of [sqlite, npmfree]) {
     assert.strictEqual(asCustomer.status, 403, `${tag} does not let a customer read it`);
   });
 
-  httpTest(`${tag}: a bad count is refused, never silently coerced`, async () => {
+  httpTest(`${tag}: a bad count is refused, never silently coerced`, async() => {
     for (const body of [
       { product_id: 1, location_id: 1, counted_qty: -5 },
       { product_id: 1, location_id: 1, counted_qty: 'abc' },
@@ -380,7 +380,7 @@ for (const side of [sqlite, npmfree]) {
     }
   });
 
-  httpTest(`${tag}: only the latest count per shelf is reconciled`, async () => {
+  httpTest(`${tag}: only the latest count per shelf is reconciled`, async() => {
     // Two walks of the same shelf must not both be treated as separate
     // physical stocks, or the report would double-count one shelf.
     await call(side.url, '/api/inventory/count', {
@@ -402,7 +402,7 @@ for (const side of [sqlite, npmfree]) {
 // shrinkage figures without any test failing. So the same scenario is driven
 // through both and the numbers compared.
 
-httpTest('both backends agree on the numbers, not just the shape', async () => {
+httpTest('both backends agree on the numbers, not just the shape', async() => {
   const PRODUCT = 5;
   const LOC = 1;
   const SOLD = 4;      // goes through the till, so it is a RECORDED sale
@@ -451,14 +451,14 @@ httpTest('both backends agree on the numbers, not just the shape', async () => {
 
   assert.strictEqual(
     reports.sqlite.unexplained_qty, reports.npmfree.unexplained_qty,
-    'the same shrinkage on both drivers'
+    'the same shrinkage on both drivers',
   );
   assert.strictEqual(reports.sqlite.unexplained_qty, VANISHED, 'and it is exactly the units that vanished');
   assert.strictEqual(reports.sqlite.classification, 'loss');
   assert.strictEqual(reports.sqlite.classification, reports.npmfree.classification);
   assert.strictEqual(
     reports.sqlite.value_at_risk, reports.npmfree.value_at_risk,
-    'the money figure agrees too'
+    'the money figure agrees too',
   );
   assert.strictEqual(reports.sqlite.system_qty_now, reports.npmfree.system_qty_now);
 });

@@ -61,7 +61,7 @@ router.post('/:id/resolve', authenticateToken, adminOnly, (req, res) => {
   const row = db.prepare('SELECT * FROM correction_requests WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Correction request not found' });
   const status = String((req.body && req.body.status) || req.query.status || 'closed').trim();
-  db.prepare("UPDATE correction_requests SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, row.id);
+  db.prepare('UPDATE correction_requests SET status = ?, updated_at = datetime(\'now\') WHERE id = ?').run(status, row.id);
   audit('correction_request.resolved', { userId: req.user.id, correctionId: row.id, status });
   res.json(rowFromDb(db.prepare('SELECT * FROM correction_requests WHERE id = ?').get(row.id)));
 });

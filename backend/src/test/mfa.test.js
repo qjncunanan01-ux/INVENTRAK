@@ -7,7 +7,7 @@ const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 const { totp } = require('../auth/totp');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
@@ -88,15 +88,15 @@ async function adminMfaFlow(side, label) {
   assert.ok(afterDisable.json.token, `${label}: session restored`);
 }
 
-test('admin MFA lifecycle — SQLite backend', async () => {
+test('admin MFA lifecycle — SQLite backend', async() => {
   await adminMfaFlow(sqlite, 'sqlite');
 });
 
-test('admin MFA lifecycle — npm-free backend', async () => {
+test('admin MFA lifecycle — npm-free backend', async() => {
   await adminMfaFlow(npmfree, 'npmfree');
 });
 
-test('MFA endpoints are admin-only on both backends', async () => {
+test('MFA endpoints are admin-only on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     for (const pathname of ['/api/auth/mfa/setup', '/api/auth/mfa/confirm', '/api/auth/mfa/disable']) {
       const r = await call(side.url, pathname, {
@@ -112,7 +112,7 @@ test('MFA endpoints are admin-only on both backends', async () => {
   }
 });
 
-test('MFA challenge verify is brute-force throttled', async () => {
+test('MFA challenge verify is brute-force throttled', async() => {
   for (const side of [sqlite, npmfree]) {
     // Re-enroll (tests 1-2 disabled MFA at the end), get a real challenge,
     // then hammer it with wrong codes until the per-IP throttle engages.

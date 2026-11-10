@@ -9,7 +9,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -18,7 +18,7 @@ after(() => {
 });
 
 describe('staff → admin adjustment loop (submitter identity)', () => {
-  test('submission stamps the submitter on the pending request', async () => {
+  test('submission stamps the submitter on the pending request', async() => {
     for (const side of [sqlite, npmfree]) {
       const created = await call(side.url, '/api/stock-adjustments', {
         method: 'POST',
@@ -36,7 +36,7 @@ describe('staff → admin adjustment loop (submitter identity)', () => {
     }
   });
 
-  test('the admin approval queue surfaces the requester', async () => {
+  test('the admin approval queue surfaces the requester', async() => {
     for (const side of [sqlite, npmfree]) {
       const appr = await call(side.url, '/api/approvals', { token: side.token.admin });
       assert.strictEqual(appr.status, 200);
@@ -46,7 +46,7 @@ describe('staff → admin adjustment loop (submitter identity)', () => {
     }
   });
 
-  test('the decision records both sides: who counted, who decided', async () => {
+  test('the decision records both sides: who counted, who decided', async() => {
     for (const side of [sqlite, npmfree]) {
       const created = await call(side.url, '/api/stock-adjustments', {
         method: 'POST',
@@ -71,7 +71,7 @@ describe('staff → admin adjustment loop (submitter identity)', () => {
     }
   });
 
-  test('customer tokens cannot create adjustments (role wall intact)', async () => {
+  test('customer tokens cannot create adjustments (role wall intact)', async() => {
     for (const side of [sqlite, npmfree]) {
       const denied = await call(side.url, '/api/stock-adjustments', {
         method: 'POST',

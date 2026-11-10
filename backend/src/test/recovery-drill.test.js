@@ -382,7 +382,7 @@ async function runDrill(driver) {
 // One test per driver, sequentially: each drill stops and starts real servers,
 // and two at once would only make a failure harder to read.
 for (const driver of DRIVERS) {
-  test(`recovery drill (${driver.name}): populated → wiped → restored → admin console and both phone APIs work`, async () => {
+  test(`recovery drill (${driver.name}): populated → wiped → restored → admin console and both phone APIs work`, async() => {
     const result = await runDrill(driver);
     assert.equal(result.restoredRows, result.snapshotRows, `${driver.name}: restored rows equal the snapshot`);
   });

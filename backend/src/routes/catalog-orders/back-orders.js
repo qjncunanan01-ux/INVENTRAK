@@ -55,7 +55,7 @@ router.get('/', authenticateToken, (req, res) => {
     .prepare(
       `SELECT b.* FROM back_orders b WHERE b.inquiry_id IN (
          SELECT id FROM order_inquiries WHERE user_id = ? OR customer_email = ? COLLATE NOCASE
-       ) ORDER BY b.id DESC`
+       ) ORDER BY b.id DESC`,
     )
     .all(req.user.id, (owner && owner.email) || '');
   res.json(rows.map(rowFromDb));
@@ -83,7 +83,7 @@ router.post('/', authenticateToken, adminOnly, (req, res) => {
   let id;
   if (existing) {
     db.prepare(
-      "UPDATE back_orders SET reason = ?, requested_by_date = ?, status = ?, note = ?, updated_at = datetime('now') WHERE id = ?"
+      'UPDATE back_orders SET reason = ?, requested_by_date = ?, status = ?, note = ?, updated_at = datetime(\'now\') WHERE id = ?',
     ).run(reason == null ? existing.reason : reason, requested_by_date == null ? existing.requested_by_date : requested_by_date, status, note == null ? existing.note : note, existing.id);
     id = existing.id;
   } else {

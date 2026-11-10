@@ -140,7 +140,7 @@ function classifyFsnCatalog(products, sales, opts = {}) {
     .sort(
       (a, b) =>
         rank[a.classification] - rank[b.classification] ||
-        (a.recencyDays === null ? Infinity : a.recencyDays) - (b.recencyDays === null ? Infinity : b.recencyDays)
+        (a.recencyDays === null ? Infinity : a.recencyDays) - (b.recencyDays === null ? Infinity : b.recencyDays),
     );
 }
 

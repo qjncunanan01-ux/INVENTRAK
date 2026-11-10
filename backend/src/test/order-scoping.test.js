@@ -17,7 +17,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
@@ -57,7 +57,7 @@ async function placeInquiry(side, { token, email, name, paymentMethod = 'cod' })
 for (const side of [sqlite, npmfree]) {
   const label = side === sqlite ? 'sqlite' : 'npmfree';
 
-  test(`${label}: customer sees ONLY their own inquiries (user_id stamped)`, async () => {
+  test(`${label}: customer sees ONLY their own inquiries (user_id stamped)`, async() => {
     const alice = await registerAccount(side, 'a');
     const bob = await registerAccount(side, 'b');
 
@@ -87,7 +87,7 @@ for (const side of [sqlite, npmfree]) {
     assert.ok(!bobIds.includes(strangerOrder), `${label}: bob does NOT see the stranger's order`);
   });
 
-  test(`${label}: admin sees ALL inquiries regardless of owner`, async () => {
+  test(`${label}: admin sees ALL inquiries regardless of owner`, async() => {
     const alice = await registerAccount(side, 'admincheck');
     const own = await placeInquiry(side, { token: alice.token, email: alice.email, name: 'Alice2' });
     const legacy = await placeInquiry(side, { email: alice.email, name: 'Alice2 Guest' });
@@ -101,7 +101,7 @@ for (const side of [sqlite, npmfree]) {
     assert.ok(adminIds.includes(stranger), `${label}: admin sees the unrelated guest order`);
   });
 
-  test(`${label}: notifications feed is per-account (listOrderInquiries-backed)`, async () => {
+  test(`${label}: notifications feed is per-account (listOrderInquiries-backed)`, async() => {
     // The mobile NotificationsScreen calls listOrderInquiries({ limit: 100 })
     // with the session token and flattens each order's status_history into
     // cards (orderId, status, at, name, cost) — so the notification feed is
@@ -159,7 +159,7 @@ for (const side of [sqlite, npmfree]) {
     assert.ok(!aliceCardOrders.has(bobOrder), `${label}: alice feed has NO card for bob's order`);
     assert.ok(
       aliceCards.some(c => c.orderId === aliceOrder && c.status === 'approved'),
-      `${label}: alice feed shows the approved card for her order`
+      `${label}: alice feed shows the approved card for her order`,
     );
 
     // Bob's feed: ONLY his own order, and never a card for alice's orders.
@@ -168,7 +168,7 @@ for (const side of [sqlite, npmfree]) {
     assert.ok(!bobCardOrders.has(aliceLegacy), `${label}: bob feed has NO card for alice's legacy order`);
   });
 
-  test(`${label}: customer cannot tamper with another account's order`, async () => {
+  test(`${label}: customer cannot tamper with another account's order`, async() => {
     const alice = await registerAccount(side, 'tamper_a');
     const bob = await registerAccount(side, 'tamper_b');
     const aliceOrder = await placeInquiry(side, { token: alice.token, email: alice.email, name: 'Alice3', paymentMethod: 'gcash' });

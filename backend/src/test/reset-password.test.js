@@ -56,7 +56,7 @@ async function callCapturingReset(side, body) {
 
 let user;
 
-before(async () => {
+before(async() => {
   await bootBoth();
   user = `reset_${Date.now().toString(36)}`;
 });
@@ -65,7 +65,7 @@ after(() => {
   teardown();
 });
 
-test('reset: forgot-password returns 200 + identical shape on both backends, code arrives by email (not in the response)', async () => {
+test('reset: forgot-password returns 200 + identical shape on both backends, code arrives by email (not in the response)', async() => {
   // Register the same account on both backends (isolated stores).
   for (const side of [sqlite, npmfree]) {
     const reg = await call(side.url, '/api/auth/register', {
@@ -88,7 +88,7 @@ test('reset: forgot-password returns 200 + identical shape on both backends, cod
   assert.ok(!/\d{6}/.test(JSON.stringify(a.json)), 'response must not contain a 6-digit code');
 });
 
-test('reset: unknown email returns the SAME 200 (no user-enumeration oracle) and sends no code', async () => {
+test('reset: unknown email returns the SAME 200 (no user-enumeration oracle) and sends no code', async() => {
   for (const side of [sqlite, npmfree]) {
     const { res, lines } = await callCapturingReset(side, { email: 'nobody@nowhere.invalid' });
     assert.strictEqual(res.status, 200, `${side === sqlite ? 'sqlite' : 'npmfree'} unknown email still 200`);
@@ -97,7 +97,7 @@ test('reset: unknown email returns the SAME 200 (no user-enumeration oracle) and
   }
 });
 
-test('reset: missing email is a 400 with the standard error shape on both backends', async () => {
+test('reset: missing email is a 400 with the standard error shape on both backends', async() => {
   const { a, b } = await both('forgot-password missing email', '/api/auth/forgot-password', {
     method: 'POST',
     body: {},
@@ -117,7 +117,7 @@ async function requestCode(side) {
   return code;
 }
 
-test('reset: valid code + strong password updates login on BOTH backends (new works, old fails)', async () => {
+test('reset: valid code + strong password updates login on BOTH backends (new works, old fails)', async() => {
   for (const side of [sqlite, npmfree]) {
     const code = await requestCode(side);
 
@@ -151,7 +151,7 @@ test('reset: valid code + strong password updates login on BOTH backends (new wo
   }
 });
 
-test('reset: codes are single-use — a replayed code fails on BOTH backends', async () => {
+test('reset: codes are single-use — a replayed code fails on BOTH backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const code = await requestCode(side);
     const first = await call(side.url, '/api/auth/reset-password', {
@@ -167,7 +167,7 @@ test('reset: codes are single-use — a replayed code fails on BOTH backends', a
   }
 });
 
-test('reset: garbage / wrong-length codes are rejected (401) on both backends', async () => {
+test('reset: garbage / wrong-length codes are rejected (401) on both backends', async() => {
   const { a, b } = await both('garbage code', '/api/auth/reset-password', {
     method: 'POST',
     body: { code: '000000', password: 'Strong!Pass1' },
@@ -177,7 +177,7 @@ test('reset: garbage / wrong-length codes are rejected (401) on both backends', 
   assert.strictEqual(a.json.error, b.json.error);
 });
 
-test('reset: missing fields are 400 with the standard error shape', async () => {
+test('reset: missing fields are 400 with the standard error shape', async() => {
   const { a, b } = await both('reset missing fields', '/api/auth/reset-password', {
     method: 'POST',
     body: { code: '123456' },
@@ -187,14 +187,14 @@ test('reset: missing fields are 400 with the standard error shape', async () => 
   assert.ok(Array.isArray(a.json.details) && Array.isArray(b.json.details));
 });
 
-test('reset: case-insensitive email lookup finds the account on both backends', async () => {
+test('reset: case-insensitive email lookup finds the account on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const { res, lines } = await callCapturingReset(side, { email: `${user.toUpperCase()}@EXAMPLE.COM` });
     assert.strictEqual(res.status, 200);
     const code = extractCode(lines[0]);
     assert.ok(
       /^\d{6}$/.test(code || ''),
-      `${side === sqlite ? 'sqlite' : 'npmfree'} emailed a code for mixed-case email`
+      `${side === sqlite ? 'sqlite' : 'npmfree'} emailed a code for mixed-case email`,
     );
     // Clean up: consume the code so the store holds no outstanding tokens.
     await call(side.url, '/api/auth/reset-password', {

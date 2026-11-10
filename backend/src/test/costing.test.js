@@ -15,7 +15,7 @@ const assert = require('node:assert');
 const { computeCostingSnapshot } = require('../insights/costing');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 
@@ -186,7 +186,7 @@ describe('costing snapshot on order submission (both backends)', () => {
     return { productId, inquiryId: ordered.json.id };
   }
 
-  test('submitting an order freezes its costing snapshot', async () => {
+  test('submitting an order freezes its costing snapshot', async() => {
     for (const side of [sqlite, npmfree]) {
       const { inquiryId } = await seedCostedOrder(side);
       const res = await call(side.url, `/api/order-inquiries/${inquiryId}/costing`, {
@@ -205,7 +205,7 @@ describe('costing snapshot on order submission (both backends)', () => {
     }
   });
 
-  test('repricing the catalog does NOT rewrite history (the point of the table)', async () => {
+  test('repricing the catalog does NOT rewrite history (the point of the table)', async() => {
     for (const side of [sqlite, npmfree]) {
       const { productId, inquiryId } = await seedCostedOrder(side);
       const before = await call(side.url, `/api/order-inquiries/${inquiryId}/costing`, { token: side.token.admin });
@@ -229,7 +229,7 @@ describe('costing snapshot on order submission (both backends)', () => {
     }
   });
 
-  test('the costing record is scoped like the inquiry', async () => {
+  test('the costing record is scoped like the inquiry', async() => {
     for (const side of [sqlite, npmfree]) {
       const { inquiryId } = await seedCostedOrder(side);
       // Admin sees any inquiry's costing.
@@ -247,7 +247,7 @@ describe('costing snapshot on order submission (both backends)', () => {
     }
   });
 
-  test('an order of uncosted products records basis=none instead of a fake number', async () => {
+  test('an order of uncosted products records basis=none instead of a fake number', async() => {
     for (const side of [sqlite, npmfree]) {
       const productName = `Uncosted Widget ${Date.now()} ${Math.floor(Math.random() * 100000)}`;
       const made = await call(side.url, '/api/products', {
@@ -283,7 +283,7 @@ describe('costing snapshot on order submission (both backends)', () => {
 describe('cost of goods is never public', () => {
   const leaks = (payload) => ['"cost"', '"Cost"'].filter((k) => JSON.stringify(payload).includes(k));
 
-  test('the public catalog hides cost from anonymous, customer and staff', async () => {
+  test('the public catalog hides cost from anonymous, customer and staff', async() => {
     for (const side of [sqlite, npmfree]) {
       const made = await call(side.url, '/api/products', {
         method: 'POST',
@@ -309,7 +309,7 @@ describe('cost of goods is never public', () => {
     }
   });
 
-  test('the QR lookup hides cost from staff (authenticated is not entitled)', async () => {
+  test('the QR lookup hides cost from staff (authenticated is not entitled)', async() => {
     for (const side of [sqlite, npmfree]) {
       const asStaff = await call(side.url, '/api/products/qr/1', { token: side.token.staff });
       assert.strictEqual(asStaff.status, 200, `staff QR lookup on ${side.url}`);
@@ -317,7 +317,7 @@ describe('cost of goods is never public', () => {
     }
   });
 
-  test('the admin cost sheet is the one authenticated read that reveals cost', async () => {
+  test('the admin cost sheet is the one authenticated read that reveals cost', async() => {
     for (const side of [sqlite, npmfree]) {
       const denied = await call(side.url, '/api/products/costs', { token: side.token.customer });
       assert.strictEqual(denied.status, 403, `customer blocked from cost sheet on ${side.url}`);

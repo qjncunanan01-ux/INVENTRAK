@@ -5,9 +5,10 @@ process.env.SYLVER_POLICY_DEMO = 'true';
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('../src/test/harness');
+const { COMPANY_POLICY_VERSION } = require('../src/catalog-orders/company-policy');
 
 const SIDES = [['sqlite', sqlite], ['npmfree', npmfree]];
-const TERMS_VERSION = '2026-10-24-sylver-demo-v3';
+const TERMS_VERSION = COMPANY_POLICY_VERSION;
 const PROOF = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/9WQAAAAASUVORK5CYII=';
 let customerSequence = 0;
 

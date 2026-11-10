@@ -72,8 +72,8 @@ describe('AdminLayout responsive sidebar', () => {
     expect(screen.getByLabelText('Products')).toBeInTheDocument();
     // The rail shows the official Sylver symbol instead of the old "INV" text;
     // it is announced with the visible product name.
-    expect(screen.getByLabelText("Sylver's")).toHaveAttribute('role', 'img');
-    expect(screen.getByLabelText("Sylver's").querySelector('img')).not.toBeNull();
+    expect(screen.getByLabelText('Sylver\'s')).toHaveAttribute('role', 'img');
+    expect(screen.getByLabelText('Sylver\'s').querySelector('img')).not.toBeNull();
     expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument();
     expect(localStorage.getItem('inventrak.sidebar.collapsed')).toBe('1');
 

@@ -40,4 +40,6 @@ const LiquidGlassCard = React.forwardRef((
   );
 });
 
+LiquidGlassCard.displayName = 'LiquidGlassCard';
+
 export default LiquidGlassCard;

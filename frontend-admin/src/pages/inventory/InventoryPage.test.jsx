@@ -266,6 +266,6 @@ test('reorder CSV escapes quotes and neutralizes spreadsheet formulas', () => {
     recommended_quantity: null,
     recommendation_basis: 'manual_review',
   }]);
-  expect(csv).toContain(`"'=HYPERLINK(""https://bad.example"")"`);
+  expect(csv).toContain('"\'=HYPERLINK(""https://bad.example"")"');
   expect(csv).toContain('Manual review required');
 });

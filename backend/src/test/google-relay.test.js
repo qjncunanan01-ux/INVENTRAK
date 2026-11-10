@@ -73,11 +73,11 @@ function clearRelayEnv() {
 // Returns a restore function.
 function stubGoogleFetch() {
   const original = global.fetch;
-  global.fetch = async (input, init) => {
+  global.fetch = async(input, init) => {
     const u = String(input);
-    if (u.includes('/oauth2/v3/certs')) return { ok: true, json: async () => JWKS };
+    if (u.includes('/oauth2/v3/certs')) return { ok: true, json: async() => JWKS };
     if (u.includes('oauth2.googleapis.com/token')) {
-      return { ok: true, text: async () => JSON.stringify({ id_token: mintGoogleIdToken() }) };
+      return { ok: true, text: async() => JSON.stringify({ id_token: mintGoogleIdToken() }) };
     }
     return original(input, init);
   };
@@ -114,7 +114,7 @@ test('isAllowedReturnUrl accepts app deep links, localhost, and the deployed web
   // Env override adds extra origins; without it they are rejected.
   assert.strictEqual(
     isAllowedReturnUrl('https://myapp.example.com/cb', { GOOGLE_RETURN_HOSTS: 'myapp.example.com' }),
-    true
+    true,
   );
   assert.strictEqual(isAllowedReturnUrl('https://myapp.example.com/cb'), false);
   // Hosts we do not own can never carry the token.
@@ -133,16 +133,16 @@ test('hashifyWebReturnUrl moves https paths into the hash so static hosts never 
   // reads, and index.html is served for the bare origin.
   assert.strictEqual(
     hashifyWebReturnUrl('https://inventrak-mobile.onrender.com/google-auth'),
-    'https://inventrak-mobile.onrender.com/#/google-auth'
+    'https://inventrak-mobile.onrender.com/#/google-auth',
   );
   assert.strictEqual(
     hashifyWebReturnUrl('https://inventrak-mobile.onrender.com/google-auth?x=1'),
-    'https://inventrak-mobile.onrender.com/#/google-auth?x=1'
+    'https://inventrak-mobile.onrender.com/#/google-auth?x=1',
   );
   // Already hash-form (current app bundle) and app deep links pass through.
   assert.strictEqual(
     hashifyWebReturnUrl('https://inventrak-mobile.onrender.com/#/google-auth'),
-    'https://inventrak-mobile.onrender.com/#/google-auth'
+    'https://inventrak-mobile.onrender.com/#/google-auth',
   );
   assert.strictEqual(hashifyWebReturnUrl('exp://host/--/google-auth'), 'exp://host/--/google-auth');
   assert.strictEqual(hashifyWebReturnUrl('inventrak://google-auth'), 'inventrak://google-auth');
@@ -199,34 +199,34 @@ test('relayCallbackUrl honors the env override and request-derived https', () =>
   // Forwarded proto wins even on a non-render host.
   assert.strictEqual(
     relayCallbackUrl({ headers: { host: 'api.example.com', 'x-forwarded-proto': 'https' } }),
-    'https://api.example.com/api/auth/google/callback'
+    'https://api.example.com/api/auth/google/callback',
   );
   // Local dev (no forward header) stays http.
   assert.strictEqual(
     relayCallbackUrl({ headers: { host: 'localhost:4001' } }),
-    'http://localhost:4001/api/auth/google/callback'
+    'http://localhost:4001/api/auth/google/callback',
   );
   // Explicit override beats everything (deploy docs).
   assert.strictEqual(
     relayCallbackUrl(req, { GOOGLE_OAUTH_CALLBACK_URL: 'https://fixed.example/cb' }),
-    'https://fixed.example/cb'
+    'https://fixed.example/cb',
   );
 });
 
 // ================= Unit: code exchange (fake fetch) =================
 
-test('exchangeCodeForTokens succeeds and reports failures precisely', async () => {
+test('exchangeCodeForTokens succeeds and reports failures precisely', async() => {
   const ok = await exchangeCodeForTokens('the-code', {
     clientId: 'c',
     clientSecret: 's',
     redirectUri: 'http://localhost:4001/cb',
-    fetchImpl: async (u, init) => {
+    fetchImpl: async(u, init) => {
       assert.ok(u.includes('oauth2.googleapis.com/token'));
       assert.strictEqual(init.method, 'POST');
       assert.ok(init.body.includes('grant_type=authorization_code'));
       assert.ok(init.body.includes('code=the-code'));
       assert.ok(init.body.includes('client_secret=s'));
-      return { ok: true, text: async () => JSON.stringify({ id_token: 'jwt-1', access_token: 'at' }) };
+      return { ok: true, text: async() => JSON.stringify({ id_token: 'jwt-1', access_token: 'at' }) };
     },
   });
   assert.deepStrictEqual(ok, { ok: true, tokens: { id_token: 'jwt-1', access_token: 'at' } });
@@ -235,10 +235,10 @@ test('exchangeCodeForTokens succeeds and reports failures precisely', async () =
     clientId: 'c',
     clientSecret: 's',
     redirectUri: 'cb',
-    fetchImpl: async () => ({
+    fetchImpl: async() => ({
       ok: false,
       status: 400,
-      text: async () => '{"error":"invalid_grant","error_description":"bad code"}',
+      text: async() => '{"error":"invalid_grant","error_description":"bad code"}',
     }),
   });
   assert.deepStrictEqual(httpErr, { ok: false, reason: 'http_400', detail: 'bad code' });
@@ -247,7 +247,7 @@ test('exchangeCodeForTokens succeeds and reports failures precisely', async () =
     clientId: 'c',
     clientSecret: 's',
     redirectUri: 'cb',
-    fetchImpl: async () => ({ ok: true, text: async () => '{}' }),
+    fetchImpl: async() => ({ ok: true, text: async() => '{}' }),
   });
   assert.deepStrictEqual(noToken, { ok: false, reason: 'no-id-token' });
 
@@ -255,7 +255,7 @@ test('exchangeCodeForTokens succeeds and reports failures precisely', async () =
     clientId: 'c',
     clientSecret: 's',
     redirectUri: 'cb',
-    fetchImpl: async () => {
+    fetchImpl: async() => {
       throw new Error('boom');
     },
   });
@@ -266,7 +266,7 @@ test('exchangeCodeForTokens succeeds and reports failures precisely', async () =
   assert.deepStrictEqual(missing, { ok: false, reason: 'missing-params' });
 });
 
-test('exchangeCodeForTokens with the DEFAULT fetch forwards POST + body (regression: http_404 live bug)', async () => {
+test('exchangeCodeForTokens with the DEFAULT fetch forwards POST + body (regression: http_404 live bug)', async() => {
   // The default fetchImpl must forward init — an earlier version only passed
   // the URL, so the live server sent a plain GET to Google's token endpoint,
   // which answers 404 (POST only). Inject via global.fetch, exactly like the
@@ -274,10 +274,10 @@ test('exchangeCodeForTokens with the DEFAULT fetch forwards POST + body (regress
   const original = global.fetch;
   let seenMethod = null;
   let seenBody = null;
-  global.fetch = async (u, init) => {
+  global.fetch = async(u, init) => {
     seenMethod = init && init.method;
     seenBody = init && init.body;
-    return { ok: true, text: async () => JSON.stringify({ id_token: 'jwt-x' }) };
+    return { ok: true, text: async() => JSON.stringify({ id_token: 'jwt-x' }) };
   };
   try {
     const res = await exchangeCodeForTokens('the-code', {
@@ -289,7 +289,7 @@ test('exchangeCodeForTokens with the DEFAULT fetch forwards POST + body (regress
     assert.strictEqual(seenMethod, 'POST', 'default fetchImpl must send POST');
     assert.ok(
       seenBody && seenBody.includes('grant_type=authorization_code'),
-      'default fetchImpl must send the form body'
+      'default fetchImpl must send the form body',
     );
   } finally {
     global.fetch = original;
@@ -298,27 +298,27 @@ test('exchangeCodeForTokens with the DEFAULT fetch forwards POST + body (regress
 
 // ================= Server-level: both backends =================
 
-test('start returns 501 when the relay is not configured (both backends)', async () => {
+test('start returns 501 when the relay is not configured (both backends)', async() => {
   clearRelayEnv();
   const { a, b } = await both(
     'start-unconfigured',
     '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth'),
     {
       method: 'GET',
-    }
+    },
   );
   assert.strictEqual(a.status, 501);
   assert.strictEqual(b.status, 501);
 });
 
-test('start rejects disallowed return urls (both backends)', async () => {
+test('start rejects disallowed return urls (both backends)', async() => {
   setRelayEnv();
   const { a, b } = await both(
     'start-bad-return',
     '/api/auth/google/start?returnUrl=' + encodeURIComponent('https://evil.example.com/phish'),
     {
       method: 'GET',
-    }
+    },
   );
   assert.strictEqual(a.status, 400);
   assert.strictEqual(b.status, 400);
@@ -327,7 +327,7 @@ test('start rejects disallowed return urls (both backends)', async () => {
   clearRelayEnv();
 });
 
-test('callback rejects a missing/unknown state (both backends)', async () => {
+test('callback rejects a missing/unknown state (both backends)', async() => {
   setRelayEnv();
   const { a, b } = await both('callback-no-state', '/api/auth/google/callback?code=abc', { method: 'GET' });
   assert.strictEqual(a.status, 400);
@@ -336,7 +336,7 @@ test('callback rejects a missing/unknown state (both backends)', async () => {
   clearRelayEnv();
 });
 
-test('start redirects to Google with a state + the backend callback (both backends)', async () => {
+test('start redirects to Google with a state + the backend callback (both backends)', async() => {
   setRelayEnv();
   const restore = stubGoogleFetch();
   try {
@@ -355,14 +355,14 @@ test('start redirects to Google with a state + the backend callback (both backen
   }
 });
 
-test('callback relays a Google denial to the app deep link (both backends)', async () => {
+test('callback relays a Google denial to the app deep link (both backends)', async() => {
   setRelayEnv();
   try {
     for (const side of [sqlite, npmfree]) {
       // Mint a state the way the app flow does (start -> extract state).
       const start = await rawGet(
         side.url,
-        '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth')
+        '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth'),
       );
       const state = new URL(start.location).searchParams.get('state');
       const cb = await rawGet(side.url, `/api/auth/google/callback?state=${state}&error=access_denied`);
@@ -377,16 +377,16 @@ test('callback relays a Google denial to the app deep link (both backends)', asy
   }
 });
 
-test('relay uses the Google profile name as the username (both backends)', async () => {
+test('relay uses the Google profile name as the username (both backends)', async() => {
   setRelayEnv();
   const original = global.fetch;
-  global.fetch = async (input, init) => {
+  global.fetch = async(input, init) => {
     const u = String(input);
-    if (u.includes('/oauth2/v3/certs')) return { ok: true, json: async () => JWKS };
+    if (u.includes('/oauth2/v3/certs')) return { ok: true, json: async() => JWKS };
     if (u.includes('oauth2.googleapis.com/token')) {
       return {
         ok: true,
-        text: async () =>
+        text: async() =>
           JSON.stringify({
             id_token: mintGoogleIdToken({ name: 'Jerico Cunanan', email: 'jerico.cunanan@gmail.com' }),
           }),
@@ -398,7 +398,7 @@ test('relay uses the Google profile name as the username (both backends)', async
     for (const side of [sqlite, npmfree]) {
       const start = await rawGet(
         side.url,
-        '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth')
+        '/api/auth/google/start?returnUrl=' + encodeURIComponent('exp://host/--/auth'),
       );
       const state = new URL(start.location).searchParams.get('state');
       const cb = await rawGet(side.url, `/api/auth/google/callback?state=${state}&code=name-code`);
@@ -416,7 +416,7 @@ test('relay uses the Google profile name as the username (both backends)', async
   }
 });
 
-test('full relay happy path creates the account and returns a working token (both backends)', async () => {
+test('full relay happy path creates the account and returns a working token (both backends)', async() => {
   setRelayEnv();
   const restore = stubGoogleFetch();
   try {
@@ -446,7 +446,7 @@ test('full relay happy path creates the account and returns a working token (bot
       const users = await call(side.url, '/api/users', { token: side.token.admin });
       assert.ok(
         users.json.some(u => u.email === 'relay.user@gmail.com'),
-        'google account row present'
+        'google account row present',
       );
 
       // State is single-use: replaying the callback is rejected.

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import ReconciliationPage from './ReconciliationPage';
@@ -72,7 +72,7 @@ const renderPage = () => render(
     <MemoryRouter>
       <ReconciliationPage onLogout={() => {}} />
     </MemoryRouter>
-  </ThemeProvider>
+  </ThemeProvider>,
 );
 
 async function fillCount({ product = '1', shelf = '1', qty = '97' } = {}) {
@@ -90,7 +90,7 @@ describe('ReconciliationPage', () => {
     routeApi();
   });
 
-  it('prints the formula beside its own numbers', async () => {
+  it('prints the formula beside its own numbers', async() => {
     renderPage();
     const panel = await screen.findByLabelText('Reconciliation report');
     await waitFor(() => expect(panel).toHaveTextContent('Da Vinci Butterscotch Sauce'));
@@ -98,7 +98,7 @@ describe('ReconciliationPage', () => {
     expect(screen.getByText(/unexplained = system_now/)).toBeInTheDocument();
   });
 
-  it('flags an unaccounted loss with its money value', async () => {
+  it('flags an unaccounted loss with its money value', async() => {
     renderPage();
     const panel = await screen.findByLabelText('Reconciliation report');
     await waitFor(() => expect(panel).toHaveTextContent('Unaccounted'));
@@ -106,13 +106,13 @@ describe('ReconciliationPage', () => {
     expect(panel).toHaveTextContent('on the books but not on the shelf');
   });
 
-  it('shows the row detail in words, not just numbers', async () => {
+  it('shows the row detail in words, not just numbers', async() => {
     renderPage();
     const panel = await screen.findByLabelText('Reconciliation report');
     await waitFor(() => expect(panel).toHaveTextContent('cannot account for'));
   });
 
-  it('never names a cause for the loss', async () => {
+  it('never names a cause for the loss', async() => {
     renderPage();
     const panel = await screen.findByLabelText('Reconciliation report');
     await waitFor(() => expect(panel).toHaveTextContent('Unaccounted'));
@@ -135,7 +135,7 @@ describe('ReconciliationPage', () => {
     expect(panel.textContent.toLowerCase()).toContain('does not say why');
   });
 
-  it('does not read as clean when nothing has been counted', async () => {
+  it('does not read as clean when nothing has been counted', async() => {
     routeApi({
       reconciliation: {
         rows: [],
@@ -153,7 +153,7 @@ describe('ReconciliationPage', () => {
     expect(panel).toHaveTextContent('Nothing to compare yet');
   });
 
-  it('tells staff they can count but cannot read the report', async () => {
+  it('tells staff they can count but cannot read the report', async() => {
     mockRole = 'staff';
     renderPage();
     expect(await screen.findByText(/it is admin-tier/)).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe('ReconciliationPage', () => {
     expect(apiGet.mock.calls.some(c => String(c[0]).includes('/reconciliation'))).toBe(false);
   });
 
-  it('records a count and reports the difference in plain words', async () => {
+  it('records a count and reports the difference in plain words', async() => {
     apiPost.mockResolvedValue({ ok: true, count_id: 1, counted_qty: 97, system_qty: 100, variance: -3 });
     renderPage();
     await fillCount();
@@ -174,13 +174,13 @@ describe('ReconciliationPage', () => {
     expect(await screen.findByText(/Difference of 3 units missing/)).toBeInTheDocument();
   });
 
-  it('shows the system figure while counting, so the gap is visible', async () => {
+  it('shows the system figure while counting, so the gap is visible', async() => {
     renderPage();
     await fillCount();
     expect(await screen.findByText('The system currently says 100 on this shelf.')).toBeInTheDocument();
   });
 
-  it('will not submit an empty or negative count', async () => {
+  it('will not submit an empty or negative count', async() => {
     apiPost.mockResolvedValue({});
     renderPage();
     await screen.findByLabelText('Product');
@@ -189,7 +189,7 @@ describe('ReconciliationPage', () => {
     expect(apiPost).not.toHaveBeenCalled();
   });
 
-  it('refuses a count that is not a number rather than coercing it to 0', async () => {
+  it('refuses a count that is not a number rather than coercing it to 0', async() => {
     // The backend rejects these too; the page must not turn "" into a real
     // count of zero, which would look like an empty shelf.
     apiPost.mockResolvedValue({});
@@ -202,7 +202,7 @@ describe('ReconciliationPage', () => {
     expect(apiPost).not.toHaveBeenCalled();
   });
 
-  it('keeps a counted shelf out of the default view when it balances', async () => {
+  it('keeps a counted shelf out of the default view when it balances', async() => {
     routeApi({
       reconciliation: {
         rows: [],

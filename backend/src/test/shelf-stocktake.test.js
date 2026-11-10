@@ -159,7 +159,7 @@ describe('shelfDetail — the shelf in the counter’s hands', () => {
 // HTTP, on both backends
 // ---------------------------------------------------------------------------
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
@@ -167,7 +167,7 @@ after(() => {
 });
 
 describe('GET /api/inventory/shelf-stocktake/:id', () => {
-  test('staff can read the shelf they are standing at', async () => {
+  test('staff can read the shelf they are standing at', async() => {
     for (const side of [sqlite, npmfree]) {
       const tag = side === sqlite ? 'sqlite' : 'npmfree';
       const locs = await call(side.url, '/api/locations', { token: side.token.staff });
@@ -183,7 +183,7 @@ describe('GET /api/inventory/shelf-stocktake/:id', () => {
     }
   });
 
-  test('an unauthenticated request is refused', async () => {
+  test('an unauthenticated request is refused', async() => {
     for (const side of [sqlite, npmfree]) {
       const locs = await call(side.url, '/api/locations', { token: side.token.staff });
       const res = await call(side.url, `/api/inventory/shelf-stocktake/${locs.json[0].id}`);
@@ -191,14 +191,14 @@ describe('GET /api/inventory/shelf-stocktake/:id', () => {
     }
   });
 
-  test('a shelf that does not exist is 404 on both backends', async () => {
+  test('a shelf that does not exist is 404 on both backends', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/inventory/shelf-stocktake/999999', { token: side.token.admin });
       assert.strictEqual(res.status, 404);
     }
   });
 
-  test('both backends report the same lines and the same coverage', async () => {
+  test('both backends report the same lines and the same coverage', async() => {
     const boards = {};
     for (const side of [sqlite, npmfree]) {
       const tag = side === sqlite ? 'sqlite' : 'npmfree';
@@ -219,11 +219,11 @@ describe('GET /api/inventory/shelf-stocktake/:id', () => {
 });
 
 describe('POST /api/inventory/counts — a shelf walk in one request', () => {
-  const shelfFor = async (side) => {
+  const shelfFor = async(side) => {
     const locs = await call(side.url, '/api/locations', { token: side.token.admin });
     return locs.json[0].id;
   };
-  const productsFor = async (side) => {
+  const productsFor = async(side) => {
     const inv = await call(side.url, '/api/inventory', { token: side.token.admin });
     const locName = inv.json.locations[0].name;
     return inv.json.items
@@ -235,7 +235,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
   // drivers are in the same state, and every test below this one counts lines —
   // so once any of them has run, the two shelves have drifted by exactly the
   // lines that test touched.
-  test('both backends accept the walk and report the same remaining work', async () => {
+  test('both backends accept the walk and report the same remaining work', async() => {
     const results = {};
     for (const side of [sqlite, npmfree]) {
       const tag = side === sqlite ? 'sqlite' : 'npmfree';
@@ -256,7 +256,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
     assert.strictEqual(results.npmfree.coverage, results.sqlite.coverage);
   });
 
-  test('a walk of several lines is recorded in one call', async () => {
+  test('a walk of several lines is recorded in one call', async() => {
     for (const side of [sqlite, npmfree]) {
       const tag = side === sqlite ? 'sqlite' : 'npmfree';
       const location_id = await shelfFor(side);
@@ -276,7 +276,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
     }
   });
 
-  test('counting a shelf makes those lines fresh on the read that follows', async () => {
+  test('counting a shelf makes those lines fresh on the read that follows', async() => {
     const side = sqlite;
     const location_id = await shelfFor(side);
     const ids = await productsFor(side);
@@ -292,7 +292,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
     }
   });
 
-  test('ONE bad line writes NOTHING — the batch is all-or-nothing', async () => {
+  test('ONE bad line writes NOTHING — the batch is all-or-nothing', async() => {
     // The whole point of validating first. If this ever writes the good lines,
     // a shelf can end up half-walked, which the schedule reads as "somebody
     // started and stopped" rather than "nobody has been here".
@@ -333,7 +333,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
     }
   });
 
-  test('a duplicate product in one walk is refused, not silently resolved', async () => {
+  test('a duplicate product in one walk is refused, not silently resolved', async() => {
     // There would be no way to say which of the two figures was the one counted.
     for (const side of [sqlite, npmfree]) {
       const tag = side === sqlite ? 'sqlite' : 'npmfree';
@@ -355,7 +355,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
     }
   });
 
-  test('an empty batch and a bad location are both refused', async () => {
+  test('an empty batch and a bad location are both refused', async() => {
     for (const side of [sqlite, npmfree]) {
       const tag = side === sqlite ? 'sqlite' : 'npmfree';
       const location_id = await shelfFor(side);
@@ -384,7 +384,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
     }
   });
 
-  test('a batch beyond the cap is refused rather than buffered', async () => {
+  test('a batch beyond the cap is refused rather than buffered', async() => {
     const { MAX_BATCH_LINES } = require('../config');
     for (const side of [sqlite, npmfree]) {
       const tag = side === sqlite ? 'sqlite' : 'npmfree';
@@ -402,7 +402,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
     }
   });
 
-  test('a partial walk is allowed, and still reports what is left', async () => {
+  test('a partial walk is allowed, and still reports what is left', async() => {
     const side = sqlite;
     const location_id = await shelfFor(side);
     const ids = await productsFor(side);
@@ -416,7 +416,7 @@ describe('POST /api/inventory/counts — a shelf walk in one request', () => {
     assert.ok(res.json.shelf.lines_remaining > 0, 'the shelf is NOT clear — one line of many');
   });
 
-  test('an unauthenticated walk is refused', async () => {
+  test('an unauthenticated walk is refused', async() => {
     for (const side of [sqlite, npmfree]) {
       const res = await call(side.url, '/api/inventory/counts', {
         method: 'POST',

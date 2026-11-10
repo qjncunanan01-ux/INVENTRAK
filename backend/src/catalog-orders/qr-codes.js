@@ -230,14 +230,14 @@ async function handleQrProductLookup(req, res, sendJson, ctx) {
 // server, and the API's strict CSP is relaxed just for this one surface
 // (images + inline styles) while staying frame-ancestors 'none'.
 function renderTagPageHtml(result) {
-  const esc = (s) => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const esc = (s) => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c]));
   const shell = (inner) => `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sylver's</title></head><body style="font-family:system-ui,-apple-system,sans-serif;background:#eef7e1;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box"><div style="max-width:420px;width:100%;background:#fff;border-radius:18px;padding:26px;box-shadow:0 8px 30px rgba(0,0,0,0.08);text-align:center">${inner}</div></body></html>`;
 
   if (!result || result.status !== 200) {
     const msg = result && result.body && Array.isArray(result.body.details) && result.body.details[0] ? result.body.details[0] : 'Tag not found.';
     return shell(
-      `<div style="font-size:36px;line-height:1">▦</div>` +
-      `<h1 style="font-size:19px;margin:10px 0 2px;color:#1a1a1a">Sylver's</h1>` +
+      '<div style="font-size:36px;line-height:1">▦</div>' +
+      '<h1 style="font-size:19px;margin:10px 0 2px;color:#1a1a1a">Sylver\'s</h1>' +
       `<p style="color:#555;font-size:14px;line-height:1.5;margin:14px 0 0">${esc(msg)}</p>`,
     );
   }

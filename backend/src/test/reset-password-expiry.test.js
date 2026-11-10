@@ -29,7 +29,7 @@ function extractCode(line) {
 
 let user;
 
-before(async () => {
+before(async() => {
   await bootBoth();
   user = `reset_exp_${Date.now().toString(36)}`;
 });
@@ -38,7 +38,7 @@ after(() => {
   teardown();
 });
 
-test('reset: a code older than the TTL is rejected as expired on BOTH backends', async () => {
+test('reset: a code older than the TTL is rejected as expired on BOTH backends', async() => {
   for (const side of [sqlite, npmfree]) {
     await call(side.url, '/api/auth/register', {
       method: 'POST',
@@ -84,7 +84,7 @@ test('reset: a code older than the TTL is rejected as expired on BOTH backends',
     assert.strictEqual(
       login.status,
       200,
-      `${side === sqlite ? 'sqlite' : 'npmfree'} original password intact after expiry`
+      `${side === sqlite ? 'sqlite' : 'npmfree'} original password intact after expiry`,
     );
   }
 });

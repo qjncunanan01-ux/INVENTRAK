@@ -44,12 +44,12 @@ router.put('/:id', authenticateToken, adminOnly, (req, res) => {
 
   const { name, business_name, contact_number, email, address } = req.body || {};
   if (email !== undefined && email !== null && email !== '') {
-    const clash = db.prepare("SELECT id FROM customers WHERE lower(email) = lower(?) AND id != ?").get(String(email).trim(), req.params.id);
+    const clash = db.prepare('SELECT id FROM customers WHERE lower(email) = lower(?) AND id != ?').get(String(email).trim(), req.params.id);
     if (clash) return res.status(409).json({ error: 'Another customer already uses this email' });
   }
 
   db.prepare(
-    `UPDATE customers SET name = ?, business_name = ?, contact_number = ?, email = ?, address = ?, updated_at = datetime('now') WHERE id = ?`,
+    'UPDATE customers SET name = ?, business_name = ?, contact_number = ?, email = ?, address = ?, updated_at = datetime(\'now\') WHERE id = ?',
   ).run(
     name != null ? sanitizeObject(name) : existing.name,
     business_name != null ? sanitizeObject(business_name) : existing.business_name,

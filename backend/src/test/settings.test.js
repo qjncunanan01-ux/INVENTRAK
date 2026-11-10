@@ -55,7 +55,7 @@ test('settings: cloud persistence survives a settings-module restart', () => {
   assert.deepEqual(settings.getPersistenceStatus(), { durable: true, backend: 'test-cloud' });
 });
 
-test('settings: GET returns defaults and shapes match across backends', async () => {
+test('settings: GET returns defaults and shapes match across backends', async() => {
   resetSettingsFile();
   const a = await call(sqlite.url, '/api/settings', { token: sqlite.token.owner });
   const b = await call(npmfree.url, '/api/settings', { token: npmfree.token.owner });
@@ -68,7 +68,7 @@ test('settings: GET returns defaults and shapes match across backends', async ()
   assert.strictEqual(a.json.session_token_hours, 24);
 });
 
-test('settings: RBAC — management reads and writes; admin, staff and customer are refused', async () => {
+test('settings: RBAC — management reads and writes; admin, staff and customer are refused', async() => {
   for (const side of [sqlite, npmfree]) {
     // Admin cannot view or change system-wide runtime configuration.
     const adminGet = await call(side.url, '/api/settings', { token: side.token.admin });
@@ -107,7 +107,7 @@ test('settings: RBAC — management reads and writes; admin, staff and customer 
   }
 });
 
-test('settings: PUT validates and clamps values identically', async () => {
+test('settings: PUT validates and clamps values identically', async() => {
   for (const side of [sqlite, npmfree]) {
     // Out-of-range window → 400 with details.
     const bad = await call(side.url, '/api/settings', {
@@ -136,7 +136,7 @@ test('settings: PUT validates and clamps values identically', async () => {
   }
 });
 
-test('settings: fsn_window_days LIVE-affects the FSN endpoint default', async () => {
+test('settings: fsn_window_days LIVE-affects the FSN endpoint default', async() => {
   for (const side of [sqlite, npmfree]) {
     // Narrow the default window to 7 days.
     const put = await call(side.url, '/api/settings', {
@@ -158,7 +158,7 @@ test('settings: fsn_window_days LIVE-affects the FSN endpoint default', async ()
   }
 });
 
-test('settings: demo_accounts_disabled LIVE-blocks demo logins (generic error)', async () => {
+test('settings: demo_accounts_disabled LIVE-blocks demo logins (generic error)', async() => {
   for (const side of [sqlite, npmfree]) {
     const put = await call(side.url, '/api/settings', {
       method: 'PUT',

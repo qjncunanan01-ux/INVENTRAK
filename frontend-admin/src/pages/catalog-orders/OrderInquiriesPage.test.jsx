@@ -105,7 +105,7 @@ function renderPage() {
   );
 }
 
-test('a rejection cannot be confirmed without a category, and sends the selected reason plus detail', async () => {
+test('a rejection cannot be confirmed without a category, and sends the selected reason plus detail', async() => {
   renderPage();
   await screen.findByText('Ana Reyes');
 
@@ -133,7 +133,7 @@ test('a rejection cannot be confirmed without a category, and sends the selected
   });
 });
 
-test('Other requires a non-whitespace explanation', async () => {
+test('Other requires a non-whitespace explanation', async() => {
   renderPage();
   await screen.findByText('Ana Reyes');
   const row = screen.getByText('Ana Reyes').closest('tr');
@@ -148,12 +148,12 @@ test('Other requires a non-whitespace explanation', async () => {
   expect(within(dialog).getByRole('button', { name: /confirm/i }).disabled).toBe(true);
 });
 
-test('the stored rejection reason is readable on the row without opening Details', async () => {
+test('the stored rejection reason is readable on the row without opening Details', async() => {
   renderPage();
   expect(await screen.findByText('Oat Milk is out of stock until next week.')).toBeInTheDocument();
 });
 
-test('a cancelled inquiry reads as a cancellation, not as a rejection', async () => {
+test('a cancelled inquiry reads as a cancellation, not as a rejection', async() => {
   renderPage();
   await screen.findByText('Cara Lim');
   expect(screen.getByText('Cancelled by customer')).toBeInTheDocument();
@@ -162,7 +162,7 @@ test('a cancelled inquiry reads as a cancellation, not as a rejection', async ()
   expect(screen.getAllByText('Rejected').length).toBeLessThan(3);
 });
 
-test('the fulfilment preference is visible per order', async () => {
+test('the fulfilment preference is visible per order', async() => {
   renderPage();
   await screen.findByText('Ana Reyes');
   const courierRow = screen.getByText('Ana Reyes').closest('tr');
@@ -171,7 +171,7 @@ test('the fulfilment preference is visible per order', async () => {
   expect(within(pickupRow).getByText('PICKUP')).toBeInTheDocument();
 });
 
-test('an approved legacy order offers preparation, not a separate approval action', async () => {
+test('an approved legacy order offers preparation, not a separate approval action', async() => {
   apiGet.mockImplementation((path) =>
     Promise.resolve(
       String(path).startsWith('/api/order-inquiries')

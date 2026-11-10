@@ -20,7 +20,7 @@ function productQrPayload(code) {
   return `INVENTRAK:PROD:${code}`;
 }
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
@@ -44,7 +44,7 @@ function forgeToken(userId, exp, scope = 'session') {
   return `demo-token-${payload}.${sig}`;
 }
 
-test('npm-free tokens expire: an expired token never authenticates', async () => {
+test('npm-free tokens expire: an expired token never authenticates', async() => {
   const expired = forgeToken(2, Date.now() - 60_000); // customer id 2
   const r = await call(npmfree.url, '/api/auth/me', { token: expired });
   assert.strictEqual(r.status, 403, 'expired token must be rejected');
@@ -56,7 +56,7 @@ test('npm-free tokens expire: an expired token never authenticates', async () =>
   assert.strictEqual(ok.json.id, 2);
 });
 
-test('npm-free tokens are signed: tampering with the expiry invalidates them', async () => {
+test('npm-free tokens are signed: tampering with the expiry invalidates them', async() => {
   // Real session token from the harness login.
   const valid = npmfree.token.customer;
   assert.ok(valid && valid.startsWith('demo-token-'));
@@ -68,7 +68,7 @@ test('npm-free tokens are signed: tampering with the expiry invalidates them', a
   assert.strictEqual(r.status, 403, 'tampered expiry must be rejected');
 });
 
-test('registration cannot escalate the role — role is always customer', async () => {
+test('registration cannot escalate the role — role is always customer', async() => {
   const body = {
     username: 'rolehacker',
     password: 'Str0ng!Pass',
@@ -83,7 +83,7 @@ test('registration cannot escalate the role — role is always customer', async 
   assert.strictEqual(b.json.user.role, 'customer');
 });
 
-test('register and login reject the bot honeypot field', async () => {
+test('register and login reject the bot honeypot field', async() => {
   const body = {
     username: 'honeypot',
     password: 'Str0ng!Pass',
@@ -117,7 +117,7 @@ test('QR payload parser rejects injection and arbitrary payloads', () => {
   assert.strictEqual(ok.value, 'MILK-001');
 });
 
-test('QR lookup never leaks sensitive fields and staff gate holds on both backends', async () => {
+test('QR lookup never leaks sensitive fields and staff gate holds on both backends', async() => {
   // Lookup returns catalog/stock data only — never cost, supplier, or user PII.
   const a = await call(sqlite.url, '/api/products/qr/1', { token: sqlite.token.staff });
   assert.strictEqual(a.status, 200);
@@ -131,17 +131,17 @@ test('QR lookup never leaks sensitive fields and staff gate holds on both backen
   assert.strictEqual(asCustomer.status, 403, 'customer token must not use the staff QR lookup');
 });
 
-test('both backends send security headers on API responses', async () => {
+test('both backends send security headers on API responses', async() => {
   for (const side of [sqlite, npmfree]) {
     const res = await fetch(`${side.url}/api/openapi.json`);
     assert.strictEqual(res.headers.get('x-content-type-options'), 'nosniff');
     assert.strictEqual(res.headers.get('x-frame-options'), 'DENY');
     assert.strictEqual(res.headers.get('referrer-policy'), 'no-referrer');
-    assert.ok(res.headers.get('content-security-policy').includes("default-src 'none'"));
+    assert.ok(res.headers.get('content-security-policy').includes('default-src \'none\''));
   }
 });
 
-test('requests behind an http proxy are redirected to https (301)', async () => {
+test('requests behind an http proxy are redirected to https (301)', async() => {
   for (const side of [sqlite, npmfree]) {
     const res = await fetch(`${side.url}/api/health`, {
       headers: { 'x-forwarded-proto': 'http' },
@@ -152,7 +152,7 @@ test('requests behind an http proxy are redirected to https (301)', async () => 
   }
 });
 
-test('sales ledger and alert feeds are admin-only reads (no customer PII leak)', async () => {
+test('sales ledger and alert feeds are admin-only reads (no customer PII leak)', async() => {
   // A customer must never see the full sales ledger (it contains other
   // customers' names) or the operational alert feed — the mobile client
   // exports these but no customer screen calls them. Both backends agree.

@@ -13,7 +13,7 @@ process.env.INVENTRAK_DATA_DIR = path.join(tmpDir, 'data');
 fs.mkdirSync(process.env.INVENTRAK_DATA_DIR, { recursive: true });
 fs.copyFileSync(
   path.join(__dirname, '..', '..', 'data', 'products.json'),
-  path.join(process.env.INVENTRAK_DATA_DIR, 'products.json')
+  path.join(process.env.INVENTRAK_DATA_DIR, 'products.json'),
 );
 fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'order_inquiries.json'), '[]');
 fs.writeFileSync(path.join(process.env.INVENTRAK_DATA_DIR, 'stock_movements.json'), '[]');
@@ -25,7 +25,7 @@ let baseUrl;
 let adminToken;
 let ownerToken;
 
-before(async () => {
+before(async() => {
   server = createServer(0);
   const port = server.address().port;
   baseUrl = `http://127.0.0.1:${port}`;
@@ -70,15 +70,15 @@ async function managementRequest(path, options = {}) {
   return { status: res.status, body };
 }
 
-test('GET /api/products returns products list', async () => {
+test('GET /api/products returns products list', async() => {
   const { status, body } = await request('/api/products');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body), 'expected body to be an array');
   assert.ok(body.length > 0, 'expected at least one product');
-  assert.ok(body[0].hasOwnProperty('name'));
+  assert.ok(Object.prototype.hasOwnProperty.call(body[0], 'name'));
 });
 
-test('POST /api/auth/login returns a token and user', async () => {
+test('POST /api/auth/login returns a token and user', async() => {
   const { status, body } = await request('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -89,21 +89,21 @@ test('POST /api/auth/login returns a token and user', async () => {
   assert.ok(body.token);
 });
 
-test('GET /api/inventory returns inventory data', async () => {
+test('GET /api/inventory returns inventory data', async() => {
   const { status, body } = await request('/api/inventory');
   assert.strictEqual(status, 200);
   assert.ok(body.locations);
   assert.ok(body.items);
 });
 
-test('GET /api/locations returns locations list', async () => {
+test('GET /api/locations returns locations list', async() => {
   const { status, body } = await request('/api/locations');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
   assert.ok(body.length > 0);
 });
 
-test('POST /api/stock-movement records a movement', async () => {
+test('POST /api/stock-movement records a movement', async() => {
   const { status, body } = await authRequest('/api/stock-movement', {
     method: 'POST',
     body: JSON.stringify({ product_id: 1, qty: 3, type: 'stock-in', dst_location: 'Showroom' }),
@@ -112,7 +112,7 @@ test('POST /api/stock-movement records a movement', async () => {
   assert.strictEqual(body.ok, true);
 });
 
-test('POST /api/stock-movement requires auth', async () => {
+test('POST /api/stock-movement requires auth', async() => {
   const { status } = await request('/api/stock-movement', {
     method: 'POST',
     body: JSON.stringify({ product_id: 1, qty: 3, type: 'stock-in', dst_location: 'Showroom' }),
@@ -120,25 +120,25 @@ test('POST /api/stock-movement requires auth', async () => {
   assert.strictEqual(status, 401);
 });
 
-test('GET /api/stock-movements returns movements', async () => {
+test('GET /api/stock-movements returns movements', async() => {
   const { status, body } = await request('/api/stock-movements');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('GET /api/stock-lots returns lot data', async () => {
+test('GET /api/stock-lots returns lot data', async() => {
   const { status, body } = await request('/api/stock-lots');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('GET /api/optimization/abc returns classifications', async () => {
+test('GET /api/optimization/abc returns classifications', async() => {
   const { status, body } = await managementRequest('/api/optimization/abc');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('GET /api/optimization/1 returns EOQ data', async () => {
+test('GET /api/optimization/1 returns EOQ data', async() => {
   const { status, body } = await managementRequest('/api/optimization/1');
   assert.strictEqual(status, 200);
   assert.ok(body.EOQ);
@@ -146,7 +146,7 @@ test('GET /api/optimization/1 returns EOQ data', async () => {
   assert.ok(body.safetyStock);
 });
 
-test('POST /api/order-inquiries stores inquiry', async () => {
+test('POST /api/order-inquiries stores inquiry', async() => {
   const { status, body } = await request('/api/order-inquiries', {
     method: 'POST',
     body: JSON.stringify({
@@ -162,13 +162,13 @@ test('POST /api/order-inquiries stores inquiry', async () => {
   assert.strictEqual(body.ok, true);
 });
 
-test('GET /api/order-inquiries returns inquiries', async () => {
+test('GET /api/order-inquiries returns inquiries', async() => {
   const { status, body } = await authRequest('/api/order-inquiries');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('CRUD locations', async () => {
+test('CRUD locations', async() => {
   const createRes = await authRequest('/api/locations', {
     method: 'POST',
     body: JSON.stringify({ name: `Test Loc ${Date.now()}` }),
@@ -177,7 +177,7 @@ test('CRUD locations', async () => {
   assert.ok(createRes.body.id);
 });
 
-test('GET /api/analytics/summary returns dashboard data (admin tier only)', async () => {
+test('GET /api/analytics/summary returns dashboard data (admin tier only)', async() => {
   const unauth = await request('/api/analytics/summary');
   assert.strictEqual(unauth.status, 401, 'revenue aggregate is not public');
 
@@ -187,7 +187,7 @@ test('GET /api/analytics/summary returns dashboard data (admin tier only)', asyn
   assert.ok(body.totalStock !== undefined);
 });
 
-test('POST /api/sales records a sale', async () => {
+test('POST /api/sales records a sale', async() => {
   const { status, body } = await authRequest('/api/sales', {
     method: 'POST',
     body: JSON.stringify({ product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer', idempotency_key: 'npmfree-sale-test-1' }),
@@ -196,7 +196,7 @@ test('POST /api/sales records a sale', async () => {
   assert.strictEqual(body.ok, true);
 });
 
-test('POST /api/sales requires auth', async () => {
+test('POST /api/sales requires auth', async() => {
   const { status } = await request('/api/sales', {
     method: 'POST',
     body: JSON.stringify({ product_id: 1, qty: 2, location_id: 1, customer_name: 'Buyer' }),
@@ -204,19 +204,19 @@ test('POST /api/sales requires auth', async () => {
   assert.strictEqual(status, 401);
 });
 
-test('GET /api/products/categories returns categories', async () => {
+test('GET /api/products/categories returns categories', async() => {
   const { status, body } = await request('/api/products/categories');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('GET /api/auth/me returns the logged-in user', async () => {
+test('GET /api/auth/me returns the logged-in user', async() => {
   const { status, body } = await authRequest('/api/auth/me');
   assert.strictEqual(status, 200);
   assert.strictEqual(body.username, 'admin');
 });
 
-test('GET /api/users requires admin', async () => {
+test('GET /api/users requires admin', async() => {
   const okRes = await authRequest('/api/users');
   assert.strictEqual(okRes.status, 200);
   assert.ok(Array.isArray(okRes.body));
@@ -224,28 +224,28 @@ test('GET /api/users requires admin', async () => {
   assert.strictEqual(noTokenRes.status, 401);
 });
 
-test('GET /api/analytics/export requires admin', async () => {
+test('GET /api/analytics/export requires admin', async() => {
   const okRes = await authRequest('/api/analytics/export/products');
   assert.strictEqual(okRes.status, 200);
   const noTokenRes = await request('/api/analytics/export/products');
   assert.strictEqual(noTokenRes.status, 401);
 });
 
-test('GET /api/docs serves Swagger UI and openapi.json', async () => {
+test('GET /api/docs serves Swagger UI and openapi.json', async() => {
   const docs = await request('/api/docs');
   assert.strictEqual(docs.status, 200);
   const spec = await request('/api/openapi.json');
   assert.strictEqual(spec.status, 200);
-  assert.strictEqual(spec.body.info.title, "Sylver's Inventory Management API");
+  assert.strictEqual(spec.body.info.title, 'Sylver\'s Inventory Management API');
 });
 
-test('GET /api/optimization returns bulk metrics', async () => {
+test('GET /api/optimization returns bulk metrics', async() => {
   const { status, body } = await managementRequest('/api/optimization');
   assert.strictEqual(status, 200);
   assert.ok(Array.isArray(body));
 });
 
-test('POST /api/auth/register creates a user', async () => {
+test('POST /api/auth/register creates a user', async() => {
   const { status, body } = await request('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify({
@@ -260,7 +260,7 @@ test('POST /api/auth/register creates a user', async () => {
   assert.ok(body.token);
 });
 
-test('GET /api/nonexistent returns 404', async () => {
+test('GET /api/nonexistent returns 404', async() => {
   const { status } = await request('/api/nonexistent');
   assert.strictEqual(status, 404);
 });

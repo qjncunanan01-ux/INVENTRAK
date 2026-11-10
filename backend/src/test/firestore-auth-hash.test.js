@@ -16,7 +16,7 @@ const tmpData = fs.mkdtempSync(path.join(os.tmpdir(), 'inventrak-fs-auth-'));
 process.env.INVENTRAK_DATA_DIR = tmpData;
 fs.writeFileSync(
   path.join(tmpData, 'products.json'),
-  JSON.stringify([{ 'Product Name': 'Demo Sauce', Category: 'Sauces', Brand: 'Demo', Price: 120 }])
+  JSON.stringify([{ 'Product Name': 'Demo Sauce', Category: 'Sauces', Brand: 'Demo', Price: 120 }]),
 );
 fs.writeFileSync(path.join(tmpData, 'order_inquiries.json'), '[]');
 fs.writeFileSync(path.join(tmpData, 'stock_movements.json'), '[]');
@@ -42,7 +42,7 @@ const PASSWORD = 'Cloud$Pass1';
 // Register the shared user once so every test is self-contained (no test
 // depends on another having run first) — the login test logs in as this user,
 // and the register test registers its OWN user to inspect a fresh row.
-before(async () => {
+before(async() => {
   server = await start(0);
   baseUrl = `http://127.0.0.1:${server.address().port}`;
   const res = await fetch(`${baseUrl}/api/auth/register`, {
@@ -66,7 +66,7 @@ function persistedUser(username) {
   return [...fake._cols.get('users').values()].find(d => d.username === username);
 }
 
-test('register persists a bcrypt hash in the Firestore @users row (never plaintext)', async () => {
+test('register persists a bcrypt hash in the Firestore @users row (never plaintext)', async() => {
   const res = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -94,7 +94,7 @@ test('register persists a bcrypt hash in the Firestore @users row (never plainte
   assert.deepStrictEqual(verifyPassword(PASSWORD, stored.password), { ok: true, needsRehash: false });
 });
 
-test('login verifies against the bcrypt hash stored in the cloud', async () => {
+test('login verifies against the bcrypt hash stored in the cloud', async() => {
   // Correct password: verified against the cloud-stored hash, not plaintext.
   const ok = await fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
@@ -118,7 +118,7 @@ test('login verifies against the bcrypt hash stored in the cloud', async () => {
   assert.strictEqual(badBody.error, 'Invalid username or password');
 });
 
-test('register is salted per user even with the same password (cloud rows differ)', async () => {
+test('register is salted per user even with the same password (cloud rows differ)', async() => {
   const res = await fetch(`${baseUrl}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -140,11 +140,11 @@ test('register is salted per user even with the same password (cloud rows differ
   assert.ok(new Set(hashes).size === 3, 'each registration gets a distinct salted hash');
   assert.ok(
     hashes.every(h => isHashed(h)),
-    'all cloud rows hold hashes'
+    'all cloud rows hold hashes',
   );
 });
 
-test('demo users are seeded as bcrypt hashes in Firestore mode (boot path)', async () => {
+test('demo users are seeded as bcrypt hashes in Firestore mode (boot path)', async() => {
   await fsStore.flush();
   const admin = persistedUser('admin');
   assert.ok(admin, 'demo admin exists in the cloud users collection');
@@ -167,14 +167,14 @@ test('demo users are seeded as bcrypt hashes in Firestore mode (boot path)', asy
   const users = await usersRes.json();
   assert.ok(
     users.every(u => !('password' in u)),
-    'password hash never leaves the server'
+    'password hash never leaves the server',
   );
 });
 
 // Captures the verification code from the console log (no provider is
 // configured in this isolated test, so notify logs it instead of sending).
 function captureCodeDuringRegister(body) {
-  return (async () => {
+  return (async() => {
     const lines = [];
     const orig = console.log;
     console.log = (...args) => {
@@ -208,7 +208,7 @@ function captureCodeDuringRegister(body) {
   })();
 }
 
-test('verification codes stored in Firestore are HMAC-keyed, not plain SHA-256 (cloud at-rest lock)', async () => {
+test('verification codes stored in Firestore are HMAC-keyed, not plain SHA-256 (cloud at-rest lock)', async() => {
   // Same at-rest guarantee as the password hash, for the CLOUD path: the
   // '@verificationCodes' dataset persists to Firestore, so the stored code
   // hash must be HMAC-SHA256 keyed with the token secret — never plain SHA-256,

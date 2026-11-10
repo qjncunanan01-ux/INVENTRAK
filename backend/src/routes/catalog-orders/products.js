@@ -81,7 +81,7 @@ router.get('/costs', authenticateToken, adminOnly, (req, res) => {
 });
 
 // GET /api/products/qr/:code — QR product identification (staff or admin).
-router.get('/qr/:code', authenticateToken, staffOrAdmin, async (req, res) => {
+router.get('/qr/:code', authenticateToken, staffOrAdmin, async(req, res) => {
   // Strip cost unconditionally: this response goes to STAFF devices, and the
   // staff tier is deliberately not entitled to the margin (locked by
   // security.test.js, which fails if "cost" appears in this payload).

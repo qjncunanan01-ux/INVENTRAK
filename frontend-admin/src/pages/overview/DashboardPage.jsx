@@ -101,86 +101,86 @@ export default function DashboardPage({ user, onLogout }) {
     setRefreshing(true);
 
     try {
-        const results = await Promise.allSettled([
-          apiGet('/api/analytics/summary'),
-          apiGet('/api/inventory'),
-          apiGet('/api/products'),
-          apiGet('/api/locations'),
-          apiGet('/api/order-inquiries'),
-          apiGet('/api/sales'),
-          apiGet('/api/stock-movements'),
-          apiGet('/api/alerts'),
-          apiGet('/api/users'),
-        ]);
-        if (!results.some((result) => result.status === 'fulfilled')) {
-          throw new Error('All dashboard data requests failed.');
+      const results = await Promise.allSettled([
+        apiGet('/api/analytics/summary'),
+        apiGet('/api/inventory'),
+        apiGet('/api/products'),
+        apiGet('/api/locations'),
+        apiGet('/api/order-inquiries'),
+        apiGet('/api/sales'),
+        apiGet('/api/stock-movements'),
+        apiGet('/api/alerts'),
+        apiGet('/api/users'),
+      ]);
+      if (!results.some((result) => result.status === 'fulfilled')) {
+        throw new Error('All dashboard data requests failed.');
+      }
+      const [summaryRes, inventoryRes, productsRes, locationsRes, inquiriesRes, salesRes, movementsRes, alertsRes, accountsRes] = results;
+
+      const isStaff = getCurrentUser()?.role === 'staff';
+      const responseData = (result, key, fallback, skipFailedResponse = false) => {
+        if (result.status === 'fulfilled') {
+          const data = result.value.data || result.value;
+          lastSuccessfulPayload.current[key] = data;
+          return data;
         }
-        const [summaryRes, inventoryRes, productsRes, locationsRes, inquiriesRes, salesRes, movementsRes, alertsRes, accountsRes] = results;
+        return skipFailedResponse ? fallback : (lastSuccessfulPayload.current[key] ?? fallback);
+      };
+      const summaryData = responseData(summaryRes, 'summary', {});
+      const inventoryData = responseData(inventoryRes, 'inventory', { items: [], locations: [] });
+      const productsData = responseData(productsRes, 'products', []);
+      const locationsData = responseData(locationsRes, 'locations', []);
+      const inquiriesData = responseData(inquiriesRes, 'inquiries', []);
+      const salesData = responseData(salesRes, 'sales', [], isStaff);
+      const movementsData = responseData(movementsRes, 'movements', []);
+      const alertsData = responseData(alertsRes, 'alerts', []);
+      // Customer accounts (the Total Registered Customers KPI's source of
+      // truth). Staff get 403 here — allSettled turns that into [].
+      const accountsData = responseData(accountsRes, 'accounts', [], isStaff);
 
-        const isStaff = getCurrentUser()?.role === 'staff';
-        const responseData = (result, key, fallback, skipFailedResponse = false) => {
-          if (result.status === 'fulfilled') {
-            const data = result.value.data || result.value;
-            lastSuccessfulPayload.current[key] = data;
-            return data;
+      // Staff cannot read the raw sales ledger (GET /api/sales is 403 by
+      // role design), so pull the daily sales aggregate from /api/reports
+      // (staff-allowed) to keep this-month totals and the chart populated
+      // instead of showing zeros.
+      let reportsData = null;
+      if (isStaff) {
+        try {
+          const r = await apiGet('/api/reports?days=90');
+          reportsData = r.data || r;
+          if (Array.isArray(reportsData.dailySales)) {
+            lastSuccessfulPayload.current.dailySales = reportsData.dailySales;
           }
-          return skipFailedResponse ? fallback : (lastSuccessfulPayload.current[key] ?? fallback);
-        };
-        const summaryData = responseData(summaryRes, 'summary', {});
-        const inventoryData = responseData(inventoryRes, 'inventory', { items: [], locations: [] });
-        const productsData = responseData(productsRes, 'products', []);
-        const locationsData = responseData(locationsRes, 'locations', []);
-        const inquiriesData = responseData(inquiriesRes, 'inquiries', []);
-        const salesData = responseData(salesRes, 'sales', [], isStaff);
-        const movementsData = responseData(movementsRes, 'movements', []);
-        const alertsData = responseData(alertsRes, 'alerts', []);
-        // Customer accounts (the Total Registered Customers KPI's source of
-        // truth). Staff get 403 here — allSettled turns that into [].
-        const accountsData = responseData(accountsRes, 'accounts', [], isStaff);
-
-        // Staff cannot read the raw sales ledger (GET /api/sales is 403 by
-        // role design), so pull the daily sales aggregate from /api/reports
-        // (staff-allowed) to keep this-month totals and the chart populated
-        // instead of showing zeros.
-        let reportsData = null;
-        if (isStaff) {
-          try {
-            const r = await apiGet('/api/reports?days=90');
-            reportsData = r.data || r;
-            if (Array.isArray(reportsData.dailySales)) {
-              lastSuccessfulPayload.current.dailySales = reportsData.dailySales;
-            }
-          } catch {
-            reportsData = { dailySales: lastSuccessfulPayload.current.dailySales || [] };
-          }
+        } catch {
+          reportsData = { dailySales: lastSuccessfulPayload.current.dailySales || [] };
         }
-        const dailySales = isStaff && reportsData && Array.isArray(reportsData.dailySales)
-          ? reportsData.dailySales
-          : [];
+      }
+      const dailySales = isStaff && reportsData && Array.isArray(reportsData.dailySales)
+        ? reportsData.dailySales
+        : [];
 
-        const items = inventoryData.items || [];
+      const items = inventoryData.items || [];
 
-        // One pure function turns the raw payloads into the rows the modals
-        // read and the numbers the cards/charts render (see dashboard-data.js).
-        const { rawData: nextRaw, summary: nextSummary } = deriveDashboard({
-          summaryData,
-          items,
-          productsData,
-          locationsData,
-          inquiriesData,
-          salesData,
-          movementsData,
-          alertsData,
-          accountsData,
-          isStaff,
-          dailySales,
-          range,
-        });
-        if (currentRequest !== requestVersion.current) return;
-        setRawData(nextRaw);
-        setSummary(nextSummary);
-        setError('');
-        setLastRefreshed(new Date());
+      // One pure function turns the raw payloads into the rows the modals
+      // read and the numbers the cards/charts render (see dashboard-data.js).
+      const { rawData: nextRaw, summary: nextSummary } = deriveDashboard({
+        summaryData,
+        items,
+        productsData,
+        locationsData,
+        inquiriesData,
+        salesData,
+        movementsData,
+        alertsData,
+        accountsData,
+        isStaff,
+        dailySales,
+        range,
+      });
+      if (currentRequest !== requestVersion.current) return;
+      setRawData(nextRaw);
+      setSummary(nextSummary);
+      setError('');
+      setLastRefreshed(new Date());
     } catch (err) {
       if (currentRequest !== requestVersion.current) return;
       if (!hasLoadedOnce.current && !silent) {

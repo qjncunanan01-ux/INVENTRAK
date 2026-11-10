@@ -97,7 +97,7 @@ async function main() {
   hr();
   if (failed > 0) {
     console.log(
-      `[notify:test] ${failed} channel(s) failed — check the provider error logged above and the keys in the env.`
+      `[notify:test] ${failed} channel(s) failed — check the provider error logged above and the keys in the env.`,
     );
     process.exit(1);
   }

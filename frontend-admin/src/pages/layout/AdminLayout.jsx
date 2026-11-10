@@ -27,7 +27,6 @@ import { getCurrentUser, getMeta } from '../../api';
 import { ADMIN_TIER, STAFF_TIER, MANAGEMENT_TIER, roleMeta } from '../../roles';
 import { brandSidebar, colors, company } from '../../theme';
 import Breadcrumbs from '../../components/Breadcrumbs';
-import LiquidGlassCard from '../../components/LiquidGlassCard';
 
 
 // Sections put the marketplace workflow first: orders and catalog, then stock

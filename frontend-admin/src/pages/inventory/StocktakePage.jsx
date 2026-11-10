@@ -83,7 +83,7 @@ export default function StocktakePage({ onLogout }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async() => {
     setLoading(true);
     try {
       setBoard(await apiGet('/api/stocktake'));

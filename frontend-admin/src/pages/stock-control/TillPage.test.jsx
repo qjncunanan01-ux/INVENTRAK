@@ -82,7 +82,7 @@ const renderTill = () => render(
     <MemoryRouter>
       <TillPage onLogout={() => {}} />
     </MemoryRouter>
-  </ThemeProvider>
+  </ThemeProvider>,
 );
 
 // Type into the autocomplete to filter, pick the product, fill the rest.
@@ -104,7 +104,7 @@ describe('TillPage', () => {
     routeApi();
   });
 
-  it('loads the catalog and the locations', async () => {
+  it('loads the catalog and the locations', async() => {
     renderTill();
     await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/products'));
     await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/locations'));
@@ -112,7 +112,7 @@ describe('TillPage', () => {
     expect(within(select).getByText('Showroom')).toBeTruthy();
   });
 
-  it('previews the expiring batch BEFORE the sale is recorded', async () => {
+  it('previews the expiring batch BEFORE the sale is recorded', async() => {
     // This is the feature. Without it FEFO is only provable by reading the
     // sort order in the source.
     renderTill();
@@ -127,7 +127,7 @@ describe('TillPage', () => {
     expect(apiPost).not.toHaveBeenCalled();
   });
 
-  it('says a bigger sale would span more than one batch', async () => {
+  it('says a bigger sale would span more than one batch', async() => {
     renderTill();
     await fillForm({ qty: '10' }); // more than lot 11's 4 units
     const preview = await screen.findByLabelText('Batch about to leave');
@@ -135,14 +135,14 @@ describe('TillPage', () => {
     expect(preview).toHaveTextContent('more than one will be consumed');
   });
 
-  it('warns when the sale is bigger than the shelf before it is sent', async () => {
+  it('warns when the sale is bigger than the shelf before it is sent', async() => {
     renderTill();
     await fillForm({ qty: '9999' });
     expect(await screen.findByText(/Only 74 on this shelf/)).toBeTruthy();
     expect(apiPost).not.toHaveBeenCalled();
   });
 
-  it('records the sale and shows which lot was consumed', async () => {
+  it('records the sale and shows which lot was consumed', async() => {
     renderTill();
     await fillForm({ qty: '2', customer: 'Maria (walk-in)' });
 
@@ -165,7 +165,7 @@ describe('TillPage', () => {
     expect(receipt).toHaveTextContent('2 units accounted for');
   });
 
-  it('surfaces a low-stock alert the sale raised', async () => {
+  it('surfaces a low-stock alert the sale raised', async() => {
     routeApi({
       post: () => Promise.resolve({
         ...saleResponse,
@@ -180,7 +180,7 @@ describe('TillPage', () => {
     await waitFor(() => expect(receipt).toHaveTextContent('Below the critical level: 0 left, reorder at 120.'));
   });
 
-  it('labels overflow stock honestly instead of inventing a batch', async () => {
+  it('labels overflow stock honestly instead of inventing a batch', async() => {
     routeApi({
       post: () => Promise.resolve({
         ...saleResponse,
@@ -195,7 +195,7 @@ describe('TillPage', () => {
     expect(receipt).not.toHaveTextContent('Lot #');
   });
 
-  it('shows the server error and keeps the form when the sale is refused', async () => {
+  it('shows the server error and keeps the form when the sale is refused', async() => {
     routeApi({ post: () => Promise.reject(new Error('Insufficient stock at this location')) });
     renderTill();
     await fillForm({ qty: '2' });
@@ -205,7 +205,7 @@ describe('TillPage', () => {
     expect(screen.getByLabelText('Sale receipt')).toHaveTextContent('Nothing recorded yet');
   });
 
-  it('will not submit without a product, quantity and location', async () => {
+  it('will not submit without a product, quantity and location', async() => {
     renderTill();
     await screen.findByLabelText('Product');
     const button = screen.getByRole('button', { name: /Record sale/ });
@@ -214,7 +214,7 @@ describe('TillPage', () => {
     expect(apiPost).not.toHaveBeenCalled();
   });
 
-  it('sends no customer_name when the field is left blank', async () => {
+  it('sends no customer_name when the field is left blank', async() => {
     renderTill();
     await fillForm({ qty: '2' });
     fireEvent.click(screen.getByRole('button', { name: /Record sale/ }));

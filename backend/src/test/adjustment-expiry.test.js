@@ -28,7 +28,7 @@ async function lotSum(side, productId, locationId) {
   return { sum, lots };
 }
 
-test('best-before: adjustment carries expiry_date through create → row → approval → lot', async () => {
+test('best-before: adjustment carries expiry_date through create → row → approval → lot', async() => {
   for (const side of [sqlite, npmfree]) {
     const auth = { token: side.token.staff };
 
@@ -72,12 +72,12 @@ test('best-before: adjustment carries expiry_date through create → row → app
     assert.strictEqual(
       dated.reduce((acc, l) => acc + Number(l.qty || 0), 0),
       12,
-      'the dated lot holds the whole approved quantity'
+      'the dated lot holds the whole approved quantity',
     );
   }
 });
 
-test('best-before: rejected/absent expiry never reaches a lot', async () => {
+test('best-before: rejected/absent expiry never reaches a lot', async() => {
   for (const side of [sqlite, npmfree]) {
     // No expiry_date supplied → row stores null (shape parity with rows that
     // carry a date), and approval leaves the lot undated (pure FIFO).
@@ -101,12 +101,12 @@ test('best-before: rejected/absent expiry never reaches a lot', async () => {
     const { lots } = await lotSum(side, 3, 2);
     assert.ok(
       lots.every(l => l.expiry_date == null),
-      'approval without a best-before leaves lots undated'
+      'approval without a best-before leaves lots undated',
     );
   }
 });
 
-test('best-before: invalid dates are refused with 400 on both backends', async () => {
+test('best-before: invalid dates are refused with 400 on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     // Malformed (not YYYY-MM-DD).
     const bad = await call(side.url, '/api/stock-adjustments', {

@@ -91,7 +91,7 @@ function generate() {
   lines.push('    const token = getToken();');
   lines.push('    if (token) headers.Authorization = `Bearer ${token}`;');
   lines.push(
-    '    const res = await fetch(url, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });'
+    '    const res = await fetch(url, { method, headers, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });',
   );
   lines.push('    const text = await res.text();');
   lines.push('    let data = text;');

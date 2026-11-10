@@ -202,7 +202,7 @@ export default function SecurityPage({ onLogout }) {
                   ))}
                 </Box>
                 <Button variant="text" size="small" sx={{ mt: 1 }} onClick={() => setRecoveryCodes(null)}>
-                I've saved them — hide
+                I&apos;ve saved them — hide
                 </Button>
               </Box>
             )}

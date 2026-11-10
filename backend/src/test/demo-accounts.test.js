@@ -7,7 +7,7 @@ const assert = require('node:assert');
 const { sqlite, npmfree, bootBoth, teardown, call } = require('./harness');
 const { isDemoAccountBlocked } = require('../auth/demo-accounts');
 
-before(async () => {
+before(async() => {
   await bootBoth();
 });
 after(() => {
@@ -33,7 +33,7 @@ test('isDemoAccountBlocked unit behavior', () => {
   }
 });
 
-test('DISABLE_DEMO_ACCOUNTS=true blocks seeded logins on both backends', async () => {
+test('DISABLE_DEMO_ACCOUNTS=true blocks seeded logins on both backends', async() => {
   const prev = process.env.DISABLE_DEMO_ACCOUNTS;
   try {
     process.env.DISABLE_DEMO_ACCOUNTS = 'true';

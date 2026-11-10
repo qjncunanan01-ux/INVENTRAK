@@ -83,7 +83,7 @@ app.use((req, res, next) => {
   if (req.headers['x-forwarded-proto'] === 'https') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
-  res.setHeader('Content-Security-Policy', req.path.startsWith('/api/docs') ? "frame-ancestors 'none'" : "default-src 'none'; frame-ancestors 'none'");
+  res.setHeader('Content-Security-Policy', req.path.startsWith('/api/docs') ? 'frame-ancestors \'none\'' : 'default-src \'none\'; frame-ancestors \'none\'');
   next();
 });
 
@@ -166,7 +166,7 @@ app.use('/api/admin', backupRoutes);
 // content instead of "No usable data found" for a plain-text payload.
 // Mounted in app.js rather than the products router because it must render
 // HTML with its own CSP (the API's default-src 'none' would strip it).
-app.get('/t/:code', async (req, res) => {
+app.get('/t/:code', async(req, res) => {
   try {
     const products = db.prepare('SELECT * FROM products').all();
     const stockLookup = (productId) => {
@@ -182,7 +182,7 @@ app.get('/t/:code', async (req, res) => {
       stockLookup,
     });
     const html = renderTagPageHtml(result);
-    res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https:; style-src 'unsafe-inline'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy', 'default-src \'self\'; img-src \'self\' https:; style-src \'unsafe-inline\'; frame-ancestors \'none\'');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.status(result.status).send(html);
   } catch (err) {

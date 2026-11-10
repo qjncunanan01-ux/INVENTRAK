@@ -22,7 +22,7 @@ const { sqlite, npmfree, bootBoth, teardown, call, both } = require('./harness')
 
 const FIXTURES = ['bulk-price-audit-a', 'bulk-price-audit-b', 'bulk-price-audit-c'];
 
-before(async () => {
+before(async() => {
   await bootBoth();
   // Dedicated fixtures rather than seeded catalog rows: the reprice action
   // rewrites prices, and a shared seeded row would leak into other suites that
@@ -43,7 +43,7 @@ after(() => {
   teardown();
 });
 
-const priceOne = async (side, name, price) =>
+const priceOne = async(side, name, price) =>
   call(side.url, '/api/products/bulk-prices', {
     method: 'POST',
     token: side.token.admin,
@@ -51,7 +51,7 @@ const priceOne = async (side, name, price) =>
   });
 
 describe('bulk price audit', () => {
-  test('a bulk reprice is audited, and names the products it changed', async () => {
+  test('a bulk reprice is audited, and names the products it changed', async() => {
     const logPath = process.env.AUDIT_LOG_FILE;
     for (const side of [sqlite, npmfree]) {
       fs.writeFileSync(logPath, '');
@@ -67,7 +67,7 @@ describe('bulk price audit', () => {
     }
   });
 
-  test('one audit entry covers a multi-product reprice', async () => {
+  test('one audit entry covers a multi-product reprice', async() => {
     // The one-click action sends every suggested price in ONE request, so the
     // audit entry has to summarise the batch rather than one row per product.
     const logPath = process.env.AUDIT_LOG_FILE;
@@ -93,7 +93,7 @@ describe('bulk price audit', () => {
     }
   });
 
-  test('the named list is capped so a full-catalog reprice cannot bloat a row', async () => {
+  test('the named list is capped so a full-catalog reprice cannot bloat a row', async() => {
     const logPath = process.env.AUDIT_LOG_FILE;
     for (const side of [sqlite, npmfree]) {
       fs.writeFileSync(logPath, '');
@@ -113,7 +113,7 @@ describe('bulk price audit', () => {
     }
   });
 
-  test('a reprice that changes nothing writes no audit entry', async () => {
+  test('a reprice that changes nothing writes no audit entry', async() => {
     // A no-op request should not manufacture a change-log line; otherwise the
     // history fills with entries describing nothing.
     const logPath = process.env.AUDIT_LOG_FILE;
@@ -129,12 +129,12 @@ describe('bulk price audit', () => {
       assert.strictEqual(
         entries.filter(e => e.event === 'product.price.bulk_update').length,
         0,
-        `${side.url}: nothing changed, so nothing should be logged`
+        `${side.url}: nothing changed, so nothing should be logged`,
       );
     }
   });
 
-  test('the price change actually landed, and stayed out of the public cost path', async () => {
+  test('the price change actually landed, and stayed out of the public cost path', async() => {
     for (const side of [sqlite, npmfree]) {
       await priceOne(side, 'bulk-price-audit-c', 640);
       const res = await call(side.url, '/api/products');
@@ -144,7 +144,7 @@ describe('bulk price audit', () => {
     }
   });
 
-  test('both backends agree on the response shape', async () => {
+  test('both backends agree on the response shape', async() => {
     await both('bulk-prices', '/api/products/bulk-prices', {
       method: 'POST',
       auth: 'admin',

@@ -91,7 +91,7 @@ function renderPage() {
   );
 }
 
-test('the page states that something is being kept outside the container, and how often', async () => {
+test('the page states that something is being kept outside the container, and how often', async() => {
   apiGet.mockResolvedValue(listing());
   renderPage();
   expect(await screen.findByText('scheduled: on')).toBeTruthy();
@@ -101,7 +101,7 @@ test('the page states that something is being kept outside the container, and ho
   expect(screen.getByText('last push 15 min ago')).toBeTruthy();
 });
 
-test('the last successful backup and its age are the first thing on the card', async () => {
+test('the last successful backup and its age are the first thing on the card', async() => {
   apiGet.mockResolvedValue(listing());
   renderPage();
   // The headline answers "when was the last backup?" — from the store's newest
@@ -115,7 +115,7 @@ test('the last successful backup and its age are the first thing on the card', a
   expect(screen.getByText(/612 row\(s\), 200 KB/)).toBeTruthy();
 });
 
-test('a snapshot that has aged past the threshold is called out as stale', async () => {
+test('a snapshot that has aged past the threshold is called out as stale', async() => {
   apiGet.mockResolvedValue(listing({
     last_backup: {
       ...listing().last_backup,
@@ -129,7 +129,7 @@ test('a snapshot that has aged past the threshold is called out as stale', async
   expect(screen.getByText(/Last successful backup .* · 5 h ago/)).toBeTruthy();
 });
 
-test('a store with the timer switched off says the timer is off, not "every 0 min"', async () => {
+test('a store with the timer switched off says the timer is off, not "every 0 min"', async() => {
   apiGet.mockResolvedValue(listing({
     scheduler: { ...listing().scheduler, interval_minutes: 0 },
     last_backup: { ...listing().last_backup, interval_minutes: 0 },
@@ -144,7 +144,7 @@ test('a store with the timer switched off says the timer is off, not "every 0 mi
   expect(screen.getByRole('button', { name: /back up now/i }).disabled).toBe(false);
 });
 
-test('a store holding nothing is reported as nothing, not as "fine"', async () => {
+test('a store holding nothing is reported as nothing, not as "fine"', async() => {
   apiGet.mockResolvedValue(listing({
     snapshots: [],
     last_backup: {
@@ -164,7 +164,7 @@ test('a store holding nothing is reported as nothing, not as "fine"', async () =
   expect(screen.getByText(/no snapshot has been pushed to the durable store yet/i)).toBeTruthy();
 });
 
-test('with no durable store the verdict is unknown, and the page says why', async () => {
+test('with no durable store the verdict is unknown, and the page says why', async() => {
   apiGet.mockResolvedValue(listing({
     ok: false,
     error: 'no durable store is configured',
@@ -185,7 +185,7 @@ test('with no durable store the verdict is unknown, and the page says why', asyn
   expect(screen.getByText(/No durable store configured/)).toBeTruthy();
 });
 
-test('a schedule that is off says so, names the env vars, and cannot be pressed', async () => {
+test('a schedule that is off says so, names the env vars, and cannot be pressed', async() => {
   apiGet.mockResolvedValue(listing({
     ok: false,
     error: 'no durable store is configured',
@@ -200,7 +200,7 @@ test('a schedule that is off says so, names the env vars, and cannot be pressed'
   expect(screen.getByRole('button', { name: /back up now/i }).disabled).toBe(true);
 });
 
-test('the snapshots the server took are listed, and a foreign-driver one cannot be restored here', async () => {
+test('the snapshots the server took are listed, and a foreign-driver one cannot be restored here', async() => {
   apiGet.mockResolvedValue(listing());
   renderPage();
   // The sqlite snapshot matches this server (getMeta says sqlite); the json one
@@ -214,7 +214,7 @@ test('the snapshots the server took are listed, and a foreign-driver one cannot 
   expect(buttons[1].disabled).toBe(true);
 });
 
-test('restoring a stored snapshot takes two steps and names what it replaces', async () => {
+test('restoring a stored snapshot takes two steps and names what it replaces', async() => {
   apiGet.mockResolvedValue(listing());
   apiPost.mockResolvedValue({ message: 'Restored 20 table(s), 612 row(s) from the snapshot' });
   renderPage();
@@ -237,7 +237,7 @@ test('restoring a stored snapshot takes two steps and names what it replaces', a
   expect(apiPost).toHaveBeenCalledWith('/api/admin/restore', { confirm: true, snapshot_id: 2 });
 });
 
-test('cancelling the confirmation restores nothing', async () => {
+test('cancelling the confirmation restores nothing', async() => {
   apiGet.mockResolvedValue(listing());
   renderPage();
   await screen.findByText('sqlite driver · 612 row(s) · 200 KB');
@@ -249,7 +249,7 @@ test('cancelling the confirmation restores nothing', async () => {
   expect(apiPost).not.toHaveBeenCalled();
 });
 
-test('Back up now stores one immediately and re-reads what the store holds', async () => {
+test('Back up now stores one immediately and re-reads what the store holds', async() => {
   apiGet.mockResolvedValue(listing());
   apiPost.mockResolvedValue({ ok: true, message: 'Snapshot stored (204800 bytes, 612 rows)' });
   renderPage();
@@ -261,7 +261,7 @@ test('Back up now stores one immediately and re-reads what the store holds', asy
   await waitFor(() => expect(apiGet.mock.calls.length).toBeGreaterThan(1));
 });
 
-test('a durable store that cannot be read is reported, not hidden behind an empty list', async () => {
+test('a durable store that cannot be read is reported, not hidden behind an empty list', async() => {
   apiGet.mockResolvedValue(listing({
     ok: false,
     error: 'cannot reach the durable store at https://demo.supabase.co',
@@ -279,7 +279,7 @@ test('a durable store that cannot be read is reported, not hidden behind an empt
   expect(screen.getAllByText(/cannot reach the durable store/).length).toBeGreaterThan(0);
 });
 
-test('a failed push is surfaced with its reason AND leaves the last good backup standing', async () => {
+test('a failed push is surfaced with its reason AND leaves the last good backup standing', async() => {
   apiGet.mockResolvedValue(listing({
     scheduler: { ...listing().scheduler, last_error: 'durable store refused the POST (HTTP 404)' },
     last_backup: {

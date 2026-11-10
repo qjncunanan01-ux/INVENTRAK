@@ -1,4 +1,4 @@
-import { Box, Button, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Button, Grid, Paper, TextField, Typography } from '@mui/material';
 import { API_BASE_URL } from '../../api';
 import { colors } from '../../theme';
 import CreatableSelect from './CreatableSelect';

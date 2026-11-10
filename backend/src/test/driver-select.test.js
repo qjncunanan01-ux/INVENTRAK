@@ -61,11 +61,11 @@ test('firestoreConfigured requires BOTH project id and a credential', () => {
   assert.strictEqual(firestoreConfigured({ env: { FIREBASE_PROJECT_ID: 'p' } }), false);
   assert.strictEqual(
     firestoreConfigured({ env: { FIREBASE_PROJECT_ID: 'p', FIREBASE_SERVICE_ACCOUNT_JSON: '{}' } }),
-    true
+    true,
   );
   assert.strictEqual(
     firestoreConfigured({ env: { FIREBASE_PROJECT_ID: 'p', GOOGLE_APPLICATION_CREDENTIALS: '/k.json' } }),
-    true
+    true,
   );
 });
 
@@ -75,6 +75,6 @@ test('resolveDriver auto-selects firestore when the emulator host is set (zero c
   // The emulator still honors an explicit DB_DRIVER=json escape hatch.
   assert.strictEqual(
     resolveDriver({ env: { DB_DRIVER: 'json', FIRESTORE_EMULATOR_HOST: 'localhost:8085' }, argv: [] }),
-    'json'
+    'json',
   );
 });

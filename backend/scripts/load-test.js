@@ -89,7 +89,7 @@ function fetchPost(path, body) {
           const ms = ns / 1e6;
           resolve({ status: res.statusCode, ms, body: rbody, headers: res.headers });
         });
-      }
+      },
     );
     req.on('error', reject);
     req.on('timeout', () => {
@@ -195,7 +195,7 @@ async function runConcurrencyBurst(endpoint, totalRequests, concurrency, token) 
           .catch(() => {
             times.push(30000);
             completed++;
-          })
+          }),
       );
     }
 
@@ -295,7 +295,7 @@ async function main() {
   const maxBurstAvg = Math.max(...burstResults.map(r => r.avg));
   for (const r of burstResults) {
     console.log(
-      `  ${r.name.padEnd(25)} Avg: ${formatMs(r.avg).padStart(6)}  P95: ${formatMs(r.p95).padStart(6)}  ${bar(r.avg, maxBurstAvg || 1)}`
+      `  ${r.name.padEnd(25)} Avg: ${formatMs(r.avg).padStart(6)}  P95: ${formatMs(r.p95).padStart(6)}  ${bar(r.avg, maxBurstAvg || 1)}`,
     );
   }
   console.log('');
@@ -325,7 +325,7 @@ async function main() {
               body += c;
             });
             res.on('end', () => resolve(JSON.parse(body)));
-          }
+          },
         );
         req.on('error', reject);
       });
@@ -371,7 +371,7 @@ async function main() {
   console.log('  │  Without cache (Supabase round-trip):  ~50-200ms avg    │');
   console.log(`  │  With cache (in-memory Map):           ${formatMs(overallAvg).padStart(6)} avg        │`);
   console.log(
-    `  │  Speedup:                              ~${Math.round(100 / Math.max(1, overallAvg))}x faster           │`
+    `  │  Speedup:                              ~${Math.round(100 / Math.max(1, overallAvg))}x faster           │`,
   );
   console.log('  └─────────────────────────────────────────────────────────┘');
   console.log('');

@@ -121,11 +121,11 @@ describe('admin pages cannot push content out sideways', () => {
       }
       return false;
     };
-    expect(bareFr(`'1fr'`)).toBe(true);
-    expect(bareFr(`{ xs: '1fr', md: '1fr 1.4fr' }`)).toBe(true);
-    expect(bareFr(`'repeat(2, 1fr)'`)).toBe(true);
-    expect(bareFr(`{ xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) minmax(0, 1.4fr)' }`)).toBe(false);
-    expect(bareFr(`'repeat(auto-fit, minmax(200px, 1fr))'`)).toBe(false);
+    expect(bareFr('\'1fr\'')).toBe(true);
+    expect(bareFr('{ xs: \'1fr\', md: \'1fr 1.4fr\' }')).toBe(true);
+    expect(bareFr('\'repeat(2, 1fr)\'')).toBe(true);
+    expect(bareFr('{ xs: \'minmax(0, 1fr)\', md: \'minmax(0, 1fr) minmax(0, 1.4fr)\' }')).toBe(false);
+    expect(bareFr('\'repeat(auto-fit, minmax(200px, 1fr))\'')).toBe(false);
 
     const wrapped = (src) => {
       const at = src.indexOf('<Table ');

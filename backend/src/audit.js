@@ -119,8 +119,8 @@ async function reSeedFromRemote() {
     const existing = new Set(
       fs.existsSync(AUDIT_LOG_FILE)
         ? fs.readFileSync(AUDIT_LOG_FILE, 'utf8').split('\n').filter(Boolean)
-            .map((line) => { try { return JSON.parse(line).t; } catch { return null; } })
-            .filter(Boolean)
+          .map((line) => { try { return JSON.parse(line).t; } catch { return null; } })
+          .filter(Boolean)
         : [],
     );
     let appended = 0;

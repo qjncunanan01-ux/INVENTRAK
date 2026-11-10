@@ -129,8 +129,8 @@ function main() {
         totalFiles: destByName.size,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 
   console.log(`Copied ${copied} (${skipped} non-images skipped) -> ${DEST}`);

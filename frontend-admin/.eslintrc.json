@@ -52,6 +52,16 @@
         "browser": true,
         "node": true
       },
+      "globals": {
+        "afterEach": "readonly",
+        "beforeAll": "readonly",
+        "beforeEach": "readonly",
+        "describe": "readonly",
+        "expect": "readonly",
+        "it": "readonly",
+        "test": "readonly",
+        "vi": "readonly"
+      },
       "rules": {
         "max-len": "off",
         "no-console": "off"

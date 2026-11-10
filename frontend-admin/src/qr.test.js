@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
   LOCATION_QR_PREFIX,
-  PRODUCT_QR_PREFIX,
   locationQrPayload,
   parseQrPayload,
   productQrPayload,

@@ -25,10 +25,10 @@ db.prepare('INSERT INTO users (id, username, password, role, email, created_at) 
   'admin123',
   'admin',
   'admin@inventrak.com',
-  '2024-01-01T00:00:00.000Z'
+  '2024-01-01T00:00:00.000Z',
 );
 db.prepare(
-  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
 ).run(
   1,
   'Butterscotch Sauce',
@@ -40,10 +40,10 @@ db.prepare(
   1070,
   'active',
   '2024-01-01T00:00:00.000Z',
-  '2024-01-01T00:00:00.000Z'
+  '2024-01-01T00:00:00.000Z',
 );
 db.prepare(
-  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
 ).run(
   2,
   'Matcha Powder',
@@ -55,13 +55,13 @@ db.prepare(
   1175,
   'active',
   '2024-01-01T00:00:00.000Z',
-  '2024-01-01T00:00:00.000Z'
+  '2024-01-01T00:00:00.000Z',
 );
 db.prepare(
-  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
 ).run(3, 'Old Stock', 'Legacy', '', '', '', '', 10, 'inactive', '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
 db.prepare(
-  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO products (id, name, category, brand, description, size, unit, price, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
 ).run(4, 'Nulled Status', 'Legacy', '', '', '', '', 5, null, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
 db.prepare('INSERT INTO locations (id, name) VALUES (?, ?)').run(1, 'Main');
 db.prepare('INSERT INTO locations (id, name) VALUES (?, ?)').run(2, 'Backup');
@@ -69,10 +69,10 @@ db.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, 
 db.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, ?)').run(1, 2, 30);
 db.prepare('INSERT INTO stock (product_id, location_id, quantity) VALUES (?, ?, ?)').run(2, 1, 40);
 db.prepare(
-  'INSERT INTO stock_movements (id, product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO stock_movements (id, product_id, qty, type, src_location, dst_location, notes, created_at, user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 ).run(1, 1, 10, 'stock-in', null, 1, 'restock', '2024-02-01T00:00:00.000Z', 'admin');
 db.prepare(
-  'INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO order_inquiries (id, customer_name, customer_email, customer_phone, products, estimated_cost, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 ).run(
   1,
   'Ana',
@@ -82,13 +82,13 @@ db.prepare(
   1070,
   'urgent',
   'pending',
-  '2024-02-02T00:00:00.000Z'
+  '2024-02-02T00:00:00.000Z',
 );
 db.prepare(
-  'INSERT INTO sales_transactions (id, product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO sales_transactions (id, product_id, qty, unit_price, total_amount, transaction_date, customer_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
 ).run(1, 1, 2, 1070, 2140, '2024-02-03T00:00:00.000Z', 'Ana');
 db.prepare(
-  'INSERT INTO inventory_alerts (id, product_id, location_id, alert_type, threshold, current_qty, status, created_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'INSERT INTO inventory_alerts (id, product_id, location_id, alert_type, threshold, current_qty, status, created_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 ).run(1, 1, 1, 'low_stock', 80, 50, 'active', '2024-02-04T00:00:00.000Z', null);
 
 after(() => {
@@ -118,7 +118,7 @@ test('transformSnapshot maps a SQLite snapshot into store-shaped datasets', () =
   assert.strictEqual(
     datasets['products.json'][3]['status'],
     'inactive',
-    'null status is migrated as inactive, never active'
+    'null status is migrated as inactive, never active',
   );
 
   // Inventory: locations array + per-product items with live stock + totals.
@@ -141,7 +141,7 @@ test('transformSnapshot maps a SQLite snapshot into store-shaped datasets', () =
   assert.strictEqual(datasets['@alerts'][0].resolved_at, null);
 });
 
-test('migrated datasets round-trip through the Firestore store (null-safe)', async () => {
+test('migrated datasets round-trip through the Firestore store (null-safe)', async() => {
   const fake = makeFakeDb();
   fsStore._setDb(fake);
   await fsStore.init();
@@ -164,7 +164,7 @@ test('migrated datasets round-trip through the Firestore store (null-safe)', asy
   assert.strictEqual(fsStore.read('stock_movements.json')[0].src_location, null);
 });
 
-test('npm-free server serves migrated Firestore data end-to-end', async () => {
+test('npm-free server serves migrated Firestore data end-to-end', async() => {
   // Migrate the SQLite data into a fresh fake Firestore.
   const fake = makeFakeDb();
   fsStore._setDb(fake);

@@ -45,7 +45,7 @@ async function summaryOf(side) {
   return reports.json.summary;
 }
 
-test('customers_served counts registered customers with orders, never seeded payer names', async () => {
+test('customers_served counts registered customers with orders, never seeded payer names', async() => {
   for (const side of [sqlite, npmfree]) {
     // 0. Seeded names like "Juan" are walk-in payers — they must NOT be
     //    counted even though they appear on sales rows.
@@ -60,7 +60,7 @@ test('customers_served counts registered customers with orders, never seeded pay
     assert.strictEqual(
       afterGhost.customers_served,
       beforeCustomers,
-      'registered customer without orders must not be counted'
+      'registered customer without orders must not be counted',
     );
 
     // 2. The same customer places an order → count +1.
@@ -80,7 +80,7 @@ test('customers_served counts registered customers with orders, never seeded pay
     assert.strictEqual(
       afterOrder.customers_served,
       beforeCustomers + 1,
-      'a registered customer with an order counts exactly once'
+      'a registered customer with an order counts exactly once',
     );
 
     // 3. More orders from the SAME account must NOT double-count.
@@ -98,7 +98,7 @@ test('customers_served counts registered customers with orders, never seeded pay
     assert.strictEqual(
       afterSecond.customers_served,
       beforeCustomers + 1,
-      'repeat orders must not double-count the customer'
+      'repeat orders must not double-count the customer',
     );
 
     // 4. Both key names present for every consumer.
@@ -106,7 +106,7 @@ test('customers_served counts registered customers with orders, never seeded pay
   }
 });
 
-test('analytics summary: customersServed follows the same real-customer rule', async () => {
+test('analytics summary: customersServed follows the same real-customer rule', async() => {
   for (const side of [sqlite, npmfree]) {
     const res = await call(side.url, '/api/analytics/summary', { token: side.token.admin });
     assert.strictEqual(res.status, 200);
@@ -120,7 +120,7 @@ test('analytics summary: customersServed follows the same real-customer rule', a
   }
 });
 
-test('customers_registered is the raw account base — rises on signup, orders or not', async () => {
+test('customers_registered is the raw account base — rises on signup, orders or not', async() => {
   for (const side of [sqlite, npmfree]) {
     const before = await summaryOf(side);
     assert.ok(Number.isFinite(before.customers_registered), 'customers_registered finite');
@@ -134,13 +134,13 @@ test('customers_registered is the raw account base — rises on signup, orders o
     assert.strictEqual(
       after.customers_registered,
       before.customers_registered + 1,
-      'registration raises the account base by exactly one'
+      'registration raises the account base by exactly one',
     );
     assert.strictEqual(after.customers_served, before.customers_served, '…but never touches the ordered-from count');
   }
 });
 
-test('audit-trail: status filter, limit and offset work on both backends', async () => {
+test('audit-trail: status filter, limit and offset work on both backends', async() => {
   for (const side of [sqlite, npmfree]) {
     const base = await call(side.url, '/api/audit-trail', { token: side.token.owner });
     assert.strictEqual(base.status, 200);
