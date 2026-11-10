@@ -14,6 +14,9 @@ Thumbs.db
 # Environment files
 .env
 .env.*
+/github-recovery-codes.txt
+/password supabase.txt
+/api.txt
 
 # Firebase service-account keys (NEVER commit these)
 **/.secrets/

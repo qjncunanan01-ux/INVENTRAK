@@ -17,7 +17,7 @@ const BREADCRUMB_MAP = {
   '/stock-adjustments': 'Stock Adjustments',
   '/stock-transfers': 'Stock Transfers',
   '/locations': 'Branch Locations',
-  '/order-inquiries': 'Orders',
+  '/orders': 'Orders',
   '/approvals': 'Approvals',
   '/optimization': 'Optimization',
   '/reports': 'Reports',

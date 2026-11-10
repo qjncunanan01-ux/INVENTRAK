@@ -202,7 +202,10 @@ export default function InquiryHistoryScreen({ navigation }) {
     setDeliveryBookingBusyId(item.id);
     setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: '' }));
     try {
-      await submitDeliveryBooking({ id: item.id }, { booking_reference: reference, ...(url ? { booking_url: url } : {}) });
+      await submitDeliveryBooking(
+        { id: item.id },
+        { booking_reference: reference, ...(url ? { booking_url: url } : {}) },
+      );
       await fetchData();
     } catch (err) {
       setDeliveryBookingErrors((previous) => ({ ...previous, [item.id]: err.message || 'Could not save the Lalamove booking details.' }));
@@ -557,12 +560,18 @@ export default function InquiryHistoryScreen({ navigation }) {
               </Text>
             ) : null}
             {item.fulfillment_method === 'courier' ? (
-              <Text style={styles.detail}>After the store marks your order ready, book and pay Lalamove directly. Its courier fee is separate from your Sylver order payment.</Text>
+              <Text style={styles.detail}>
+                After the store marks your order ready, book and pay Lalamove directly. Its courier fee
+                is separate from your Sylver order payment.
+              </Text>
             ) : null}
             {item.fulfillment_method === 'courier' && item.status === 'fulfilled' ? (
               <View style={styles.deliveryBookingBox}>
                 <Text style={styles.deliveryBookingTitle}>Book your courier</Text>
-                <Text style={styles.detail}>Your order is ready at the store. Book and pay Lalamove directly; check the pickup and drop-off before confirming. The web link below keeps both addresses filled in.</Text>
+                <Text style={styles.detail}>
+                  Your order is ready at the store. Book and pay Lalamove directly; check the pickup
+                  and drop-off before confirming. The web link below keeps both addresses filled in.
+                </Text>
                 <TouchableOpacity style={styles.requestBtn} onPress={() => openLalamoveBooking(item)} accessibilityRole="button">
                   <Text style={styles.requestBtnText}>Open Lalamove Web with addresses</Text>
                 </TouchableOpacity>
@@ -577,7 +586,12 @@ export default function InquiryHistoryScreen({ navigation }) {
                 <TextInput
                   style={styles.deliveryBookingInput}
                   value={deliveryBookingInputs[item.id]?.reference ?? item.delivery_booking_reference ?? ''}
-                  onChangeText={(value) => setDeliveryBookingInputs((previous) => ({ ...previous, [item.id]: { ...previous[item.id], reference: value } }))}
+                  onChangeText={(value) =>
+                    setDeliveryBookingInputs((previous) => ({
+                      ...previous,
+                      [item.id]: { ...previous[item.id], reference: value },
+                    }))
+                  }
                   placeholder="Lalamove booking reference"
                   placeholderTextColor={colors.textSecondary}
                   maxLength={120}
@@ -587,7 +601,12 @@ export default function InquiryHistoryScreen({ navigation }) {
                 <TextInput
                   style={styles.deliveryBookingInput}
                   value={deliveryBookingInputs[item.id]?.url ?? item.delivery_booking_url ?? ''}
-                  onChangeText={(value) => setDeliveryBookingInputs((previous) => ({ ...previous, [item.id]: { ...previous[item.id], url: value } }))}
+                  onChangeText={(value) =>
+                    setDeliveryBookingInputs((previous) => ({
+                      ...previous,
+                      [item.id]: { ...previous[item.id], url: value },
+                    }))
+                  }
                   placeholder="Lalamove share link (optional)"
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="url"
@@ -603,8 +622,13 @@ export default function InquiryHistoryScreen({ navigation }) {
                     <Text style={styles.requestBtnText}>Open Lalamove booking link</Text>
                   </TouchableOpacity>
                 ) : null}
-                {deliveryBookingErrors[item.id] ? <Text style={styles.deliveryBookingError}>{deliveryBookingErrors[item.id]}</Text> : null}
-                <Text style={styles.detail}>Lalamove status and delivery confirmation are handled separately; Sylver will update this order when delivery is confirmed.</Text>
+                {deliveryBookingErrors[item.id] ? (
+                  <Text style={styles.deliveryBookingError}>{deliveryBookingErrors[item.id]}</Text>
+                ) : null}
+                <Text style={styles.detail}>
+                  Lalamove status and delivery confirmation are handled separately; Sylver will update
+                  this order when delivery is confirmed.
+                </Text>
               </View>
             ) : null}
             {/* Why it was rejected / cancelled — never a bare status chip. */}
@@ -643,7 +667,9 @@ export default function InquiryHistoryScreen({ navigation }) {
                   },
                 })}
               >
-                <Text style={styles.paymentBtnText}>Continue QR Ph payment · P{amountDueForOrder(item).toFixed(2)}</Text>
+                <Text style={styles.paymentBtnText}>
+                  Continue QR Ph payment · P{amountDueForOrder(item).toFixed(2)}
+                </Text>
               </TouchableOpacity>
             ) : null}
             {COMPANY_DEMO && (
@@ -815,9 +841,26 @@ export default function InquiryHistoryScreen({ navigation }) {
 
 const createStyles = (colors) => StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: 12, marginBottom: 12, padding: 14 },
-  deliveryBookingBox: { backgroundColor: colors.background, borderColor: colors.border, borderRadius: 10, borderWidth: 1, marginTop: 8, padding: 12 },
+  deliveryBookingBox: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 8,
+    padding: 12,
+  },
   deliveryBookingTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '800', marginBottom: 5 },
-  deliveryBookingInput: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 8, borderWidth: 1, color: colors.textPrimary, fontSize: 14, marginTop: 8, paddingHorizontal: 11, paddingVertical: 10 },
+  deliveryBookingInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: colors.textPrimary,
+    fontSize: 14,
+    marginTop: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
+  },
   deliveryBookingError: { color: colors.error, fontSize: 12, marginTop: 6 },
   cardFooter: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
   cancelBtn: { borderColor: colors.error, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },

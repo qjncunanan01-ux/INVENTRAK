@@ -30,9 +30,9 @@ import Breadcrumbs from '../../components/Breadcrumbs';
 import LiquidGlassCard from '../../components/LiquidGlassCard';
 
 
-// Sections group the modules the way the daily workflow reads (see the stock
-// → catalog → money → governance flow). Core operations stay expanded on a
-// fresh install; lower-frequency sections start folded but remain available.
+// Sections put the marketplace workflow first: orders and catalog, then stock
+// operations, followed by oversight tools. Admins start with the common tasks
+// visible and the lower-frequency stock-control shortcuts folded.
 // The sidebar keeps the confirmed daily workflow easy to scan. Policy-dependent
 // or low-use pages remain routed in App.jsx but are omitted here until Sylver
 // confirms the workflow needs them. `roles` drives the role-based nav per the
@@ -56,9 +56,18 @@ export const NAV_SECTIONS = [
     items: [{ label: 'Dashboard', path: '/', Icon: DashboardOutlined, roles: ADMIN_TIER }],
   },
   {
+    label: 'Catalog & Orders',
+    items: [
+      { label: 'Orders', path: '/orders', Icon: ShoppingCartOutlined, roles: ADMIN_TIER },
+      { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ADMIN_TIER },
+      { label: 'Payments', path: '/payments', Icon: PaymentsOutlined, roles: ADMIN_TIER },
+      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: STAFF_TIER },
+    ],
+  },
+  {
     label: 'Inventory',
     items: [
-      { label: 'Inventory Levels', path: '/inventory', Icon: WarehouseOutlined, roles: STAFF_TIER },
+      { label: 'Stock Levels', path: '/inventory', Icon: WarehouseOutlined, roles: STAFF_TIER },
       { label: 'Shelf vs System', path: '/reconciliation', Icon: RuleOutlined, roles: STAFF_TIER },
       { label: 'Branch Locations', path: '/locations', Icon: LocationOnOutlined, roles: ADMIN_TIER },
     ],
@@ -78,27 +87,18 @@ export const NAV_SECTIONS = [
     ],
   },
   {
-    label: 'Catalog & Orders',
-    items: [
-      { label: 'Products', path: '/products', Icon: Inventory2Outlined, roles: ADMIN_TIER },
-      { label: 'Scan & Stock', path: '/scan-stock', Icon: CameraAltOutlined, roles: STAFF_TIER },
-      { label: 'Orders', path: '/order-inquiries', Icon: ShoppingCartOutlined, roles: ADMIN_TIER },
-      { label: 'Payments', path: '/payments', Icon: PaymentsOutlined, roles: ADMIN_TIER },
-    ],
-  },
-  {
-    label: 'Insights',
-    items: [
-      { label: 'Reports', path: '/reports', Icon: AssessmentOutlined, roles: MANAGEMENT_TIER },
-    ],
-  },
-  {
     label: 'Governance',
     items: [
       { label: 'Approvals', path: '/approvals', Icon: FactCheckOutlined, roles: ADMIN_TIER },
       { label: 'Audit Trail', path: '/audit-trail', Icon: HistoryOutlined, roles: MANAGEMENT_TIER },
       { label: 'Backup & Restore', path: '/backup', Icon: CloudDownloadOutlined, roles: MANAGEMENT_TIER },
       { label: 'System Settings', path: '/settings', Icon: SettingsOutlined, roles: MANAGEMENT_TIER },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { label: 'Reports', path: '/reports', Icon: AssessmentOutlined, roles: MANAGEMENT_TIER },
     ],
   },
   {
@@ -109,7 +109,7 @@ export const NAV_SECTIONS = [
 
 const COLLAPSED_W = 76;
 const EXPANDED_W = 280;
-const NAV_SECTIONS_STORAGE_KEY = 'inventrak.sidebar.collapsedSections';
+const NAV_SECTIONS_STORAGE_KEY = 'inventrak.sidebar.collapsedSections.v2';
 
 // AdminLayout wraps every page, so it remounts per navigation — cache the
 // meta answer in module scope to keep GET /api/meta to one request per page
@@ -125,7 +125,7 @@ function NavContent({ collapsed = false, onNavigate, uiBuild, apiBuild }) {
   const sectionIdsPrefix = useId();
   const role = getCurrentUser()?.role || 'admin';
   const navSectionsStorageKey = `${NAV_SECTIONS_STORAGE_KEY}.${role}`;
-  const defaultCollapsedSections = role === 'admin' ? ['Account'] : [];
+  const defaultCollapsedSections = role === 'admin' ? ['Stock Control', 'Account'] : ['Account'];
   const [collapsedSections, setCollapsedSections] = useState(() => {
     try {
       const saved = localStorage.getItem(navSectionsStorageKey);

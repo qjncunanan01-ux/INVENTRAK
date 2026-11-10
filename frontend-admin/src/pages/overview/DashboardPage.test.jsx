@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import DashboardPage from './DashboardPage';
 import { createAppTheme } from '../../theme';
@@ -7,7 +7,7 @@ import { apiGet } from '../../api';
 
 // The dashboard's stat cards and charts must never depend on a wrong endpoint
 // again. Regression for the 404 bug where DashboardPage called the
-// nonexistent /api/inquiries and the Order Status / Orders to Process cards
+// nonexistent /api/inquiries and the Orders to Process card
 // silently showed 0.
 let mockRole = 'admin';
 vi.mock('../../api', () => ({
@@ -60,9 +60,15 @@ function mockResponses() {
   });
 }
 
+function CurrentRoute() {
+  const location = useLocation();
+  return <output data-testid="current-route">{location.pathname}</output>;
+}
+
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/']}>
+      <CurrentRoute />
       <ThemeProvider theme={createAppTheme()}>
         <DashboardPage user={{ username: 'admin', role: 'admin' }} onLogout={() => {}} />
       </ThemeProvider>
@@ -95,15 +101,35 @@ describe('DashboardPage data wiring', () => {
     mockResponses();
     renderPage();
 
-    // Orders to Process card (count of status === 'pending') and the Order
-    // Status card ("1 Pending").
+    // The seller's first dashboard row is the count of pending orders.
     await waitFor(() => {
       expect(screen.getByText('Orders to Process')).toBeInTheDocument();
       expect(screen.getByText('1')).toBeInTheDocument();
     });
-    await waitFor(() => {
-      expect(screen.getByText('1 Pending')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Needs Attention')).toBeInTheDocument();
+    expect(screen.queryByText('Order Status')).not.toBeInTheDocument();
+  });
+
+  test('the order queue card opens the seller-facing orders page', async() => {
+    mockResponses();
+    renderPage();
+    await screen.findByRole('button', { name: /Orders to Process/ });
+
+    fireEvent.click(screen.getByRole('button', { name: /Orders to Process/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Go to full page' }));
+
+    expect(screen.getByTestId('current-route')).toHaveTextContent('/orders');
+  });
+
+  test('the alert card opens inventory where stock issues are handled', async() => {
+    mockResponses();
+    renderPage();
+    await screen.findByRole('button', { name: /Active Alerts/ });
+
+    fireEvent.click(screen.getByRole('button', { name: /Active Alerts/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Go to full page' }));
+
+    expect(screen.getByTestId('current-route')).toHaveTextContent('/inventory');
   });
 
   test('Total Registered Customers card renders the account base from the summary', async() => {

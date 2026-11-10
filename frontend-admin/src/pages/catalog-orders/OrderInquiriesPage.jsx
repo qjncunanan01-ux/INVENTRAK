@@ -215,7 +215,7 @@ function StatusTimeline({ history, currentStatus, steps }) {
 }
 
 export default function OrderInquiriesPage({ onLogout }) {
-  usePageTitle('/order-inquiries');
+  usePageTitle('/orders');
   const [orders, setOrders] = useState([]);
   const [companyDemo, setCompanyDemo] = useState(false);
   const [loading, setLoading] = useState(true);

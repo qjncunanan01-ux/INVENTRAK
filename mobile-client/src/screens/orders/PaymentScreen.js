@@ -152,7 +152,7 @@ export default function PaymentScreen({ route, navigation }) {
             ? 'PayMongo confirmed your QR Ph payment. Your order status is now updated.'
             : paymentResult === 'paid'
               ? 'This was a simulated card transaction. No card was charged. The store will review your order.'
-            : 'The store will verify your GCash receipt reference. The order will stay unpaid until the store confirms it.'}
+              : 'The store will verify your GCash receipt reference. The order will stay unpaid until the store confirms it.'}
         </Text>
         {/* Clear next step instead of a dead-end confirmation: the paid state
             must lead somewhere (Alert.alert would be invisible on web). */}
@@ -174,10 +174,10 @@ export default function PaymentScreen({ route, navigation }) {
         {qrphGateway
           ? 'Continue to PayMongo’s secure checkout to show a single-use QR Ph for this order. Use GCash or another participating bank or e-wallet, following the checkout instructions. PayMongo confirms payment automatically.'
           : payment.payment_method === 'card'
-          ? 'This demo creates a transaction record only. Do not enter card details; no real card is charged.'
-          : liveGateway
-            ? 'Pay using the secure checkout link or QR, then enter the receipt reference from your GCash confirmation. The store verifies it.'
-            : 'No live GCash gateway is configured. Contact Sylver for its current GCash payment details, then enter the receipt reference from your transfer. The store verifies it.'}
+            ? 'This demo creates a transaction record only. Do not enter card details; no real card is charged.'
+            : liveGateway
+              ? 'Pay using the secure checkout link or QR, then enter the receipt reference from your GCash confirmation. The store verifies it.'
+              : 'No live GCash gateway is configured. Contact Sylver for its current GCash payment details, then enter the receipt reference from your transfer. The store verifies it.'}
       </Text>
 
       {payment.payment_method === 'card' ? (
@@ -190,7 +190,9 @@ export default function PaymentScreen({ route, navigation }) {
         <View style={styles.demoCard}>
           <Text style={styles.demoCardGlyph}>▦</Text>
           <Text style={styles.demoCardTitle}>Single-use QR Ph</Text>
-          <Text style={styles.demoCardBody}>The checkout displays the exact order amount. Do not pay from a separate or static QR code.</Text>
+          <Text style={styles.demoCardBody}>
+            The checkout displays the exact order amount. Do not pay from a separate or static QR code.
+          </Text>
         </View>
       ) : liveGateway ? (
         <View style={styles.qrCard}>
@@ -272,7 +274,9 @@ export default function PaymentScreen({ route, navigation }) {
             <Text style={styles.btnLinkText}>{busy ? 'Checking…' : 'Check payment status'}</Text>
           </TouchableOpacity>
           {qrStatusMessage ? <Text style={styles.hint}>{qrStatusMessage}</Text> : null}
-          <Text style={styles.hint}>You can return here after paying. A bank or wallet receipt screenshot is not needed.</Text>
+          <Text style={styles.hint}>
+            You can return here after paying. A bank or wallet receipt screenshot is not needed.
+          </Text>
         </>
       ) : <TouchableOpacity
         style={[styles.btn, styles.btnPrimary, (payment.payment_method === 'gcash' || (sylverDemo && payment.payment_method === 'bank_transfer')) && !/^[A-Za-z0-9\- ]{5,100}$/.test(customerReference.trim()) && styles.btnDisabled]}

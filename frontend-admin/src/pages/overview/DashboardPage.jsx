@@ -416,23 +416,22 @@ export default function DashboardPage({ user, onLogout }) {
   }, [rawData.movements, summary, movRange]);
 
   const panels = [
-    // Row 1 — Inventory
-    { key: 'products', label: 'Total Products', value: summary.totalProducts, numericValue: summary.totalProducts, color: colors.brandPrimary, icon: <Inventory2Icon color="primary" />, navigateTo: '/products' },
-    { key: 'inventory', label: 'Total Inventory', value: summary.totalStock, numericValue: summary.totalStock, color: colors.info, icon: <Inventory2Icon color="info" />, navigateTo: '/inventory' },
+    // Row 1 — the seller's actionable queue.
+    { key: 'inquiries', label: 'Orders to Process', value: summary.pendingInquiries, numericValue: summary.pendingInquiries, color: summary.pendingInquiries > 0 ? '#f9a825' : colors.success, icon: <ShoppingCartIcon color="warning" />, navigateTo: '/orders' },
     { key: 'lowStock', label: 'Low Stock Items', value: summary.lowStockItems, numericValue: summary.lowStockItems, color: summary.lowStockItems > 0 ? colors.warning : colors.success, icon: <WarningAmberIcon color="warning" />, navigateTo: '/inventory' },
-    { key: 'locationStock', label: 'Locations', value: summary.totalLocations, numericValue: summary.totalLocations, color: colors.brandSecondary, icon: <LocationOnIcon color="secondary" />, navigateTo: '/locations' },
-    // Row 2 — Sales & Operations (`money: true` marks a peso figure that is
+    { key: 'alerts', label: 'Active Alerts', value: summary.activeAlerts, numericValue: summary.activeAlerts, color: summary.activeAlerts > 0 ? colors.error : colors.success, icon: <NotificationsActiveIcon color="error" />, navigateTo: '/inventory' },
+    { key: 'products', label: 'Total Products', value: summary.totalProducts, numericValue: summary.totalProducts, color: colors.brandPrimary, icon: <Inventory2Icon color="primary" />, navigateTo: '/products' },
+    // Row 2 — Sales & customers (`money: true` marks a peso figure that is
     // hidden for roles without revenue visibility).
-    { key: 'monthlySales', label: 'Sales This Month', value: summary.monthlySalesValue, numericValue: summary.monthlySalesValue, prefix: 'P', money: true, color: colors.success, icon: <AttachMoneyIcon color="success" />, navigateTo: '/stock-movement' },
-    { key: 'sales', label: 'Total Sales (selected range)', value: summary.totalSales, numericValue: summary.totalSales, prefix: 'P', money: true, color: colors.brandPrimary, icon: <AttachMoneyIcon color="primary" />, navigateTo: '/stock-movement' },
-    { key: 'customers', label: 'Customers Served', value: summary.customersServed, numericValue: summary.customersServed, color: colors.info, icon: <PeopleIcon color="info" />, navigateTo: '/order-inquiries' },
-    { key: 'customersRegistered', label: 'Total Registered Customers', value: summary.customersRegistered, numericValue: summary.customersRegistered, color: colors.brandSecondary, icon: <PeopleIcon color="secondary" />, navigateTo: '/users' },
-    { key: 'orderStatus', label: 'Order Status', value: summary.orderStatusCounts.pending, numericValue: summary.orderStatusCounts.pending, suffix: ' Pending', color: summary.orderStatusCounts.pending > 0 ? colors.warning : colors.success, icon: <ReceiptIcon color="warning" />, navigateTo: '/order-inquiries' },
-    // Row 3 — Activity
-    { key: 'monthlySalesTx', label: 'Transactions This Month', value: summary.monthlyTransactions, numericValue: summary.monthlyTransactions, color: colors.brandSecondary, icon: <ReceiptIcon />, navigateTo: '/stock-movement' },
-    { key: 'inquiries', label: 'Orders to Process', value: summary.pendingInquiries, numericValue: summary.pendingInquiries, color: summary.pendingInquiries > 0 ? '#f9a825' : colors.success, icon: <ShoppingCartIcon color="warning" />, navigateTo: '/order-inquiries' },
+    { key: 'monthlySales', label: 'Sales This Month', value: summary.monthlySalesValue, numericValue: summary.monthlySalesValue, prefix: 'P', money: true, color: colors.success, icon: <AttachMoneyIcon color="success" />, navigateTo: '/till' },
+    { key: 'sales', label: 'Total Sales (selected range)', value: summary.totalSales, numericValue: summary.totalSales, prefix: 'P', money: true, color: colors.brandPrimary, icon: <AttachMoneyIcon color="primary" />, navigateTo: '/till' },
+    { key: 'customers', label: 'Customers Served', value: summary.customersServed, numericValue: summary.customersServed, color: colors.info, icon: <PeopleIcon color="info" />, navigateTo: '/orders' },
+    { key: 'customersRegistered', label: 'Total Registered Customers', value: summary.customersRegistered, numericValue: summary.customersRegistered, color: colors.brandSecondary, icon: <PeopleIcon color="secondary" />, navigateTo: '/orders' },
+    // Row 3 — stock and activity.
+    { key: 'inventory', label: 'Total Inventory', value: summary.totalStock, numericValue: summary.totalStock, color: colors.info, icon: <Inventory2Icon color="info" />, navigateTo: '/inventory' },
+    { key: 'locationStock', label: 'Locations', value: summary.totalLocations, numericValue: summary.totalLocations, color: colors.brandSecondary, icon: <LocationOnIcon color="secondary" />, navigateTo: '/locations' },
+    { key: 'monthlySalesTx', label: 'Transactions This Month', value: summary.monthlyTransactions, numericValue: summary.monthlyTransactions, color: colors.brandSecondary, icon: <ReceiptIcon />, navigateTo: '/till' },
     { key: 'movements', label: 'Stock Movements', value: summary.totalMovements, numericValue: summary.totalMovements, color: colors.info, icon: <HistoryIcon color="info" />, navigateTo: '/stock-movement' },
-    { key: 'alerts', label: 'Active Alerts', value: summary.activeAlerts, numericValue: summary.activeAlerts, color: summary.activeAlerts > 0 ? colors.error : colors.success, icon: <NotificationsActiveIcon color="error" />, navigateTo: '/optimization' },
   ];
 
   const filteredModalData = filterModalData(modalData, searchQuery);
@@ -473,20 +472,22 @@ export default function DashboardPage({ user, onLogout }) {
             </Tooltip>
           )}
           <Tooltip title={refreshing ? 'Refreshing dashboard data…' : 'Refresh data'}>
-            <IconButton
-              size="small"
-              aria-label="Refresh dashboard data"
-              disabled={refreshing}
-              onClick={() => loadDashboard({ force: true })}
-            >
-              <RefreshIcon fontSize="small" />
-            </IconButton>
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Refresh dashboard data"
+                disabled={refreshing}
+                onClick={() => loadDashboard({ force: true })}
+              >
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
       </Box>
 
       {/* ─── Summary Cards ─── */}
-      <SectionLabel>Inventory Overview</SectionLabel>
+      <SectionLabel>Needs Attention</SectionLabel>
       {/* data-testid: the visual-regression baseline snaps this row, and the
           old locator (text → parent → parent) pointed at whatever happened to
           wrap the heading. */}
@@ -498,7 +499,7 @@ export default function DashboardPage({ user, onLogout }) {
         ))}
       </Grid>
 
-      <SectionLabel>Sales & Orders</SectionLabel>
+      <SectionLabel>Sales & Customers</SectionLabel>
       {/* The math every peso figure on this row is derived from — mirrors the
           analytics/summary aggregation in the backend. */}
       <FormulaBanner
@@ -507,7 +508,7 @@ export default function DashboardPage({ user, onLogout }) {
         items={[
           'Total Sales   = Σ total_amount of every sale inside the selected date range',
           'This Month    = Σ total_amount where sale month = current month   ·   Transactions = sale count',
-          'Pending       = inquiries with status "pending"   ·   Alerts = active low-stock / expiry entries',
+          'Orders to Process = inquiries with status "pending"   ·   Alerts = active low-stock / expiry entries',
         ]}
         note="Peso values are executive-only (Owner / Super Admin) — other roles see the count, never the amount."
       />
@@ -535,13 +536,10 @@ export default function DashboardPage({ user, onLogout }) {
         })}
       </Grid>
 
-      <SectionLabel>Activity</SectionLabel>
+      <SectionLabel>Stock & Activity</SectionLabel>
       <Grid container spacing={2}>
-        {/* 13 panels total: 4 + 4 above, the last 5 here (orderStatus moved
-            down with the new registered-customers card) — the fifth card
-            simply wraps to a second row. */}
-        {panels.slice(8, 13).map((panel, index) => {
-          const isMasked = panel.key === 'monthlySalesTx' ? !isExecutive : (panel.key === 'inquiries' ? isStaffRole : false);
+        {panels.slice(8).map((panel, index) => {
+          const isMasked = panel.key === 'monthlySalesTx' && !isExecutive;
           return (
             <Grid item xs={12} sm={6} md={3} key={panel.label}>
               <StatCard
@@ -550,7 +548,7 @@ export default function DashboardPage({ user, onLogout }) {
                 onClick={handleCardClick}
                 index={index + 8}
                 masked={isMasked}
-                maskLabel={isMasked ? (panel.key === 'inquiries' ? 'Admin / Exec Only' : 'Executive Only') : ''}
+                maskLabel={isMasked ? 'Executive Only' : ''}
               />
             </Grid>
           );

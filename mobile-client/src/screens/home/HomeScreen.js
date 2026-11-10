@@ -169,7 +169,9 @@ export default function HomeScreen({ route, navigation }) {
             <View style={styles.heroCopy}>
               <Text style={styles.heroEyebrow}>WHOLESALE SUPPLIES</Text>
               <Text style={styles.heroTitle}>Stock your next creation.</Text>
-              <Text style={styles.heroSubtitle}>Browse products, add them to your cart, and check out when you are ready.</Text>
+              <Text style={styles.heroSubtitle}>
+                Browse products, add them to your cart, and check out when you are ready.
+              </Text>
             </View>
             <TouchableOpacity
               style={styles.heroButton}

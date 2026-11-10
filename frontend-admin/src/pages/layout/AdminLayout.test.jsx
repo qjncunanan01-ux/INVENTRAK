@@ -142,11 +142,18 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     localStorage.clear();
   });
 
-  test('admin sees the focused workflow without secondary or owner-only modules', () => {
+  test('admin sees the marketplace workflow first and can expand stock operations', () => {
     mockUser = { role: 'admin' };
     setViewport(true);
     renderLayout();
-    for (const label of ['Products', 'Inventory', 'Inventory Levels', 'Shelf vs System', 'Scan & Stock', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Approvals', 'Orders', 'Branch Locations', 'Till', 'Security']) {
+    for (const label of ['Orders', 'Products', 'Payments', 'Stock Levels', 'Shelf vs System', 'Branch Locations', 'Approvals', 'Security']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.queryByText('Inventory Levels')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Stock Movement' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Stock Control' })).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Stock Control' }));
+    for (const label of ['Till', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     for (const label of ['Stocktake Schedule', 'Back Orders', 'Unit Conversions', 'Optimization', 'Notifications', 'Reports', 'Audit Trail', 'Backup & Restore', 'System Settings']) {
@@ -159,13 +166,13 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
     setViewport(true);
     renderLayout();
     // Every allowed module remains reachable in the grouped navigation.
-    for (const label of ['Inventory Levels', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Scan & Stock']) {
+    for (const label of ['Stock Levels', 'Stock Movement', 'Stock Adjustments', 'Stock Transfers', 'Scan & Stock']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     // The role spec forbids Inventory Staff from sales, prices, customers,
     // orders, reports or business analytics — so the dashboard (money KPIs),
     // Optimization, Reports and every admin module stay hidden.
-    for (const label of ['Dashboard', 'Products', 'Approvals', 'Orders', 'Branch Locations', 'Optimization', 'Reports', 'Security']) {
+    for (const label of ['Dashboard', 'Products', 'Approvals', 'Orders', 'Branch Locations', 'Optimization', 'Reports', 'Security', 'Payments']) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
@@ -199,6 +206,7 @@ describe('AdminLayout role-based nav (staff vs admin)', () => {
 
     mockUser = { role: 'admin' };
     const next = renderLayout();
+    fireEvent.click(screen.getByRole('button', { name: 'Stock Control' }));
     expect(screen.getByText('Till')).toBeInTheDocument();
     next.unmount();
   });

@@ -124,7 +124,9 @@ function AppRoutes() {
         <Route path="/stock-adjustments" element={<StockAdjustmentsPage onLogout={handleLogout} />} />
         <Route path="/stock-transfers" element={<StockTransfersPage onLogout={handleLogout} />} />
         <Route path="/approvals" element={<RequireRole roles={ADMIN_TIER}><ApprovalsPage onLogout={handleLogout} /></RequireRole>} />
-        <Route path="/order-inquiries" element={<RequireRole roles={ADMIN_TIER}><OrderInquiriesPage onLogout={handleLogout} /></RequireRole>} />
+        <Route path="/orders" element={<RequireRole roles={ADMIN_TIER}><OrderInquiriesPage onLogout={handleLogout} /></RequireRole>} />
+        {/* Keep old bookmarks working while /orders is the seller-facing route. */}
+        <Route path="/order-inquiries" element={<Navigate to="/orders" replace />} />
         <Route path="/payments" element={<RequireRole roles={ADMIN_TIER}><PaymentsPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/back-orders" element={<RequireRole roles={ADMIN_TIER}><BackOrdersPage onLogout={handleLogout} /></RequireRole>} />
         <Route path="/unit-conversions" element={<RequireRole roles={ADMIN_TIER}><UnitConversionsPage onLogout={handleLogout} /></RequireRole>} />

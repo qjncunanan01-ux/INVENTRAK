@@ -103,9 +103,9 @@ describe('ProductsPage Comboboxes (Category, Brand, Unit)', () => {
     });
   });
 
-  // Generous timeout: under parallel vitest runs this multi-waitFor test can
-  // exceed the 5s default and flake the suite (it passes consistently alone).
-  it('binds new/selected entries correctly to the form payload on submission', { timeout: 20000 }, async() => {
+  // This full-page jsdom render is CPU-heavy and can exceed 20s when other
+  // suites run concurrently. The assertion stays unchanged; allow contention.
+  it('binds new/selected entries correctly to the form payload on submission', { timeout: 30000 }, async() => {
     api.apiPost.mockResolvedValue({ id: 3, name: 'New Product' });
 
     renderProductsPage();
